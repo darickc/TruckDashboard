@@ -1,0 +1,11 @@
+{
+    "name": "ObdBt",
+    "version": "0.1.0",
+    "description": "Bluetooth Classic SPP transport (ESP32 BluetoothSerial master mode) for the OBDLink MX+.",
+    "frameworks": ["arduino"],
+    "platforms": ["espressif32"],
+    "dependencies": [
+        { "name": "ObdCore" },
+        { "name": "Log" }
+    ]
+}

@@ -1,0 +1,11 @@
+{
+    "name": "Display",
+    "version": "0.1.0",
+    "description": "Display abstraction (IDisplay) + Serial/debug renderer. A real AMOLED renderer implements the same interface later.",
+    "frameworks": ["arduino"],
+    "platforms": ["espressif32"],
+    "dependencies": [
+        { "name": "ObdCore" },
+        { "name": "Log" }
+    ]
+}
