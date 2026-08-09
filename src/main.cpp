@@ -69,8 +69,10 @@ void setup()
     g_vdMutex = xSemaphoreCreateMutex();
     g_vehicleData.setLockHooks(vdLock, vdUnlock, nullptr);
 
+    obd::SchedulerConfig schedCfg;
+    schedCfg.measuredRequestsPerSec = config::kMeasuredRequestsPerSec;
     g_scheduler.begin(obd::kPidTable, obd::kPidTableSize,
-                      config::kEnabledPids, config::kEnabledPidCount);
+                      config::kEnabledPids, config::kEnabledPidCount, schedCfg);
     g_warnings.begin(config::kWarningRules, config::kWarningRuleCount,
                      config::kStaleAfterMs);
     g_display.begin();

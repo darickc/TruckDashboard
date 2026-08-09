@@ -36,7 +36,17 @@ public:
         rxPos_ = 0;
         txLine_.clear();
         pendingActive_ = false;
+        injections_.clear();
         mismatch_.clear();
+    }
+
+    /// Queue bytes to appear after `inMs` of virtual time, independently of the
+    /// script. Models what the script cannot: an ECU straggler landing in the
+    /// middle of the NEXT request (the response-count-digit hazard), or
+    /// unsolicited STN chatter arriving at an arbitrary moment.
+    void injectLater(const char* data, uint32_t inMs)
+    {
+        injections_.push_back({s_now + inMs, std::string(data)});
     }
 
     /// Advance virtual time, releasing any due response into the RX buffer.
@@ -46,6 +56,14 @@ public:
         if (pendingActive_ && static_cast<int32_t>(s_now - pendingDueAt_) >= 0) {
             rx_.append(pendingData_);
             pendingActive_ = false;
+        }
+        for (size_t i = 0; i < injections_.size();) {
+            if (static_cast<int32_t>(s_now - injections_[i].dueAt) >= 0) {
+                rx_.append(injections_[i].data);
+                injections_.erase(injections_.begin() + static_cast<long>(i));
+            } else {
+                ++i;
+            }
         }
     }
 
@@ -114,6 +132,12 @@ private:
     std::string pendingData_;
     uint32_t pendingDueAt_ = 0;
     bool pendingActive_ = false;
+
+    struct Injection {
+        uint32_t dueAt;
+        std::string data;
+    };
+    std::vector<Injection> injections_;
 
     bool connected_ = true;
     std::string mismatch_;

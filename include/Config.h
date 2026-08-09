@@ -95,6 +95,14 @@ inline constexpr obd::PidKey kEnabledPids[] = {
 inline constexpr size_t kEnabledPidCount =
     sizeof(kEnabledPids) / sizeof(kEnabledPids[0]);
 
+/// Measured adapter throughput, requests/s — the budget the poll intervals in
+/// PidDefs.cpp are spent from. Derived from the on-truck log: a 010C request
+/// written at t=89607 ms saw its '>' prompt at t=89703 ms, i.e. ~96 ms per
+/// round trip on a functional (7DF) request that two ECUs answer.
+/// Re-measure with the console `stats` command after any addressing change and
+/// update this — the scheduler warns when the enabled set over-promises.
+inline constexpr float kMeasuredRequestsPerSec = 10.0f;
+
 // ---------------------------------------------------------------------------
 // Freshness / display
 // ---------------------------------------------------------------------------

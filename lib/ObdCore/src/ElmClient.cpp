@@ -27,12 +27,28 @@ const char* elmResultName(ElmResult r)
     switch (r) {
     case ElmResult::Ok: return "OK";
     case ElmResult::NoData: return "NO_DATA";
+    case ElmResult::NoResponder: return "NO_RESPONDER";
     case ElmResult::Timeout: return "TIMEOUT";
     case ElmResult::Stopped: return "STOPPED";
     case ElmResult::Error: return "ERROR";
     }
     return "?";
 }
+
+namespace {
+
+/// Hex-dump into a caller-supplied buffer (no allocation). Truncates silently
+/// — this only ever feeds log lines.
+void hexDump(const uint8_t* data, size_t len, char* out, size_t cap)
+{
+    size_t o = 0;
+    for (size_t i = 0; i < len && o + 3 < cap; ++i) {
+        o += static_cast<size_t>(std::snprintf(out + o, cap - o, "%02X", data[i]));
+    }
+    out[o < cap ? o : cap - 1] = '\0';
+}
+
+} // namespace
 
 ElmClient::ElmClient(IObdTransport& transport, TimeFn now, const ElmConfig& cfg)
     : transport_(transport), now_(now), cfg_(cfg)
@@ -65,14 +81,24 @@ void ElmClient::begin()
     acc_.clear();
     assembler_.reset();
     currentPid_ = nullptr;
-    awaitingHeaderAck_ = false;
+    prepCount_ = 0;
+    prepIndex_ = 0;
     consecutiveTimeouts_ = 0;
     resetAttempts_ = 0;
     firstDataDone_ = false;
     adapterId_[0] = '\0';
-    // ATZ restores the adapter's default CAN functional header (7DF).
-    std::snprintf(currentHeader_, sizeof(currentHeader_), "7DF");
     startReset();
+}
+
+void ElmClient::invalidateAddressingCache()
+{
+    // ATZ restores the adapter's default CAN functional header (7DF) and drops
+    // any receive filter. This MUST run on every reset path — the recovery
+    // ladder reaches startReset() without going through begin(), and a stale
+    // cache there would make submit() skip the ATSH and quietly send the next
+    // request on whatever header the adapter actually has.
+    std::snprintf(currentHeader_, sizeof(currentHeader_), "7DF");
+    currentFilter_[0] = '\0';
 }
 
 void ElmClient::onTransportLost()
@@ -87,6 +113,9 @@ void ElmClient::onTransportLost()
 
 void ElmClient::startReset()
 {
+    invalidateAddressingCache();
+    prepCount_ = 0;
+    prepIndex_ = 0;
     setState(ElmState::Resetting);
     sendLine("ATZ");
     deadlineMs_ = now_() + cfg_.resetTimeoutMs;
@@ -223,14 +252,33 @@ void ElmClient::handleDataLine(const char* line)
         LOGD(kTag, "malformed data line: %s", line);
         return;
     }
+
+    const PidDefinition* pid = currentPid_;
+    if (pid == nullptr) {
+        return;
+    }
+
+    // Drop frames from other ECUs BEFORE reassembly. The reassembler has a
+    // single in-flight slot, so two ECUs answering a pinned PID with
+    // interleaved multi-frame messages would otherwise lose one of them.
+    if (pid->expectedResponder != 0 && f.hasHeader &&
+        f.canId != pid->expectedResponder) {
+        ++wrongResponderCount_;
+        if (rawLog_) {
+            LOGI(kTag, "RSP %s <- %03X : IGNORED (pinned to %03X)", pid->name,
+                 static_cast<unsigned>(f.canId),
+                 static_cast<unsigned>(pid->expectedResponder));
+        }
+        return;
+    }
+
     if (!assembler_.feed(f)) {
         return; // multi-frame in progress, or frame ignored
     }
 
     const uint8_t* p = assembler_.payload();
     const size_t n = assembler_.payloadLen();
-    const PidDefinition* pid = currentPid_;
-    if (pid == nullptr || n == 0) {
+    if (n == 0) {
         return;
     }
 
@@ -257,13 +305,47 @@ void ElmClient::handleDataLine(const char* line)
         return;
     }
 
+    const uint8_t* body = p + echo;
+    size_t bodyLen = n - echo;
+    if (bodyLen > sizeof(respBuf_)) {
+        bodyLen = sizeof(respBuf_);
+    }
+    const uint16_t srcId = static_cast<uint16_t>(assembler_.sourceId());
+    ++responderCount_;
+
+    // Log every matching answer with its source. This is the line that turns a
+    // verification session into evidence: two ECUs answering 221674 show up
+    // side by side instead of one silently winning the race.
+    if (rawLog_) {
+        char hex[2 * sizeof(respBuf_) + 1];
+        hexDump(body, bodyLen, hex, sizeof(hex));
+        LOGI(kTag, "RSP %s <- %03X : %s", pid->name, static_cast<unsigned>(srcId), hex);
+    }
+
     if (!haveResponse_) { // keep the FIRST matching ECU's answer
-        respLen_ = n - echo;
-        if (respLen_ > sizeof(respBuf_)) {
-            respLen_ = sizeof(respBuf_);
-        }
-        std::memcpy(respBuf_, p + echo, respLen_);
+        respLen_ = bodyLen;
+        std::memcpy(respBuf_, body, respLen_);
+        responderId_ = srcId;
         haveResponse_ = true;
+        return;
+    }
+
+    // A second ECU answered. Same bytes is corroboration; different bytes means
+    // the two modules disagree about what this PID means, and whichever won the
+    // race would have been reported as fact.
+    if (bodyLen != respLen_ || std::memcmp(body, respBuf_, bodyLen) != 0) {
+        responderConflict_ = true;
+        char mine[2 * sizeof(respBuf_) + 1];
+        char theirs[2 * sizeof(respBuf_) + 1];
+        hexDump(respBuf_, respLen_, mine, sizeof(mine));
+        hexDump(body, bodyLen, theirs, sizeof(theirs));
+        LOGW(kTag, "%s: RESPONDER CONFLICT %03X=%s vs %03X=%s — pin "
+                   "expectedResponder once the truck says which module owns it",
+             pid->name, static_cast<unsigned>(responderId_), mine,
+             static_cast<unsigned>(srcId), theirs);
+    } else {
+        LOGD(kTag, "%s: %03X agrees with %03X", pid->name,
+             static_cast<unsigned>(srcId), static_cast<unsigned>(responderId_));
     }
 }
 
@@ -312,21 +394,35 @@ void ElmClient::handlePrompt()
         break;
 
     case ElmState::AwaitingResponse:
-        if (awaitingHeaderAck_) {
+        if (prepIndex_ < prepCount_) {
             if (sawError_) {
+                LOGW(kTag, "addressing command '%s' rejected", prepCmds_[prepIndex_]);
                 finishRequest(ElmResult::Error);
                 break;
             }
-            std::snprintf(currentHeader_, sizeof(currentHeader_), "%s", pendingHeader_);
-            awaitingHeaderAck_ = false;
-            sawError_ = false;
-            sendPidRequest();
+            // Command accepted — commit its effect to the cache.
+            const char* acked = prepCmds_[prepIndex_];
+            if (std::strncmp(acked, "ATSH", 4) == 0) {
+                std::snprintf(currentHeader_, sizeof(currentHeader_), "%s", acked + 4);
+            } else if (std::strncmp(acked, "ATCRA", 5) == 0) {
+                std::snprintf(currentFilter_, sizeof(currentFilter_), "%s", acked + 5);
+            }
+            ++prepIndex_;
+            if (prepIndex_ < prepCount_) {
+                sendNextPrepCommand();
+            } else {
+                prepOverheadMs_ += now_() - prepStartMs_;
+                sendPidRequest();
+            }
             break;
         }
         if (haveResponse_) {
             finishRequest(ElmResult::Ok);
         } else if (sawStopped_) {
             finishRequest(ElmResult::Stopped);
+        } else if (wrongResponderCount_ > 0) {
+            // Somebody answered, just not the module this PID is pinned to.
+            finishRequest(ElmResult::NoResponder);
         } else if (sawNoData_) {
             finishRequest(ElmResult::NoData);
         } else if (sawError_) {
@@ -360,8 +456,8 @@ bool ElmClient::submit(const PidDefinition& pid)
     if (state() != ElmState::Idle) {
         return false;
     }
-    const char* header = moduleAtshHeader(pid.module);
-    if (header == nullptr) {
+    const ObdAddressing addr = moduleAddressing(pid.module);
+    if (addr.txHeader == nullptr) {
         // Unverified module addressing — refuse rather than guess.
         LOGW(kTag, "%s: module '%s' header unverified — request refused",
              pid.name, moduleName(pid.module));
@@ -371,37 +467,69 @@ bool ElmClient::submit(const PidDefinition& pid)
     currentPid_ = &pid;
     haveResponse_ = false;
     respLen_ = 0;
+    responderId_ = 0;
+    responderCount_ = 0;
+    wrongResponderCount_ = 0;
+    responderConflict_ = false;
     sawNoData_ = false;
     sawStopped_ = false;
     sawError_ = false;
     assembler_.reset();
     setState(ElmState::AwaitingResponse);
 
-    if (std::strcmp(header, currentHeader_) != 0) {
-        // Header change must be acknowledged before the actual request.
-        std::snprintf(pendingHeader_, sizeof(pendingHeader_), "%s", header);
-        awaitingHeaderAck_ = true;
-        char cmd[24];
-        std::snprintf(cmd, sizeof(cmd), "ATSH%s", header);
-        sendLine(cmd);
-        deadlineMs_ = now_() + cfg_.initTimeoutMs;
+    // Queue whatever addressing commands the adapter still needs. Order
+    // matters: ATSH first, because on 11-bit CAN it also sets the expected
+    // receive address, and any ATCRA must override that rather than be
+    // overridden by it.
+    prepCount_ = 0;
+    prepIndex_ = 0;
+    if (std::strcmp(addr.txHeader, currentHeader_) != 0) {
+        std::snprintf(prepCmds_[prepCount_++], sizeof(prepCmds_[0]), "ATSH%s",
+                      addr.txHeader);
+    }
+    const char* wantFilter = addr.rxFilter != nullptr ? addr.rxFilter : "";
+    if (std::strcmp(wantFilter, currentFilter_) != 0) {
+        // Bare "ATCRA" clears the filter.
+        std::snprintf(prepCmds_[prepCount_++], sizeof(prepCmds_[0]), "ATCRA%s",
+                      wantFilter);
+    }
+
+    if (prepCount_ > 0) {
+        prepStartMs_ = now_();
+        sendNextPrepCommand();
     } else {
-        awaitingHeaderAck_ = false;
         sendPidRequest();
     }
     return true;
+}
+
+void ElmClient::sendNextPrepCommand()
+{
+    sendLine(prepCmds_[prepIndex_]);
+    ++prepCommandCount_;
+    deadlineMs_ = now_() + cfg_.initTimeoutMs;
 }
 
 void ElmClient::sendPidRequest()
 {
     const PidDefinition& pid = *currentPid_;
     char cmd[16];
+    int n;
     if (pid.service == 0x22) {
-        std::snprintf(cmd, sizeof(cmd), "22%04X", pid.pid);
+        n = std::snprintf(cmd, sizeof(cmd), "22%04X", pid.pid);
     } else {
-        std::snprintf(cmd, sizeof(cmd), "%02X%02X", pid.service, pid.pid & 0xFF);
+        n = std::snprintf(cmd, sizeof(cmd), "%02X%02X", pid.service, pid.pid & 0xFF);
+    }
+    // Optional ELM response-count digit: the adapter returns as soon as N
+    // replies arrive instead of waiting out its P2 timeout. Never valid on a
+    // functional header — see PidDefinition::expectedResponses.
+    if (pid.expectedResponses != 0 && n > 0 &&
+        static_cast<size_t>(n) + 1 < sizeof(cmd)) {
+        cmd[n] = static_cast<char>('0' + (pid.expectedResponses % 10));
+        cmd[n + 1] = '\0';
     }
     sendLine(cmd);
+    requestSentMs_ = now_();
     // The very first data request can trigger protocol SEARCHING — give it
     // the long deadline; afterwards use the per-PID timeout.
     deadlineMs_ = now_() + (firstDataDone_ ? pid.timeoutMs : cfg_.firstDataTimeoutMs);
@@ -411,7 +539,8 @@ void ElmClient::finishRequest(ElmResult result)
 {
     const PidDefinition* pid = currentPid_;
     currentPid_ = nullptr;
-    awaitingHeaderAck_ = false;
+    prepCount_ = 0;
+    prepIndex_ = 0;
     if (state() == ElmState::AwaitingResponse) {
         setState(ElmState::Idle);
         deadlineMs_ = now_() + cfg_.recoveryTimeoutMs; // benign idle deadline
@@ -420,11 +549,27 @@ void ElmClient::finishRequest(ElmResult result)
         consecutiveTimeouts_ = 0;
         firstDataDone_ = true;
     }
-    if (pid != nullptr && handler_ != nullptr) {
-        handler_(handlerCtx_, *pid, result,
-                 result == ElmResult::Ok ? respBuf_ : nullptr,
-                 result == ElmResult::Ok ? respLen_ : 0);
+    if (pid == nullptr || handler_ == nullptr) {
+        return;
     }
+
+    ElmResponse rsp;
+    rsp.result = result;
+    rsp.responderCount = responderCount_;
+    rsp.responderConflict = responderConflict_;
+    if (result == ElmResult::Ok) {
+        rsp.payload = respBuf_;
+        rsp.len = respLen_;
+        rsp.responderId = responderId_;
+    }
+    // requestSentMs_ is 0 until the request line actually went out (a prep
+    // command can fail before that), in which case there is no latency to report.
+    if (requestSentMs_ != 0) {
+        const uint32_t elapsed = now_() - requestSentMs_;
+        rsp.latencyMs = elapsed > 0xFFFFu ? 0xFFFFu : static_cast<uint16_t>(elapsed);
+    }
+    requestSentMs_ = 0;
+    handler_(handlerCtx_, *pid, rsp);
 }
 
 void ElmClient::handleTimeout()

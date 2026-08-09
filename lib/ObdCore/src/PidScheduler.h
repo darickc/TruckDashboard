@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "ElmClient.h"
 #include "PidDefs.h"
 #include "TimeSource.h"
 
@@ -24,6 +25,33 @@ struct SchedulerConfig {
     uint32_t initialBackoffMs = 5000;   ///< backoff after repeated failures
     uint32_t maxBackoffMs = 60000;
     uint8_t failuresBeforeBackoff = 3;
+
+    /// Measured adapter throughput, requests/s. The table's poll intervals are
+    /// wishes; this is the budget they are spent from. Oversubscription is not
+    /// an error (the scheduler degrades by priority) but it IS worth saying out
+    /// loud — a table promising 10 Hz while delivering 2 Hz is a lie the code
+    /// tells the driver.
+    float measuredRequestsPerSec = 10.0f;
+};
+
+/// Per-PID counters, for the console `stats` command and for deciding poll
+/// intervals from measurement rather than hope.
+struct PidStats {
+    uint32_t requests = 0;
+    uint32_t ok = 0;
+    uint32_t noData = 0;
+    uint32_t noResponder = 0;
+    uint32_t timeouts = 0;
+    uint32_t errors = 0;
+    uint32_t conflicts = 0;    ///< responses where two ECUs disagreed
+    uint32_t latencySumMs = 0; ///< over `ok` responses only
+    uint16_t minLatencyMs = 0xFFFF;
+    uint16_t maxLatencyMs = 0;
+
+    float avgLatencyMs() const
+    {
+        return ok == 0 ? 0.0f : static_cast<float>(latencySumMs) / static_cast<float>(ok);
+    }
 };
 
 class PidScheduler {
@@ -36,17 +64,34 @@ public:
                const PidKey* enabledKeys, size_t enabledCount,
                const SchedulerConfig& cfg = {});
 
+    /// Enable one PID at runtime (console `on`). Returns false — with a logged
+    /// reason — when the table is full, the PID is already enabled, or its
+    /// module header is unverified.
+    bool add(const PidDefinition& def, uint32_t now);
+
+    /// Disable one PID at runtime (console `off`). False if it wasn't enabled.
+    bool remove(PidKey key);
+
+    bool isEnabled(PidKey key) const;
+
     /// Highest-priority due PID, or nullptr. SIDE EFFECT: schedules the
     /// returned PID's next poll (caller must submit it).
     const PidDefinition* next(uint32_t now);
 
     /// Report the outcome of a submitted request.
-    void onResult(const PidDefinition& pid, bool success, uint32_t now);
+    void onResult(const PidDefinition& pid, const ElmResponse& rsp, uint32_t now);
 
     /// Make everything due immediately (e.g. after reconnect).
     void resetTiming(uint32_t now);
 
     size_t entryCount() const { return count_; }
+    const PidDefinition* entryDef(size_t i) const;
+    const PidStats* stats(PidKey key) const;
+    void resetStats();
+
+    /// Requests/s the enabled set is asking for. Compare against
+    /// SchedulerConfig::measuredRequestsPerSec.
+    float requestedRatePerSec() const;
 
 private:
     struct Entry {
@@ -55,9 +100,12 @@ private:
         uint32_t lastSuccessMs = 0;
         uint8_t consecutiveFailures = 0;
         uint32_t backoffMs = 0;
+        PidStats stats;
     };
 
     Entry* findEntry(PidKey key);
+    const Entry* findEntry(PidKey key) const;
+    void warnIfOversubscribed() const;
 
     Entry entries_[kMaxEntries];
     size_t count_ = 0;

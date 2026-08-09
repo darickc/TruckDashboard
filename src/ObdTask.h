@@ -20,5 +20,4 @@ struct ObdTaskContext {
 void startObdTask(ObdTaskContext& ctx);
 
 /// ElmClient result handler (decode + store); registered by main.cpp.
-void obdOnResult(void* ctx, const obd::PidDefinition& pid, obd::ElmResult result,
-                 const uint8_t* payload, size_t len);
+void obdOnResult(void* ctx, const obd::PidDefinition& pid, const obd::ElmResponse& rsp);

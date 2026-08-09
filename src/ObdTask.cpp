@@ -9,24 +9,25 @@
 
 static const char* kTag = "obd";
 
-void obdOnResult(void* ctxPtr, const obd::PidDefinition& pid, obd::ElmResult result,
-                 const uint8_t* payload, size_t len)
+void obdOnResult(void* ctxPtr, const obd::PidDefinition& pid, const obd::ElmResponse& rsp)
 {
     auto* ctx = static_cast<ObdTaskContext*>(ctxPtr);
     const uint32_t now = millis();
 
-    if (result != obd::ElmResult::Ok) {
-        LOGW(kTag, "%s: %s", pid.name, obd::elmResultName(result));
-        ctx->scheduler->onResult(pid, false, now);
+    if (rsp.result != obd::ElmResult::Ok) {
+        LOGW(kTag, "%s: %s", pid.name, obd::elmResultName(rsp.result));
+        ctx->scheduler->onResult(pid, rsp, now);
         ctx->data->markError(pid.channel);
         return;
     }
 
     float value = 0.0f;
-    if (!obd::decodePid(pid, payload, len, value)) {
+    if (!obd::decodePid(pid, rsp.payload, rsp.len, value)) {
         LOGW(kTag, "%s: decode failed (payload %u bytes)", pid.name,
-             static_cast<unsigned>(len));
-        ctx->scheduler->onResult(pid, false, now);
+             static_cast<unsigned>(rsp.len));
+        obd::ElmResponse failed = rsp;
+        failed.result = obd::ElmResult::Error;
+        ctx->scheduler->onResult(pid, failed, now);
         ctx->data->markError(pid.channel);
         return;
     }
@@ -34,9 +35,11 @@ void obdOnResult(void* ctxPtr, const obd::PidDefinition& pid, obd::ElmResult res
     const obd::Unit chUnit = obd::channelUnit(pid.channel);
     const float converted = obd::convertUnit(value, pid.unit, chUnit);
     ctx->data->set(pid.channel, converted, now);
-    ctx->scheduler->onResult(pid, true, now);
-    LOGD(kTag, "%s = %.2f %s%s", pid.name, static_cast<double>(converted),
-         obd::unitSuffix(chUnit),
+    ctx->scheduler->onResult(pid, rsp, now);
+    LOGD(kTag, "%s = %.2f %s  <-%03X %ums%s%s", pid.name,
+         static_cast<double>(converted), obd::unitSuffix(chUnit),
+         static_cast<unsigned>(rsp.responderId), rsp.latencyMs,
+         rsp.responderConflict ? "  [ECUs DISAGREE]" : "",
          pid.verified ? "" : "  [UNVERIFIED - confirm against known-good tool]");
 }
 

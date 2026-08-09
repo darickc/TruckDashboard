@@ -70,10 +70,47 @@ enum class ObdModule : uint8_t {
     HdrC410F1, ///< literal header "C410F1" from Torque export (KWP-style — likely N/A on CAN)
 };
 
-/// ATSH header string for a module, or nullptr when the real header is
-/// unverified (ElmClient will refuse to send and log a warning).
-const char* moduleAtshHeader(ObdModule m);
+/// A module's request header and (optionally) its receive filter.
+///
+/// `txHeader` is the ATSH argument, or nullptr when the real header is
+/// unverified — ElmClient refuses such requests rather than guessing.
+/// `rxFilter` is the ATCRA argument, or nullptr for "no filter". It is opt-in:
+/// on 11-bit CAN the ELM derives the expected response ID from ATSH on its own
+/// (ATSH 7E0 => expects 7E8), so a filter is only needed if another ECU still
+/// gets through. Verify that on the truck before setting one.
+struct ObdAddressing {
+    const char* txHeader;
+    const char* rxFilter;
+};
+
+ObdAddressing moduleAddressing(ObdModule m);
 const char* moduleName(ObdModule m);
+
+/// Override a module's addressing at RUNTIME, for a verification session.
+///
+/// This is the "try ATSH 7E0 (+ ATCRA 7E8) for the PCM and re-request" step
+/// from docs/FORD_6_0_PIDS.md, made possible without a reflash. It is NOT a
+/// backdoor around the no-guessing rule: the compiled-in default stays nullptr,
+/// the override is never persisted, it dies on reboot, and it exists only so an
+/// operator can type a *candidate* and watch what the truck says. A candidate
+/// that works gets written into moduleAddressing() in a commit, with evidence.
+///
+/// `txHeader`/`rxFilter` are copied. Pass nullptr for rxFilter to mean "no
+/// filter". Returns false if the strings do not fit.
+bool setModuleAddressingOverride(ObdModule m, const char* txHeader, const char* rxFilter);
+
+/// Drop all runtime overrides (back to the compiled-in table).
+void clearModuleAddressingOverrides();
+
+/// True if `m` currently has a runtime override in effect.
+bool hasModuleAddressingOverride(ObdModule m);
+
+/// Convenience accessor — the header alone (nullptr == unverified).
+inline const char* moduleAtshHeader(ObdModule m) { return moduleAddressing(m).txHeader; }
+
+/// True for the ISO 15765-4 functional broadcast ID, which every ECU answers.
+/// Response-count digits are unsafe on it (see PidDefinition::expectedResponses).
+bool isFunctionalHeader(const char* header);
 
 // ---------------------------------------------------------------------------
 // PID identity & decode description.
@@ -128,6 +165,22 @@ struct PidDefinition {
     uint8_t service;   ///< 0x01 (SAE Mode 01) or 0x22 (Ford enhanced read-by-DID)
     uint16_t pid;      ///< 1-byte PID for service 01, 2-byte DID for service 22
     ObdModule module;
+
+    /// Which ECU owns this PID. 0 = accept whichever answers first (the honest
+    /// default for a DID whose owner has not been established on the truck).
+    /// Set to a response CAN ID (0x7E8..0x7EF) only once a session has PROVEN
+    /// that module answers it — several 6.0L DIDs are answered by more than one
+    /// module, and first-wins would silently pick either.
+    uint16_t expectedResponder;
+
+    /// ELM response-count digit appended to the request (010C -> 010C1) so the
+    /// adapter returns as soon as N replies arrive instead of waiting out its
+    /// P2 timeout. 0 = don't append.
+    /// MUST stay 0 on a functional header: asking for fewer responses than the
+    /// bus will produce leaves a straggler to land mid-way through the NEXT
+    /// request, which desyncs the adapter (STOPPED). Enforced in tests.
+    uint8_t expectedResponses;
+
     LinearDecode decode;
     DecodeFn decodeFn; ///< nullptr => use `decode`
     Unit unit;         ///< unit the formula yields (converted to channel unit on store)

@@ -34,11 +34,14 @@ enum class ElmState : uint8_t {
 };
 
 enum class ElmResult : uint8_t {
-    Ok,      ///< positive response; payload delivered (echo already stripped)
-    NoData,  ///< adapter reported NO DATA (no ECU answered)
-    Timeout, ///< no prompt within the deadline
-    Stopped, ///< adapter aborted the request (STOPPED)
-    Error,   ///< '?', CAN ERROR, negative response (7F ...), etc.
+    Ok,          ///< positive response; payload delivered (echo already stripped)
+    NoData,      ///< adapter reported NO DATA (no ECU answered)
+    NoResponder, ///< an ECU answered, but not the one this PID is pinned to —
+                 ///< distinct from NoData so a bad expectedResponder is
+                 ///< diagnosable instead of looking like a dead PID
+    Timeout,     ///< no prompt within the deadline
+    Stopped,     ///< adapter aborted the request (STOPPED)
+    Error,       ///< '?', CAN ERROR, negative response (7F ...), etc.
 };
 
 const char* elmStateName(ElmState s);
@@ -55,13 +58,30 @@ struct ElmConfig {
     uint8_t maxResetAttempts = 2;        ///< then go Offline (owner re-does Bluetooth)
 };
 
+/// Outcome of one request, including who answered it.
+///
+/// A functional (7DF) request is a broadcast: several ECUs may answer the same
+/// PID, in varying order, with values that do not necessarily mean the same
+/// thing. Reporting the responder is what makes an on-truck reading evidence
+/// rather than an anecdote.
+struct ElmResponse {
+    ElmResult result = ElmResult::Error;
+
+    /// Starts AFTER the positive-response echo (41 xx / 62 xx xx).
+    /// Only meaningful for ElmResult::Ok.
+    const uint8_t* payload = nullptr;
+    size_t len = 0;
+
+    uint16_t responderId = 0;      ///< CAN ID that supplied `payload` (0 = headerless)
+    uint8_t responderCount = 0;    ///< distinct ECUs whose answer matched service+PID
+    bool responderConflict = false;///< >=2 responders answered with DIFFERENT bytes
+    uint16_t latencyMs = 0;        ///< request line written -> '>' prompt (saturating)
+};
+
 class ElmClient {
 public:
-    /// Payload starts AFTER the positive-response echo (41 xx / 62 xx xx);
-    /// payload/len are only meaningful for ElmResult::Ok.
     using ResultHandler = void (*)(void* ctx, const PidDefinition& pid,
-                                   ElmResult result,
-                                   const uint8_t* payload, size_t len);
+                                   const ElmResponse& rsp);
 
     ElmClient(IObdTransport& transport, TimeFn now, const ElmConfig& cfg);
 
@@ -87,6 +107,14 @@ public:
     bool isReady() const;
     const char* adapterId() const { return adapterId_; }
 
+    /// Milliseconds spent on ATSH/ATCRA prep since the last resetStats(), and
+    /// how many such commands were sent. Prep is real bus time that no PID's
+    /// latencyMs accounts for — it is what decides whether switching a PID to
+    /// physical addressing pays for itself.
+    uint32_t prepOverheadMs() const { return prepOverheadMs_; }
+    uint32_t prepCommandCount() const { return prepCommandCount_; }
+    void resetStats() { prepOverheadMs_ = 0; prepCommandCount_ = 0; }
+
 private:
     void setState(ElmState s);
     void sendLine(const char* cmd);
@@ -97,8 +125,10 @@ private:
     void startReset();
     void sendInitCommand();
     void sendPidRequest();
+    void sendNextPrepCommand();
     void finishRequest(ElmResult result);
     void escalateOrReset();
+    void invalidateAddressingCache();
 
     IObdTransport& transport_;
     TimeFn now_;
@@ -116,18 +146,36 @@ private:
     bool initCmdFailed_ = false;
     uint8_t resetAttempts_ = 0;
 
+    // Addressing prep queue: ATSH (and optionally ATCRA) must be acknowledged
+    // before the actual request goes out. Two slots is the whole vocabulary.
+    char prepCmds_[2][16] = {{0}, {0}};
+    uint8_t prepCount_ = 0;
+    uint8_t prepIndex_ = 0;
+    uint32_t prepStartMs_ = 0;
+
+    // Cached adapter addressing state. Only valid while the adapter has not
+    // been reset — ATZ reverts both, so invalidateAddressingCache() must run
+    // on every reset path or we would silently talk on the wrong header.
+    char currentHeader_[12] = {0};
+    char currentFilter_[12] = {0};
+
     // request in flight
     const PidDefinition* currentPid_ = nullptr;
-    bool awaitingHeaderAck_ = false;
-    char pendingHeader_[12] = {0};
-    char currentHeader_[12] = {0};
     uint8_t respBuf_[64] = {0};
     size_t respLen_ = 0;
     bool haveResponse_ = false;
+    uint16_t responderId_ = 0;
+    uint8_t responderCount_ = 0;
+    uint8_t wrongResponderCount_ = 0;
+    bool responderConflict_ = false;
+    uint32_t requestSentMs_ = 0;
     bool sawNoData_ = false;
     bool sawStopped_ = false;
     bool sawError_ = false;
     bool firstDataDone_ = false;
+
+    uint32_t prepOverheadMs_ = 0;
+    uint32_t prepCommandCount_ = 0;
 
     uint8_t consecutiveTimeouts_ = 0;
     char lastSent_[24] = {0};

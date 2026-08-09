@@ -1,5 +1,7 @@
 #include "PidDefs.h"
 
+#include <cstring>
+
 namespace obd {
 
 // ---------------------------------------------------------------------------
@@ -83,17 +85,80 @@ const char* unitSuffix(Unit u)
 // must be verified on the truck first (see docs/FORD_6_0_PIDS.md for the
 // verification procedure). A nullptr header makes ElmClient refuse the PID.
 // ---------------------------------------------------------------------------
-const char* moduleAtshHeader(ObdModule m)
+namespace {
+
+constexpr size_t kModuleCount = static_cast<size_t>(ObdModule::HdrC410F1) + 1;
+
+struct AddressingOverride {
+    bool active = false;
+    char txHeader[12] = {0};
+    char rxFilter[12] = {0};
+    bool hasFilter = false;
+};
+
+AddressingOverride g_overrides[kModuleCount];
+
+} // namespace
+
+bool setModuleAddressingOverride(ObdModule m, const char* txHeader, const char* rxFilter)
 {
-    switch (m) {
-    case ObdModule::Auto: return "7DF";         // ISO 15765-4 functional request (ELM default)
-    case ObdModule::Pcm: return nullptr;        // TODO: verify on truck (likely 7E0)
-    case ObdModule::Tcm: return nullptr;        // TODO: verify on truck
-    case ObdModule::Abs: return nullptr;        // TODO: verify on truck
-    case ObdModule::Hdr726: return "726";       // literal from Torque export (TPMS rows)
-    case ObdModule::HdrC410F1: return "C410F1"; // literal from Torque export (KWP-style)
+    const size_t i = static_cast<size_t>(m);
+    if (i >= kModuleCount || txHeader == nullptr) {
+        return false;
     }
-    return nullptr;
+    AddressingOverride o;
+    if (std::strlen(txHeader) >= sizeof(o.txHeader)) {
+        return false;
+    }
+    std::strcpy(o.txHeader, txHeader);
+    if (rxFilter != nullptr && rxFilter[0] != '\0') {
+        if (std::strlen(rxFilter) >= sizeof(o.rxFilter)) {
+            return false;
+        }
+        std::strcpy(o.rxFilter, rxFilter);
+        o.hasFilter = true;
+    }
+    o.active = true;
+    g_overrides[i] = o;
+    return true;
+}
+
+void clearModuleAddressingOverrides()
+{
+    for (size_t i = 0; i < kModuleCount; ++i) {
+        g_overrides[i] = AddressingOverride{};
+    }
+}
+
+bool hasModuleAddressingOverride(ObdModule m)
+{
+    const size_t i = static_cast<size_t>(m);
+    return i < kModuleCount && g_overrides[i].active;
+}
+
+ObdAddressing moduleAddressing(ObdModule m)
+{
+    const size_t i = static_cast<size_t>(m);
+    if (i < kModuleCount && g_overrides[i].active) {
+        const AddressingOverride& o = g_overrides[i];
+        return {o.txHeader, o.hasFilter ? o.rxFilter : nullptr};
+    }
+    switch (m) {
+    // ISO 15765-4 functional request (also the ELM327 CAN default). No receive
+    // filter: by definition every ECU on the bus may answer.
+    case ObdModule::Auto: return {"7DF", nullptr};
+    case ObdModule::Pcm: return {nullptr, nullptr};  // TODO: verify on truck (likely 7E0/7E8)
+    case ObdModule::Tcm: return {nullptr, nullptr};  // TODO: verify on truck
+    case ObdModule::Abs: return {nullptr, nullptr};  // TODO: verify on truck
+    case ObdModule::Hdr726: return {"726", nullptr};       // literal from Torque export (TPMS rows)
+    case ObdModule::HdrC410F1: return {"C410F1", nullptr}; // literal from Torque export (KWP-style)
+    }
+    return {nullptr, nullptr};
+}
+
+bool isFunctionalHeader(const char* header)
+{
+    return header != nullptr && std::strcmp(header, "7DF") == 0;
 }
 
 const char* moduleName(ObdModule m)
@@ -123,31 +188,31 @@ const PidDefinition kPidTable[] = {
 
     // Engine RPM: 01 0C, ((A*256)+B)/4 rpm
     {PidKey::RpmSae, ChannelId::Rpm, "Engine RPM", "RPM",
-     0x01, 0x000C, ObdModule::Auto,
+     0x01, 0x000C, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 2, false, 0.25f, 0.0f},
      nullptr, Unit::Rpm, 100, 0, 500, 2, true},
 
     // Vehicle speed: 01 0D, A km/h
     {PidKey::SpeedSae, ChannelId::SpeedMph, "Vehicle Speed", "SPEED",
-     0x01, 0x000D, ObdModule::Auto,
+     0x01, 0x000D, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 1, false, 1.0f, 0.0f},
      nullptr, Unit::Kmh, 200, 1, 500, 2, true},
 
     // Engine coolant temp: 01 05, A-40 °C
     {PidKey::EctSae, ChannelId::EctF, "Engine Coolant Temp", "ECT",
-     0x01, 0x0005, ObdModule::Auto,
+     0x01, 0x0005, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 1, false, 1.0f, -40.0f},
      nullptr, Unit::Celsius, 500, 3, 500, 2, true},
 
     // Barometric pressure: 01 33, A kPa (input for derived boost = MAP - baro)
     {PidKey::BaroSae, ChannelId::BaroPsi, "Barometric Pressure", "BARO",
-     0x01, 0x0033, ObdModule::Auto,
+     0x01, 0x0033, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 1, false, 1.0f, 0.0f},
      nullptr, Unit::Kpa, 5000, 5, 500, 2, true},
 
     // Calculated engine load: 01 04, A*100/255 %
     {PidKey::LoadSae, ChannelId::EngineLoadPct, "Engine Load", "LOAD",
-     0x01, 0x0004, ObdModule::Auto,
+     0x01, 0x0004, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 1, false, 0.392156863f, 0.0f},
      nullptr, Unit::Percent, 500, 4, 500, 2, true},
 
@@ -156,37 +221,37 @@ const PidDefinition kPidTable[] = {
 
     // [FORD]Battery Voltage — Torque: 0x221172 "A/16" [V] hdr=Auto
     {PidKey::BatteryVoltage, ChannelId::BatteryV, "Battery Voltage", "VBatt",
-     0x22, 0x1172, ObdModule::Auto,
+     0x22, 0x1172, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 1, false, 0.0625f, 0.0f},
      nullptr, Unit::Volts, 1000, 4, 500, 2, false},
 
     // [FORD]Engine Oil Temp — Torque: 0x221310 "(((A*256)+B)/100)-40" [°C] hdr=Auto
     {PidKey::Eot, ChannelId::EotF, "Engine Oil Temp", "EOT",
-     0x22, 0x1310, ObdModule::Auto,
+     0x22, 0x1310, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 2, false, 0.01f, -40.0f},
      nullptr, Unit::Celsius, 500, 3, 500, 2, false},
 
     // [FORD]Exhaust Back Pressure — Torque: 0x221445 "(((A*256)+B)*0.03625)" [psi] hdr=Auto
     {PidKey::Ebp, ChannelId::EbpPsi, "Exhaust Back Pressure", "EBP",
-     0x22, 0x1445, ObdModule::Auto,
+     0x22, 0x1445, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 2, false, 0.03625f, 0.0f},
      nullptr, Unit::Psi, 200, 2, 500, 2, false},
 
     // [FORD]FICM Main Power — Torque: 0x2209d0 "((A*256)+B)*(100/256)/100" [Volts] hdr=Auto
     {PidKey::FicmMainPower, ChannelId::FicmMainV, "FICM Main Power", "FMP",
-     0x22, 0x09D0, ObdModule::Auto,
+     0x22, 0x09D0, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 2, false, 0.00390625f, 0.0f},
      nullptr, Unit::Volts, 400, 3, 500, 2, false},
 
     // [FORD]Injection Control Pressure — Torque: 0x221446 "((A*256)+B)*(57/100)" [psi] hdr=Auto
     {PidKey::Icp, ChannelId::IcpPsi, "Injection Control Pressure", "HPOP",
-     0x22, 0x1446, ObdModule::Auto,
+     0x22, 0x1446, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 2, false, 0.57f, 0.0f},
      nullptr, Unit::Psi, 100, 1, 500, 2, false},
 
     // [FORD]Injector Pressure Regulator Duty Cycle — Torque: 0x221434 "(A*13.53)/35" [%] hdr=Auto
     {PidKey::IprDuty, ChannelId::IprPct, "IPR Duty Cycle", "IPR",
-     0x22, 0x1434, ObdModule::Auto,
+     0x22, 0x1434, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 1, false, 0.386571429f, 0.0f},
      nullptr, Unit::Percent, 150, 2, 500, 2, false},
 
@@ -195,13 +260,13 @@ const PidDefinition kPidTable[] = {
     // (the Torque "Boost (Ford specific)" row with BARO() is intentionally
     // NOT in this table).
     {PidKey::Map, ChannelId::MapPsi, "MAP (Ford specific)", "MAP",
-     0x22, 0x1440, ObdModule::Auto,
+     0x22, 0x1440, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 2, false, 0.03625f, 0.0f},
      nullptr, Unit::Psi, 100, 0, 500, 2, false},
 
     // [FORD]Transmission Fluid Temp (Method 1) — Torque: 0x221674 "((A*256)+B)/8" [°F] hdr=Auto
     {PidKey::TransTemp1, ChannelId::TransTempF, "Trans Fluid Temp (Method 1)", "TransFl",
-     0x22, 0x1674, ObdModule::Auto,
+     0x22, 0x1674, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 2, false, 0.125f, 0.0f},
      nullptr, Unit::Fahrenheit, 500, 3, 500, 2, false},
 
@@ -209,7 +274,7 @@ const PidDefinition kPidTable[] = {
     // Module header UNVERIFIED — will be refused until ObdModule::Tcm gets a
     // real ATSH value verified on the truck.
     {PidKey::TransTemp2, ChannelId::TransTempF, "Trans Fluid Temp (Method 2)", "TransFl",
-     0x22, 0x1674, ObdModule::Tcm,
+     0x22, 0x1674, ObdModule::Tcm, /*resp=*/0, /*count=*/0,
      {0, 2, false, 0.125f, 0.0f},
      nullptr, Unit::Fahrenheit, 500, 3, 500, 2, false},
 
@@ -218,25 +283,25 @@ const PidDefinition kPidTable[] = {
     // likely N/A on this CAN truck; kept verbatim from the export).
     // NOTE: Torque equation says signed(A); decoder treats raw as signed 16-bit.
     {PidKey::TransTemp3, ChannelId::TransTempF, "Trans Fluid Temp (Method 3)", "TransFl",
-     0x22, 0x11BD, ObdModule::HdrC410F1,
+     0x22, 0x11BD, ObdModule::HdrC410F1, /*resp=*/0, /*count=*/0,
      {0, 2, true, -0.0036f, 212.98f},
      nullptr, Unit::Fahrenheit, 500, 3, 500, 2, false},
 
     // [FORD]Transmission Gear — Torque: 0x2211b3 "A/2" [Gear] hdr=Auto
     {PidKey::Gear1, ChannelId::GearNum, "Transmission Gear", "Gear",
-     0x22, 0x11B3, ObdModule::Auto,
+     0x22, 0x11B3, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 1, false, 0.5f, 0.0f},
      nullptr, Unit::Gear, 500, 4, 500, 2, false},
 
     // [FORD]Transmission Gear (Method 2) — Torque: 0x2211b3 "A/2" [Gear] hdr=TCM
     {PidKey::Gear2, ChannelId::GearNum, "Transmission Gear (Method 2)", "Gear",
-     0x22, 0x11B3, ObdModule::Tcm,
+     0x22, 0x11B3, ObdModule::Tcm, /*resp=*/0, /*count=*/0,
      {0, 1, false, 0.5f, 0.0f},
      nullptr, Unit::Gear, 500, 4, 500, 2, false},
 
     // [FORD]VGT Duty Cycle — Torque: 0x22096d "((A*256)+B)*(100/32767)" [%] hdr=Auto
     {PidKey::VgtDuty, ChannelId::VgtPct, "VGT Duty Cycle", "VGT",
-     0x22, 0x096D, ObdModule::Auto,
+     0x22, 0x096D, ObdModule::Auto, /*resp=*/0, /*count=*/0,
      {0, 2, false, 0.00305185095f, 0.0f},
      nullptr, Unit::Percent, 150, 2, 500, 2, false},
 };
