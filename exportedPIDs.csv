@@ -1,0 +1,56 @@
+"Name", "ShortName", "ModeAndPID", "Equation", "Min Value", "Max Value", "Units", "Header", "startDiagnostic", "stopDiagnostic", "scale","minimumRefreshDelayMillis"
+"[FORD]ABS - Lateral acceleration","ABSLAT","0x223a51","((A*256)+B)*0.02",0,2,"g","ABS","","",1,0
+"[FORD]ABS Wheel Speed 1","ABS W1","0x223987","A",0,100,"km/h","ABS","","",1,0
+"[FORD]ABS Wheel Speed 2","ABS W2","0x223987","B",0,100,"km/h","ABS","","",1,0
+"[FORD]ABS Wheel Speed 3","ABS W3","0x223987","C",0,100,"km/h","ABS","","",1,0
+"[FORD]ABS Wheel Speed 4","ABS W4","0x223987","D",0,100,"km/h","ABS","","",1,0
+"[FORD]Accelerator Pedal Position","AccPedal","0x2209d4","A/2",0,100,"%","Auto","","",1,0
+"[FORD]Battery Voltage","VBatt","0x221172","A/16",0,100,"V","Auto","","",1,0
+"[FORD]Boost (Ford specific)","MAP","0x221440","(((A*256)+B)*0.03625)-BARO()",0,30,"psi","Auto","","",1,0
+"[FORD]Coolant temperature(From TCM)","Coolant","0x0105","A-40",0,120,"°C","TCM","","",1,0
+"[FORD]Cylinder 1 Misfire count","MF 1","0x22160e","((A*256)+B)",0,100,"Count","Auto","","",1,0
+"[FORD]Cylinder 2 Misfire count","MF 2","0x22160f","((A*256)+B)",0,100,"Count","Auto","","",1,0
+"[FORD]Cylinder 3 Misfire count","MF 3","0x221610","((A*256)+B)",0,100,"Count","Auto","","",1,0
+"[FORD]Cylinder 4 Misfire count","MF 4","0x221611","((A*256)+B)",0,100,"Count","Auto","","",1,0
+"[FORD]Cylinder 5 Misfire count","MF 5","0x221612","((A*256)+B)",0,100,"Count","Auto","","",1,0
+"[FORD]Cylinder 6 Misfire count","MF 6","0x221613","((A*256)+B)",0,100,"Count","Auto","","",1,0
+"[FORD]Cylinder 7 Misfire count","MF 7","0x221614","((A*256)+B)",0,100,"Count","Auto","","",1,0
+"[FORD]Cylinder 8 Misfire count","MF 8","0x221615","((A*256)+B)",0,100,"Count","Auto","","",1,0
+"[FORD]Cylinder head temperature","CHTMP","0x221624","(((A*256)+B)*1.999)+32",0,100,"°F","Auto","","",1,0
+"[FORD]Cylinder head temperature(alt)","CHTMP","0x221685","((A*256)+B)*0.281",0,100,"°F","Auto","","",1,0
+"[FORD]Engine Oil Temp","EOT","0x221310","(((A*256)+B)/100)-40",0,300,"°C","Auto","","",1,0
+"[FORD]Exhaust Back Pressure","EBP","0x221445","(((A*256)+B)*0.03625)",0,100,"psi","Auto","","",1,0
+"[FORD]Fan Speed Sensor","FAN","0x22099f","((A*256)+B)*(1/4)",0,1000,"rpm","Auto","","",1,0
+"[FORD]FICM Logic Power","FLP","0x2209cf","((A*256)+B)*(100/256)/100",0,50,"Volts","Auto","","",1,0
+"[FORD]FICM Main Power","FMP","0x2209d0","((A*256)+B)*(100/256)/100",0,50,"Volts","Auto","","",1,0
+"[FORD]FICM Vehicle Power","FVP","0x2209ce","((A*256)+B)*(100/256)/100",0,50,"Volts","Auto","","",1,0
+"[FORD]Fuel Injector Pulse Width","InjPW","0x221410","((A*256)+B)*8",0,100,"µs","Auto","","",1,0
+"[FORD]Fuel Level","Fuel","0x2216c1","((A*256)+B)*(1/328)",0,100,"%","Auto","","",1,0
+"[FORD]Fuel pump duty cycle","FPDC","0x221672","A*100/128",0,100,"%","Auto","","",1,0
+"[FORD]Fuel tank pressure","FTPRES","0x221639","((A*256)+B)*0.1449",0,10,"PSI","Auto","","",1,0
+"[FORD]IAT2 (Method 1)","IAT2","0x2216a8","(((A*256)+B) - 32) * (5 / 9)",0,60,"°C","Auto","","",1,0
+"[FORD]IAT2 (Method 2)","IAT2","0x2203ca","A-40",0,60,"°C","Auto","","",1,0
+"[FORD]Injection Control Pressure","HPOP","0x221446","((A*256)+B)*(57/100)",0,5000,"psi","Auto","","",1,0
+"[FORD]Injector Pressure Regulator Duty Cycle","IPR","0x221434","(A*13.53)/35",0,100,"%","Auto","","",1,0
+"[FORD]Injector timing before top dead center","InjTop","0x2209cc","(((A*256)+B)*(10/64))/10",-50,50,"Deg.","Auto","","",1,0
+"[FORD]Knock Sensor","Knock","0x220404","A",0,60,"Count","Auto","","",1,0
+"[FORD]Left front tyre pressure","LF TP","0x222813","(((256*A)+B)/3+22/3)*0.145",0,70,"psi","726","","",1,0
+"[FORD]Left rear tyre pressure","LR TP","0x222815","(((256*A)+B)/3+22/3)*0.145",0,70,"psi","726","","",1,0
+"[FORD]MAP (Ford specific)","MAP","0x221440","(((A*256)+B)*0.03625)",0,30,"psi","Auto","","",1,0
+"[FORD]Mass Fuel Desired","MFuel","0x221412","((A*256)+B)*0.0625",0,100,"mg/stroke","Auto","","",1,0
+"[FORD]Right front tyre pressure","RF TP","0x222814","(((256*A)+B)/3+22/3)*0.145",0,70,"psi","726","","",1,0
+"[FORD]Right rear tyre pressure","RR TP","0x222816","(((256*A)+B)/3+22/3)*0.145",0,70,"psi","726","","",1,0
+"[FORD]Steering wheel angle","STWheel","0x223201","(A*6.25) - 800",-800,800,"°","ABS","","",1,0
+"[FORD]Throttle Position (Actual)","TP A","0x22093c","((A*256)+B)*(100/8192)",0,100,"°","Auto","","",1,0
+"[FORD]Throttle Position (Desired)","TP D","0x22091a","((A*256)+B)*(100/8192)",0,100,"°","Auto","","",1,0
+"[FORD]Torque converter slip","TCSlip","0x2211b8","((A*256)+B)*0.6103",0,500,"rpm","Auto","","",1,0
+"[FORD]Torque into Torque Converter","TQC","0x2209cb","((A*256)+B)",0,200,"Ft-Lb","Auto","","",1,0
+"[FORD]Total number of misfires","MFTot","0x221616","((A*256)+B)",0,100,"Count","Auto","","",1,0
+"[FORD]Transmission Fluid Temp (Method 1)","TransFl","0x221674","((A*256)+B)/8",0,200,"°F","Auto","","",1,0
+"[FORD]Transmission Fluid Temp (Method 2)","TransFl","0x221674","((A*256)+B)/8",0,200,"°F","TCM","","",1,0
+"[FORD]Transmission Fluid Temp (Method 3)","TransFl","0x2211bd","(((A*256)+B)*-0.0036)+212.98",0,200,"°F","C410F1","","",1,0
+"[FORD]Transmission Gear","Gear","0x2211b3","A/2",0,6,"Gear","Auto","","",1,0
+"[FORD]Transmission Gear (Method 2)","Gear","0x2211b3","A/2",0,6,"Gear","TCM","","",1,0
+"[FORD]Transmission Temp","TransTmp","0x221e1c","(((signed(A)*256)+B)*(9/8)+320)/10",0,200,"°F","Auto","","",1,0
+"[FORD]VGT Duty Cycle","VGT","0x22096d","((A*256)+B)*(100/32767)",0,100,"%","Auto","","",1,0
+"[FORD]Volume Fuel Desired","VFD","0x221411","((A*256)+B)*0.00047551",0,50,"GPH","Auto","","",1,0
