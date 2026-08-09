@@ -27,16 +27,18 @@ gauge pages — currently to USB Serial, later to a 1.75" round 466×466 AMOLED.
   `NO DATA`/`STOPPED`/negative-response handling, ISO-TP reassembly, recovery ladder
 - Verified generic PID polling: **engine RPM** (`01 0C`) decoded and printed
   (`RPM: 1726`) — plus baro (`01 33`) for future boost calculation
-- **Responder identity**: two ECUs answer every functional request on this truck,
-  so every result carries the CAN ID that supplied it, and modules answering the
-  same PID with *different* values are flagged instead of silently raced
+- **Responder recording**: two ECUs (7E8 and 7E9) answer every functional request
+  on this truck, so every answer is kept with the CAN ID that sent it. Divergence
+  is judged on *decoded* values, not bytes — at idle the two disagree in bytes on
+  nearly every request but by only ~1 rpm in meaning
 - **[Interactive serial console](docs/CONSOLE.md)**: `pids`, `on`/`off`,
-  `probe <pid> [n]`, `raw`, `hdr`, `snap`, `stats` — verify a PID or try an ATSH
-  candidate without a reflash. Write/clear/control services are refused unless
+  `probe <pid> [n]`, `raw`, `hdr`, `snap`, `stats`, `display` — verify a PID or
+  try an ATSH candidate without a reflash. Input is echoed, the display pauses
+  when you start typing, and write/clear/control services are refused unless
   `unsafe on` is typed
 - Vehicle data model, PID scheduler with per-PID stats and a throughput-budget
   warning, warning manager, derived values, Serial "display",
-  **130 host-side unit tests**
+  **137 host-side unit tests**
 
 **Scaffolded, not yet verified on the truck:** all Ford enhanced PIDs (EOT, FICM,
 ICP, IPR, VGT, MAP, EBP, trans temp, gear, battery) — definitions imported from a

@@ -337,6 +337,22 @@ static void test_raw_denied_without_unsafe_and_allowed_with_it()
     TEST_ASSERT_TRUE(parseLine("raw 010C", false, c, err, sizeof(err)));
 }
 
+static void test_parse_display_toggle()
+{
+    ParsedCommand c;
+    char err[160] = {0};
+
+    TEST_ASSERT_TRUE(parseLine("display off", false, c, err, sizeof(err)));
+    TEST_ASSERT_EQUAL(ParsedCommand::Kind::Display, c.kind);
+    TEST_ASSERT_FALSE(c.flag);
+
+    TEST_ASSERT_TRUE(parseLine("DISPLAY ON", false, c, err, sizeof(err)));
+    TEST_ASSERT_TRUE(c.flag);
+
+    TEST_ASSERT_FALSE(parseLine("display", false, c, err, sizeof(err)));
+    TEST_ASSERT_FALSE(parseLine("display sometimes", false, c, err, sizeof(err)));
+}
+
 static void test_parse_unsafe_toggle()
 {
     ParsedCommand c;
@@ -530,6 +546,7 @@ int main(int, char**)
     RUN_TEST(test_parse_raw_rejects_overlong);
     RUN_TEST(test_destructive_service_detection);
     RUN_TEST(test_raw_denied_without_unsafe_and_allowed_with_it);
+    RUN_TEST(test_parse_display_toggle);
     RUN_TEST(test_parse_unsafe_toggle);
     RUN_TEST(test_parse_log_commands);
     RUN_TEST(test_parse_header_override);

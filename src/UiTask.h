@@ -16,6 +16,11 @@ struct UiContext {
     IDisplay* display;
     obd::ElmClient* elm;
     obd::IObdTransport* transport;
+
+    /// Shared with the console (same task). False silences rendering only —
+    /// derived values and warnings keep updating, so nothing goes stale while
+    /// the display is paused.
+    bool* enabled;
 };
 
 void uiTick(UiContext& ctx);

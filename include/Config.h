@@ -15,12 +15,20 @@ namespace config {
 inline constexpr uint32_t kSerialBaud = 115200;
 
 /// Runtime log ceiling (compile-time floor is -DTD_LOG_LEVEL in platformio.ini).
-inline constexpr TdLogLevel kRuntimeLogLevel = TdLogLevel::Debug;
+///
+/// Info, not Debug, because the serial port is shared with the console: at ~11
+/// requests/s the Debug lines alone (two state transitions and one decoded value
+/// per request) scroll anything you type off the screen before you can read it.
+/// Raise it at runtime with `log level 4` when you want them.
+inline constexpr TdLogLevel kRuntimeLogLevel = TdLogLevel::Info;
 
-/// Mirror every raw ELM TX/RX line at INFO level. Essential while verifying
-/// Ford PIDs against the truck; turn OFF for normal operation — verbose
-/// logging costs polling throughput.
-inline constexpr bool kLogRawObdTraffic = true;
+/// Mirror every raw ELM TX/RX/RSP line at INFO level.
+///
+/// Off by default for the same reason — it is another ~5 lines per request. The
+/// console's `probe` already prints the raw bytes of every responder, so this is
+/// rarely needed; `log raw on` turns it on for a single experiment without a
+/// reflash. Verbose logging also costs real polling throughput.
+inline constexpr bool kLogRawObdTraffic = false;
 
 // ---------------------------------------------------------------------------
 // Bluetooth (OBDLink MX+)

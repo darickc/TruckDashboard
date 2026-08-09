@@ -52,16 +52,71 @@ Verdict: verified | not verified | unsupported on this truck
 
 ## Sessions
 
-*(none yet — Phase 1 and the console landed first so that the first session
-produces evidence instead of anecdotes)*
+## 2026-08-09 — idle, warm, driveway (captured from the serial log, not a probe)
+
+Adapter: OBDLink MX+ `00:04:3E:85:EA:FC`
+Firmware: `6a8b38e` (before the console was usable — this is log output)
+
+### 7E8 and 7E9 both answer `010C`, and they agree
+
+Raw (representative, ~11 requests/s over about two seconds):
+
+```
+TX> 010C
+RX< 7E904410C0AC4      RSP Engine RPM <- 7E9 : 0AC4
+RX< 7E804410C0AC2      RSP Engine RPM <- 7E8 : 0AC2
+TX> 010C
+RX< 7E904410C0AB8      RSP Engine RPM <- 7E9 : 0AB8
+RX< 7E804410C0ABA      RSP Engine RPM <- 7E8 : 0ABA
+TX> 010C
+RX< 7E904410C0AC8      RSP Engine RPM <- 7E9 : 0AC8
+RX< 7E804410C0AC3      RSP Engine RPM <- 7E8 : 0AC3
+TX> 010C
+RX< 7E904410C0AD0      RSP Engine RPM <- 7E9 : 0AD0
+RX< 7E804410C0AD0      RSP Engine RPM <- 7E8 : 0AD0   (identical)
+```
+
+Decoded (`((A·256)+B)/4`):
+
+| 7E9 | 7E8 | Δ |
+|---|---|---|
+| `0AC4` = 689.00 | `0AC2` = 688.50 | 0.50 rpm |
+| `0AB8` = 686.00 | `0ABA` = 686.50 | 0.50 rpm |
+| `0AC8` = 690.00 | `0AC3` = 688.75 | 1.25 rpm |
+| `0AD0` = 692.00 | `0AD0` = 692.00 | 0.00 rpm |
+
+**Reference:** cross-check between the two responders themselves, plus physical
+plausibility — a warm 6.0L idles around 650–700 rpm.
+
+**Verdict:** two modules reporting the same engine-speed signal, sampled a few
+milliseconds apart. Maximum divergence 1.25 rpm out of ~690 (0.2%), and they
+land on identical bytes when the sampling happens to line up. This is agreement,
+not conflict.
+
+**Consequences recorded:**
+
+- 7E9 knows engine speed to within a rounding error, which is **consistent with
+  it being the TCM** on the 5R110 — but consistency is not proof. Still a lead;
+  test it with `raw ATSH 7E1` (open question 1 below).
+- 7E9 consistently answers *first*, so first-wins currently feeds the dashboard
+  from 7E9 rather than the PCM. Harmless for RPM. Revisit `expectedResponder`
+  for the SAE rows once the census identifies both modules.
+- Latency, measured TX → `>` prompt: 42–115 ms, typically 60–80. Consistent with
+  the ~96 ms figure in `OBD_PROTOCOL.md`; re-measure properly with `stats reset`
+  → run → `stats` and update `config::kMeasuredRequestsPerSec`.
+- This session is also what showed the byte-equality conflict check to be a false
+  alarm. Fixed: divergence is now judged on decoded values
+  (`PidStats::maxResponderSpread`), not bytes.
+
+**Not yet verified:** which module is which, and every Ford Mode 22 DID.
 
 ## Open questions for the next session
 
-1. **Who is 7E9?** It answers `010C` alongside 7E8. Plausibly the TCM on a 2007
-   5R110, but that is a lead, not a conclusion. Test: `raw ATSH 7E1` then
-   `raw 221674` — if 7E9 alone answers, the `ObdModule::Tcm` TODO closes with
-   evidence. Do this before anything else; it decides whether `221674` and
-   `2211B3` need `expectedResponder` pinning.
+1. **Who is 7E9?** It answers `010C` alongside 7E8 with matching engine speed
+   (see above), which is consistent with the TCM on a 2007 5R110 but does not
+   prove it. Test: `raw ATSH 7E1` then `raw 221674` — if 7E9 alone answers, the
+   `ObdModule::Tcm` TODO closes with evidence. Do this before anything else; it
+   decides whether `221674` and `2211B3` need `expectedResponder` pinning.
 2. **Does the PCM answer on `7E0`?** `hdr pcm 7E0` + `probe icp` — and does
    `ATCRA 7E8` add anything, or does ATSH already narrow the responses?
 3. **Is the response-count digit supported?** `raw 2213101` should return the

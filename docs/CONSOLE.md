@@ -9,7 +9,15 @@ to cost a reflash; now it costs typing `on eot`.
 pio device monitor
 ```
 
-Type `help` for the command list. Everything is case-insensitive.
+Type `help` for the command list. Everything is case-insensitive, and what you
+type is echoed back — `pio device monitor` does not echo locally, so the console
+does it.
+
+**The serial port is shared** between the console, the log, and the text gauge
+display. The firmware boots quiet (log level Info, raw OBD logging off) and the
+display **pauses automatically the first time you type**, with a notice. `display
+on` brings it back. Without that, ~11 requests/s of log traffic scrolls a reply
+away before it can be read.
 
 ## Commands
 
@@ -25,6 +33,7 @@ Type `help` for the command list. Everything is case-insensitive.
 | `raw <text>` | Send a verbatim line to the adapter and print every reply line uninterpreted |
 | `hdr <module> <tx> [rx]` | Set a **candidate** ATSH (and optional ATCRA) for a module at runtime |
 | `hdr clear` | Drop all runtime addressing overrides |
+| `display on\|off` | Pause/resume the text gauge display (it shares this port) |
 | `log raw on\|off` | Mirror raw OBD traffic at INFO |
 | `log level <0-5>` | 0=off 1=error 2=warn 3=info 4=debug 5=trace |
 | `unsafe on\|off` | Lift the `raw` deny-list for this session |
@@ -35,23 +44,28 @@ short name (`on hpop`).
 ## `probe` — the verification workhorse
 
 `probe` runs the procedure from [FORD_6_0_PIDS.md](FORD_6_0_PIDS.md) for one PID
-without a reflash, and prints the one thing the old flow could not produce: the
-responder ID.
+without a reflash, and prints the thing the old flow could not produce: what
+**every** module that answered said, decoded, side by side.
 
 ```
-> probe transtemp1 3
-probe TransTemp1  (Trans Fluid Temp (Method 1) 22 1674, module Auto -> 7DF)
-  [UNVERIFIED definition — compare against an independent reference before trusting it]
-  #1  <-7E8  0A2C        326.00 F        94ms  (2+ ECUs answered)  *** THEY DISAGREE ***
-  #2  <-7E8  0A2C        326.00 F        91ms  (2+ ECUs answered)  *** THEY DISAGREE ***
-  #3  <-7E8  0A2C        326.00 F        96ms  (2+ ECUs answered)  *** THEY DISAGREE ***
-3/3 ok, avg latency 93ms
+> probe rpmsae 3
+probe RpmSae  (Engine RPM, 01 0C, module Auto -> 7DF)
+  #1    75ms   7E9 0AC4     =   689.00 rpm    7E8 0AC2     =   688.50 rpm
+  #2    62ms   7E9 0AB8     =   686.00 rpm    7E8 0ABA     =   686.50 rpm
+  #3    71ms   7E9 0ACC     =   691.00 rpm    7E8 0AD0     =   692.00 rpm
+3/3 ok, avg latency 69ms; 2 ECUs answered, max spread 1.00 rpm
 ```
 
-That output is evidence: it names the module, shows the bytes, shows the
-decode, and says out loud that a second ECU answered with something different —
-the case where "the value looked plausible" would otherwise have been recorded
-as a successful verification.
+**Read the spread, not the difference in bytes.** Two ECUs answering a live
+signal will differ in bytes on nearly every request — the readings above are one
+crank sensor sampled a few milliseconds apart, and "max spread 1.00 rpm" at a
+690 rpm idle says so. The same line reading `max spread 326.00 F` would mean the
+two modules disagree about what the DID *is*, and that is when
+`expectedResponder` needs pinning.
+
+Spread statistics come from the scheduler, so they accumulate across every poll,
+not just probes — enable the PID with `on` first to get the figure in the probe
+summary and in `stats`.
 
 A probe's readings are real: they flow into `VehicleData` like any other poll.
 
@@ -70,7 +84,7 @@ this is a CANDIDATE, not a verified value. It dies on reboot. Probe a PID on
 this module and check what answers; if it holds up, commit it to
 moduleAddressing() with the evidence.
 > probe transtemp2 1
-  #1  <-7E9  0A2C        326.00 F        88ms
+  #1    88ms   7E9 0A2C     =   325.50 F
 ```
 
 This is not a backdoor around the no-guessing rule. The compiled-in default

@@ -54,15 +54,22 @@ static obd::WarningManager g_warnings;
 static SerialDisplay g_display(config::kDisplayIntervalMs);
 
 // Console: the operator types on loopTask, the OBD task executes. The mailbox
-// is the only thing the two share.
+// is the only thing the two tasks share.
 static console::CommandMailbox g_mailbox;
 static console::ConsoleExecutor g_console(g_elm, g_scheduler, g_vehicleData,
                                           g_mailbox, nowMs);
-static ConsoleContext g_consoleCtx{&g_mailbox, {}, false, false};
+
+// The text display and the console share one UART. Both the console and the UI
+// tick run on loopTask, so this needs no synchronisation — it is off the moment
+// somebody starts typing (see ConsoleHost) and back on with `display on`.
+static bool g_displayEnabled = true;
+
+static ConsoleContext g_consoleCtx{&g_mailbox, &g_displayEnabled, {}, false, false, false};
 
 static ObdTaskContext g_obdCtx{&g_transport, &g_elm, &g_scheduler, &g_vehicleData,
                                &g_console};
-static UiContext g_uiCtx{&g_vehicleData, &g_warnings, &g_display, &g_elm, &g_transport};
+static UiContext g_uiCtx{&g_vehicleData, &g_warnings, &g_display, &g_elm,
+                         &g_transport, &g_displayEnabled};
 
 // VehicleData lock hooks: one FreeRTOS mutex.
 static SemaphoreHandle_t g_vdMutex = nullptr;

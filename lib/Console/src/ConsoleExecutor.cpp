@@ -121,11 +121,18 @@ bool ConsoleExecutor::tick()
         probeRemaining_ = req.cmd.repeat;
         probeAttempt_ = 0;
         probeOk_ = 0;
+        probeMaxResponders_ = 0;
         probeLatencySum_ = 0;
         const ObdAddressing addr = moduleAddressing(probePid_->module);
-        mailbox_.replyf("probe %s  (%s %s%04X, module %s -> %s%s%s)",
-                        pidKeyName(probePid_->key), probePid_->name,
-                        probePid_->service == 0x22 ? "22 " : "01 ", probePid_->pid,
+        char request[12];
+        if (probePid_->service == 0x22) {
+            std::snprintf(request, sizeof(request), "22 %04X", probePid_->pid);
+        } else {
+            std::snprintf(request, sizeof(request), "%02X %02X", probePid_->service,
+                          probePid_->pid & 0xFF);
+        }
+        mailbox_.replyf("probe %s  (%s, %s, module %s -> %s%s%s)",
+                        pidKeyName(probePid_->key), probePid_->name, request,
                         moduleName(probePid_->module),
                         addr.txHeader != nullptr ? addr.txHeader : "UNVERIFIED",
                         addr.rxFilter != nullptr ? " rx " : "",
@@ -167,8 +174,28 @@ bool ConsoleExecutor::tick()
 void ConsoleExecutor::finishProbe()
 {
     if (probeAttempt_ > 0) {
-        mailbox_.replyf("%u/%u ok, avg latency %ums", probeOk_, probeAttempt_,
-                        probeOk_ > 0 ? probeLatencySum_ / probeOk_ : 0);
+        char tail[128] = {0};
+        if (probeMaxResponders_ > 1 && probePid_ != nullptr) {
+            // The verdict line. A spread of ~1 rpm on a 690 rpm idle means two
+            // modules reporting the same signal; a spread the size of the value
+            // means they disagree about what the DID is, and expectedResponder
+            // needs pinning.
+            const PidStats* s = scheduler_.stats(probePid_->key);
+            if (s != nullptr) {
+                std::snprintf(tail, sizeof(tail),
+                              "; %u ECUs answered, max spread %.2f %s",
+                              probeMaxResponders_,
+                              static_cast<double>(s->maxResponderSpread),
+                              unitSuffix(channelUnit(probePid_->channel)));
+            } else {
+                std::snprintf(tail, sizeof(tail),
+                              "; %u ECUs answered (enable the PID with `on` to "
+                              "accumulate spread statistics)",
+                              probeMaxResponders_);
+            }
+        }
+        mailbox_.replyf("%u/%u ok, avg latency %ums%s", probeOk_, probeAttempt_,
+                        probeOk_ > 0 ? probeLatencySum_ / probeOk_ : 0, tail);
     }
     mailbox_.finish();
     phase_ = Phase::Idle;
@@ -184,31 +211,52 @@ bool ConsoleExecutor::onResult(const PidDefinition& pid, const ElmResponse& rsp)
     if (rsp.result != ElmResult::Ok) {
         mailbox_.replyf("  #%u  %s", probeAttempt_, elmResultName(rsp.result));
     } else {
-        char hex[2 * 32 + 1] = {0};
-        size_t o = 0;
-        for (size_t i = 0; i < rsp.len && o + 3 < sizeof(hex); ++i) {
-            o += static_cast<size_t>(std::snprintf(hex + o, sizeof(hex) - o, "%02X",
-                                                   rsp.payload[i]));
-        }
+        // One line per attempt, every responder on it. Seeing the decoded values
+        // next to each other is what tells you whether two modules are reporting
+        // the same signal or two different things — a single "they differ" flag
+        // cannot, because a live signal differs on nearly every sample.
+        char line[176];
+        int o = std::snprintf(line, sizeof(line), "  #%u %5ums ", probeAttempt_,
+                              rsp.latencyMs);
+        const Unit chUnit = channelUnit(pid.channel);
+        for (uint8_t i = 0; i < rsp.recordedResponders && o > 0 &&
+                            static_cast<size_t>(o) < sizeof(line);
+             ++i) {
+            const ResponderAnswer& a = rsp.responders[i];
+            char hex[2 * sizeof(a.payload) + 1];
+            size_t h = 0;
+            for (uint8_t b = 0; b < a.len && h + 3 < sizeof(hex); ++b) {
+                h += static_cast<size_t>(
+                    std::snprintf(hex + h, sizeof(hex) - h, "%02X", a.payload[b]));
+            }
+            hex[h] = '\0';
 
-        float value = 0.0f;
-        char decoded[48];
-        if (decodePid(pid, rsp.payload, rsp.len, value)) {
-            const Unit chUnit = channelUnit(pid.channel);
-            std::snprintf(decoded, sizeof(decoded), "%.2f %s",
-                          static_cast<double>(convertUnit(value, pid.unit, chUnit)),
-                          unitSuffix(chUnit));
-        } else {
-            std::snprintf(decoded, sizeof(decoded), "<decode failed>");
+            float value = 0.0f;
+            if (decodePid(pid, a.payload, a.len, value)) {
+                o += std::snprintf(line + o, sizeof(line) - static_cast<size_t>(o),
+                                   "  %03X %-8s = %8.2f %-4s",
+                                   static_cast<unsigned>(a.canId), hex,
+                                   static_cast<double>(
+                                       convertUnit(value, pid.unit, chUnit)),
+                                   unitSuffix(chUnit));
+            } else {
+                o += std::snprintf(line + o, sizeof(line) - static_cast<size_t>(o),
+                                   "  %03X %-8s = <decode failed>",
+                                   static_cast<unsigned>(a.canId), hex);
+            }
         }
+        if (rsp.responderCount > rsp.recordedResponders) {
+            std::snprintf(line + o, sizeof(line) - static_cast<size_t>(o),
+                          "  (+%u more)",
+                          rsp.responderCount - rsp.recordedResponders);
+        }
+        mailbox_.reply(line);
 
-        mailbox_.replyf("  #%u  <-%03X  %-10s  %-14s %ums%s%s", probeAttempt_,
-                        static_cast<unsigned>(rsp.responderId), hex, decoded,
-                        rsp.latencyMs,
-                        rsp.responderCount > 1 ? "  (2+ ECUs answered)" : "",
-                        rsp.responderConflict ? "  *** THEY DISAGREE ***" : "");
         ++probeOk_;
         probeLatencySum_ += rsp.latencyMs;
+        if (rsp.responderCount > probeMaxResponders_) {
+            probeMaxResponders_ = rsp.responderCount;
+        }
     }
 
     --probeRemaining_;
@@ -327,15 +375,22 @@ void ConsoleExecutor::listStats()
         mailbox_.reply("nothing is being polled");
         return;
     }
-    mailbox_.reply(" key              req    ok  nodata  noresp  t/o  err  conflict"
-                   "   latency ms (min/avg/max)");
+    mailbox_.reply(" key              req    ok  nodata  noresp  t/o  err"
+                   "   latency ms (min/avg/max)   multi-ECU  max spread");
     for (size_t i = 0; i < scheduler_.entryCount(); ++i) {
         const PidDefinition* d = scheduler_.entryDef(i);
         const PidStats* s = scheduler_.stats(d->key);
         if (s == nullptr) {
             continue;
         }
-        mailbox_.replyf(" %-15s %5lu %5lu %7lu %7lu %4lu %4lu %9lu   %5u/%5.0f/%5u",
+        char spread[32] = "         -";
+        if (s->multiResponderSamples > 0) {
+            std::snprintf(spread, sizeof(spread), "%6.2f %s",
+                          static_cast<double>(s->maxResponderSpread),
+                          unitSuffix(channelUnit(d->channel)));
+        }
+        mailbox_.replyf(" %-15s %5lu %5lu %7lu %7lu %4lu %4lu   %5u/%5.0f/%5u"
+                        "   %5lu/%-5lu %s",
                         pidKeyName(d->key),
                         static_cast<unsigned long>(s->requests),
                         static_cast<unsigned long>(s->ok),
@@ -343,10 +398,15 @@ void ConsoleExecutor::listStats()
                         static_cast<unsigned long>(s->noResponder),
                         static_cast<unsigned long>(s->timeouts),
                         static_cast<unsigned long>(s->errors),
-                        static_cast<unsigned long>(s->conflicts),
                         s->ok > 0 ? s->minLatencyMs : 0,
-                        static_cast<double>(s->avgLatencyMs()), s->maxLatencyMs);
+                        static_cast<double>(s->avgLatencyMs()), s->maxLatencyMs,
+                        static_cast<unsigned long>(s->divergentSamples),
+                        static_cast<unsigned long>(s->multiResponderSamples),
+                        spread);
     }
+    mailbox_.reply("multi-ECU = samples whose bytes differed / samples with 2+ "
+                   "responders. Judge by the SPREAD, not the count: a live signal"
+                   " differs in bytes almost every time.");
     mailbox_.replyf("addressing overhead: %lu ATSH/ATCRA commands, %lums total",
                     static_cast<unsigned long>(elm_.prepCommandCount()),
                     static_cast<unsigned long>(elm_.prepOverheadMs()));

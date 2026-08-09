@@ -48,7 +48,7 @@ void obdOnResult(void* ctxPtr, const obd::PidDefinition& pid, const obd::ElmResp
     LOGD(kTag, "%s = %.2f %s  <-%03X %ums%s%s", pid.name,
          static_cast<double>(converted), obd::unitSuffix(chUnit),
          static_cast<unsigned>(rsp.responderId), rsp.latencyMs,
-         rsp.responderConflict ? "  [ECUs DISAGREE]" : "",
+         rsp.responderCount > 1 ? "  (2 ECUs)" : "",
          pid.verified ? "" : "  [UNVERIFIED - confirm against known-good tool]");
 }
 

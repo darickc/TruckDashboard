@@ -59,12 +59,32 @@ struct ElmConfig {
     uint8_t maxResetAttempts = 2;        ///< then go Offline (owner re-does Bluetooth)
 };
 
-/// Outcome of one request, including who answered it.
+/// How many responders' answers are kept verbatim. Three is plenty: this truck
+/// produces two, and the count is reported even when it exceeds this.
+inline constexpr size_t kMaxRecordedResponders = 3;
+
+/// What one ECU said, echo already stripped.
+struct ResponderAnswer {
+    uint16_t canId = 0;
+    uint8_t len = 0;
+    /// Longer payloads are truncated — this copy exists for display and
+    /// comparison, not for decoding. The full first answer is in
+    /// ElmResponse::payload.
+    uint8_t payload[16] = {0};
+};
+
+/// Outcome of one request, including who answered it and what each said.
 ///
 /// A functional (7DF) request is a broadcast: several ECUs may answer the same
-/// PID, in varying order, with values that do not necessarily mean the same
-/// thing. Reporting the responder is what makes an on-truck reading evidence
-/// rather than an anecdote.
+/// PID, in varying order. Reporting every answer is what makes an on-truck
+/// reading evidence rather than an anecdote.
+///
+/// Note what is deliberately NOT here: a verdict. Whether two modules "agree"
+/// cannot be decided from one sample of a continuously varying signal — on this
+/// truck 7E8 and 7E9 both report engine RPM and differ by a count or two on
+/// nearly every request, which means they agree, not that they conflict. The
+/// judgement belongs to whoever can compare DECODED values across several
+/// samples (see PidStats::maxResponderSpread and the console's `probe`).
 struct ElmResponse {
     ElmResult result = ElmResult::Error;
 
@@ -73,10 +93,12 @@ struct ElmResponse {
     const uint8_t* payload = nullptr;
     size_t len = 0;
 
-    uint16_t responderId = 0;      ///< CAN ID that supplied `payload` (0 = headerless)
-    uint8_t responderCount = 0;    ///< distinct ECUs whose answer matched service+PID
-    bool responderConflict = false;///< >=2 responders answered with DIFFERENT bytes
-    uint16_t latencyMs = 0;        ///< request line written -> '>' prompt (saturating)
+    uint16_t responderId = 0;   ///< CAN ID that supplied `payload` (0 = headerless)
+    uint8_t responderCount = 0; ///< ECUs whose answer matched service+PID
+    uint8_t recordedResponders = 0; ///< min(responderCount, kMaxRecordedResponders)
+    ResponderAnswer responders[kMaxRecordedResponders]; ///< in arrival order
+    bool respondersDiffer = false;  ///< a FACT (bytes differ), not a verdict
+    uint16_t latencyMs = 0;         ///< request written -> '>' prompt (saturating)
 };
 
 class ElmClient {
@@ -186,8 +208,9 @@ private:
     bool haveResponse_ = false;
     uint16_t responderId_ = 0;
     uint8_t responderCount_ = 0;
+    uint8_t recordedResponders_ = 0;
+    ResponderAnswer responders_[kMaxRecordedResponders];
     uint8_t wrongResponderCount_ = 0;
-    bool responderConflict_ = false;
     uint32_t requestSentMs_ = 0;
     bool sawNoData_ = false;
     bool sawStopped_ = false;

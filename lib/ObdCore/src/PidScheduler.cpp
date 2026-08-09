@@ -1,10 +1,41 @@
 #include "PidScheduler.h"
 
+#include "Decoders.h"
 #include "Log.h"
+#include "Units.h"
 
 namespace obd {
 
 static const char* kTag = "sched";
+
+namespace {
+
+/// Largest gap between what the responders reported, in channel units.
+///
+/// Decoded, not raw: two modules reporting a 690 rpm idle 30 ms apart differ in
+/// bytes on nearly every sample but by ~1 rpm in meaning. Comparing bytes would
+/// call that a disagreement; comparing values calls it agreement, which is what
+/// it is. Returns 0 when fewer than two answers decode.
+float decodedSpread(const PidDefinition& pid, const ElmResponse& rsp)
+{
+    const Unit chUnit = channelUnit(pid.channel);
+    float lo = 0.0f;
+    float hi = 0.0f;
+    uint8_t decoded = 0;
+    for (uint8_t i = 0; i < rsp.recordedResponders; ++i) {
+        float raw = 0.0f;
+        if (!decodePid(pid, rsp.responders[i].payload, rsp.responders[i].len, raw)) {
+            continue;
+        }
+        const float v = convertUnit(raw, pid.unit, chUnit);
+        if (decoded == 0 || v < lo) lo = v;
+        if (decoded == 0 || v > hi) hi = v;
+        ++decoded;
+    }
+    return decoded >= 2 ? hi - lo : 0.0f;
+}
+
+} // namespace
 
 void PidScheduler::begin(const PidDefinition* table, size_t tableSize,
                          const PidKey* enabledKeys, size_t enabledCount,
@@ -165,8 +196,15 @@ void PidScheduler::onResult(const PidDefinition& pid, const ElmResponse& rsp, ui
 
     PidStats& s = e->stats;
     ++s.requests;
-    if (rsp.responderConflict) {
-        ++s.conflicts;
+    if (rsp.responderCount > 1) {
+        ++s.multiResponderSamples;
+        if (rsp.respondersDiffer) {
+            ++s.divergentSamples;
+        }
+        const float spread = decodedSpread(pid, rsp);
+        if (spread > s.maxResponderSpread) {
+            s.maxResponderSpread = spread;
+        }
     }
     switch (rsp.result) {
     case ElmResult::Ok: break;

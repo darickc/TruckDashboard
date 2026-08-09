@@ -15,6 +15,12 @@ void uiTick(UiContext& ctx)
     const bool connected = ctx.transport->isConnected() && ctx.elm->isReady();
     ctx.warnings->evaluate(snap, connected);
 
+    // Warnings and derived values are updated above whatever the display is
+    // doing — only the rendering is silenceable.
+    if (ctx.enabled != nullptr && !*ctx.enabled) {
+        return;
+    }
+
     DisplaySnapshot ds;
     ds.data = snap;
     ds.warnings = ctx.warnings->state();

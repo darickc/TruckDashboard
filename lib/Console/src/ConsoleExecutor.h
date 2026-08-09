@@ -66,6 +66,7 @@ private:
     uint8_t probeRemaining_ = 0;
     uint8_t probeAttempt_ = 0;
     uint8_t probeOk_ = 0;
+    uint8_t probeMaxResponders_ = 0;
     uint32_t probeLatencySum_ = 0;
     uint32_t probeDeadlineMs_ = 0;
 

@@ -48,6 +48,26 @@ static ElmResponse fail(ElmResult which = ElmResult::Timeout)
     return r;
 }
 
+/// An Ok response where two ECUs each returned a 2-byte payload.
+static ElmResponse twoResponders(uint16_t idA, uint16_t rawA, uint16_t idB,
+                                 uint16_t rawB)
+{
+    ElmResponse r = ok();
+    r.responderCount = 2;
+    r.recordedResponders = 2;
+    r.responders[0].canId = idA;
+    r.responders[0].len = 2;
+    r.responders[0].payload[0] = static_cast<uint8_t>(rawA >> 8);
+    r.responders[0].payload[1] = static_cast<uint8_t>(rawA & 0xFF);
+    r.responders[1].canId = idB;
+    r.responders[1].len = 2;
+    r.responders[1].payload[0] = static_cast<uint8_t>(rawB >> 8);
+    r.responders[1].payload[1] = static_cast<uint8_t>(rawB & 0xFF);
+    r.respondersDiffer = rawA != rawB;
+    r.responderId = idA;
+    return r;
+}
+
 static void test_unverified_header_skipped()
 {
     PidScheduler s;
@@ -254,22 +274,72 @@ static void test_stats_accumulate()
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 60.0f, st->avgLatencyMs());
 }
 
-static void test_stats_count_responder_conflicts()
+static void test_stats_count_multi_responder_samples()
 {
     PidScheduler s;
     const PidKey enabled[] = {PidKey::RpmSae};
     s.begin(kTestTable, kTestTableSize, enabled, 1);
 
-    ElmResponse conflicted = ok();
-    conflicted.responderCount = 2;
-    conflicted.responderConflict = true;
-    s.onResult(kTestTable[0], conflicted, 1000);
-    s.onResult(kTestTable[0], ok(), 1100);
+    s.onResult(kTestTable[0], twoResponders(0x7E9, 0x0AC4, 0x7E8, 0x0AC2), 1000);
+    s.onResult(kTestTable[0], twoResponders(0x7E9, 0x0AC4, 0x7E8, 0x0AC4), 1100);
+    s.onResult(kTestTable[0], ok(), 1200); // single responder
 
     const PidStats* st = s.stats(PidKey::RpmSae);
     TEST_ASSERT_NOT_NULL(st);
-    TEST_ASSERT_EQUAL_UINT32(1, st->conflicts);
-    TEST_ASSERT_EQUAL_UINT32(2, st->ok);
+    TEST_ASSERT_EQUAL_UINT32(2, st->multiResponderSamples);
+    TEST_ASSERT_EQUAL_UINT32(1, st->divergentSamples); // only the first differed
+    TEST_ASSERT_EQUAL_UINT32(3, st->ok);
+}
+
+static void test_spread_is_small_for_the_same_signal_sampled_twice()
+{
+    // The real case from the truck: 7E9=0AC4 -> 689.00 rpm, 7E8=0AC2 -> 688.50.
+    // The bytes differ on nearly every request; the MEANING does not. A spread
+    // of half an rpm at a 690 rpm idle is two modules reading one crank sensor
+    // milliseconds apart, and must not read as a disagreement.
+    PidScheduler s;
+    const PidKey enabled[] = {PidKey::RpmSae};
+    s.begin(kTestTable, kTestTableSize, enabled, 1);
+
+    s.onResult(kTestTable[0], twoResponders(0x7E9, 0x0AC4, 0x7E8, 0x0AC2), 1000);
+    s.onResult(kTestTable[0], twoResponders(0x7E9, 0x0AB8, 0x7E8, 0x0ABA), 1100);
+    s.onResult(kTestTable[0], twoResponders(0x7E9, 0x0AC8, 0x7E8, 0x0AC3), 1200);
+
+    const PidStats* st = s.stats(PidKey::RpmSae);
+    TEST_ASSERT_NOT_NULL(st);
+    TEST_ASSERT_EQUAL_UINT32(3, st->divergentSamples); // bytes differed every time
+    // ...but the largest disagreement in meaning is (0x0AC8-0x0AC3)/4 = 1.25 rpm.
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 1.25f, st->maxResponderSpread);
+}
+
+static void test_spread_is_large_when_modules_mean_different_things()
+{
+    // Two modules answering one DID with unrelated quantities. Same `differ`
+    // flag as above; completely different spread — which is why the spread, not
+    // the flag, is the diagnostic.
+    PidScheduler s;
+    const PidKey enabled[] = {PidKey::RpmSae};
+    s.begin(kTestTable, kTestTableSize, enabled, 1);
+
+    s.onResult(kTestTable[0], twoResponders(0x7E8, 0x0AC4, 0x7E9, 0x0000), 1000);
+
+    const PidStats* st = s.stats(PidKey::RpmSae);
+    TEST_ASSERT_NOT_NULL(st);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 689.0f, st->maxResponderSpread);
+}
+
+static void test_spread_ignored_when_only_one_ecu_answers()
+{
+    PidScheduler s;
+    const PidKey enabled[] = {PidKey::RpmSae};
+    s.begin(kTestTable, kTestTableSize, enabled, 1);
+
+    s.onResult(kTestTable[0], ok(), 1000);
+
+    const PidStats* st = s.stats(PidKey::RpmSae);
+    TEST_ASSERT_NOT_NULL(st);
+    TEST_ASSERT_EQUAL_UINT32(0, st->multiResponderSamples);
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, st->maxResponderSpread);
 }
 
 static void test_stats_absent_for_disabled_pid()
@@ -337,7 +407,10 @@ int main(int, char**)
     RUN_TEST(test_remove_preserves_other_entries);
     RUN_TEST(test_add_rejects_when_full);
     RUN_TEST(test_stats_accumulate);
-    RUN_TEST(test_stats_count_responder_conflicts);
+    RUN_TEST(test_stats_count_multi_responder_samples);
+    RUN_TEST(test_spread_is_small_for_the_same_signal_sampled_twice);
+    RUN_TEST(test_spread_is_large_when_modules_mean_different_things);
+    RUN_TEST(test_spread_ignored_when_only_one_ecu_answers);
     RUN_TEST(test_stats_absent_for_disabled_pid);
     RUN_TEST(test_reset_stats);
     RUN_TEST(test_requested_rate_per_sec);

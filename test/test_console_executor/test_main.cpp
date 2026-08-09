@@ -70,9 +70,14 @@ struct Fixture {
         return c;
     }
 
+    /// Mirrors obdOnResult in src/ObdTask.cpp: the console sees the result
+    /// first, then the scheduler folds it into its statistics. The order
+    /// matters — `probe`'s summary reads the spread back out of the scheduler.
     static void onResult(void* ctx, const PidDefinition& pid, const ElmResponse& rsp)
     {
-        static_cast<Fixture*>(ctx)->exec.onResult(pid, rsp);
+        auto* self = static_cast<Fixture*>(ctx);
+        self->exec.onResult(pid, rsp);
+        self->scheduler.onResult(pid, rsp, MockTransport::s_now);
     }
 
     void boot(const MockTransport::Step* extra, size_t extraCount)
@@ -222,8 +227,7 @@ static void test_probe_reports_responder_value_and_latency()
 
     const char* out = f.run("probe rpmsae 1");
     assertContains(out, "probe RpmSae");
-    assertContains(out, "<-7E8");   // who answered
-    assertContains(out, "1AF8");    // the raw bytes
+    assertContains(out, "7E8 1AF8"); // who answered, and with what
     assertContains(out, "1726.00"); // decoded: 0x1AF8 / 4
     assertContains(out, "rpm");
     assertContains(out, "1/1 ok");
@@ -248,20 +252,50 @@ static void test_probe_repeats_and_summarises()
     TEST_ASSERT_EQUAL_STRING("", f.mock.mismatch().c_str());
 }
 
-static void test_probe_surfaces_two_ecus_disagreeing()
+static void test_probe_shows_every_responder_side_by_side()
 {
     Fixture f;
-    // The exact situation the milestone exists for: both modules answer 221674
-    // with different values, and first-wins would have picked one silently.
+    // The exact situation the milestone exists for: both modules answer 221674,
+    // and first-wins would have picked one silently. Both must appear, decoded,
+    // so the operator can see whether they mean the same thing.
     const MockTransport::Step extra[] = {
         {"221674", "7E805621674" "0A2C\r" "7E905621674" "0000\r\r>", 30},
     };
     f.boot(extra, 1);
+    f.scheduler.add(*findPid(PidKey::TransTemp1), 0);
 
     const char* out = f.run("probe transtemp1 1");
-    assertContains(out, "2+ ECUs answered");
-    assertContains(out, "THEY DISAGREE");
+    assertContains(out, "7E8 0A2C");
+    assertContains(out, "7E9 0000");
+    assertContains(out, "325.50");  // 0x0A2C / 8
+    assertContains(out, "0.00");
+    assertContains(out, "2 ECUs answered");
+    assertContains(out, "max spread");
     assertContains(out, "UNVERIFIED definition");
+}
+
+static void test_probe_reports_a_small_spread_as_agreement()
+{
+    Fixture f;
+    // The RPM case that used to shout RESPONDER CONFLICT on every sample:
+    // 7E9=0AC4 is 689.00 rpm, 7E8=0AC2 is 688.50. The summary must show a spread
+    // of half an rpm, not a warning.
+    const MockTransport::Step extra[] = {
+        {"010C", "7E904410C0AC4\r7E804410C0AC2\r\r>", 30},
+        {"010C", "7E904410C0AB8\r7E804410C0ABA\r\r>", 30},
+    };
+    f.boot(extra, 2);
+    f.scheduler.add(*findPid(PidKey::RpmSae), 0);
+
+    const char* out = f.run("probe rpmsae 2");
+    assertContains(out, "7E9 0AC4");
+    assertContains(out, "689.00");
+    assertContains(out, "7E8 0AC2");
+    assertContains(out, "688.50");
+    assertContains(out, "2 ECUs answered, max spread 0.50 rpm");
+    // Nothing anywhere should call this a conflict.
+    TEST_ASSERT_NULL(std::strstr(out, "DISAGREE"));
+    TEST_ASSERT_NULL(std::strstr(out, "CONFLICT"));
 }
 
 static void test_probe_reports_no_data()
@@ -369,8 +403,7 @@ static void test_hdr_override_makes_a_refused_pid_probeable()
 
     // After: the same PID goes out, on the candidate addressing.
     const char* out = f.run("probe transtemp2 1");
-    assertContains(out, "<-7E9");
-    assertContains(out, "0A2C");
+    assertContains(out, "7E9 0A2C");
     TEST_ASSERT_EQUAL_STRING("", f.mock.mismatch().c_str());
 
     // And it can be taken back.
@@ -413,7 +446,8 @@ int main(int, char**)
     RUN_TEST(test_snap_lists_every_channel);
     RUN_TEST(test_probe_reports_responder_value_and_latency);
     RUN_TEST(test_probe_repeats_and_summarises);
-    RUN_TEST(test_probe_surfaces_two_ecus_disagreeing);
+    RUN_TEST(test_probe_shows_every_responder_side_by_side);
+    RUN_TEST(test_probe_reports_a_small_spread_as_agreement);
     RUN_TEST(test_probe_reports_no_data);
     RUN_TEST(test_probe_refuses_unverified_module_and_says_how_to_proceed);
     RUN_TEST(test_raw_echoes_every_reply_line_verbatim);

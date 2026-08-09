@@ -89,18 +89,30 @@ RX< 7E804410C0AE0
 That is normal for `7DF` — it is a broadcast. What matters is what the firmware
 does with it:
 
-- The CAN ID that supplied the value is reported (`ElmResponse::responderId`),
-  along with how many modules answered. Under raw logging every matching answer
-  is printed with its source, so a verification session records *who said what*.
-- If a second module answers with **different bytes**, `responderConflict` is set
-  and both payloads are logged at WARN. This is the case that matters: for a DID
-  like `22 1674` two modules can answer with different meaning, and picking
-  whichever arrived first would report a race as a fact.
-- By default the first matching answer is used, because "we do not yet know which
-  module owns this DID" is the honest state. Once a session proves ownership,
-  `PidDefinition::expectedResponder` pins the PID to that CAN ID; other modules'
-  frames are then dropped *before* ISO-TP reassembly, and a silent owner yields
-  `NoResponder` rather than looking like a dead PID.
+- **Every** answer is kept, in arrival order, with its CAN ID
+  (`ElmResponse::responders`, up to `kMaxRecordedResponders`; `responderCount`
+  stays honest even beyond that). The first one is the reported value, because
+  "we do not yet know which module owns this DID" is the honest default.
+- `ElmClient` states a fact — `respondersDiffer`, meaning the bytes are not
+  identical — and passes no judgement. That distinction matters:
+
+> **Differing bytes are not a disagreement.** On this truck 7E8 and 7E9 both
+> answer `010C`, and at a 690 rpm idle they return values like `0AC4` (689.00)
+> and `0AC2` (688.50). The bytes differ on nearly every request; the *meaning*
+> does not. It is one crank signal sampled a few milliseconds apart. An earlier
+> build compared bytes and logged `RESPONDER CONFLICT` at WARN roughly once per
+> request — a false alarm that buried everything else on the port.
+
+- The real question — do these modules mean the same thing by this DID? — is
+  answered by **decoded** values across several samples.
+  `PidStats::maxResponderSpread` tracks the largest gap between responders'
+  decoded values in channel units, and the console's `probe` prints every
+  responder side by side. ~1 rpm means agreement; a spread the size of the value
+  means two different quantities.
+- Once a session proves ownership, `PidDefinition::expectedResponder` pins the
+  PID to that CAN ID; other modules' frames are then dropped *before* ISO-TP
+  reassembly, and a silent owner yields `NoResponder` rather than looking like a
+  dead PID.
 
 ## Adapter status lines handled
 

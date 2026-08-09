@@ -32,6 +32,7 @@ struct ParsedCommand {
         Header,    ///< runtime module-addressing override (ATSH/ATCRA candidate)
         LogRaw,    ///< mirror raw OBD traffic
         LogLevel,
+        Display,   ///< pause/resume the text display (it shares this UART)
         Unsafe,    ///< lift the `raw` deny-list for this session
     };
 

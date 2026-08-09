@@ -77,6 +77,7 @@ const char* const kHelp[] = {
     "  raw <text>           send a verbatim line to the adapter",
     "  hdr <module> <tx> [rx]   runtime ATSH/ATCRA candidate for a module",
     "  hdr clear            drop all runtime addressing overrides",
+    "  display on|off       the gauge text shares this port; off while working",
     "  log raw on|off       mirror raw OBD traffic",
     "  log level <0-5>      0=off 1=err 2=warn 3=info 4=debug 5=trace",
     "  unsafe on|off        allow raw write/clear/control services",
@@ -295,6 +296,14 @@ bool parse(size_t argc, const char* const* argv, bool unsafeAllowed,
             return true;
         }
         return fail(err, errCap, "usage: log raw on|off | log level <0-5>");
+    }
+
+    if (equalsIgnoreCase(cmd, "display")) {
+        if (argc < 2 || !parseBool(argv[1], out.flag)) {
+            return fail(err, errCap, "usage: display on|off");
+        }
+        out.kind = ParsedCommand::Kind::Display;
+        return true;
     }
 
     if (equalsIgnoreCase(cmd, "unsafe")) {

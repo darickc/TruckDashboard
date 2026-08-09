@@ -43,7 +43,18 @@ struct PidStats {
     uint32_t noResponder = 0;
     uint32_t timeouts = 0;
     uint32_t errors = 0;
-    uint32_t conflicts = 0;    ///< responses where two ECUs disagreed
+
+    /// Responder observations. `divergentSamples` counts responses where two
+    /// ECUs returned different BYTES, which for a live signal like RPM is nearly
+    /// every sample and means nothing on its own. `maxResponderSpread` is the
+    /// number that actually diagnoses: the largest gap between responders'
+    /// DECODED values, in channel units. ~1 rpm means two modules reporting the
+    /// same signal a few milliseconds apart; a spread the size of the value
+    /// itself means they disagree about what the DID is.
+    uint32_t multiResponderSamples = 0;
+    uint32_t divergentSamples = 0;
+    float maxResponderSpread = 0.0f;
+
     uint32_t latencySumMs = 0; ///< over `ok` responses only
     uint16_t minLatencyMs = 0xFFFF;
     uint16_t maxLatencyMs = 0;

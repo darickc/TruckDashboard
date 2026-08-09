@@ -39,7 +39,9 @@ struct ResultCapture {
     size_t len = 0;
     uint16_t responderId = 0;
     uint8_t responderCount = 0;
-    bool conflict = false;
+    uint8_t recordedResponders = 0;
+    ResponderAnswer responders[kMaxRecordedResponders];
+    bool respondersDiffer = false;
     uint16_t latencyMs = 0;
 
     static void handler(void* ctx, const PidDefinition&, const ElmResponse& rsp)
@@ -50,8 +52,12 @@ struct ResultCapture {
         self->len = rsp.len;
         self->responderId = rsp.responderId;
         self->responderCount = rsp.responderCount;
-        self->conflict = rsp.responderConflict;
+        self->recordedResponders = rsp.recordedResponders;
+        self->respondersDiffer = rsp.respondersDiffer;
         self->latencyMs = rsp.latencyMs;
+        for (uint8_t i = 0; i < rsp.recordedResponders; ++i) {
+            self->responders[i] = rsp.responders[i];
+        }
         if (rsp.payload != nullptr && rsp.len > 0 && rsp.len <= sizeof(self->payload)) {
             std::memcpy(self->payload, rsp.payload, rsp.len);
         }
@@ -302,13 +308,49 @@ static void test_responder_id_and_count_reported()
     pump(elm, mock, 12000);
 
     TEST_ASSERT_EQUAL(ElmResult::Ok, cap.last);
-    TEST_ASSERT_EQUAL_HEX16(0x7E9, cap.responderId); // first to answer wins
+    TEST_ASSERT_EQUAL_HEX16(0x7E9, cap.responderId); // first to answer is reported
     TEST_ASSERT_EQUAL_UINT8(2, cap.responderCount);
-    TEST_ASSERT_FALSE(cap.conflict); // identical bytes: corroboration
+
+    // Both answers are recorded, in arrival order, with their CAN IDs — that is
+    // what lets the console show them side by side.
+    TEST_ASSERT_EQUAL_UINT8(2, cap.recordedResponders);
+    TEST_ASSERT_EQUAL_HEX16(0x7E9, cap.responders[0].canId);
+    TEST_ASSERT_EQUAL_HEX16(0x7E8, cap.responders[1].canId);
+    TEST_ASSERT_EQUAL_UINT8(2, cap.responders[0].len);
+    TEST_ASSERT_EQUAL_HEX8(0x0A, cap.responders[0].payload[0]);
+    TEST_ASSERT_EQUAL_HEX8(0xE0, cap.responders[0].payload[1]);
+    TEST_ASSERT_FALSE(cap.respondersDiffer); // identical bytes
     TEST_ASSERT_EQUAL_STRING("", mock.mismatch().c_str());
 }
 
-static void test_agreeing_responders_not_flagged()
+static void test_more_responders_than_slots_are_counted_not_recorded()
+{
+    MockTransport::s_now = 0;
+    MockTransport mock;
+    ElmClient elm(mock, MockTransport::nowFn, makeConfig());
+    ResultCapture cap;
+    elm.setResultHandler(ResultCapture::handler, &cap);
+
+    // Four ECUs answer. Recording is bounded, but the COUNT must stay honest —
+    // "3 answered" when 4 did would understate how contested the PID is.
+    const MockTransport::Step extra[] = {
+        {"010C",
+         "7E804410C1AF8\r7E904410C1AF8\r7EA04410C1AF8\r7EB04410C1AF8\r\r>", 20},
+    };
+    MockTransport::Step scratch[16];
+    boot(elm, mock, extra, 1, scratch);
+
+    TEST_ASSERT_TRUE(elm.submit(*findPid(PidKey::RpmSae)));
+    pump(elm, mock, 12000);
+
+    TEST_ASSERT_EQUAL(ElmResult::Ok, cap.last);
+    TEST_ASSERT_EQUAL_UINT8(4, cap.responderCount);
+    TEST_ASSERT_EQUAL_UINT8(kMaxRecordedResponders, cap.recordedResponders);
+    TEST_ASSERT_EQUAL_HEX16(0x7E8, cap.responders[0].canId);
+    TEST_ASSERT_EQUAL_HEX16(0x7EA, cap.responders[2].canId);
+}
+
+static void test_identical_responders_do_not_differ()
 {
     MockTransport::s_now = 0;
     MockTransport mock;
@@ -326,10 +368,10 @@ static void test_agreeing_responders_not_flagged()
     pump(elm, mock, 12000);
     TEST_ASSERT_EQUAL(ElmResult::Ok, cap.last);
     TEST_ASSERT_EQUAL_UINT8(2, cap.responderCount);
-    TEST_ASSERT_FALSE(cap.conflict);
+    TEST_ASSERT_FALSE(cap.respondersDiffer);
 }
 
-static void test_conflicting_responders_flagged()
+static void test_differing_responders_are_recorded_not_judged()
 {
     MockTransport::s_now = 0;
     MockTransport mock;
@@ -337,8 +379,10 @@ static void test_conflicting_responders_flagged()
     ResultCapture cap;
     elm.setResultHandler(ResultCapture::handler, &cap);
 
-    // Two modules answer 22 1674 (trans temp) with DIFFERENT values — exactly
-    // the case where first-wins would have silently reported either one.
+    // Two modules answer 22 1674 (trans temp) with different bytes. The client's
+    // job is to hand BOTH up with their sources — deciding whether that is two
+    // views of one signal or two different quantities needs decoded values over
+    // several samples, which is the scheduler's and the console's business.
     const MockTransport::Step extra[] = {
         {"221674", "7E805621674" "0A2C\r" "7E905621674" "0000\r\r>", 20},
     };
@@ -351,8 +395,44 @@ static void test_conflicting_responders_flagged()
     TEST_ASSERT_EQUAL(ElmResult::Ok, cap.last);
     TEST_ASSERT_EQUAL_HEX16(0x7E8, cap.responderId);
     TEST_ASSERT_EQUAL_UINT8(2, cap.responderCount);
-    TEST_ASSERT_TRUE(cap.conflict);
+    TEST_ASSERT_TRUE(cap.respondersDiffer);
+
+    TEST_ASSERT_EQUAL_UINT8(2, cap.recordedResponders);
+    TEST_ASSERT_EQUAL_HEX16(0x7E8, cap.responders[0].canId);
+    TEST_ASSERT_EQUAL_HEX8(0x0A, cap.responders[0].payload[0]);
+    TEST_ASSERT_EQUAL_HEX8(0x2C, cap.responders[0].payload[1]);
+    TEST_ASSERT_EQUAL_HEX16(0x7E9, cap.responders[1].canId);
+    TEST_ASSERT_EQUAL_HEX8(0x00, cap.responders[1].payload[0]);
+    TEST_ASSERT_EQUAL_HEX8(0x00, cap.responders[1].payload[1]);
     TEST_ASSERT_EQUAL_STRING("", mock.mismatch().c_str());
+}
+
+static void test_rpm_sampling_jitter_is_not_treated_as_disagreement()
+{
+    // The case that made the old byte-equality check cry wolf on every request:
+    // 7E9=0AC4 is 689.00 rpm, 7E8=0AC2 is 688.50 rpm. The BYTES differ, which is
+    // all ElmClient can honestly say. Turning that into a verdict needs decoded
+    // values — see test_scheduler's spread tests.
+    MockTransport::s_now = 0;
+    MockTransport mock;
+    ElmClient elm(mock, MockTransport::nowFn, makeConfig());
+    ResultCapture cap;
+    elm.setResultHandler(ResultCapture::handler, &cap);
+
+    const MockTransport::Step extra[] = {
+        {"010C", "7E904410C0AC4\r7E804410C0AC2\r\r>", 20},
+    };
+    MockTransport::Step scratch[16];
+    boot(elm, mock, extra, 1, scratch);
+
+    TEST_ASSERT_TRUE(elm.submit(*findPid(PidKey::RpmSae)));
+    pump(elm, mock, 12000);
+
+    TEST_ASSERT_EQUAL(ElmResult::Ok, cap.last);
+    TEST_ASSERT_TRUE(cap.respondersDiffer); // a fact about the bytes...
+    TEST_ASSERT_EQUAL_UINT8(2, cap.recordedResponders); // ...and both are kept
+    TEST_ASSERT_EQUAL_HEX8(0xC4, cap.responders[0].payload[1]);
+    TEST_ASSERT_EQUAL_HEX8(0xC2, cap.responders[1].payload[1]);
 }
 
 static void test_expected_responder_preferred_when_it_answers_second()
@@ -377,7 +457,9 @@ static void test_expected_responder_preferred_when_it_answers_second()
     TEST_ASSERT_EQUAL(ElmResult::Ok, cap.last);
     TEST_ASSERT_EQUAL_HEX16(0x7E8, cap.responderId);
     TEST_ASSERT_EQUAL_UINT8(1, cap.responderCount); // 7E9 never counted
-    TEST_ASSERT_FALSE(cap.conflict);
+    TEST_ASSERT_EQUAL_UINT8(1, cap.recordedResponders); // nor recorded
+    TEST_ASSERT_EQUAL_HEX16(0x7E8, cap.responders[0].canId);
+    TEST_ASSERT_FALSE(cap.respondersDiffer);
     TEST_ASSERT_EQUAL_UINT(2, cap.len);
     TEST_ASSERT_EQUAL_HEX8(0x0A, cap.payload[0]);
     TEST_ASSERT_EQUAL_HEX8(0x2C, cap.payload[1]);
@@ -680,8 +762,10 @@ int main(int, char**)
     RUN_TEST(test_transport_loss_and_reinit);
     RUN_TEST(test_unverified_header_refused);
     RUN_TEST(test_responder_id_and_count_reported);
-    RUN_TEST(test_agreeing_responders_not_flagged);
-    RUN_TEST(test_conflicting_responders_flagged);
+    RUN_TEST(test_more_responders_than_slots_are_counted_not_recorded);
+    RUN_TEST(test_identical_responders_do_not_differ);
+    RUN_TEST(test_differing_responders_are_recorded_not_judged);
+    RUN_TEST(test_rpm_sampling_jitter_is_not_treated_as_disagreement);
     RUN_TEST(test_expected_responder_preferred_when_it_answers_second);
     RUN_TEST(test_expected_responder_absent_yields_no_responder);
     RUN_TEST(test_pinned_multiframe_survives_interleaving);

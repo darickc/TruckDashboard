@@ -361,16 +361,26 @@ void ElmClient::handleDataLine(const char* line)
     const uint16_t srcId = static_cast<uint16_t>(assembler_.sourceId());
     ++responderCount_;
 
-    // Log every matching answer with its source. This is the line that turns a
-    // verification session into evidence: two ECUs answering 221674 show up
-    // side by side instead of one silently winning the race.
+    // Record what this ECU said, verbatim and in arrival order. Recording rather
+    // than adjudicating is the whole point: two modules answering the same DID
+    // may be reporting the same signal sampled milliseconds apart, or two
+    // entirely different quantities, and only the decoded values across several
+    // samples can tell those apart.
+    if (recordedResponders_ < kMaxRecordedResponders) {
+        ResponderAnswer& a = responders_[recordedResponders_++];
+        a.canId = srcId;
+        a.len = static_cast<uint8_t>(bodyLen > sizeof(a.payload) ? sizeof(a.payload)
+                                                                 : bodyLen);
+        std::memcpy(a.payload, body, a.len);
+    }
+
     if (rawLog_) {
         char hex[2 * sizeof(respBuf_) + 1];
         hexDump(body, bodyLen, hex, sizeof(hex));
         LOGI(kTag, "RSP %s <- %03X : %s", pid->name, static_cast<unsigned>(srcId), hex);
     }
 
-    if (!haveResponse_) { // keep the FIRST matching ECU's answer
+    if (!haveResponse_) { // the FIRST matching ECU's answer is the reported one
         respLen_ = bodyLen;
         std::memcpy(respBuf_, body, respLen_);
         responderId_ = srcId;
@@ -378,23 +388,11 @@ void ElmClient::handleDataLine(const char* line)
         return;
     }
 
-    // A second ECU answered. Same bytes is corroboration; different bytes means
-    // the two modules disagree about what this PID means, and whichever won the
-    // race would have been reported as fact.
-    if (bodyLen != respLen_ || std::memcmp(body, respBuf_, bodyLen) != 0) {
-        responderConflict_ = true;
-        char mine[2 * sizeof(respBuf_) + 1];
-        char theirs[2 * sizeof(respBuf_) + 1];
-        hexDump(respBuf_, respLen_, mine, sizeof(mine));
-        hexDump(body, bodyLen, theirs, sizeof(theirs));
-        LOGW(kTag, "%s: RESPONDER CONFLICT %03X=%s vs %03X=%s — pin "
-                   "expectedResponder once the truck says which module owns it",
-             pid->name, static_cast<unsigned>(responderId_), mine,
-             static_cast<unsigned>(srcId), theirs);
-    } else {
-        LOGD(kTag, "%s: %03X agrees with %03X", pid->name,
-             static_cast<unsigned>(srcId), static_cast<unsigned>(responderId_));
-    }
+    LOGD(kTag, "%s: %03X also answered (%s the first)", pid->name,
+         static_cast<unsigned>(srcId),
+         (bodyLen == respLen_ && std::memcmp(body, respBuf_, bodyLen) == 0)
+             ? "identical to"
+             : "differs from");
 }
 
 void ElmClient::handlePrompt()
@@ -521,8 +519,8 @@ bool ElmClient::submit(const PidDefinition& pid)
     respLen_ = 0;
     responderId_ = 0;
     responderCount_ = 0;
+    recordedResponders_ = 0;
     wrongResponderCount_ = 0;
-    responderConflict_ = false;
     sawNoData_ = false;
     sawStopped_ = false;
     sawError_ = false;
@@ -614,7 +612,16 @@ void ElmClient::finishRequest(ElmResult result)
     ElmResponse rsp;
     rsp.result = result;
     rsp.responderCount = responderCount_;
-    rsp.responderConflict = responderConflict_;
+    rsp.recordedResponders = recordedResponders_;
+    for (uint8_t i = 0; i < recordedResponders_; ++i) {
+        rsp.responders[i] = responders_[i];
+    }
+    for (uint8_t i = 1; i < recordedResponders_ && !rsp.respondersDiffer; ++i) {
+        rsp.respondersDiffer =
+            responders_[i].len != responders_[0].len ||
+            std::memcmp(responders_[i].payload, responders_[0].payload,
+                        responders_[i].len) != 0;
+    }
     if (result == ElmResult::Ok) {
         rsp.payload = respBuf_;
         rsp.len = respLen_;
