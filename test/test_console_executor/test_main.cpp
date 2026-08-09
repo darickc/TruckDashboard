@@ -365,6 +365,45 @@ static void test_raw_invalidates_the_addressing_cache()
     TEST_ASSERT_EQUAL_STRING("", f.mock.mismatch().c_str());
 }
 
+static void test_raw_waits_for_an_idle_adapter_while_polling()
+{
+    Fixture f;
+    // RPM at a 100 ms interval against a 60 ms round trip leaves the adapter
+    // busy nearly all the time — the state the truck is actually in. `raw` used
+    // to look once, see AWAITING and give up, so it could never run at all.
+    const MockTransport::Step extra[] = {
+        {"010C", "7E804410C1AF8\r\r>", 60},
+        {"ATDPN", "6\r\r>", 20},
+    };
+    f.boot(extra, 2);
+    f.scheduler.add(*findPid(PidKey::RpmSae), 0);
+
+    // Get a poll in flight, then submit the raw command mid-request.
+    f.pump(10);
+    TEST_ASSERT_EQUAL(ElmState::AwaitingResponse, f.elm.state());
+
+    const char* out = f.run("raw ATDPN");
+    assertContains(out, "TX> ATDPN");
+    assertContains(out, "  6");
+    TEST_ASSERT_EQUAL_STRING("", f.mock.mismatch().c_str());
+    TEST_ASSERT_TRUE(f.mock.scriptDone());
+}
+
+static void test_raw_gives_up_if_the_adapter_never_goes_idle()
+{
+    Fixture f;
+    const MockTransport::Step extra[] = {
+        {"010C", "", 0}, // adapter goes silent mid-request
+    };
+    f.boot(extra, 1);
+    f.scheduler.add(*findPid(PidKey::RpmSae), 0);
+    f.pump(10);
+
+    // Waiting forever would hang the console; it must say what happened.
+    const char* out = f.run("raw ATDPN", 20000);
+    assertContains(out, "not sent");
+}
+
 static void test_raw_reports_no_reply()
 {
     Fixture f;
@@ -451,6 +490,8 @@ int main(int, char**)
     RUN_TEST(test_probe_reports_no_data);
     RUN_TEST(test_probe_refuses_unverified_module_and_says_how_to_proceed);
     RUN_TEST(test_raw_echoes_every_reply_line_verbatim);
+    RUN_TEST(test_raw_waits_for_an_idle_adapter_while_polling);
+    RUN_TEST(test_raw_gives_up_if_the_adapter_never_goes_idle);
     RUN_TEST(test_raw_invalidates_the_addressing_cache);
     RUN_TEST(test_raw_reports_no_reply);
     RUN_TEST(test_hdr_override_makes_a_refused_pid_probeable);

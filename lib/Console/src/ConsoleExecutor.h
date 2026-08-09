@@ -41,7 +41,7 @@ public:
     bool onResult(const obd::PidDefinition& pid, const obd::ElmResponse& rsp);
 
 private:
-    enum class Phase : uint8_t { Idle, ProbeSubmit, ProbeWait, RawWait };
+    enum class Phase : uint8_t { Idle, ProbeSubmit, ProbeWait, RawSubmit, RawWait };
 
     void runImmediate(const ParsedCommand& cmd);
     void listPids();
@@ -70,7 +70,10 @@ private:
     uint32_t probeLatencySum_ = 0;
     uint32_t probeDeadlineMs_ = 0;
 
-    uint32_t rawDeadlineMs_ = 0;
+    // raw state
+    char rawCmd_[kMaxRawCommand + 1] = {0};
+    uint32_t rawIdleDeadlineMs_ = 0; ///< give up waiting for an idle adapter
+    uint32_t rawDeadlineMs_ = 0;     ///< give up waiting for the reply
     bool sawRawLine_ = false;
 };
 

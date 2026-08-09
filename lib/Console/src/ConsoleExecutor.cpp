@@ -20,6 +20,11 @@ namespace {
 constexpr uint32_t kProbeTimeoutMs = 12000;
 constexpr uint32_t kRawTimeoutMs = 5000;
 
+/// How long to wait for the adapter to finish whatever it is doing before
+/// sending a raw command. One in-flight request plus its recovery ladder; if it
+/// has not gone idle by then, something is wrong and saying so beats hanging.
+constexpr uint32_t kAdapterIdleWaitMs = 8000;
+
 } // namespace
 
 ConsoleExecutor::ConsoleExecutor(ElmClient& elm, PidScheduler& scheduler,
@@ -85,6 +90,38 @@ bool ConsoleExecutor::tick()
         phase_ = Phase::ProbeWait;
         return true;
 
+    case Phase::RawSubmit:
+        // Wait for the adapter the same way a probe does. At a poll rate that
+        // saturates the link there is no instant where it happens to be idle, so
+        // refusing on the first look means `raw` can never run — which is
+        // exactly what it did.
+        if (elm_.state() == ElmState::Offline) {
+            mailbox_.reply("adapter offline — is the truck on and the link up?");
+            mailbox_.finish();
+            phase_ = Phase::Idle;
+            return true;
+        }
+        if (elm_.state() != ElmState::Idle) {
+            if (timeReached(now, rawIdleDeadlineMs_)) {
+                mailbox_.replyf("adapter stuck in %s — command not sent",
+                                elmStateName(elm_.state()));
+                mailbox_.finish();
+                phase_ = Phase::Idle;
+            }
+            return true; // hold the slot; console::busy() keeps polling paused
+        }
+        mailbox_.replyf("TX> %s", rawCmd_);
+        sawRawLine_ = false;
+        if (!elm_.submitRaw(rawCmd_)) {
+            mailbox_.reply("  <refused>");
+            mailbox_.finish();
+            phase_ = Phase::Idle;
+            return true;
+        }
+        rawDeadlineMs_ = now + kRawTimeoutMs;
+        phase_ = Phase::RawWait;
+        return true;
+
     case Phase::RawWait:
         if (!elm_.rawInFlight() || elm_.state() == ElmState::Offline ||
             timeReached(now, rawDeadlineMs_)) {
@@ -145,24 +182,11 @@ bool ConsoleExecutor::tick()
         return true;
     }
 
-    case ParsedCommand::Kind::Raw: {
-        if (elm_.state() != ElmState::Idle) {
-            mailbox_.replyf("adapter is %s — try again in a moment",
-                            elmStateName(elm_.state()));
-            mailbox_.finish();
-            return true;
-        }
-        mailbox_.replyf("TX> %s", req.cmd.text);
-        sawRawLine_ = false;
-        if (!elm_.submitRaw(req.cmd.text)) {
-            mailbox_.reply("  <refused>");
-            mailbox_.finish();
-            return true;
-        }
-        rawDeadlineMs_ = now + kRawTimeoutMs;
-        phase_ = Phase::RawWait;
+    case ParsedCommand::Kind::Raw:
+        std::snprintf(rawCmd_, sizeof(rawCmd_), "%s", req.cmd.text);
+        rawIdleDeadlineMs_ = now + kAdapterIdleWaitMs;
+        phase_ = Phase::RawSubmit;
         return true;
-    }
 
     default:
         runImmediate(req.cmd);
