@@ -1,0 +1,10 @@
+{
+    "name": "ObdCore",
+    "version": "0.1.0",
+    "description": "Platform-independent OBD/ELM327 protocol stack, PID scheduler, vehicle data model, derived values and warnings. No Arduino.h — testable natively.",
+    "frameworks": "*",
+    "platforms": "*",
+    "dependencies": [
+        { "name": "Log" }
+    ]
+}

@@ -1,0 +1,7 @@
+{
+    "name": "Log",
+    "version": "0.1.0",
+    "description": "Header-only leveled logger. Serial.printf under Arduino, stdio natively.",
+    "frameworks": "*",
+    "platforms": "*"
+}
