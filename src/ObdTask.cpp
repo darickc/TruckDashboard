@@ -14,7 +14,16 @@ void obdOnResult(void* ctxPtr, const obd::PidDefinition& pid, const obd::ElmResp
     auto* ctx = static_cast<ObdTaskContext*>(ctxPtr);
     const uint32_t now = millis();
 
+    // A probe reports its own per-attempt line to the console. The value still
+    // flows into VehicleData below — a probe is a real reading, not a dry run.
+    const bool probed = ctx->console != nullptr && ctx->console->onResult(pid, rsp);
+
     if (rsp.result != obd::ElmResult::Ok) {
+        if (probed) {
+            ctx->scheduler->onResult(pid, rsp, now);
+            ctx->data->markError(pid.channel);
+            return;
+        }
         LOGW(kTag, "%s: %s", pid.name, obd::elmResultName(rsp.result));
         ctx->scheduler->onResult(pid, rsp, now);
         ctx->data->markError(pid.channel);
@@ -78,9 +87,14 @@ void obdTaskFn(void* param)
 
         // --- Normal operation ---------------------------------------------
         ctx.elm->tick();
-        if (ctx.elm->state() == obd::ElmState::Idle) {
-            if (const obd::PidDefinition* pid = ctx.scheduler->next(millis())) {
-                ctx.elm->submit(*pid);
+        if (ctx.elm->state() == obd::ElmState::Idle || ctx.console->busy()) {
+            // A typed command takes the next request slot: during a
+            // verification session the operator's question matters more than
+            // keeping the poll rotation on schedule.
+            if (!ctx.console->tick() && ctx.elm->state() == obd::ElmState::Idle) {
+                if (const obd::PidDefinition* pid = ctx.scheduler->next(millis())) {
+                    ctx.elm->submit(*pid);
+                }
             }
         }
         vTaskDelay(pdMS_TO_TICKS(2)); // yield; keeps the idle task fed (TWDT)

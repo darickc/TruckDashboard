@@ -23,7 +23,10 @@ with Apple clang and Unity; Arduino-dependent libs are excluded.
 | `test_scheduler` | due/priority selection, interval independence, failure→exponential backoff→recovery, unverified-header refusal, `millis()` wraparound |
 | `test_vehicle_data` | set/snapshot, freshness windows, never-valid channels, error counting, derived values (delta, boost = MAP − baro), derived values refusing stale/missing inputs, lock-hook balance |
 | `test_warnings` | Normal→Caution→Critical escalation, hysteresis (no flapping at a threshold), low-side rules (FICM), stale channels report Stale (old data is never judged), connection flag |
-| `test_elm_client` | the full state machine over a scripted transport: init sequence order, request happy path (echo strip, payload delivery), NO DATA, STOPPED, negative response (`7F`), timeout → CR recovery → Idle, transport loss mid-request → Offline → clean re-init, refusal of unverified-header PIDs, no-double-submit |
+| `test_elm_client` | the full state machine over a scripted transport: init sequence order, request happy path (echo strip, payload delivery), NO DATA, STOPPED, negative response (`7F`), timeout → CR recovery → Idle, transport loss mid-request → Offline → clean re-init, refusal of unverified-header PIDs, no-double-submit. Plus responder identity (id/count reported, agreement vs conflict, pinned responder preferred even when it answers second, `NoResponder` when it stays silent, pinned multi-frame surviving interleaving), latency measurement, ATSH/ATCRA sequencing, the ATZ addressing-cache regression, and the response-count digit |
+| `test_pid_defs` | table invariants that otherwise live only in comments: no duplicate `PidKey`, every row resolvable, decode widths, service/DID shape, every `kEnabledPids` entry present, `expectedResponder` inside 7E8..7EF, `expectedResponses` never on a functional header, `Pcm`/`Tcm`/`Abs` still unverified by default, and the runtime addressing-override lifecycle |
+| `test_console` | line reading (CR/LF/CRLF, backspace, overflow discarding the whole line), tokenization (extra whitespace, tabs, argument-count truncation reported), scalar parsing (`5x` rejected rather than half-parsed), PID resolution by index/key/short name, the whole command grammar with its error messages, the `raw` deny-list and the `unsafe on` gate, and the mailbox handshake (post-while-busy, reply cleared between commands, truncation announced) |
+| `test_console_executor` | the console driving a real `ElmClient` over `MockTransport`: `probe` reporting responder/value/latency and surfacing two ECUs disagreeing, `probe` refusing an unverified module and saying how to proceed, `raw` echoing reply lines verbatim and invalidating the addressing cache, `hdr` making a refused PID probeable with a candidate header, and a typed command preempting the poll rotation |
 
 ## MockTransport
 
@@ -41,8 +44,18 @@ static const MockTransport::Step steps[] = {
 
 Time is virtual (`MockTransport::nowFn` is injected into `ElmClient`), so
 timeout tests take milliseconds of wall clock. `dropLink()` simulates the SPP
-connection dying. Any unexpected or mismatched write is recorded and asserted
-against — the scripts double as a golden log of exactly what the firmware sends.
+connection dying. `injectLater(data, inMs)` pushes bytes in off-script, which is
+how a straggler ECU reply landing mid-way through the *next* request gets
+modelled. Any unexpected or mismatched write is recorded and asserted against —
+the scripts double as a golden log of exactly what the firmware sends, so
+"did NOT send an ATSH" is as assertable as "did".
+
+Multiple ECUs answering one request are just several `\r`-separated lines in a
+single `response` string, in whatever order the truck produced them:
+
+```cpp
+{"010C", "7E904410C0AE0\r7E804410C0AE0\r\r>", 20},   // 7E9 first, as on the truck
+```
 
 To replay a new scenario (e.g. a weird response captured from the truck), paste
 the raw lines into a script's `response` string — `\r` separators, `>` for

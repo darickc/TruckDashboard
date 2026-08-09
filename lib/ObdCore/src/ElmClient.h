@@ -54,6 +54,7 @@ struct ElmConfig {
     uint32_t initTimeoutMs = 2000;       ///< per init command
     uint32_t firstDataTimeoutMs = 10000; ///< first request triggers protocol SEARCHING
     uint32_t recoveryTimeoutMs = 2000;
+    uint32_t rawTimeoutMs = 3000;        ///< console `raw` (ATZ needs headroom)
     uint8_t maxConsecutiveTimeouts = 3;  ///< then escalate to full ATZ re-init
     uint8_t maxResetAttempts = 2;        ///< then go Offline (owner re-does Bluetooth)
 };
@@ -97,7 +98,24 @@ public:
     /// Submit a PID request. Only valid in Idle. Returns acceptance.
     bool submit(const PidDefinition& pid);
 
+    /// Send a verbatim line to the adapter and hand every reply line to the raw
+    /// handler unparsed, until the '>' prompt. Only valid in Idle.
+    ///
+    /// This is the console's `raw` command: the way to try ATSH/ATCRA/ATDPN
+    /// candidates on the truck without a reflash. Because such a command may
+    /// have changed the adapter's addressing (ATZ, ATSH, ATCRA, ATSP), the
+    /// cached header and filter are invalidated unconditionally afterwards —
+    /// one redundant ATSH is far cheaper than a desynced cache quietly
+    /// mislabelling the next hour of readings.
+    bool submitRaw(const char* cmd);
+
+    /// True while a submitRaw() is still collecting reply lines.
+    bool rawInFlight() const { return rawMode_; }
+
     void setResultHandler(ResultHandler handler, void* ctx);
+
+    using RawLineHandler = void (*)(void* ctx, const char* line);
+    void setRawLineHandler(RawLineHandler handler, void* ctx);
 
     /// Mirror every raw TX/RX line at INFO level (for on-truck PID
     /// verification). Otherwise raw traffic logs at TRACE.
@@ -128,7 +146,8 @@ private:
     void sendNextPrepCommand();
     void finishRequest(ElmResult result);
     void escalateOrReset();
-    void invalidateAddressingCache();
+    void resetAddressingCacheToDefaults();
+    void markAddressingUnknown();
 
     IObdTransport& transport_;
     TimeFn now_;
@@ -154,8 +173,9 @@ private:
     uint32_t prepStartMs_ = 0;
 
     // Cached adapter addressing state. Only valid while the adapter has not
-    // been reset — ATZ reverts both, so invalidateAddressingCache() must run
-    // on every reset path or we would silently talk on the wrong header.
+    // been reset or driven by a raw command — see resetAddressingCacheToDefaults()
+    // (ATZ) and markAddressingUnknown() (raw), one of which must run on every
+    // such path or we would silently talk on the wrong header.
     char currentHeader_[12] = {0};
     char currentFilter_[12] = {0};
 
@@ -176,6 +196,10 @@ private:
 
     uint32_t prepOverheadMs_ = 0;
     uint32_t prepCommandCount_ = 0;
+
+    bool rawMode_ = false;
+    RawLineHandler rawHandler_ = nullptr;
+    void* rawHandlerCtx_ = nullptr;
 
     uint8_t consecutiveTimeouts_ = 0;
     char lastSent_[24] = {0};

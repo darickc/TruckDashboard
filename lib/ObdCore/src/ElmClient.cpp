@@ -61,6 +61,33 @@ void ElmClient::setResultHandler(ResultHandler handler, void* ctx)
     handlerCtx_ = ctx;
 }
 
+void ElmClient::setRawLineHandler(RawLineHandler handler, void* ctx)
+{
+    rawHandler_ = handler;
+    rawHandlerCtx_ = ctx;
+}
+
+bool ElmClient::submitRaw(const char* cmd)
+{
+    if (state() != ElmState::Idle || cmd == nullptr || cmd[0] == '\0') {
+        return false;
+    }
+    currentPid_ = nullptr;
+    prepCount_ = 0;
+    prepIndex_ = 0;
+    haveResponse_ = false;
+    respLen_ = 0;
+    sawNoData_ = false;
+    sawStopped_ = false;
+    sawError_ = false;
+    assembler_.reset();
+    rawMode_ = true;
+    setState(ElmState::AwaitingResponse);
+    sendLine(cmd);
+    deadlineMs_ = now_() + cfg_.rawTimeoutMs;
+    return true;
+}
+
 bool ElmClient::isReady() const
 {
     const ElmState s = state();
@@ -90,7 +117,7 @@ void ElmClient::begin()
     startReset();
 }
 
-void ElmClient::invalidateAddressingCache()
+void ElmClient::resetAddressingCacheToDefaults()
 {
     // ATZ restores the adapter's default CAN functional header (7DF) and drops
     // any receive filter. This MUST run on every reset path — the recovery
@@ -101,9 +128,21 @@ void ElmClient::invalidateAddressingCache()
     currentFilter_[0] = '\0';
 }
 
+void ElmClient::markAddressingUnknown()
+{
+    // After a raw command we know only that the adapter's addressing MAY have
+    // changed — `raw ATSH 7E0` leaves it on 7E0, not on the ATZ default. Saying
+    // "it is 7DF" here would be a guess, and a wrong one; the honest state is
+    // "unknown", encoded as a sentinel no real header or filter can equal, so
+    // the next request re-establishes both explicitly. Costs one ATSH and one
+    // ATCRA, once.
+    std::snprintf(currentHeader_, sizeof(currentHeader_), "?");
+    std::snprintf(currentFilter_, sizeof(currentFilter_), "?");
+}
+
 void ElmClient::onTransportLost()
 {
-    if (currentPid_ != nullptr) {
+    if (currentPid_ != nullptr || rawMode_) {
         finishRequest(ElmResult::Timeout);
     }
     acc_.clear();
@@ -113,7 +152,7 @@ void ElmClient::onTransportLost()
 
 void ElmClient::startReset()
 {
-    invalidateAddressingCache();
+    resetAddressingCacheToDefaults();
     prepCount_ = 0;
     prepIndex_ = 0;
     setState(ElmState::Resetting);
@@ -174,6 +213,15 @@ void ElmClient::handleLine(const char* line)
     // Echo suppression: before ATE0 takes effect the adapter repeats every
     // command back. A line identical to what we last sent is never data.
     if (lastSent_[0] != '\0' && std::strcmp(line, lastSent_) == 0) {
+        return;
+    }
+
+    // Raw passthrough: the operator asked for exactly what the adapter said,
+    // so no classification, no echo validation, no interpretation.
+    if (rawMode_ && state() == ElmState::AwaitingResponse) {
+        if (rawHandler_ != nullptr) {
+            rawHandler_(rawHandlerCtx_, line);
+        }
         return;
     }
 
@@ -394,6 +442,10 @@ void ElmClient::handlePrompt()
         break;
 
     case ElmState::AwaitingResponse:
+        if (rawMode_) {
+            finishRequest(ElmResult::Ok); // no PID: just returns to Idle
+            break;
+        }
         if (prepIndex_ < prepCount_) {
             if (sawError_) {
                 LOGW(kTag, "addressing command '%s' rejected", prepCmds_[prepIndex_]);
@@ -541,6 +593,12 @@ void ElmClient::finishRequest(ElmResult result)
     currentPid_ = nullptr;
     prepCount_ = 0;
     prepIndex_ = 0;
+    if (rawMode_) {
+        // A raw command may have been ATZ/ATSH/ATCRA/ATSP. Assume it changed the
+        // adapter's addressing and make the next request re-establish it.
+        rawMode_ = false;
+        markAddressingUnknown();
+    }
     if (state() == ElmState::AwaitingResponse) {
         setState(ElmState::Idle);
         deadlineMs_ = now_() + cfg_.recoveryTimeoutMs; // benign idle deadline

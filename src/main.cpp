@@ -13,12 +13,16 @@
 #include <Arduino.h>
 
 #include "BtSppTransport.h"
+#include "CommandMailbox.h"
 #include "Config.h"
+#include "ConsoleExecutor.h"
+#include "ConsoleHost.h"
 #include "ElmClient.h"
 #include "Log.h"
 #include "ObdTask.h"
 #include "PidScheduler.h"
 #include "SerialDisplay.h"
+#include "TimeSource.h"
 #include "UiTask.h"
 #include "VehicleData.h"
 #include "Warnings.h"
@@ -49,7 +53,15 @@ static obd::PidScheduler g_scheduler;
 static obd::WarningManager g_warnings;
 static SerialDisplay g_display(config::kDisplayIntervalMs);
 
-static ObdTaskContext g_obdCtx{&g_transport, &g_elm, &g_scheduler, &g_vehicleData};
+// Console: the operator types on loopTask, the OBD task executes. The mailbox
+// is the only thing the two share.
+static console::CommandMailbox g_mailbox;
+static console::ConsoleExecutor g_console(g_elm, g_scheduler, g_vehicleData,
+                                          g_mailbox, nowMs);
+static ConsoleContext g_consoleCtx{&g_mailbox, {}, false, false};
+
+static ObdTaskContext g_obdCtx{&g_transport, &g_elm, &g_scheduler, &g_vehicleData,
+                               &g_console};
 static UiContext g_uiCtx{&g_vehicleData, &g_warnings, &g_display, &g_elm, &g_transport};
 
 // VehicleData lock hooks: one FreeRTOS mutex.
@@ -79,6 +91,7 @@ void setup()
 
     g_elm.setResultHandler(obdOnResult, &g_obdCtx);
     g_elm.setRawLogging(config::kLogRawObdTraffic);
+    g_console.begin();
 
     if (!g_transport.begin()) {
         LOGE("main", "Bluetooth failed to start — rebooting in 5 s");
@@ -92,6 +105,16 @@ void setup()
 
 void loop()
 {
-    uiTick(g_uiCtx);
-    vTaskDelay(pdMS_TO_TICKS(config::kUiTickMs));
+    // Serial is polled every 10 ms so typing feels immediate, while the UI keeps
+    // its own (much slower) cadence rather than being dragged along with it.
+    static uint32_t nextUiMs = 0;
+
+    consoleTick(g_consoleCtx);
+
+    const uint32_t now = millis();
+    if (obd::timeReached(now, nextUiMs)) {
+        uiTick(g_uiCtx);
+        nextUiMs = now + config::kUiTickMs;
+    }
+    vTaskDelay(pdMS_TO_TICKS(10));
 }

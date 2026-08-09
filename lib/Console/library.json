@@ -1,0 +1,11 @@
+{
+    "name": "Console",
+    "version": "0.1.0",
+    "description": "Platform-independent serial console: line tokenizer, command grammar and a single-slot mailbox for handing commands to the OBD task. No Arduino.h — testable natively.",
+    "frameworks": "*",
+    "platforms": "*",
+    "dependencies": [
+        { "name": "Log" },
+        { "name": "ObdCore" }
+    ]
+}

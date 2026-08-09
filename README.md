@@ -16,23 +16,40 @@ on a priority scheduler, maintains a central vehicle-data model with per-value
 freshness, computes derived values (boost, ECT/EOT delta) and warnings, and renders
 gauge pages — currently to USB Serial, later to a 1.75" round 466×466 AMOLED.
 
-## Current status — Milestone 1
+## Current status — Milestone 2 (tooling done, truck session next)
 
 **Working now:**
 - Builds for ESP32-WROOM-32 with PlatformIO (Arduino framework, C++17)
-- Bluetooth Classic startup, connect to the MX+ by name (or MAC), auto-reconnect
+- Bluetooth Classic startup, connect to the MX+ by MAC (or name), auto-reconnect
   with exponential backoff
 - Full ELM init (`ATZ`, `ATE0`, `ATL0`, `ATS0`, `ATH1`, `ATAT1`, `ATSP0` — configurable)
 - Non-blocking request/response engine: `>`-prompt lifecycle, timeouts, retries,
   `NO DATA`/`STOPPED`/negative-response handling, ISO-TP reassembly, recovery ladder
 - Verified generic PID polling: **engine RPM** (`01 0C`) decoded and printed
   (`RPM: 1726`) — plus baro (`01 33`) for future boost calculation
-- Vehicle data model, PID scheduler, warning manager, derived values, Serial
-  "display", 55 host-side unit tests
+- **Responder identity**: two ECUs answer every functional request on this truck,
+  so every result carries the CAN ID that supplied it, and modules answering the
+  same PID with *different* values are flagged instead of silently raced
+- **[Interactive serial console](docs/CONSOLE.md)**: `pids`, `on`/`off`,
+  `probe <pid> [n]`, `raw`, `hdr`, `snap`, `stats` — verify a PID or try an ATSH
+  candidate without a reflash. Write/clear/control services are refused unless
+  `unsafe on` is typed
+- Vehicle data model, PID scheduler with per-PID stats and a throughput-budget
+  warning, warning manager, derived values, Serial "display",
+  **130 host-side unit tests**
 
 **Scaffolded, not yet verified on the truck:** all Ford enhanced PIDs (EOT, FICM,
 ICP, IPR, VGT, MAP, EBP, trans temp, gear, battery) — definitions imported from a
-Torque Pro export, disabled by default. See [docs/FORD_6_0_PIDS.md](docs/FORD_6_0_PIDS.md).
+Torque Pro export, disabled by default. The tooling to verify them now exists;
+the session itself is next. See [docs/FORD_6_0_PIDS.md](docs/FORD_6_0_PIDS.md)
+for the procedure and [docs/VERIFICATION_LOG.md](docs/VERIFICATION_LOG.md) for
+where the evidence goes.
+
+**Known:** the measured Bluetooth round trip is ~96 ms (~10 requests/s), not the
+30–60 ms originally assumed. The PID table's poll intervals ask for far more than
+that once the Ford PIDs are on; the scheduler degrades by priority and now says
+so out loud. Rebalancing is a job for after the throughput experiments — see
+[docs/OBD_PROTOCOL.md](docs/OBD_PROTOCOL.md#throughput-budget).
 
 ## Hardware
 
@@ -115,11 +132,18 @@ Everything tunable is in [include/Config.h](include/Config.h):
    [lib/ObdCore/src/PidDefs.cpp](lib/ObdCore/src/PidDefs.cpp).
 2. Add a `PidKey` enum value ([PidDefs.h](lib/ObdCore/src/PidDefs.h)) and, if it's a
    new physical quantity, a `ChannelId` + metadata row.
-3. Add the table row in `PidDefs.cpp` with `verified=false`.
-4. Enable it in `Config.h` `kEnabledPids`, set `kLogRawObdTraffic = true`.
-5. On the truck, compare the decoded value against a known-good tool (Torque/
-   FORScan). When it matches, flip `verified=true` and update
-   [docs/FORD_6_0_PIDS.md](docs/FORD_6_0_PIDS.md).
+3. Add the table row in `PidDefs.cpp` with `verified=false`,
+   `expectedResponder=0` and `expectedResponses=0`.
+4. Flash once. From then on use the [console](docs/CONSOLE.md) — no reflash per
+   PID: `log raw on`, then `probe <pid> 10`.
+5. Compare against an independent reference. Note that Torque uses the same
+   definitions imported here, so agreeing with it proves the transport works,
+   not that the scaling is right — prefer a multimeter, a cross-check against a
+   verified SAE PID, or a distinctive expected value.
+6. Record the evidence in [docs/VERIFICATION_LOG.md](docs/VERIFICATION_LOG.md),
+   flip `verified=true`, and update [docs/FORD_6_0_PIDS.md](docs/FORD_6_0_PIDS.md).
+   If two ECUs answered with different values, pin `expectedResponder` to the one
+   that proved to own the DID.
 
 Details: [docs/TORQUE_PID_IMPORT.md](docs/TORQUE_PID_IMPORT.md).
 
@@ -166,6 +190,7 @@ hard when the ignition is off or it will drain the batteries.
 include/Config.h        all user configuration
 src/                    main.cpp + ObdTask + UiTask (wiring only)
 lib/ObdCore/            platform-independent protocol stack (unit-tested natively)
+lib/Console/            serial console: parser, grammar, task mailbox, executor
 lib/ObdBt/              Bluetooth Classic SPP transport
 lib/Display/            IDisplay abstraction + SerialDisplay debug renderer
 lib/Telemetry/          future ESP-NOW packet + stub

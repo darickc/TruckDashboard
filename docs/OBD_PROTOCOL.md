@@ -73,9 +73,34 @@ ID   SF,          1A F8 = payload → (0x1A·256+0xF8)/4 = 1726 rpm
   functional (7DF) query can make several ECUs answer interleaved. Single frames
   complete immediately.
 - The positive-response echo (`41 xx` / `62 xx xx`) is validated against the
-  in-flight request and stripped; decoders see pure payload. The **first**
-  matching ECU's answer wins; others are ignored.
+  in-flight request and stripped; decoders see pure payload.
 - `7F <svc> <NRC>` negative responses are surfaced as errors with the NRC logged.
+
+### Several ECUs answering one request
+
+On this truck **two modules answer every functional request**, in varying order:
+
+```
+TX> 010C
+RX< 7E904410C0AE0
+RX< 7E804410C0AE0
+```
+
+That is normal for `7DF` — it is a broadcast. What matters is what the firmware
+does with it:
+
+- The CAN ID that supplied the value is reported (`ElmResponse::responderId`),
+  along with how many modules answered. Under raw logging every matching answer
+  is printed with its source, so a verification session records *who said what*.
+- If a second module answers with **different bytes**, `responderConflict` is set
+  and both payloads are logged at WARN. This is the case that matters: for a DID
+  like `22 1674` two modules can answer with different meaning, and picking
+  whichever arrived first would report a race as a fact.
+- By default the first matching answer is used, because "we do not yet know which
+  module owns this DID" is the honest state. Once a session proves ownership,
+  `PidDefinition::expectedResponder` pins the PID to that CAN ID; other modules'
+  frames are then dropped *before* ISO-TP reassembly, and a silent owner yields
+  `NoResponder` rather than looking like a dead PID.
 
 ## Adapter status lines handled
 
@@ -96,8 +121,29 @@ ID   SF,          1A F8 = payload → (0x1A·256+0xF8)/4 = 1726 rpm
 
 ## Throughput budget
 
-One Bluetooth round trip is ~30–60 ms ⇒ **~10–15 requests/s total**. Poll
-intervals in the PID table are *targets*; the scheduler's priority field decides
-who wins when oversubscribed (RPM/MAP = 0 … battery/baro = 4–5). Raw-traffic
-logging (`kLogRawObdTraffic`) costs real throughput — turn it off when not
-verifying PIDs.
+**Measured on the truck: ~96 ms per round trip ⇒ ~10 requests/s.** From the log,
+a `010C` written at t=89607 ms saw its `>` prompt at t=89703 ms, with both ECU
+replies arriving at 89625 and 89655 — most of the time is the adapter waiting out
+its P2 timeout for stragglers, not the Bluetooth link.
+
+That figure lives in `config::kMeasuredRequestsPerSec`. Poll intervals in the PID
+table are *targets* spent from it; the scheduler's priority field decides who
+wins when oversubscribed (RPM/MAP = 0 … battery/baro = 4–5), and it now logs a
+warning when the enabled set asks for more than 80 % of the budget. A table that
+promises 10 Hz while delivering 2 Hz is a lie told to the driver — measure with
+the console's `stats`, then set the intervals to what the link can actually do.
+
+Two levers, to be tried in this order (see [CONSOLE.md](CONSOLE.md)):
+
+1. **Physical addressing** (`ATSH 7E0` instead of `7DF`) so only one module
+   answers. On 11-bit CAN the ELM derives the expected response ID from ATSH on
+   its own, so `ATCRA` is opt-in and only needed if something still gets through.
+2. **The response-count digit** (`010C1`, `2213101`), which makes the adapter
+   return as soon as N replies arrive. Only safe *with* physical addressing:
+   on `7DF`, asking for fewer responses than the bus produces leaves a straggler
+   to land mid-way through the next request and desync the adapter (`STOPPED`).
+   The firmware enforces this — `expectedResponses` must be 0 on a functional
+   header, asserted over the whole table in `test_pid_defs`.
+
+Raw-traffic logging (`kLogRawObdTraffic`) costs real throughput — turn it off
+when not verifying PIDs (`log raw off` does it without a reflash).

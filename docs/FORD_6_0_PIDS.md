@@ -68,15 +68,31 @@ until filled in (in `moduleAtshHeader()`, `PidDefs.cpp`):
 
 ### Verification procedure (bench/driveway, engine running)
 
-1. In `Config.h`: enable exactly one candidate PID, set `kLogRawObdTraffic = true`.
-2. Flash, watch the monitor: every `TX>` / `RX<` line is printed.
-3. Compare the decoded value against Torque/FORScan on a phone **(one at a time —
-   the MX+ only accepts one Bluetooth master)**.
+Run it from the [serial console](CONSOLE.md) — no reflash per PID.
+
+1. `pio run -e esp32dev -t upload && pio device monitor`, then `log raw on`.
+2. `probe <pid> 10`. Each attempt prints **which CAN ID answered**, the raw
+   payload, the decoded value and the latency. Two modules answering is flagged;
+   two modules *disagreeing* is flagged loudly.
+3. Compare against an independent reference. In descending order of strength:
+   - a multimeter (battery voltage) — independent of the whole OBD stack;
+   - agreement with an already-verified SAE PID (MAP vs `0133` baro at idle,
+     EOT vs `0105` ECT on a cold engine);
+   - physical plausibility with the reasoning written down (FICM ≈ 48 V running,
+     ICP ≈ 500–600 psi at warm idle);
+   - Torque/FORScan on a phone **(one at a time — the MX+ accepts a single
+     Bluetooth master)**. Note that Torque uses the same definitions imported
+     here, so agreement proves the transport works, not that the definition is
+     right. It is a sanity check, not the reference.
 4. If the response is `NO DATA` on the functional header, the DID may need
-   physical addressing. Documented next step: try `ATSH 7E0` (+ `ATCRA 7E8`) for
-   the PCM and re-request — as an experiment, not an assumption.
-5. When the value tracks the reference tool, set `verified=true` in
-   `PidDefs.cpp` and update this table.
+   physical addressing. Try a candidate — as an experiment, not an assumption:
+   `hdr pcm 7E0` (add `7E8` as a filter only if something else still answers),
+   then `probe` again. `hdr clear` takes it back; overrides die on reboot.
+5. When the value holds up, record the evidence in
+   [VERIFICATION_LOG.md](VERIFICATION_LOG.md), set `verified=true` in
+   `PidDefs.cpp`, and update this table's Verified column with the date.
+6. If two modules answered with different values, also set `expectedResponder`
+   to the CAN ID that proved to own the DID — otherwise the reading is a race.
 
 ## Not available from the PCM at all
 

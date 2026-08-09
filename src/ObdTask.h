@@ -5,6 +5,7 @@
 //   decode -> VehicleData. Reconnects forever on any loss.
 
 #include "BtSppTransport.h"
+#include "ConsoleExecutor.h"
 #include "ElmClient.h"
 #include "PidScheduler.h"
 #include "VehicleData.h"
@@ -14,6 +15,7 @@ struct ObdTaskContext {
     obd::ElmClient* elm;
     obd::PidScheduler* scheduler;
     obd::VehicleData* data;
+    console::ConsoleExecutor* console;
 };
 
 /// Spawn the OBD FreeRTOS task. `ctx` must outlive the task (file-scope).
