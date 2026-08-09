@@ -1,0 +1,10 @@
+{
+    "name": "Sensors",
+    "version": "0.1.0",
+    "description": "Future external analog sensor inputs (EGT thermocouple, low-pressure fuel transducer). Interface stub only.",
+    "frameworks": ["arduino"],
+    "platforms": ["espressif32"],
+    "dependencies": [
+        { "name": "ObdCore" }
+    ]
+}
