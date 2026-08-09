@@ -28,15 +28,19 @@ inline constexpr bool kLogRawObdTraffic = true;
 /// Name this ESP32 advertises.
 inline constexpr char kBtLocalName[] = "TruckDash";
 
-/// The adapter's advertised Bluetooth name. Check your adapter — "OBDLink MX+"
-/// is typical but not guaranteed.
+/// Discovery fallback ONLY — used when kUseObdMac is false. BluetoothSerial
+/// matches this against the advertised name exactly, and MX+ units advertise
+/// with a serial-number suffix, so the generic "OBDLink MX+" will not match.
 inline constexpr char kObdDeviceName[] = "OBDLink MX+ 15326";
 
 /// Connecting by MAC skips the (slow, ~10-30 s) discovery scan. After the
 /// first successful connect-by-name the firmware logs the adapter's MAC —
 /// paste it here and set kUseObdMac = true.
-inline constexpr bool kUseObdMac = false;
-inline constexpr uint8_t kObdMac[6] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+/// Set false to fall back to discovery by kObdDeviceName (e.g. if the
+/// adapter is ever replaced).
+/// MAC below verified on the truck 2026-08-09.
+inline constexpr bool kUseObdMac = true;
+inline constexpr uint8_t kObdMac[6] = {0x00, 0x04, 0x3E, 0x85, 0xEA, 0xFC};
 
 /// SPP pairing PIN (OBDLink MX+ default is "1234").
 inline constexpr char kObdPin[] = "1234";
