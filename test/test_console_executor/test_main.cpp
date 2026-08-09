@@ -87,15 +87,18 @@ struct Fixture {
         TEST_ASSERT_EQUAL(ElmState::Idle, elm.state());
     }
 
-    /// Advance virtual time 1 ms at a time, ticking client and executor the way
-    /// ObdTask does.
+    /// Advance virtual time 1 ms at a time, ticking client and executor in the
+    /// same order ObdTask does.
     void pump(uint32_t ms)
     {
         for (uint32_t i = 0; i < ms; ++i) {
             mock.advance(1);
+            exec.tick();
             elm.tick();
-            if (elm.state() == ElmState::Idle || exec.busy()) {
-                exec.tick();
+            if (!exec.busy() && elm.state() == ElmState::Idle) {
+                if (const PidDefinition* pid = scheduler.next(MockTransport::s_now)) {
+                    elm.submit(*pid);
+                }
             }
         }
     }
@@ -383,17 +386,21 @@ static void test_hdr_override_makes_a_refused_pid_probeable()
 static void test_console_command_takes_priority_over_the_poll_rotation()
 {
     Fixture f;
-    // Only the probe's request appears in the script: if the scheduler had won
-    // the slot, its 010C would show up as a mismatch.
+    // The mock enforces write ORDER, so this script IS the assertion: the
+    // probe's 221446 must go out before the scheduler's 010C, even though RPM
+    // is priority 0 and already overdue.
     const MockTransport::Step extra[] = {
         {"221446", "7E805621446" "1234\r\r>", 30},
+        {"010C", "7E804410C1AF8\r\r>", 20}, // polling resumes afterwards
     };
-    f.boot(extra, 1);
+    f.boot(extra, 2);
     f.scheduler.add(*findPid(PidKey::RpmSae), 0); // due immediately, prio 0
 
     const char* out = f.run("probe icp 1");
     assertContains(out, "probe Icp");
+    f.pump(60); // one RPM poll's worth (its interval is 100 ms)
     TEST_ASSERT_EQUAL_STRING("", f.mock.mismatch().c_str());
+    TEST_ASSERT_TRUE(f.mock.scriptDone()); // the 010C really did follow
 }
 
 int main(int, char**)

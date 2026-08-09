@@ -63,6 +63,13 @@ bool ConsoleExecutor::tick()
             finishProbe();
             return true;
         }
+        if (elm_.state() == ElmState::Offline) {
+            // The link died mid-probe. Abandon rather than spin forever waiting
+            // for an adapter that is not coming back on its own.
+            mailbox_.reply("  <adapter offline — abandoning probe>");
+            finishProbe();
+            return true;
+        }
         if (elm_.state() != ElmState::Idle) {
             return true; // adapter busy recovering; keep the slot, try next tick
         }
@@ -79,7 +86,8 @@ bool ConsoleExecutor::tick()
         return true;
 
     case Phase::RawWait:
-        if (!elm_.rawInFlight() || timeReached(now, rawDeadlineMs_)) {
+        if (!elm_.rawInFlight() || elm_.state() == ElmState::Offline ||
+            timeReached(now, rawDeadlineMs_)) {
             if (!sawRawLine_) {
                 mailbox_.reply("  <no reply>");
             }

@@ -60,6 +60,13 @@ void obdTaskFn(void* param)
     uint32_t backoffMs = config::kReconnectMinMs;
 
     for (;;) {
+        // --- Console first, whatever the link is doing ---------------------
+        // The operator plugs in USB before the truck is running, and the
+        // reconnect path below never falls through. `pids`, `help` and `stats`
+        // need no adapter, and the ones that do report the link state instead
+        // of hanging.
+        ctx.console->tick();
+
         // --- (Re)establish the Bluetooth link -----------------------------
         if (!ctx.transport->isConnected()) {
             ctx.elm->onTransportLost();
@@ -87,14 +94,12 @@ void obdTaskFn(void* param)
 
         // --- Normal operation ---------------------------------------------
         ctx.elm->tick();
-        if (ctx.elm->state() == obd::ElmState::Idle || ctx.console->busy()) {
-            // A typed command takes the next request slot: during a
-            // verification session the operator's question matters more than
-            // keeping the poll rotation on schedule.
-            if (!ctx.console->tick() && ctx.elm->state() == obd::ElmState::Idle) {
-                if (const obd::PidDefinition* pid = ctx.scheduler->next(millis())) {
-                    ctx.elm->submit(*pid);
-                }
+        // A typed command takes the next request slot: during a verification
+        // session the operator's question matters more than keeping the poll
+        // rotation on schedule.
+        if (!ctx.console->busy() && ctx.elm->state() == obd::ElmState::Idle) {
+            if (const obd::PidDefinition* pid = ctx.scheduler->next(millis())) {
+                ctx.elm->submit(*pid);
             }
         }
         vTaskDelay(pdMS_TO_TICKS(2)); // yield; keeps the idle task fed (TWDT)
