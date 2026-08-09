@@ -25,10 +25,11 @@ Unknowns are marked **TODO**, not filled in.
 
 ## Ford enhanced (service 22) — imported from Torque export
 
-All are in the firmware PID table (`lib/ObdCore/src/PidDefs.cpp`), **disabled by
-default**, `verified=false`. Header "Auto" = adapter default functional request
-(7DF) — Ford PCM DIDs are expected to answer there, but that expectation is part
-of what on-truck verification confirms.
+All are in the firmware PID table (`lib/ObdCore/src/PidDefs.cpp`). Header "Auto" =
+adapter default functional request (7DF) — Ford DIDs are expected to answer
+there, but that expectation is part of what on-truck verification confirms.
+Unverified rows are disabled by default; verified ones are listed in
+`config::kEnabledPids`.
 
 | Parameter | Module (Torque) | Request/Header | Formula | Verified | Notes |
 |---|---|---|---|---|---|
@@ -39,8 +40,8 @@ of what on-truck verification confirms.
 | VGT duty cycle | Auto | `22096D` / 7DF | ((A·256)+B)·100/32767 % | Torque | |
 | MAP | Auto | `221440` / 7DF | ((A·256)+B)·0.03625 psi | Torque | **absolute** pressure — boost is derived as MAP − baro in `Derived.cpp` |
 | Exhaust back pressure (EBP) | Auto | `221445` / 7DF | ((A·256)+B)·0.03625 psi | Torque | |
-| Trans fluid temp (method 1) | Auto | `221674` / 7DF | ((A·256)+B)/8 °F | Torque | try first |
-| Trans fluid temp (method 2) | **TCM** | `221674` / **TODO** | ((A·256)+B)/8 °F | TODO | blocked on TCM header (below) |
+| Trans fluid temp (method 1) | **TCM (7E9)** | `221674` / 7DF | ((A·256)+B)/8 °F | **VERIFIED 2026-08-09** | PCM answers `7F 22 31` (does not have the DID); TCM returns 130.4 F vs Torque 132.1 F. Pinned `expectedResponder = 7E9`. |
+| Trans fluid temp (method 2) | **TCM** | `221674` / **TODO** | ((A·256)+B)/8 °F | superseded | method 1 already reaches the TCM via 7DF + `expectedResponder`; this row only matters if physical addressing turns out to work |
 | Trans fluid temp (method 3) | header `C410F1` | `2211BD` / C410F1 | ((signed(A)·256)+B)·−0.0036+212.98 °F | Torque | KWP-style header — likely N/A on this CAN truck; kept verbatim |
 | Trans temp (alt, not in table) | Auto | `221E1C` / 7DF | (((signed(A)·256)+B)·9/8+320)/10 °F | Torque | 4th option, in `PidDefs.cpp` reference comments |
 | Transmission gear | Auto | `2211B3` / 7DF | A/2 | Torque | |
@@ -58,10 +59,18 @@ Torque's symbolic headers do **not** reveal the OBDLink `ATSH` values. In the
 firmware these modules have `nullptr` headers and any PID using them is refused
 until filled in (in `moduleAtshHeader()`, `PidDefs.cpp`):
 
+**Module identity is a separate question from module addressing, and the first
+one is now answered.** 7E9 is the TCM: it owns `22 1674` (transmission fluid
+temp) and the PCM rejects that DID with `7F 22 31`. Selecting a module does
+**not** require its request header — `PidDefinition::expectedResponder` picks the
+answer by response ID over the functional broadcast, which is how `TransTemp1`
+works today. The `ATSH` headers below only matter for the throughput work
+(physical addressing + the response-count digit).
+
 | Module | Status | How to verify |
 |---|---|---|
 | PCM physical | TODO (likely `7E0` req / `7E8` resp per ISO 15765-4, but confirm) | see procedure below |
-| TCM | TODO | see procedure below |
+| TCM | TODO — identity confirmed (7E9 responds), request header not. `ATSH 7E1` was tried and **both** modules answered, so it appears not to take effect while the protocol is on AUTO. Retest with `ATSP6` pinned. | see procedure below |
 | ABS | TODO | see procedure below |
 | `726` | literal from export (TPMS rows) | works as-is once tested |
 | `C410F1` | literal from export | KWP-style 3-byte header; probably not applicable on CAN |

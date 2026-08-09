@@ -61,13 +61,14 @@ inline constexpr uint32_t kReconnectMaxMs = 30000;
 // ELM/OBDLink initialization sequence (sent after ATZ, in order).
 //   ATE0  echo off        ATL0  linefeeds off     ATS0  spaces off
 //   ATH1  headers ON (the parser expects CAN IDs + ISO-TP PCI bytes)
-//   ATAT1 adaptive timing ATSP0 protocol auto-detect
-// The 2005+ 6.0L Super Duty is expected to land on ISO 15765-4 CAN
-// (11-bit/500k = ATSP6); ATSP0 lets the adapter confirm that rather than
-// assuming. Pin it to "ATSP6" here once verified on the truck.
+//   ATAT1 adaptive timing ATSP6 ISO 15765-4 CAN, 11-bit/500k
+// ATSP6 is pinned, not assumed: `raw ATDPN` on the truck returned "A6" —
+// protocol 6, reached by auto-detection (2026-08-09, see
+// docs/VERIFICATION_LOG.md). Pinning it skips the "SEARCHING..." round on every
+// reconnect. Revert to "ATSP0" if the adapter is ever moved to another vehicle.
 // ---------------------------------------------------------------------------
 inline constexpr const char* kElmInitCommands[] = {
-    "ATE0", "ATL0", "ATS0", "ATH1", "ATAT1", "ATSP0",
+    "ATE0", "ATL0", "ATS0", "ATH1", "ATAT1", "ATSP6",
 };
 inline constexpr size_t kElmInitCommandCount =
     sizeof(kElmInitCommands) / sizeof(kElmInitCommands[0]);
@@ -84,6 +85,7 @@ inline constexpr size_t kElmInitCommandCount =
 inline constexpr obd::PidKey kEnabledPids[] = {
     obd::PidKey::RpmSae,
     obd::PidKey::BaroSae,
+    obd::PidKey::TransTemp1, // verified 2026-08-09 — first Ford PID confirmed
     // --- verified generic, enable when wanted ---
     // obd::PidKey::SpeedSae,
     // obd::PidKey::EctSae,

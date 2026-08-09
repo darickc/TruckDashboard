@@ -389,7 +389,10 @@ static void test_differing_responders_are_recorded_not_judged()
     MockTransport::Step scratch[16];
     boot(elm, mock, extra, 1, scratch);
 
-    TEST_ASSERT_TRUE(elm.submit(*findPid(PidKey::TransTemp1)));
+    // Explicitly unpinned: the shipped TransTemp1 row is pinned to 7E9 now, and
+    // this test is about what happens BEFORE a session establishes ownership.
+    const PidDefinition unpinned = variantOf(PidKey::TransTemp1, 0, ObdModule::Auto);
+    TEST_ASSERT_TRUE(elm.submit(unpinned));
     pump(elm, mock, 12000);
 
     TEST_ASSERT_EQUAL(ElmResult::Ok, cap.last);

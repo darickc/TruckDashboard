@@ -255,23 +255,43 @@ static void test_probe_repeats_and_summarises()
 static void test_probe_shows_every_responder_side_by_side()
 {
     Fixture f;
-    // The exact situation the milestone exists for: both modules answer 221674,
-    // and first-wins would have picked one silently. Both must appear, decoded,
-    // so the operator can see whether they mean the same thing.
+    // Both modules answer 2211B3 (gear), which is still unpinned — first-wins
+    // would have picked one silently. Both must appear, decoded, so the operator
+    // can see whether they mean the same thing.
     const MockTransport::Step extra[] = {
-        {"221674", "7E805621674" "0A2C\r" "7E905621674" "0000\r\r>", 30},
+        {"2211B3", "7E8046211B308\r" "7E9046211B300\r\r>", 30},
+    };
+    f.boot(extra, 1);
+    f.scheduler.add(*findPid(PidKey::Gear1), 0);
+
+    const char* out = f.run("probe gear1 1");
+    assertContains(out, "7E8 08");
+    assertContains(out, "7E9 00");
+    assertContains(out, "4.00"); // A/2
+    assertContains(out, "0.00");
+    assertContains(out, "2 ECUs answered");
+    assertContains(out, "max spread 4.00");
+    assertContains(out, "UNVERIFIED definition");
+}
+
+static void test_pinned_pid_ignores_the_module_that_does_not_own_it()
+{
+    Fixture f;
+    // TransTemp1 is pinned to 7E9 after the 2026-08-09 session: the PCM answers
+    // 7F 22 31 (requestOutOfRange) because it does not have the DID. That frame
+    // must be dropped before it can be parsed as a negative response.
+    const MockTransport::Step extra[] = {
+        {"221674", "7E8037F2231\r" "7E9056216740413\r\r>", 30},
     };
     f.boot(extra, 1);
     f.scheduler.add(*findPid(PidKey::TransTemp1), 0);
 
     const char* out = f.run("probe transtemp1 1");
-    assertContains(out, "7E8 0A2C");
-    assertContains(out, "7E9 0000");
-    assertContains(out, "325.50");  // 0x0A2C / 8
-    assertContains(out, "0.00");
-    assertContains(out, "2 ECUs answered");
-    assertContains(out, "max spread");
-    assertContains(out, "UNVERIFIED definition");
+    assertContains(out, "7E9 0413");
+    assertContains(out, "130.38"); // 0x0413 = 1043, /8 = 130.375
+    TEST_ASSERT_NULL(std::strstr(out, "7E8"));
+    // A single accepted responder: no spread line, nothing to compare.
+    TEST_ASSERT_NULL(std::strstr(out, "ECUs answered"));
 }
 
 static void test_probe_reports_a_small_spread_as_agreement()
@@ -486,6 +506,7 @@ int main(int, char**)
     RUN_TEST(test_probe_reports_responder_value_and_latency);
     RUN_TEST(test_probe_repeats_and_summarises);
     RUN_TEST(test_probe_shows_every_responder_side_by_side);
+    RUN_TEST(test_pinned_pid_ignores_the_module_that_does_not_own_it);
     RUN_TEST(test_probe_reports_a_small_spread_as_agreement);
     RUN_TEST(test_probe_reports_no_data);
     RUN_TEST(test_probe_refuses_unverified_module_and_says_how_to_proceed);

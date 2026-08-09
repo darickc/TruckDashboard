@@ -265,10 +265,15 @@ const PidDefinition kPidTable[] = {
      nullptr, Unit::Psi, 100, 0, 500, 2, false},
 
     // [FORD]Transmission Fluid Temp (Method 1) — Torque: 0x221674 "((A*256)+B)/8" [°F] hdr=Auto
+    // VERIFIED on the truck 2026-08-09 (docs/VERIFICATION_LOG.md): the PCM
+    // answers 7F 22 31 (requestOutOfRange) — it does not have this DID — while
+    // 7E9 returns 62 16 74 04 13 = 130.4 F, matching Torque's 132.1 F minutes
+    // later on a warming transmission. Pinned to 7E9 both because it owns the
+    // DID and to stop the PCM's negative response being logged every poll.
     {PidKey::TransTemp1, ChannelId::TransTempF, "Trans Fluid Temp (Method 1)", "TransFl",
-     0x22, 0x1674, ObdModule::Auto, /*resp=*/0, /*count=*/0,
+     0x22, 0x1674, ObdModule::Auto, /*resp=*/0x7E9, /*count=*/0,
      {0, 2, false, 0.125f, 0.0f},
-     nullptr, Unit::Fahrenheit, 500, 3, 500, 2, false},
+     nullptr, Unit::Fahrenheit, 500, 3, 500, 2, true},
 
     // [FORD]Transmission Fluid Temp (Method 2) — Torque: 0x221674 "((A*256)+B)/8" [°F] hdr=TCM
     // Module header UNVERIFIED — will be refused until ObdModule::Tcm gets a
