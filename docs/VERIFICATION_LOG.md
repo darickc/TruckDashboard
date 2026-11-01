@@ -187,21 +187,54 @@ raw 221674
 
 A request physically addressed to `7E1` should reach only the TCM. Both modules
 received it, and the PCM's negative response proves it was not merely a stale
-frame. Working hypothesis: with the protocol left on **AUTO** (`ATDPN` → `A6`),
-the STN firmware is re-sending on the functional header rather than honouring
-`ATSH`.
+frame. Working hypothesis at the time: with the protocol left on **AUTO**
+(`ATDPN` → `A6`), the STN firmware is re-sending on the functional header rather
+than honouring `ATSH`.
 
 **Not yet retested** with the protocol pinned. This blocks two things: the
 `ObdModule::Tcm` header, and the response-count digit (which is only safe with
 physical addressing).
+
+#### Correction (2026-08-09, from code inspection — the hypothesis above is probably wrong)
+
+This session ran with `RpmSae`, `BaroSae` and `TransTemp1` polling. **The
+scheduler almost certainly overwrote the typed `ATSH` before the next line was
+typed**, which explains the observation without involving the STN at all:
+
+1. `raw ATSH 7E1` finished. `ElmClient::finishRequest` saw `rawMode_` and called
+   `markAddressingUnknown()` (`ElmClient.cpp:131`), putting the `"?"` sentinel in
+   the header cache.
+2. The operator was typing the next line, so `console->busy()` was false and
+   `ObdTask.cpp:100` let the scheduler submit a due PID.
+3. `ElmClient::submit` compared that PID's header to the cache. `RpmSae` is
+   `ObdModule::Auto` → `7DF`, and `strcmp("7DF", "?") != 0`, so it sent
+   **`ATSH7DF`** (`ElmClient.cpp:530`).
+4. `raw 010C` then went out on `7DF`, because `submitRaw` sets `prepCount_ = 0`
+   and sends the line verbatim (`ElmClient.cpp:70`) on whatever header the
+   adapter actually has.
+
+`RpmSae` polls at 100 ms, so this would have happened nearly every time.
+
+**The observation stands; the conclusion drawn from it does not.** Nothing here
+says `ATSH` works — only that this session could not have shown either way. The
+retest must disable every PID first (`off rpmsae`, `off barosae`,
+`off transtemp1`, then `pids` to confirm no `*` remains). See
+[TRUCK_SESSION.md](TRUCK_SESSION.md) Part 1, which also adds a `7DF` control so
+"only one answered" cannot be confused with "one module went quiet".
 
 ## Open questions for the next session
 
 1. ~~**Who is 7E9?**~~ **ANSWERED: the TCM.** It owns `22 1674` (transmission
    fluid temp) and the PCM rejects that DID outright.
 2. **Does `ATSH` work at all once the protocol is pinned?** This is now the
-   blocking question. Retest:
+   blocking question. **First disable every PID** — see the correction above; the
+   previous attempt was confounded by the scheduler re-sending `ATSH7DF` between
+   the two typed lines. Retest:
    ```
+   off rpmsae
+   off barosae
+   off transtemp1
+   pids             confirm no `*` remains
    raw ATSP6
    raw ATDPN        expect plain "6", not "A6"
    raw ATSH 7E1

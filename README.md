@@ -44,8 +44,9 @@ gauge pages — currently to USB Serial, later to a 1.75" round 466×466 AMOLED.
 ICP, IPR, VGT, MAP, EBP, trans temp, gear, battery) — definitions imported from a
 Torque Pro export, disabled by default. The tooling to verify them now exists;
 the session itself is next. See [docs/FORD_6_0_PIDS.md](docs/FORD_6_0_PIDS.md)
-for the procedure and [docs/VERIFICATION_LOG.md](docs/VERIFICATION_LOG.md) for
-where the evidence goes.
+for the procedure, [docs/TRUCK_SESSION.md](docs/TRUCK_SESSION.md) for the ordered
+script to run out at the truck, and
+[docs/VERIFICATION_LOG.md](docs/VERIFICATION_LOG.md) for where the evidence goes.
 
 **Known:** the measured Bluetooth round trip is ~96 ms (~10 requests/s), not the
 30–60 ms originally assumed. The PID table's poll intervals ask for far more than
@@ -147,7 +148,10 @@ Everything tunable is in [include/Config.h](include/Config.h):
    If two ECUs answered with different values, pin `expectedResponder` to the one
    that proved to own the DID.
 
-Details: [docs/TORQUE_PID_IMPORT.md](docs/TORQUE_PID_IMPORT.md).
+Details: [docs/TORQUE_PID_IMPORT.md](docs/TORQUE_PID_IMPORT.md). For the next
+session specifically, work through [docs/TRUCK_SESSION.md](docs/TRUCK_SESSION.md)
+— an ordered script covering the open addressing and capability questions, which
+interlock and are best answered in one sitting.
 
 ## Adding the AMOLED display later
 
