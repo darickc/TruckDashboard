@@ -95,7 +95,7 @@ How to run it: [setup/gateway.md](setup/gateway.md).
 - [x] 3.9 Event history and the health API (gateway and store events, ListEvents, Stats)
 - [x] 3.10 `services/recorder`: SQLite in WAL mode, retention by age and rows, CSV export; checked live against the gateway
 - [x] 3.11 App gateway mode (`VEHICLE_SOURCE=gateway`) with its own feed watchdog; `make sim`
-- [~] 3.12 Tests: 300+ Rust tests, a fake ELM adapter replaying the truck's captures, and app integration tests against the real gateway binary. **The Linux build of the RFCOMM path is checked only in CI** (Docker wasn't running locally). The vcan job moves to Phase 4 with SocketCAN
+- [x] 3.12 Tests: 300 Rust tests, a fake ELM adapter replaying the truck's captures, and app integration tests against the real gateway binary. All 300 also pass on Linux arm64 (Docker, the Pi 5's architecture), and the gateway builds there with the BlueZ RFCOMM feature (`make linux-test`, 2026-11-01). The vcan job moves to Phase 4 with SocketCAN
 - [x] 3.13 `tools/obd-console`: pids, on/off, probe, raw, stats, events, with a transcript file
 - [~] 3.14 Flutter Linux target added (800×480, `F250_FULLSCREEN=1`). **Not built yet**: it needs a Linux host, which the Pi provides in 3.5.1 (H17)
 
