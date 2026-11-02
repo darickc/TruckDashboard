@@ -36,7 +36,7 @@ runs on the Mac.
 |---|---|
 | ESP32 firmware (`firmware/esp32/`) | Builds; 140 host tests pass. On the truck, reads RPM and transmission temp through an OBDLink MX+ `[TRUCK]` |
 | Architecture, ADRs, hardware research | Written. See [docs/architecture/](docs/architecture/overview.md) |
-| Flutter dashboard (`apps/infotainment`) | Runs with **simulated** data: gauges, global alerts, stale-data handling, diagnostics, fuel level, speed calibration. 97 tests `[SIM]` |
+| Flutter dashboard (`apps/infotainment`) | Runs with **simulated** data: gauges, global alerts, stale-data handling, diagnostics, fuel level, speed calibration. 99 tests `[SIM]` |
 | Power Stroke simulator (`simulator/powerstroke`) | 6 scenarios, including the EOT/ECT freeze. 27 tests `[SIM]` |
 | Rust vehicle gateway | Phase 3. Not started |
 | CAN hardware, AGL image, infotainment | Phases 4–7. Not started. **No head-unit hardware purchased yet** |

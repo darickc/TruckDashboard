@@ -8,6 +8,14 @@ import '../telemetry/telemetry_store.dart';
 import '../telemetry/warnings.dart';
 import 'theme.dart';
 
+/// Status-bar clock: 12-hour with AM/PM, no leading zero ("7:05 PM").
+/// Midnight is 12:xx AM and noon is 12:xx PM.
+String formatClock(DateTime t) {
+  final h12 = t.hour % 12 == 0 ? 12 : t.hour % 12;
+  final suffix = t.hour < 12 ? 'AM' : 'PM';
+  return '$h12:${t.minute.toString().padLeft(2, '0')} $suffix';
+}
+
 String formatAge(Duration d) {
   final s = d.inSeconds;
   if (s < 60) return '$s s';

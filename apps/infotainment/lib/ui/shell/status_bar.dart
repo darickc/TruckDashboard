@@ -35,8 +35,7 @@ class StatusBar extends StatelessWidget {
         final link = s.store.link;
         final scenario = s.simulation.current;
         final now = DateTime.now();
-        final clock =
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+        final clock = formatClock(now);
         return Container(
           height: kStatusBarHeight,
           color: p.surface,
@@ -66,6 +65,7 @@ class StatusBar extends StatelessWidget {
                   style: TextStyle(fontSize: 13, color: p.textDim)),
             ),
             Text(clock,
+                key: const ValueKey('status-clock'),
                 style: TextStyle(
                     fontSize: 20, fontWeight: FontWeight.w600, fontFeatures: tabular, color: p.text)),
           ]),

@@ -59,4 +59,9 @@ void main() {
     expect(h.services.simulation.current!.id, 'link_loss');
     expect(h.store['rpm']!.successes, 0);
   });
+
+  testWidgets('status bar clock shows AM/PM', (tester) async {
+    final h = await Harness.start(tester);
+    expect(h.textOf('status-clock'), matches(RegExp(r'^(1[0-2]|[1-9]):[0-5]\d (AM|PM)$')));
+  });
 }
