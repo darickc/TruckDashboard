@@ -1,0 +1,23 @@
+# Ford enhanced (service 0x22) signals owned by the TCM.
+
+- id: trans_temp
+  name: Transmission fluid temp
+  short_name: Trans
+  quantity: temperature
+  unit: degC
+  source: diagnostic
+  # Functional request; the PCM answers 7F 22 31 and the TCM (0x7E9) answers
+  # with the value, so the responder is pinned.
+  request: {protocol: iso15765, tx_id: "0x7DF", rx_id: "0x7E9", payload: "22 16 74"}
+  response: {expect: "62 16 74", length: 2}
+  decode: {formula: "((A*256)+B)/8", unit: degF}
+  range: {min: -40, max: 150}
+  poll: {priority: 3, interval_ms: 500, timeout_ms: 500}
+  stale_after_ms: 4000
+  provenance: VERIFIED_ON_TRUCK
+  evidence: "docs/diagnostics/VERIFICATION_LOG.md, 2026-08-09 (later), TransTemp1 22 1674"
+  enabled: true
+  notes: >-
+    Torque row "[FORD]Transmission Fluid Temp (Method 1)", 0x221674.
+    Capture 7E9 62 16 74 04 13 = 130.4 degF; Torque read 132.1 degF minutes
+    later on a warming transmission.

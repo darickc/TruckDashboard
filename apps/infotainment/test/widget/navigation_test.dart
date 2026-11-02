@@ -56,7 +56,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('scenario-link_loss')));
     await tester.pump();
-    expect(h.services.simulation.current!.id, 'link_loss');
+    expect(h.services.simulation!.current!.id, 'link_loss');
     expect(h.store['rpm']!.successes, 0);
   });
 

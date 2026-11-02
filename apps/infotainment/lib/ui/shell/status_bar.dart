@@ -29,11 +29,11 @@ class StatusBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge([s.store, s.simulation]),
+      listenable: s.store,
       builder: (context, _) {
         final p = Palette.of(context);
         final link = s.store.link;
-        final scenario = s.simulation.current;
+        final source = s.store.source;
         final now = DateTime.now();
         final clock = formatClock(now);
         return Container(
@@ -41,8 +41,8 @@ class StatusBar extends StatelessWidget {
           color: p.surface,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(children: [
-            if (scenario != null) ...[
-              Pill('SIMULATED', color: p.simulated, filled: true),
+            if (source.simulated) ...[
+              Pill('SIMULATED', key: const ValueKey('simulated-badge'), color: p.simulated, filled: true),
               const SizedBox(width: 8),
             ],
             Container(
@@ -59,7 +59,7 @@ class StatusBar extends StatelessWidget {
                 style: TextStyle(fontSize: 13, color: p.textDim)),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(scenario == null ? '' : scenario.name,
+              child: Text(source.scenario ?? '',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 13, color: p.textDim)),

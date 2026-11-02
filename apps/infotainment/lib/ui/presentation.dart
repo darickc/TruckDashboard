@@ -132,6 +132,11 @@ class SignalView {
 (String, String) describeAlert(Alert a, TelemetryStore store, UnitSystem units) {
   final now = store.clock.now();
   switch (a.kind) {
+    case AlertKind.sourceLost:
+      return (
+        'Vehicle gateway not responding',
+        'No data for ${formatAge(now - a.since)} · all values are stale'
+      );
     case AlertKind.linkLost:
       return (
         'Vehicle data lost',
@@ -147,15 +152,20 @@ class SignalView {
       return ('${s.def.shortName} not updating', detail);
     case AlertKind.threshold:
       final s = store[a.signalId!]!;
-      final rule = a.rule!;
+      final rule = a.rule;
       final unit = displayUnitFor(s.def.quantity, units).label;
-      final t = a.level == AlertLevel.critical ? rule.critical! : rule.advisory!;
-      final word = rule.direction == Direction.above ? 'high' : 'low';
-      final cmp = rule.direction == Direction.above ? 'above' : 'below';
+      final above = rule != null ? rule.direction == Direction.above : (a.above ?? true);
+      final trigger = rule != null
+          ? (a.level == AlertLevel.critical ? rule.critical! : rule.advisory!).trigger
+          : a.threshold;
+      final word = above ? 'high' : 'low';
+      final cmp = above ? 'above' : 'below';
       final value = s.value == null ? '—' : formatValue(s.def, s.value!, units);
       return (
         '${s.def.shortName} $word',
-        '$value $unit · limit $cmp ${formatValue(s.def, t.trigger, units)} $unit (example)'
+        trigger == null
+            ? '$value $unit'
+            : '$value $unit · limit $cmp ${formatValue(s.def, trigger, units)} $unit (example)'
       );
   }
 }

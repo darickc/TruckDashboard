@@ -1,0 +1,32 @@
+[package]
+name = "vehicle-gateway"
+version = "0.1.0"
+description = "Owns all vehicle communication: transports, scheduling, recovery, validity, and the f250.vehicle.v1 gRPC API"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "vehicle_gateway"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vehicle-gateway"
+path = "src/main.rs"
+
+[features]
+# BlueZ RFCOMM to the MX+ (Linux only; needs libdbus-1-dev to build).
+rfcomm = ["dep:bluer"]
+
+[dependencies]
+f250-elm = { path = "../../crates/elm" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "signal", "fs"] }
+tokio-serial = "5"
+powerstroke-sim = { path = "../../crates/powerstroke-sim" }
+
+[lints]
+workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+bluer = { version = "0.17", features = ["rfcomm"], optional = true }

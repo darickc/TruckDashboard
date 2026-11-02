@@ -64,7 +64,7 @@ class Harness {
     const step = Duration(milliseconds: 100);
     for (var t = Duration.zero; t < d; t += step) {
       clock.advance(step);
-      services.simulation.source!.step();
+      services.simulation!.source!.step();
     }
     await tester.pump();
   }

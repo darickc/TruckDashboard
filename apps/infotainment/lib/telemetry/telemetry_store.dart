@@ -6,6 +6,7 @@ import 'calibration.dart';
 import 'event_log.dart';
 import 'poll_result.dart';
 import 'signal_state.dart';
+import 'source_info.dart';
 import 'warnings.dart';
 
 /// Health of the vehicle-data link as the UI sees it.
@@ -67,6 +68,18 @@ class TelemetryStore extends ChangeNotifier {
 
   /// Recent request timestamps, for the requests/s readout.
   final _recentRequests = <Duration>[];
+
+  /// Where the data comes from (set by the data source).
+  SourceInfo source = SourceInfo.none;
+
+  /// External mode: a gateway decides validity, link state and alerts, and
+  /// this store only mirrors them. Its own job then is the feed watchdog: if
+  /// snapshots stop arriving for [feedTimeout], everything goes stale.
+  bool get isExternal => _external;
+  bool _external = false;
+  Duration? _lastExternalAt;
+  bool _feedLost = false;
+  final Duration feedTimeout = const Duration(seconds: 2);
 
   LinkState get link => _link;
   Duration get linkSince => _linkSince;
@@ -161,9 +174,61 @@ class TelemetryStore extends ChangeNotifier {
   /// The data source's own view of the link (e.g. the adapter disconnected).
   void setSourceLinkDown(bool down) => _sourceReportsLinkDown = down;
 
+  /// Mirrors a gateway snapshot. [ages] gives each signal's last-good age at
+  /// the snapshot; it is turned into a local timestamp so ages keep growing
+  /// between snapshots.
+  void applyExternal({
+    required void Function(SignalState state, Duration now) update,
+    required LinkState link,
+    required Duration linkAge,
+    required List<Alert> alerts,
+  }) {
+    final now = clock.now();
+    _external = true;
+    _lastExternalAt = now;
+    if (_feedLost) {
+      _feedLost = false;
+      events.add(TelemetryEvent(now, DateTime.now(), EventSeverity.info, 'Gateway feed restored'));
+    }
+    for (final s in states.values) {
+      update(s, now);
+    }
+    if (link != _link) _linkSince = now - linkAge;
+    _link = link;
+    _alerts = alerts;
+    notifyListeners();
+  }
+
+  /// Calibration as reported by the gateway (display only; the gateway
+  /// applies it).
+  void setExternalCalibration(String id, Calibration c) => _calibrations[id] = c;
+
+  void _externalWatchdog(Duration now) {
+    final last = _lastExternalAt;
+    if (last == null || now - last <= feedTimeout || _feedLost) return;
+    _feedLost = true;
+    for (final s in states.values) {
+      if (s.validity == Validity.valid) {
+        s.validity = Validity.stale;
+        s.value = null;
+      }
+    }
+    _link = LinkState.down;
+    _linkSince = last;
+    _alerts = [
+      Alert(id: 'source', kind: AlertKind.sourceLost, level: AlertLevel.critical, since: last),
+    ];
+    events.add(TelemetryEvent(now, DateTime.now(), EventSeverity.critical, 'Gateway feed lost'));
+  }
+
   /// Recomputes validity, computed signals, link state and alerts.
   void refresh() {
     final now = clock.now();
+    if (_external) {
+      _externalWatchdog(now);
+      notifyListeners();
+      return;
+    }
     for (final s in states.values) {
       if (!s.def.isComputed) _updateValidity(s, now);
     }

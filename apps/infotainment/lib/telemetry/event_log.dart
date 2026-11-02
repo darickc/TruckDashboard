@@ -34,6 +34,15 @@ class EventLog {
     }
   }
 
+  /// Replaces the history with events from elsewhere (the gateway), newest
+  /// first.
+  void replaceAll(Iterable<TelemetryEvent> newestFirst, {int dropped = 0}) {
+    _events
+      ..clear()
+      ..addAll(newestFirst.take(capacity));
+    _dropped = dropped;
+  }
+
   void clear() {
     _events.clear();
     _dropped = 0;

@@ -1,0 +1,133 @@
+# Ford enhanced (service 0x22) signals imported from the owner's Torque Pro
+# export, shared/signals/imports/torque/exportedPIDs.csv. Formulas are copied
+# verbatim from the export's Equation column; units are the export's.
+#
+# Every row here is IMPORTED_UNVERIFIED and disabled: the request reaching the
+# right module, the response format and the scaling must all be confirmed on
+# the truck (procedure: docs/diagnostics/FORD_6_0_PIDS.md) and logged in
+# docs/diagnostics/VERIFICATION_LOG.md before a row is promoted.
+#
+# Header "Auto" in the export = functional request 0x7DF (FORD_6_0_PIDS.md).
+# Which module answers each DID is not established, so no rx_id is pinned.
+# Ranges and stale times mirror apps/infotainment/lib/model/signal_catalog.dart;
+# poll values come from firmware/esp32/lib/ObdCore/src/PidDefs.cpp where the
+# row exists there.
+
+- id: eot
+  name: Engine oil temp
+  short_name: EOT
+  quantity: temperature
+  unit: degC
+  source: diagnostic
+  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 13 10"}
+  response: {expect: "62 13 10", length: 2}
+  decode: {formula: "(((A*256)+B)/100)-40", unit: degC}
+  range: {min: -40, max: 150}
+  poll: {priority: 3, interval_ms: 500, timeout_ms: 500}
+  stale_after_ms: 4000
+  provenance: IMPORTED_UNVERIFIED
+  enabled: false
+  notes: Torque row "[FORD]Engine Oil Temp", 0x221310.
+
+- id: map
+  name: Manifold absolute pressure
+  short_name: MAP
+  quantity: pressure
+  unit: kPa
+  source: diagnostic
+  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 14 40"}
+  response: {expect: "62 14 40", length: 2}
+  decode: {formula: "(((A*256)+B)*0.03625)", unit: psi}
+  range: {min: 0, max: 400}
+  poll: {priority: 0, interval_ms: 100, timeout_ms: 500}
+  stale_after_ms: 1500
+  provenance: IMPORTED_UNVERIFIED
+  enabled: false
+  notes: >-
+    Torque row "[FORD]MAP (Ford specific)", 0x221440. Absolute pressure;
+    boost is the computed signal map - baro. The Torque "Boost (Ford
+    specific)" row (same DID, minus BARO()) is deliberately not used.
+
+- id: icp
+  name: Injection control pressure
+  short_name: ICP
+  quantity: pressure
+  unit: kPa
+  source: diagnostic
+  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 14 46"}
+  response: {expect: "62 14 46", length: 2}
+  decode: {formula: "((A*256)+B)*(57/100)", unit: psi}
+  range: {min: 0, max: 31000}
+  poll: {priority: 1, interval_ms: 100, timeout_ms: 500}
+  stale_after_ms: 2000
+  provenance: IMPORTED_UNVERIFIED
+  enabled: false
+  notes: Torque row "[FORD]Injection Control Pressure", 0x221446.
+
+- id: ipr_duty
+  name: IPR duty cycle
+  short_name: IPR
+  quantity: percent
+  unit: "%"
+  source: diagnostic
+  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 14 34"}
+  response: {expect: "62 14 34", length: 1}
+  decode: {formula: "(A*13.53)/35", unit: "%"}
+  range: {min: 0, max: 100}
+  poll: {priority: 2, interval_ms: 150, timeout_ms: 500}
+  stale_after_ms: 2000
+  provenance: IMPORTED_UNVERIFIED
+  enabled: false
+  notes: Torque row "[FORD]Injector Pressure Regulator Duty Cycle", 0x221434.
+
+- id: ficm_main
+  name: FICM main power
+  short_name: FICM
+  quantity: voltage
+  unit: V
+  source: diagnostic
+  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 09 D0"}
+  response: {expect: "62 09 D0", length: 2}
+  decode: {formula: "((A*256)+B)*(100/256)/100", unit: V}
+  range: {min: 0, max: 60}
+  poll: {priority: 3, interval_ms: 400, timeout_ms: 500}
+  stale_after_ms: 4000
+  provenance: IMPORTED_UNVERIFIED
+  enabled: false
+  notes: Torque row "[FORD]FICM Main Power", 0x2209d0 (units "Volts").
+
+- id: battery
+  name: Battery voltage
+  short_name: Battery
+  quantity: voltage
+  unit: V
+  source: diagnostic
+  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 11 72"}
+  response: {expect: "62 11 72", length: 1}
+  decode: {formula: "A/16", unit: V}
+  range: {min: 0, max: 20}
+  poll: {priority: 4, interval_ms: 1000, timeout_ms: 500}
+  stale_after_ms: 8000
+  provenance: IMPORTED_UNVERIFIED
+  enabled: false
+  notes: Torque row "[FORD]Battery Voltage", 0x221172.
+
+- id: fuel_level
+  name: Fuel level
+  short_name: Fuel
+  quantity: percent
+  unit: "%"
+  source: diagnostic
+  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 16 C1"}
+  response: {expect: "62 16 C1", length: 2}
+  decode: {formula: "((A*256)+B)*(1/328)", unit: "%"}
+  range: {min: 0, max: 100}
+  poll: {priority: 6, interval_ms: 5000, timeout_ms: 500}
+  stale_after_ms: 15000
+  provenance: IMPORTED_UNVERIFIED
+  enabled: false
+  notes: >-
+    Torque row "[FORD]Fuel Level", 0x2216c1. Which module answers, and whether
+    the scaling matches the cluster gauge, are open questions
+    (TRUCK_SESSION.md Part 3). Not in the ESP32 table, so the poll values are
+    a software choice.

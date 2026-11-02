@@ -1,0 +1,31 @@
+# Signals derived from other signals. A computed value is valid only while
+# every input is valid and the inputs were measured within max_input_skew_ms
+# of each other (telemetry-model.md, "Computed signals"). Otherwise no value
+# is shown, not even a last-good one.
+
+- id: eot_ect_delta
+  name: EOT − ECT
+  short_name: EOT−ECT
+  quantity: temperature_delta
+  unit: degC
+  source: computed
+  inputs: [eot, ect]
+  compute: "eot - ect"
+  max_input_skew_ms: 2000
+  range: {min: -40, max: 80}
+  provenance: COMPUTED
+  enabled: true
+
+- id: boost
+  name: Boost (MAP − baro)
+  short_name: Boost
+  quantity: pressure
+  unit: kPa
+  source: computed
+  inputs: [map, baro]
+  compute: "map - baro"
+  # Baro is polled slowly and barely changes; allow it to be older.
+  max_input_skew_ms: 20000
+  range: {min: -20, max: 300}
+  provenance: COMPUTED
+  enabled: true

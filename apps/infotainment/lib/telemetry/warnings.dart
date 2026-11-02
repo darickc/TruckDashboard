@@ -12,6 +12,9 @@ enum AlertKind {
 
   /// The whole vehicle-data link is down.
   linkLost,
+
+  /// The UI stopped receiving data from the vehicle gateway itself.
+  sourceLost,
 }
 
 /// One active alert. The UI builds its text (it knows the unit preference).
@@ -23,6 +26,8 @@ class Alert {
     required this.since,
     this.signalId,
     this.rule,
+    this.threshold,
+    this.above,
   });
 
   final String id;
@@ -30,7 +35,13 @@ class Alert {
   final AlertLevel level;
   final Duration since;
   final String? signalId;
+
+  /// Set for alerts evaluated in the UI.
   final WarningRule? rule;
+
+  /// Set for threshold alerts evaluated by the gateway (canonical units).
+  final double? threshold;
+  final bool? above;
 }
 
 enum Direction { above, below }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:powerstroke_sim/powerstroke_sim.dart' show Scenario;
 
 import '../../core/settings.dart';
 import '../../model/units.dart';
@@ -82,7 +83,7 @@ class _Live extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     return ListenableBuilder(
-        listenable: Listenable.merge([s.store, s.settings, s.simulation]),
+        listenable: Listenable.merge([s.store, s.settings, ?s.simulation]),
         builder: (context, _) => builder(context));
   }
 }
@@ -190,18 +191,28 @@ class _LinkHealth extends StatelessWidget {
       final signals = store.ordered.where((x) => x.def.enabled && !x.def.isComputed).toList();
       final ok = signals.fold(0, (a, x) => a + x.successes);
       final fail = signals.fold(0, (a, x) => a + x.failures);
-      final sim = s.simulation;
+      final src = store.source;
+      final simClock = s.simulation?.source?.scenarioSeconds ?? src.scenarioSeconds;
       final rows = <(String, String)>[
-        ('Data source', sim.current == null ? 'none' : 'Simulator (in-app) — not the vehicle'),
-        ('Scenario', sim.current?.name ?? '—'),
-        ('Scenario clock',
-            sim.source == null ? '—' : '${sim.source!.scenarioSeconds.toStringAsFixed(0)} s'),
+        ('Data source', src.simulated ? '${src.transport} — not the vehicle' : src.transport),
+        ('Scenario', src.scenario ?? '—'),
+        ('Scenario clock', simClock == null ? '—' : '${simClock.toStringAsFixed(0)} s'),
+        if (src.machineState != null) ('Gateway state', src.machineState!),
+        if (src.adapterVoltage != null)
+          ('Adapter voltage (ATRV)', '${src.adapterVoltage!.toStringAsFixed(1)} V'),
         ('Link', '${linkLabel(store.link)} for ${formatAge(now - store.linkSince)}'),
         ('Requests/s (10 s avg)', store.requestsPerSecond(now).toStringAsFixed(1)),
         ('Responses OK / failed', '$ok / $fail'),
         ('Signals current',
             '${signals.where((x) => x.isValid).length} of ${signals.length}'),
-        ('Transmit', 'n/a — simulator (gateway arrives in Phase 3)'),
+        (
+          'Transmit',
+          switch (src.transmitEnabled) {
+            null => 'n/a — in-app simulator',
+            true => 'enabled (read-only services only)',
+            false => 'off — passive only (ADR-0007)',
+          }
+        ),
       ];
       return ListView(children: [
         for (final (k, v) in rows)
@@ -231,10 +242,13 @@ class _DtcList extends StatelessWidget {
     return _Live(builder: (context) {
       final s = AppScope.of(context);
       final p = Palette.of(context);
-      final dtcs = s.simulation.current?.dtcs ?? const [];
+      final dtcs = s.simulation?.current?.dtcs ?? const [];
       return ListView(children: [
-        Text('Reading real trouble codes arrives with the vehicle gateway (Phase 3–4). '
-            'Codes below come from the simulator scenario.',
+        Text(
+            s.simulation == null
+                ? 'Reading trouble codes is not implemented in the gateway yet.'
+                : 'Reading real trouble codes arrives with the vehicle gateway. '
+                    'Codes below come from the simulator scenario.',
             style: TextStyle(fontSize: 14, color: p.textDim)),
         const SizedBox(height: 8),
         if (dtcs.isEmpty)
@@ -324,13 +338,21 @@ class _Developer extends StatelessWidget {
       return ListView(children: [
         Text('SIMULATOR SCENARIO', style: label),
         const SizedBox(height: 6),
-        for (final scenario in sim.available.values)
+        if (sim == null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: kGap),
+            child: Text(
+                'Data comes from the vehicle gateway. Its scenario (when simulated) '
+                'is chosen when the gateway starts.',
+                style: TextStyle(fontSize: 14, color: p.textDim)),
+          ),
+        for (final scenario in sim?.available.values ?? const <Scenario>[])
           Padding(
             padding: const EdgeInsets.only(bottom: kGap),
             child: TapTarget(
               key: ValueKey('scenario-${scenario.id}'),
               label: 'Scenario ${scenario.name}',
-              selected: sim.current?.id == scenario.id,
+              selected: sim!.current?.id == scenario.id,
               onTap: () => sim.select(scenario.id),
               child: Row(children: [
                 SizedBox(
@@ -406,7 +428,7 @@ class _SpeedCalibration extends StatelessWidget {
       final clamped = scale.clamp(Calibration.minScale, Calibration.maxScale).toDouble();
       // Round away float drift from repeated steps (1.0 + 0.001 × n).
       final rounded = (clamped * 10000).roundToDouble() / 10000;
-      store.setCalibration(_id, cal.copyWith(scale: rounded));
+      s.setCalibration(_id, cal.copyWith(scale: rounded));
     }
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -436,7 +458,7 @@ class _SpeedCalibration extends StatelessWidget {
               key: const ValueKey('speed-scale-reset'),
               label: 'Reset speed scale to the configured value',
               padding: EdgeInsets.zero,
-              onTap: () => store.setCalibration(_id, configured),
+              onTap: () => s.setCalibration(_id, configured),
               child: const Text('Reset', style: TextStyle(fontSize: 16))),
         ),
       ]),

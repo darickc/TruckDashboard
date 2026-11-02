@@ -28,13 +28,16 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  fixnum: ^1.1.1
   flutter:
     sdk: flutter
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
+  grpc: ^5.2.0
   powerstroke_sim:
     path: ../../simulator/powerstroke
+  protobuf: ^6.1.0
 
 dev_dependencies:
   flutter_test:

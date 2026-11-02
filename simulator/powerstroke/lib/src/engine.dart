@@ -86,8 +86,15 @@ class ScenarioEngine {
         out.add(_observe(track, k, k * interval));
       }
     }
-    out.sort((a, b) => a.atMs.compareTo(b.atMs));
-    return out;
+    // Time order; equal times keep track order. (List.sort is not stable,
+    // so the tie-break is explicit, and the order then can't depend on how
+    // the time range was split into calls.)
+    final order = List<int>.generate(out.length, (i) => i)
+      ..sort((a, b) {
+        final byTime = out[a].atMs.compareTo(out[b].atMs);
+        return byTime != 0 ? byTime : a.compareTo(b);
+      });
+    return [for (final i in order) out[i]];
   }
 
   /// Interpolated value plus deterministic noise for poll [k].
@@ -159,16 +166,28 @@ class ScenarioEngine {
         latencyMs: latency);
   }
 
-  /// Uniform [0, 1) from (seed, key, k), stable across runs and platforms.
+  /// Uniform [0, 1) from (seed, key, k), stable across runs and platforms:
+  /// every product goes through [_mul32], so web builds (where ints are
+  /// doubles with 53 bits of precision) get the same bits as the Dart VM and
+  /// the Rust port (crates/powerstroke-sim; checked by test/golden_test.dart).
   double _unit(String key, int k) {
     var h = 0x811c9dc5 ^ scenario.seed;
     for (final c in key.codeUnits) {
-      h = ((h ^ c) * 0x01000193) & 0xffffffff;
+      h = _mul32((h ^ c) & 0xffffffff, 0x01000193);
     }
-    var x = (h ^ (k * 0x9e3779b1)) & 0xffffffff;
-    x = ((x ^ (x >> 16)) * 0x45d9f3b) & 0xffffffff;
-    x = ((x ^ (x >> 16)) * 0x45d9f3b) & 0xffffffff;
+    var x = (h ^ _mul32(k & 0xffffffff, 0x9e3779b1)) & 0xffffffff;
+    x = _mul32(x ^ (x >> 16), 0x45d9f3b);
+    x = _mul32(x ^ (x >> 16), 0x45d9f3b);
     x = x ^ (x >> 16);
     return x / 0x100000000;
+  }
+
+  /// (a × b) mod 2³² for 32-bit unsigned a and b, without any intermediate
+  /// exceeding 2⁵³. Identical to `(a * b) & 0xffffffff` on the VM.
+  static int _mul32(int a, int b) {
+    final aLo = a & 0xffff, aHi = (a >> 16) & 0xffff;
+    final bLo = b & 0xffff, bHi = (b >> 16) & 0xffff;
+    final cross = (aHi * bLo + aLo * bHi) & 0xffff;
+    return (aLo * bLo + cross * 0x10000) % 0x100000000;
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:powerstroke_sim/powerstroke_sim.dart';
 
 import '../model/signal_catalog.dart';
+import '../telemetry/source_info.dart';
 import '../telemetry/telemetry_store.dart';
 import 'simulated_vehicle_data_source.dart';
 
@@ -78,6 +79,8 @@ class SimulationController extends ChangeNotifier {
     store.reset();
     final src = SimulatedVehicleDataSource(store: store, scenario: scenario, startAt: startAt);
     _source = src;
+    store.source = SourceInfo(
+        transport: 'simulator (in-app)', simulated: true, scenario: scenario.name);
     if (autoRun) {
       src.start();
     } else {
