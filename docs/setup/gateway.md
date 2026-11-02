@@ -31,7 +31,7 @@ master at a time.
 
 | Host | Adapter flag | Notes |
 |---|---|---|
-| Raspberry Pi (Raspberry Pi OS) | `--adapter rfcomm:00:04:3E:85:EA:FC` | Build with `--features rfcomm` (needs `libdbus-1-dev`). Pair once with `bluetoothctl` (agent on, confirm the shown passkey; [bench-log](../hardware/bench-log.md)) |
+| Raspberry Pi (Raspberry Pi OS) — `make pi-run` wraps this ([raspberry-pi.md](raspberry-pi.md)) | `--adapter rfcomm:00:04:3E:85:EA:FC` | Build with `--features rfcomm` (needs `libdbus-1-dev`). Pair once with `bluetoothctl` (agent on, confirm the shown passkey; [bench-log](../hardware/bench-log.md)) |
 | macOS | `--adapter serial:/dev/cu.<name>` | Pair the MX+ in System Settings; it appears as a `/dev/cu.*` serial port. Unverified |
 | ESP32 as a USB bridge | `--adapter serial:/dev/cu.usbserial-…@115200` | Future: needs bridge firmware |
 | Emulator / TCP | `--adapter tcp:host:port` | Used by the tests |

@@ -426,7 +426,7 @@ the OBDLink MX+ over Bluetooth. It produces real data before any money is spent
    - **Pairing is Secure Simple Pairing, not a PIN.** When the owner paired it, a one-time passkey was displayed (not `1234`) and nothing had to be typed (2026-11-01, `bench-log.md`). If `bluetoothctl` asks to confirm a passkey, answer `yes`. Don't enter `1234`.
    - Pair once, interactively. No PIN goes in the gateway config.
    - Disconnect the phone (Torque) and the ESP32 first. The MX+ takes one Bluetooth master at a time.
-   - Gateway config: `transport: obdlink`, with the address, and `transmit_enabled: true`.
+   - Gateway config: `make pi-run TRANSPORT=obdlink TRANSMIT=1`. The address defaults to the one above ([setup/raspberry-pi.md](setup/raspberry-pi.md)).
    - ADR-0007's opt-in still applies. The trial's checklist entry records "commercial OBD adapter in the DLC, no added wiring" in `bench-log.md`.
 3. **3.5.3 Temporary truck setup** [HUMAN].
    - Power the Pi from a USB-C PD supply able to deliver 5 V / 5 A. A 3 A supply works, with reduced USB current. This is **for the trial only, not a permanent install** (Phase 7).

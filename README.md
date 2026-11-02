@@ -108,6 +108,9 @@ make fw-test    # 140 host-side tests, no hardware
 make fw-build   # build for the ESP32-WROOM-32
 ```
 
+On the Pi 5 with Raspberry Pi OS (the Phase 3.5 MX+ trial), use `make pi-setup`,
+`make pi-build` and `make pi-run`. See [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md).
+
 AGL images build on a Linux x86_64 host, not on the Mac. See
 [docs/setup/linux-build-host.md](docs/setup/linux-build-host.md).
 

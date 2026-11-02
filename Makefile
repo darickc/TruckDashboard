@@ -11,7 +11,8 @@ ROOT  := $(shell git rev-parse --show-toplevel)
 PIO     ?= $(shell command -v pio 2>/dev/null || echo $(HOME)/.platformio/penv/bin/pio)
 FLUTTER ?= fvm flutter
 # Homebrew's rustup is keg-only; make cargo reachable without shell changes.
-export PATH := $(shell brew --prefix rustup 2>/dev/null)/bin:$(HOME)/.cargo/bin:$(PATH)
+# On the Pi, rustup and fvm install into ~/.cargo/bin and ~/fvm/bin.
+export PATH := $(shell brew --prefix rustup 2>/dev/null)/bin:$(HOME)/.cargo/bin:$(HOME)/fvm/bin:$(PATH)
 
 FW_DIR  := firmware/esp32
 APP_DIR := apps/infotainment
@@ -44,7 +45,8 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
-        sim gateway console deploy logs docs-lint
+        sim gateway console deploy logs docs-lint \
+        pi-setup pi-build pi-run
 
 help: ## List targets
 	@grep -hE '^[a-z][a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -168,6 +170,22 @@ endif
 
 docs-lint: ## Check relative Markdown links
 	python3 tools/dev/check_links.py
+
+# ---- Raspberry Pi OS, MX+ trial (Phase 3.5); run these on the Pi ------------
+
+# Options for pi-run: TRANSPORT=sim|obdlink TRANSMIT=1 ADAPTER= ENABLE= BUDGET_RPS= UI=0
+pi-setup: ## On the Pi: install apt packages, Rust and Flutter (Phase 3.5.1)
+	tools/pi/setup-raspios.sh
+
+pi-build: ## On the Pi: release-build the gateway (RFCOMM), recorder, obd-console and the Linux app
+	@[ "$$(uname -s)" = Linux ] || { echo "pi-build runs on the Pi (Linux); see docs/setup/raspberry-pi.md"; exit 1; }
+	cargo build --release -p vehicle-gateway --features rfcomm
+	cargo build --release -p recorder -p obd-console
+	cd $(APP_DIR) && $(FLUTTER) build linux --release \
+	  --dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:/tmp/f250/vehicle.sock
+
+pi-run: pi-build ## On the Pi: gateway + recorder + fullscreen app (simulator unless TRANSPORT=obdlink)
+	tools/pi/run.sh
 
 # ---- not yet available ------------------------------------------------------
 

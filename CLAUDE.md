@@ -94,6 +94,7 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make ui-web` | Dashboard in a browser at http://127.0.0.1:8250. Add `SCENARIO=<id> START=<s>` to jump into a scenario |
 | `make sim` | Rust gateway (simulated) + macOS app over gRPC. `make gateway` / `make console` run the gateway or `obd-console` alone |
 | `make rust-test` / `make rust-lint` | Cargo workspace tests / fmt + clippy (needs `protoc`) |
+| `make pi-setup` / `pi-build` / `pi-run` | On the Pi (Raspberry Pi OS, Phase 3.5): install the tools, release-build, run gateway + recorder + app. `pi-run` uses the simulator unless `TRANSPORT=obdlink`, and polls only with `TRANSMIT=1`. See [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md) |
 | `make ui` / `make ui-macos-build` | Dashboard as a macOS window / just build it (needs Xcode; the Makefile sets `DEVELOPER_DIR` if `xcode-select` points at the Command Line Tools) |
 
 Also: `make proto` (regenerate the Dart gRPC client) and `make linux-test` (Rust
