@@ -18,8 +18,11 @@ a vendor answer, a measurement or a photo), recorded in
 | H9 | Are reverse and turn-signal wires accessible, and at what voltage and behaviour (incandescent flasher vs. module)? | Camera triggers | Identify wires with the wiring diagram; meter them | owner |
 | H10 | Which cameras and capture hardware (UVC first)? | Phase 6 cameras | Bench latency test | bench |
 | H11 | Which GNSS receiver? It must work with gpsd | Phase 6 navigation | Pick a u-blox receiver; test with gpsd | owner |
-| H12 | Physical addressing on this truck: does `ATSH 7E0`/`7E1` reach only one module? | Throughput plan; ISO-TP IDs | [TRUCK_SESSION Part 1](../diagnostics/TRUCK_SESSION.md) | truck |
-| H13 | Which Ford DIDs (EOT, FICM, ICP, IPR, MAP, EBP, gear, battery) are valid, and who owns each? | Gauges beyond RPM and trans temp | [TRUCK_SESSION Part 3](../diagnostics/TRUCK_SESSION.md) | truck |
+| H12 | Physical addressing on this truck: does `ATSH 7E0`/`7E1` reach only one module? | Throughput plan; ISO-TP IDs | [TRUCK_SESSION Part 1](../diagnostics/TRUCK_SESSION.md), in the MX+ trial (3.5.4) | truck |
+| H13 | Which Ford DIDs (EOT, FICM, ICP, IPR, MAP, EBP, gear, battery, fuel level) are valid, and who owns each? | Gauges beyond RPM and trans temp | [TRUCK_SESSION Part 3](../diagnostics/TRUCK_SESSION.md), in the MX+ trial (3.5.4) | truck |
 | H14 | What is broadcast on HS-CAN without any request? | Stage B decoders | Stage A listen-only census | truck |
 | H15 | Is the MX+ Bluetooth link reliable alongside A2DP on the Pi 5's one radio? | Using the OBDLink transport in the car | Bench test both together; fall back to a USB BT dongle or the ESP32 bridge | bench |
 | H16 | Low-battery protection: where does the voltage measurement come from? | Low-voltage shutdown | Choose an ESP32 ADC or I2C ADC with a divider | design |
+| H17 | Does Flutter 3.38.3 build a Linux desktop app on the Pi 5 (arm64 host)? | MX+ trial UI (3.14) | Build on the Pi; fall back to `flutter-pi` | bench |
+| H18 | Does the Pi 5 run stably from the truck-trial USB-C supply (undervoltage warnings, throttling)? | MX+ trial (3.5.3) | `vcgencmd get_throttled` before and after a drive | truck |
+| H19 | Does a gateway-side recovery (soft reset, then `ATZ`, then reconnect) restore a frozen PID without unplugging the MX+? | The core reliability claim | Phase 3.5.6 drive logs | truck |

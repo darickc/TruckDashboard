@@ -39,7 +39,13 @@ runs on the Mac.
 | Flutter dashboard (`apps/infotainment`) | Runs with **simulated** data: gauges, global alerts, stale-data handling, diagnostics, fuel level, speed calibration. 99 tests `[SIM]` |
 | Power Stroke simulator (`simulator/powerstroke`) | 6 scenarios, including the EOT/ECT freeze. 27 tests `[SIM]` |
 | Rust vehicle gateway | Phase 3. Not started |
-| CAN hardware, AGL image, infotainment | Phases 4–7. Not started. **No head-unit hardware purchased yet** |
+| MX+ truck trial | Phase 3.5. Not started. Needs only owned hardware |
+| CAN hardware, AGL image, infotainment | Phases 4–7. Not started. **No head-unit hardware purchased yet.** Purchases are decided by the MX+ trial |
+
+**Next:** Phase 3, the Rust gateway, with the MX+ path built first. Then
+**Phase 3.5, an MX+ truck trial**: the Pi 5 and display on Raspberry Pi OS,
+talking to the OBDLink MX+ over Bluetooth. It needs no new hardware, and its
+data decides what to buy ([ADR-0011](docs/architecture/adr/0011-mx-plus-trial-first.md)).
 
 The full plan is [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md), and the checklist
 is [docs/ROADMAP.md](docs/ROADMAP.md).

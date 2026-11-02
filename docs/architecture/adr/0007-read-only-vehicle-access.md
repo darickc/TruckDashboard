@@ -37,6 +37,12 @@ actuator test. The owner requires initial communication to be read-only.
 
 ## Consequences
 
+- **The MX+ trial (ADR-0011)** is diagnostic transmission through a
+  commercial adapter. It still needs the config opt-in and is still limited to
+  the service allow-list. The checklist's electrical items reduce to
+  "commercial adapter in the DLC, no added wiring", recorded like any other
+  entry.
+
 - Stage A (passive monitoring) can run on the truck before any transmit risk is
   taken.
 - The allow-list is unit-tested over the whole table: a test fails if any

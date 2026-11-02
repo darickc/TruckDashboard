@@ -77,33 +77,50 @@ Tags:
       on the truck yet; it ships at ×1.0
 - [x] Checked by eye in a browser (`make ui-web`). The macOS app builds with Xcode 27.2
       (deployment target raised to 12.0, Xcode 27's minimum) and launches in an
-      800×480 window (2026-11-02). Nothing has run on the Pi
+      800×480 window (2026-11-01). Nothing has run on the Pi
 
-## Phase 3 — Vehicle-data backend [SIM]
+## Phase 3 — Vehicle-data backend [SIM] (next)
 
-- [ ] 3.1 Protos (`f250.vehicle.v1`) and buf
-- [ ] 3.2 `crates/telemetry`: registry, units, formula grammar, staleness, computed signals, warnings
-- [ ] 3.3 Seed `shared/signals/`
-- [ ] 3.4 `tools/pid-importer`
-- [ ] 3.5 `crates/elm`, ported from the C++ with its test vectors
-- [ ] 3.6 Gateway transports: simulated, SocketCAN, OBDLink
-- [ ] 3.7 Scheduler
-- [ ] 3.8 Recovery state machines (per PID, per link)
-- [ ] 3.9 Event history and the health API
-- [ ] 3.10 Recorder
-- [ ] 3.11 UI driven by the gateway (`make sim`)
-- [ ] 3.12 Tests, plus the vcan CI job
+Build order is set by the MX+ trial ([ADR-0011](architecture/adr/0011-mx-plus-trial-first.md)).
+Items marked ★ come first, because the trial needs them.
 
-## Phase 4 — Hardware communication [HW] [HUMAN]
+- [ ] ★ 3.1 Protos (`f250.vehicle.v1`) and buf
+- [ ] ★ 3.2 `crates/telemetry`: registry, units, formula grammar, staleness, computed signals, warnings, calibration
+- [ ] ★ 3.3 Seed `shared/signals/` (by hand, from `FORD_6_0_PIDS.md`)
+- [ ] 3.4 `tools/pid-importer` (can follow the trial)
+- [ ] ★ 3.5 `crates/elm`, ported from the C++ with its test vectors
+- [ ] ★ 3.6 Gateway transports: simulated, OBDLink (RFCOMM or serial). SocketCAN moved to 4.1
+- [ ] ★ 3.7 Scheduler
+- [ ] ★ 3.8 Recovery state machines (per PID, per link)
+- [ ] ★ 3.9 Event history and the health API
+- [ ] ★ 3.10 Recorder
+- [ ] ★ 3.11 UI driven by the gateway (`make sim`)
+- [ ] 3.12 Tests (the vcan CI job moves with SocketCAN to Phase 4)
+- [ ] ★ 3.13 `tools/obd-console`, so `TRUCK_SESSION.md` can run on the Pi
+- [ ] ★ 3.14 Flutter Linux desktop target, built on the Pi 5
 
-- [ ] 4.1 Bench bring-up. **Resolve the CAN termination** (H1)
+## Phase 3.5 — MX+ truck trial (nothing to buy) [HW] [HUMAN]
+
+- [ ] 3.5.1 Raspberry Pi OS on the Pi 5. Display, touch and ribbon confirmed. `tools/pi/setup-raspios.sh`, `make pi-run`
+- [ ] 3.5.2 MX+ paired (`00:04:3E:85:EA:FC`, PIN 1234). Phone and ESP32 disconnected. Opt-in recorded in `bench-log.md`
+- [ ] 3.5.3 Temporary truck setup: USB-C power (5 V / 5 A preferred), secure mount, shutdown before key-off
+- [ ] 3.5.4 Driveway session: `TRUCK_SESSION.md` Parts 1–4 through `obd-console`, transcripts in `VERIFICATION_LOG.md`
+- [ ] 3.5.5 Speed calibration factor measured against GPS
+- [ ] 3.5.6 Logged drives: Torque-style polling and the budgeted schedule, with `ATRV` voltage and STN chatter logged
+- [ ] 3.5.7 `docs/diagnostics/mx-plus-trial.md`: hypotheses eliminated, recovery results, throughput, **purchase decision**
+
+## Phase 4 — CAN hardware communication [HW] [HUMAN]
+
+Starts after the purchase decision in 3.5.7.
+
+- [ ] 4.1 Bench bring-up plus the gateway's SocketCAN transport. **Resolve the CAN termination** (H1)
 - [ ] 4.2 `tools/can-monitor`
 - [ ] 4.3 Stage A: passive census on the truck
 - [ ] 4.4 Stage B: corroborated broadcast decoders
 - [ ] 4.5 Stage C: ISO-TP diagnostics (opt-in)
-- [ ] 4.6 Stage D: OBDLink transport
-- [ ] 4.7 Dropout experiment
-- [ ] 4.8 Finish `TRUCK_SESSION.md` and promote the verified PIDs
+- [ ] 4.6 Stage D: transport switching and the no-simultaneous-transmit rule, MX+ and CAN both present
+- [ ] 4.7 Dropout experiment (listen-only CAN capture while the MX+ polls)
+- [ ] 4.8 Finish whatever 3.5 left open in `TRUCK_SESSION.md`, over direct CAN
 
 ## Phase 5 — AGL deployment [HW]
 

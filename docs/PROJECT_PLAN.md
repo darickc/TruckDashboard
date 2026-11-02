@@ -1,7 +1,14 @@
 # F-250 AGL Head Unit — Project Plan
 
 > Plan of record for the pivot from the ESP32-only gauge to an AGL head unit.
-> Written 2026-11-01. Phase 0 has not started yet.
+> Written 2026-11-01.
+>
+> **Revision 2026-11-01 (evening).** An **MX+ truck trial, Phase 3.5**, now
+> comes before any hardware purchase. It runs the Pi 5, the original display
+> and the OBDLink MX+ over Bluetooth on Raspberry Pi OS. Phase 3 is reordered
+> to build the MX+ path first, and the CAN-specific work moves into Phase 4.
+> See [ADR-0011](architecture/adr/0011-mx-plus-trial-first.md). Progress is
+> tracked in [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -168,6 +175,7 @@ the PRO 5.
 | 008 | **Libraries live in `crates/`**, daemons in `services/`. `services/telemetry` becomes `crates/telemetry` | A library under `services/` is misleading. This is the one deviation from the suggested layout |
 | 009 | **Camera rendering is decided by a spike**: a Flutter texture (alerts stay overlaid) versus a GStreamer `waylandsink` surface raised through `agl-shell` | Alerts must stay visible. Must be measured on the Pi 5 |
 | 010 | **Map: `flutter_map` with offline MBTiles/PMTiles. Routing: a Valhalla service.** Both are prototyped before committing | Runs offline and fits Flutter on Linux. Valhalla's offline tiles are a better fit than GraphHopper's JVM |
+| 011 | **MX+ truck trial before buying CAN hardware.** Run the real stack (gateway, recorder, UI) on Raspberry Pi OS with the MX+ over Bluetooth. Purchases are decided from its data | Uses hardware already owned. Tests five of the six dropout hypotheses. Exercises the gateway on a real vehicle early |
 
 ---
 
@@ -185,7 +193,7 @@ TruckDashboard/
 ├── shared/{proto/f250/*/v1,signals,configuration}/
 ├── firmware/esp32/         existing PlatformIO project, moved with git mv
 ├── simulator/powerstroke/  scenario YAML + Rust simulated transport
-├── tools/{can-monitor,pid-importer,diagnostics}/
+├── tools/{can-monitor,pid-importer,obd-console,diagnostics,pi,dev}/
 ├── tests/{integration,hardware}/
 └── .github/workflows/
 ```
@@ -309,6 +317,12 @@ No hardware-dependent step is marked done until it has run on real hardware.
 
 ### Phase 3 — Vehicle-data backend [SIM]
 
+**Build order (revised).** Build first what the MX+ trial (Phase 3.5) needs:
+3.1, 3.2, 3.3, 3.5, the `Simulated` and `ObdLink` transports of 3.6, then 3.7–3.11
+and 3.13–3.14. The `SocketCan` transport moves to Phase 4, where CAN hardware
+exists. 3.4 (the Torque importer) can follow the trial: the trial's registry is
+seeded by hand from `FORD_6_0_PIDS.md`.
+
 1. **3.1** Write the protos in `shared/proto/f250/vehicle/v1/`, wired up with `make proto` and buf:
    - `telemetry.proto`
    - `health.proto`
@@ -350,10 +364,12 @@ No hardware-dependent step is marked done until it has run on real hardware.
    - `expectedResponder`
 
    Its tests port the existing C++ test vectors.
-6. **3.6** Build `services/vehicle-gateway` with a `Transport` trait and three implementations:
+6. **3.6** Build `services/vehicle-gateway` with a `Transport` trait and these implementations:
    - `Simulated`, which emits frame-level responses from scenarios, including faults
-   - `SocketCan`, Linux-only behind a cfg flag
-   - `ObdLink`, serial or RFCOMM
+   - `ObdLink`, an ELM/STN byte stream (via `crates/elm`) over:
+     - Bluetooth RFCOMM on Linux (BlueZ)
+     - a serial device: a macOS `/dev/cu.*` Bluetooth serial port, or the ESP32 as a USB bridge
+   - Not in this phase: `SocketCan` (Linux-only, behind a cfg flag), moved to Phase 4.1
 7. **3.7** Build the scheduler: priority plus throughput budget (ported), adaptive intervals, per-PID timeouts, bounded retries with jitter.
 8. **3.8** Build the **recovery state machines**:
    - **per PID:** `ACTIVE → SUSPECT → BACKOFF(exp, capped) → QUARANTINED` (low-rate probe) `→ ACTIVE`
@@ -376,12 +392,88 @@ No hardware-dependent step is marked done until it has run on real hardware.
     - scheduler fairness and budget
     - frame decoding: wrong DLC, unknown IDs, bus-error handling, passive mode refusing to transmit
     - recorder retention
+13. **3.13** Build `tools/obd-console`, the Pi-side equivalent of the ESP32 serial console. It works through the gateway's diagnostics API and provides:
+    - `pids`, `on`/`off`, `probe`, `raw`, `stats`
+    - `raw` restricted to AT commands plus the ADR-0007 read-service allow-list
+    - every transcript saved for `VERIFICATION_LOG.md`
 
-    *Done when:* the UI is driven by the gateway, the EOT/ECT-freeze scenario is detected, quarantined, recovered and logged, and `make test` is green on macOS and in Linux CI.
+    This lets `TRUCK_SESSION.md` run on the Pi. The ESP32 console stays as a fallback.
+14. **3.14** Add a **Linux desktop target** to the Flutter app (`apps/infotainment/linux`) for Raspberry Pi OS:
+    - fullscreen at 800×480
+    - built on the Pi with Flutter 3.38.3 (linux-arm64)
 
-### Phase 4 — Hardware communication [HW] [HUMAN]
+    Confirming that Flutter's Linux arm64 host build works on the Pi 5 is part of this step. `flutter-pi` is the fallback.
 
-1. **4.1** Do the **bench bring-up** on a Pi 5 running Raspberry Pi OS, using the CarPiHAT, or the alternative adapter if the HAT is rejected:
+    *Done when:*
+    - the UI is driven by the gateway
+    - the EOT/ECT-freeze scenario is detected, quarantined, recovered and logged
+    - the `ObdLink` transport passes against a scripted ELM transcript (the ported C++ vectors)
+    - `make test` is green on macOS and in Linux CI
+
+### Phase 3.5 — MX+ truck trial (nothing to buy) [HW] [HUMAN]
+
+Run the real stack on the Pi 5 with the original display, Raspberry Pi OS and
+the OBDLink MX+ over Bluetooth. It produces real data before any money is spent
+([ADR-0011](architecture/adr/0011-mx-plus-trial-first.md)).
+
+1. **3.5.1 Pi preparation (bench).**
+   - Install current 64-bit Raspberry Pi OS. Confirm the display, touch and the 22→15-way ribbon (ADR-0005 stage 0).
+   - Run `tools/pi/setup-raspios.sh`. It installs the build dependencies, Rust, fvm and Flutter 3.38.3. BlueZ ships with the OS.
+   - Build the gateway, recorder and app on the Pi, or cross-build the Rust parts from the Mac.
+   - `make pi-run` starts all three. The app runs fullscreen.
+2. **3.5.2 Pair the MX+.**
+   - Use `bluetoothctl`: pair, trust, PIN `1234`. The address is `00:04:3E:85:EA:FC` (recorded in the firmware config).
+   - Disconnect the phone (Torque) and the ESP32 first. The MX+ takes one Bluetooth master at a time.
+   - Gateway config: `transport: obdlink`, with the address, and `transmit_enabled: true`.
+   - ADR-0007's opt-in still applies. The trial's checklist entry records "commercial OBD adapter in the DLC, no added wiring" in `bench-log.md`.
+3. **3.5.3 Temporary truck setup** [HUMAN].
+   - Power the Pi from a USB-C PD supply able to deliver 5 V / 5 A. A 3 A supply works, with reduced USB current. This is **for the trial only, not a permanent install** (Phase 7).
+   - Mount the screen securely, out of the airbag path and the driver's view of the road.
+   - There is no ignition sensing yet, so shut down from the UI or over SSH before key-off.
+   - The recorder uses SQLite WAL so a power cut loses at most the last seconds. SD-card corruption is the remaining risk; keep a spare image.
+4. **3.5.4 Driveway session** (KOEO and idle).
+   - Run `TRUCK_SESSION.md` Parts 1–4 through `tools/obd-console` on the Pi, or the ESP32 console as a fallback:
+     - physical addressing (`ATSH 7E0`/`7E1`)
+     - the response-count digit
+     - bare `ATCRA`
+     - multi-DID batching
+     - every Ford DID, including `22 16C1` fuel level
+     - throughput
+   - Record every transcript in `VERIFICATION_LOG.md`. Promote PIDs only with evidence.
+5. **3.5.5 Speed calibration.** Measure the factor against GPS ([CALIBRATION.md](diagnostics/CALIBRATION.md)) and commit it to `calibration.json`.
+6. **3.5.6 Logged drives.** Normal driving and, if possible, towing. The recorder keeps:
+   - every request and response line, with latency and responder
+   - negative responses, timeouts, `STOPPED`, `BUFFER FULL`, `CAN ERROR`
+   - every unsolicited STN line (`LV RESET`, `ACT ALERT`, `SLEEPING`)
+   - per-PID and per-link state transitions, and each recovery step taken
+   - adapter supply voltage from `ATRV` (the ELM's own reading at DLC pin 16) every few seconds
+
+   Run at least two configurations:
+   - the poll set and rate Torque used
+   - the gateway's budgeted schedule (and physical addressing, if Part 1 showed it works)
+7. **3.5.7 Analyse and decide.** Write `docs/diagnostics/mx-plus-trial.md`:
+   - which dropout hypotheses the logs eliminate or support (see the table below)
+   - whether automatic recovery restored frozen PIDs without unplugging the adapter
+   - measured throughput
+   - the hardware decision: CarPiHAT PRO 5, USB CAN adapter, both, or not yet. Record the decision in `shopping-list.md`.
+
+   *Done when:*
+   - the truck's dashboard has run on the Pi from MX+ data
+   - at least a few hours of driving are logged
+   - each `TRUCK_SESSION.md` question is answered or recorded as blocked
+   - the purchase decision is written down
+
+   *What the trial cannot show:*
+   - whether a missing response was ever on the wire. That needs a listen-only CAN capture (Phase 4.7)
+   - AGL-specific behaviour (Phase 5)
+   - ignition-driven power behaviour (Phase 6–7)
+
+### Phase 4 — CAN hardware communication [HW] [HUMAN]
+
+Starts after the purchase decision in 3.5.7. The hardware it uses is whatever
+that decision chose.
+
+1. **4.1** Do the **bench bring-up** on a Pi 5 running Raspberry Pi OS, using the CarPiHAT, or the alternative adapter if the HAT is rejected. Add the gateway's `SocketCan` transport (moved here from 3.6):
    - SPI and MCP2515 overlay at 8 MHz with INT BCM23
    - check the INT pull with `pinctrl` (raspberrypi/linux#6106)
    - loopback test
@@ -397,9 +489,11 @@ No hardware-dependent step is marked done until it has run on real hardware.
    - record the broadcast census at KOEO, idle and driving
 4. **4.4** **Stage B:** decoders only for broadcast signals that can be corroborated (for example against the RPM and speed PIDs). Each records its provenance and confidence. **No guessed definitions are shown as validated.**
 5. **4.5** **Stage C:** active diagnostics through kernel ISO-TP (`can-isotp`), PCM `7E0/7E8` and TCM `7E1/7E9`, first proven with a single request. It needs both the transmit opt-in and the checklist. Polling is conservative and has a kill switch.
-6. **4.6** **Stage D:** the OBDLink transport against the MX+ (RFCOMM, or through the ESP32 bridge). It uses the same normalized API, is selected by config, and **never transmits at the same time as another transport**.
+6. **4.6** **Stage D:** the OBDLink transport already ran on the truck in Phase 3.5. Here, confirm two things:
+   - switching transports by config with no UI change
+   - the **never transmit on two transports at once** rule, with the MX+ and CAN hardware both present
 7. **4.7** **The intermittent-dropout experiment** (see the diagnostics section below).
-8. **4.8** Finish the open `TRUCK_SESSION.md` items (ATSH, the remaining DIDs) using whichever transport is available, and promote PIDs only with log evidence.
+8. **4.8** Finish any `TRUCK_SESSION.md` items Phase 3.5 left open, now over direct CAN, and promote PIDs only with log evidence.
 
 ### Phase 5 — AGL deployment [HW]
 
@@ -505,6 +599,17 @@ unplugging the adapter.
 | Electrical: DLC pin contact or adapter power | Dropouts track bumps or voltage. The fix is reseating | Log battery voltage alongside. Inspect and clean DLC pins 4, 5, 6, 14, 16 |
 | ECU-side: the PCM stops answering a DID | The ECU sends no response frame on the wire at all | **The decisive test is below** |
 
+### What the MX+ trial (Phase 3.5) can already show
+
+| Hypothesis | Evidence from the MX+ logs alone |
+|---|---|
+| Two-responder desync | `STOPPED` / unexpected-line counts around freezes; A/B between `7DF` and physical addressing |
+| Polling overload | Latency percentiles and `BUFFER FULL` before freezes; A/B between Torque's rate and the budgeted rate |
+| Wrong ECU / misattribution | The responder recorded per sample changes, or a negative response appears, at the freeze |
+| Adapter state | Unsolicited STN lines logged near freezes |
+| Electrical / adapter power | `ATRV` voltage dips correlated with freezes |
+| ECU stops answering | **Not separable** from "adapter dropped it". Needs the experiment below |
+
 ### The decisive experiment (Phase 4.7)
 
 1. Use a **DLC Y-cable**.
@@ -552,9 +657,15 @@ The procedure goes in `docs/diagnostics/dropout-capture.md`.
 | 1 | `make setup && make test` on macOS; CI green; links checked |
 | 2 | `make ui` (800×480 window; run the freeze scenario and see stale badges); `make ui-test` |
 | 3 | `make test` (Rust and Flutter); `make sim` drives the UI through the gateway; recovery-transition tests; `make linux-test` in Docker |
+| 3.5 | Pi dashboard live from the MX+ on the truck; transcripts in `VERIFICATION_LOG.md`; drive logs plus `docs/diagnostics/mx-plus-trial.md`; purchase decision recorded |
 | 4–7 | Hardware logs and photos recorded in `docs/diagnostics/VERIFICATION_LOG.md` and `docs/hardware/bench-log.md`. Nothing is marked tested without that evidence |
 
 ## Hardware to buy (nothing owned yet beyond the Pi 5, display, MX+ and ESP32)
+
+**Nothing is needed before the MX+ trial (Phase 3.5)**, beyond a USB-C supply
+for the Pi in the truck if one isn't already on hand. Everything below waits
+for the trial's purchase decision (3.5.7), except the display cable, which you
+already have if the display runs on the Pi 5.
 
 | Item | Note |
 |---|---|

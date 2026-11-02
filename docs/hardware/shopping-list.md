@@ -4,7 +4,20 @@ Nothing beyond the Pi 5, the original 7" display, the OBDLink MX+ and the
 ESP32 is owned yet (2026-11-01). Buy in the order below. Each stage answers
 questions before money goes on the next.
 
-## Stage 1 — bench bring-up (Phases 4–5)
+## Stage 0 — MX+ truck trial (Phase 3.5): nothing to buy
+
+The trial uses what's already owned ([ADR-0011](../architecture/adr/0011-mx-plus-trial-first.md)).
+At most:
+
+| Item | Why | Notes |
+|---|---|---|
+| USB-C PD supply for the Pi in the truck | Temporary power for the trial | Prefer 5 V / 5 A (for example the official 27 W supply, through a 12 V inverter or a USB-C PD car adapter that does 5 A). A 3 A supply works with reduced USB current. **Not** the permanent install |
+| microSD card | Raspberry Pi OS | Probably on hand |
+
+**Purchase decision after the trial:** _not made yet_. Record it here, with a
+link to `docs/diagnostics/mx-plus-trial.md`.
+
+## Stage 1 — CAN bench bring-up (Phases 4–5), decided by the trial
 
 | Item | Why | Notes / alternatives |
 |---|---|---|
