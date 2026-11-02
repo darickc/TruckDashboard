@@ -25,7 +25,7 @@ Closes: <open-questions.md item, if any>
 ## 2026-11-01 — OBDLink MX+ pairing method (reported by the owner)
 
 Hardware: OBDLink MX+ `00:04:3E:85:EA:FC`
-Setup: Bluetooth pairing with the MX+ (host device not recorded)
+Setup: Bluetooth pairing with the MX+ from the owner's phone (the device used with Torque Pro)
 
 Result:
     A pairing passkey was displayed. It was not 1234, and nothing had to be
