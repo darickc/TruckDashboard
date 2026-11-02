@@ -422,7 +422,9 @@ the OBDLink MX+ over Bluetooth. It produces real data before any money is spent
    - Build the gateway, recorder and app on the Pi, or cross-build the Rust parts from the Mac.
    - `make pi-run` starts all three. The app runs fullscreen.
 2. **3.5.2 Pair the MX+.**
-   - Use `bluetoothctl`: pair, trust, PIN `1234`. The address is `00:04:3E:85:EA:FC` (recorded in the firmware config).
+   - Use `bluetoothctl` with an agent running (`agent on`, `default-agent`), then `pair` and `trust`. The address is `00:04:3E:85:EA:FC` (recorded in the firmware config).
+   - **Pairing is Secure Simple Pairing, not a PIN.** When the owner paired it, a one-time passkey was displayed (not `1234`) and nothing had to be typed (2026-11-01, `bench-log.md`). If `bluetoothctl` asks to confirm a passkey, answer `yes`. Don't enter `1234`.
+   - Pair once, interactively. No PIN goes in the gateway config.
    - Disconnect the phone (Torque) and the ESP32 first. The MX+ takes one Bluetooth master at a time.
    - Gateway config: `transport: obdlink`, with the address, and `transmit_enabled: true`.
    - ADR-0007's opt-in still applies. The trial's checklist entry records "commercial OBD adapter in the DLC, no added wiring" in `bench-log.md`.

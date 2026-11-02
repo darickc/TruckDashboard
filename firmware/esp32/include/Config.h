@@ -50,7 +50,9 @@ inline constexpr char kObdDeviceName[] = "OBDLink MX+ 15326";
 inline constexpr bool kUseObdMac = true;
 inline constexpr uint8_t kObdMac[6] = {0x00, 0x04, 0x3E, 0x85, 0xEA, 0xFC};
 
-/// SPP pairing PIN (OBDLink MX+ default is "1234").
+/// Legacy SPP pairing PIN ("1234" is the commonly documented MX+ default).
+/// Only used if a legacy-PIN exchange is requested: this truck's MX+ paired
+/// with Secure Simple Pairing (passkey shown, nothing entered; 2026-11-01).
 inline constexpr char kObdPin[] = "1234";
 
 /// Reconnect backoff: doubles from min to max on repeated failures.

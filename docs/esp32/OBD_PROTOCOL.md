@@ -6,7 +6,11 @@ How this firmware talks to the OBDLink MX+, and why each choice was made.
 
 Bluetooth Classic **SPP** (Serial Port Profile). The ESP32 runs as SPP *master*
 (`BluetoothSerial::begin(name, /*isMaster=*/true)`) and initiates the connection.
-The MX+ default PIN is `1234`.
+`1234` is the commonly documented legacy PIN. When the owner paired this MX+
+on 2026-11-01, though, it used **Secure Simple Pairing**: a one-time passkey
+was displayed and nothing had to be entered (see
+[bench-log.md](../hardware/bench-log.md)). The firmware's `kObdPin` only
+matters if a legacy-PIN exchange is ever requested.
 
 - `connect(name)` runs a discovery scan first: **10–30 s, blocking**.
 - `connect(mac)` skips discovery: a few seconds. The firmware logs the adapter's

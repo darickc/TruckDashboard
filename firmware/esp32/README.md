@@ -115,7 +115,9 @@ Everything tunable is in [include/Config.h](include/Config.h):
   scan. After the first successful connection the firmware logs
   `connected to XX:XX:XX:XX:XX:XX — paste into Config.h`; do that and set
   `kUseObdMac = true` for ~3 s reconnects.
-- **`kObdPin`** — SPP PIN, MX+ default `1234`.
+- **`kObdPin`** — legacy SPP PIN (`1234`). Only used if a legacy-PIN exchange
+  is requested. The owner's MX+ pairs with Secure Simple Pairing: a passkey is
+  shown and nothing is entered.
 - **`kEnabledPids`** — which PIDs poll (milestone 1: RPM + baro only).
 - **`kElmInitCommands`** — adapter init sequence; pin `ATSP0` → `ATSP6` once the
   protocol is confirmed on the truck.
