@@ -29,6 +29,9 @@ void main() {
     await tester.pump();
     expect(h.textOf('value-fuel_level'), matches(RegExp(r'^\d+$')));
     expect(_badgeIn('fuel_level'), findsOneWidget);
+    // Speed takes the slot EGT had; no probe is installed.
+    expect(h.textOf('value-speed'), matches(RegExp(r'^\d+$')));
+    expect(find.byKey(const ValueKey('value-egt')), findsNothing);
   });
 
   testWidgets('computed values inherit unverified status from their inputs', (tester) async {

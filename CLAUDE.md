@@ -92,7 +92,7 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make sim-test` | Scenario simulator tests (Dart) |
 | `make ui-test` / `make ui-lint` | Flutter tests / analyzer |
 | `make ui-web` | Dashboard in a browser at http://127.0.0.1:8250. Add `SCENARIO=<id> START=<s>` to jump into a scenario |
-| `make ui` | Dashboard as a macOS window (needs Xcode) |
+| `make ui` / `make ui-macos-build` | Dashboard as a macOS window / just build it (needs Xcode; the Makefile sets `DEVELOPER_DIR` if `xcode-select` points at the Command Line Tools) |
 
 These will be added as their phases land:
 

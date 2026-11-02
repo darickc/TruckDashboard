@@ -41,7 +41,7 @@ make lint     # link check, plus Rust/proto/Flutter linters as they appear
 | Tool | Needed for | Install |
 |---|---|---|
 | Homebrew | everything | https://brew.sh |
-| Xcode (full app) | Flutter macOS desktop target (Phase 2) | App Store, then `sudo xcodebuild -runFirstLaunch` |
+| Xcode (full app) | Flutter macOS desktop target (`make ui`) | App Store, then `sudo xcodebuild -runFirstLaunch`. If `xcode-select -p` still shows `/Library/Developer/CommandLineTools`, the Makefile points Xcode builds at `/Applications/Xcode.app` by itself. The permanent fix is `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` |
 | CocoaPods | Flutter macOS plugins | `brew install cocoapods` |
 | PlatformIO | `firmware/esp32` | `brew install platformio`, or the VS Code PlatformIO extension (installs to `~/.platformio/penv/bin/pio`) |
 | Docker Desktop | `make linux-test` (Linux-only code, such as SocketCAN) | https://www.docker.com/products/docker-desktop/ |
@@ -73,6 +73,7 @@ The pin keeps the app compatible with the engine on the truck.
 | `make fw-test` / `make fw-build` | ESP32 host tests / firmware build |
 | `make ui-web` | Dashboard in a browser at http://127.0.0.1:8250 (release build; no Xcode needed). `SCENARIO=eot_ect_freeze START=110` jumps into a scenario |
 | `make ui` | Dashboard in an 800×480 macOS window (needs Xcode; CocoaPods only once plugins are added) |
+| `make ui-macos-build` | Build the macOS app without running it (`apps/infotainment/build/macos/Build/Products/Debug/f250_infotainment.app`) |
 | `make ui-test` / `make sim-test` | Flutter app tests / simulator tests |
 | `make proto` | Regenerate gRPC code *(Phase 3)* |
 | `make sim` | Gateway with the simulated Power Stroke driving the UI *(Phase 3)* |

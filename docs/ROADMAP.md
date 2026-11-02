@@ -34,8 +34,10 @@ Tags:
 - [x] 1.5 Safety assumptions
 - [~] 1.6 `Makefile`, `rust-toolchain.toml` (Rust 1.99.1) and `.fvmrc` (Flutter 3.38.3),
       macOS and Linux build-host setup docs. `make setup` succeeds on the development
-      Mac (2026-11-01). **Xcode and CocoaPods are not installed yet.** They are needed
-      for `make ui` (the macOS desktop window) in Phase 2, but not for `make ui-test`
+      Mac (2026-11-01). Xcode 27.2 is installed but not selected with `xcode-select`. The
+      Makefile sets `DEVELOPER_DIR` for Xcode builds, and `make setup` prints the
+      one-line `sudo xcode-select -s` fix. CocoaPods isn't needed, since the app has no
+      plugins
 - [x] 1.7 This roadmap
 - [x] 1.8 CI in `.github/workflows/ci.yml` (docs, firmware, plus Rust, proto and
       Flutter jobs that activate when those components exist). First run was green
@@ -68,11 +70,13 @@ Tags:
       compact rows show the badge
 - [x] Per-signal calibration (`raw × scale + offset`), configured in
       `assets/config/calibration.json`, with a live speed-scale control under
-      Developer. Speed is back on the Home summary. Procedure:
+      Developer. Speed is back on the Home summary and in the towing profile, in the
+      slot EGT had (no probe installed). Procedure:
       [CALIBRATION.md](diagnostics/CALIBRATION.md). The factor has not been measured
       on the truck yet; it ships at ×1.0
-- [~] Checked by eye in a browser (`make ui-web`). **The macOS window target
-      has not been run, because Xcode is not installed.** Nothing has run on the Pi
+- [x] Checked by eye in a browser (`make ui-web`). The macOS app builds with Xcode 27.2
+      (deployment target raised to 12.0, Xcode 27's minimum) and launches in an
+      800×480 window (2026-11-02). Nothing has run on the Pi
 
 ## Phase 3 — Vehicle-data backend [SIM]
 

@@ -23,6 +23,12 @@ HAVE_PROTO   := $(wildcard shared/proto/buf.yaml)
 
 skip = @echo "skip: $(1)"
 
+# If the active developer directory is the Command Line Tools but Xcode is
+# installed, point Xcode builds at Xcode for this invocation only. (The
+# permanent fix is: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer)
+XCODE_DEV := $(shell xcode-select -p 2>/dev/null | grep -q CommandLineTools && [ -d /Applications/Xcode.app ] && echo /Applications/Xcode.app/Contents/Developer)
+XCODE_ENV := $(if $(XCODE_DEV),DEVELOPER_DIR=$(XCODE_DEV),)
+
 # Simulator start point for ui / ui-web, e.g. SCENARIO=eot_ect_freeze START=110
 SCENARIO ?= drive_cycle
 START    ?= 0
@@ -33,7 +39,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
         fw-test fw-build \
         rust-test rust-lint linux-test \
         proto proto-lint \
-        ui ui-web ui-test ui-lint sim-test \
+        ui ui-web ui-macos-build ui-test ui-lint sim-test \
         sim deploy logs docs-lint
 
 help: ## List targets
@@ -112,9 +118,16 @@ endif
 
 ui: ## Run the dashboard on macOS (800x480 window)
 ifneq ($(HAVE_APP),)
-	cd $(APP_DIR) && $(FLUTTER) run -d macos $(SIM_DEFINES)
+	cd $(APP_DIR) && $(XCODE_ENV) $(FLUTTER) run -d macos $(SIM_DEFINES)
 else
 	@echo "ui: the Flutter app does not exist yet (Phase 2)"; exit 1
+endif
+
+ui-macos-build: ## Build the macOS app (debug) without running it
+ifneq ($(HAVE_APP),)
+	cd $(APP_DIR) && $(XCODE_ENV) $(FLUTTER) build macos --debug $(SIM_DEFINES)
+else
+	@echo "ui-macos-build: the Flutter app does not exist yet (Phase 2)"; exit 1
 endif
 
 ui-web: ## Serve the dashboard (release build) at http://127.0.0.1:$(WEB_PORT) — no Xcode needed

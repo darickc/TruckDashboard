@@ -1,6 +1,6 @@
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/widgets/stale_hatch.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../harness.dart';
@@ -59,11 +59,14 @@ void main() {
     expect(h.textOf('status-trans_temp'), startsWith('Implausible'));
   });
 
-  testWidgets('a missing aux sensor says so', (tester) async {
+  testWidgets('a missing aux sensor is listed as disabled, not as no data', (tester) async {
     final h = await Harness.start(tester);
-    await h.goTo(AppTab.gauges);
-    await tester.tap(find.byKey(const ValueKey('profile-towing')));
-    await tester.pump();
-    expect(h.textOf('status-egt'), 'No EGT probe installed');
+    await h.advance(const Duration(seconds: 5));
+    await h.goTo(AppTab.diagnostics);
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('diag-row-egt')), 40,
+        scrollable: find.byType(Scrollable).last);
+    expect(find.descendant(
+            of: find.byKey(const ValueKey('diag-row-egt')), matching: find.text('DISABLED')),
+        findsOneWidget);
   });
 }

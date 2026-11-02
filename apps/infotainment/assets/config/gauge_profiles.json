@@ -1,5 +1,5 @@
 {
-  "_comment": "Gauge layouts for the Gauges screen. Each profile lays out as a grid of up to 8 tiles (4 × 2). The style is digital, circular or compact. Edit freely; signal ids come from the signal catalog.",
+  "_comment": "Gauge layouts for the Gauges screen. Each profile lays out as a grid of up to 8 tiles (4 × 2). The style is digital, circular or compact. Edit freely; signal ids come from the signal catalog. EGT (signal \"egt\") can go back on a profile once a probe is installed.",
   "profiles": [
     {
       "id": "engine",
@@ -24,7 +24,7 @@
         {"signal": "ect", "style": "digital"},
         {"signal": "eot_ect_delta", "style": "digital"},
         {"signal": "boost", "style": "circular"},
-        {"signal": "egt", "style": "digital"},
+        {"signal": "speed", "style": "digital"},
         {"signal": "fuel_level", "style": "digital"},
         {"signal": "ficm_main", "style": "digital"}
       ]

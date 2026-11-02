@@ -15,7 +15,7 @@ From the repository root:
 ```bash
 make ui-web                                   # browser at http://127.0.0.1:8250 (no Xcode needed)
 make ui-web SCENARIO=eot_ect_freeze START=110 # jump straight to a fault window
-make ui                                       # macOS window (needs Xcode)
+make ui                                       # macOS window (needs Xcode; macOS 12+ target)
 make ui-test                                  # widget + unit tests
 make ui-lint                                  # flutter analyze
 ```

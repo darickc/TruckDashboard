@@ -39,6 +39,9 @@ fvm flutter --version
 say "Checks"
 if xcodebuild -version >/dev/null 2>&1; then
   xcodebuild -version | head -1
+elif [[ -d /Applications/Xcode.app ]]; then
+  echo "  $(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -version | head -1) (installed, not selected)"
+  warn "Xcode is installed but the active developer directory is the Command Line Tools. The Makefile works around it; to fix it system-wide: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"
 else
   warn "Xcode not found — needed for the Flutter macOS desktop target (Phase 2). Install from the App Store, then: sudo xcodebuild -runFirstLaunch"
 fi
