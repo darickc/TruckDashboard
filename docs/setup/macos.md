@@ -75,9 +75,9 @@ The pin keeps the app compatible with the engine on the truck.
 | `make ui` | Dashboard in an 800×480 macOS window (needs Xcode; CocoaPods only once plugins are added) |
 | `make ui-macos-build` | Build the macOS app without running it (`apps/infotainment/build/macos/Build/Products/Debug/f250_infotainment.app`) |
 | `make ui-test` / `make sim-test` | Flutter app tests / simulator tests |
-| `make proto` | Regenerate gRPC code *(Phase 3)* |
-| `make sim` | Gateway with the simulated Power Stroke driving the UI *(Phase 3)* |
-| `make linux-test` | Rust tests in a Linux container *(Phase 3)* |
+| `make proto` | Regenerate the Dart gRPC client (Rust is generated at build time; both need `protoc`) |
+| `make sim` | Rust gateway (simulated) + the macOS app reading from it over gRPC ([gateway guide](gateway.md)) |
+| `make linux-test` | Rust tests in a Linux container, including the RFCOMM build (needs Docker running) |
 | `make deploy PI=<host>` / `make logs PI=<host>` | Deploy to the Pi / collect logs from it *(Phase 5)* |
 
 Targets for phases that haven't landed say so. Test and lint targets print

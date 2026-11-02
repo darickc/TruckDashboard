@@ -28,9 +28,9 @@ It also provides:
 
 ## Status
 
-Phases 0–2 are complete. The repository is migrated, the architecture, docs and
-development environment are in place, and a **simulated** 800×480 dashboard
-runs on the Mac.
+Phases 0–3 are complete. The repository is migrated, a **simulated** 800×480
+dashboard runs on the Mac, and the Rust vehicle gateway runs with the simulator
+or (untested on hardware) the MX+. See [docs/setup/gateway.md](docs/setup/gateway.md).
 
 | Area | State |
 |---|---|
@@ -38,12 +38,11 @@ runs on the Mac.
 | Architecture, ADRs, hardware research | Written. See [docs/architecture/](docs/architecture/overview.md) |
 | Flutter dashboard (`apps/infotainment`) | Runs with **simulated** data: gauges, global alerts, stale-data handling, diagnostics, fuel level, speed calibration. 99 tests `[SIM]` |
 | Power Stroke simulator (`simulator/powerstroke`) | 6 scenarios, including the EOT/ECT freeze. 27 tests `[SIM]` |
-| Rust vehicle gateway | Phase 3. Not started |
+| Rust vehicle gateway (`services/vehicle-gateway`) | Runs with the simulator or the MX+ (serial/TCP/RFCOMM). gRPC API, recovery logic, recorder, `obd-console`. Tested against a fake adapter replaying the truck's captures `[SIM]`. **Not yet run against the real MX+** |
 | MX+ truck trial | Phase 3.5. Not started. Needs only owned hardware |
 | CAN hardware, AGL image, infotainment | Phases 4–7. Not started. **No head-unit hardware purchased yet.** Purchases are decided by the MX+ trial |
 
-**Next:** Phase 3, the Rust gateway, with the MX+ path built first. Then
-**Phase 3.5, an MX+ truck trial**: the Pi 5 and display on Raspberry Pi OS,
+**Next: Phase 3.5, an MX+ truck trial**: the Pi 5 and display on Raspberry Pi OS,
 talking to the OBDLink MX+ over Bluetooth. It needs no new hardware, and its
 data decides what to buy ([ADR-0011](docs/architecture/adr/0011-mx-plus-trial-first.md)).
 
@@ -98,6 +97,8 @@ make test       # runs every test that exists for this environment
 make lint       # Markdown link check, plus linters as components appear
 make ui-web     # dashboard in a browser at http://127.0.0.1:8250 (simulated data)
 make ui-web SCENARIO=eot_ect_freeze START=110   # jump straight to the EOT/ECT freeze
+make sim        # Rust gateway (simulated) + macOS app reading from it over gRPC
+make console    # obd-console against a running gateway
 ```
 
 ESP32 firmware only:
@@ -121,7 +122,11 @@ AGL images build on a Linux x86_64 host, not on the Mac. See
 | [`tools/dev/`](tools/dev/) | Development scripts: macOS setup, link checker |
 | [`apps/infotainment/`](apps/infotainment/README.md) | Flutter touchscreen UI |
 | [`simulator/powerstroke/`](simulator/powerstroke/README.md) | Scenario simulator and scenario files |
-| `shared/proto/`, `crates/`, `services/`, `agl/`, `tests/` | Not created yet. Each appears in the phase that implements it ([roadmap](docs/ROADMAP.md)) |
+| `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto` |
+| `services/` | `vehicle-gateway`, `recorder` |
+| `tools/obd-console/` | Diagnostics console for the gateway |
+| [`shared/proto/`](shared/proto/f250/vehicle/v1/vehicle.proto) | Versioned gRPC API |
+| `agl/`, `tests/` | Not created yet ([roadmap](docs/ROADMAP.md)) |
 
 ## License
 

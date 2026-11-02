@@ -67,9 +67,9 @@ project has.
 ```
 firmware/esp32/      PlatformIO firmware (C++17); auxiliary controller, ELM reference implementation
 shared/signals/      signal registry (YAML); imports/torque/exportedPIDs.csv
-shared/proto/        versioned gRPC/protobuf API (f250.<domain>.v1)                  [Phase 3]
-crates/              Rust libraries (telemetry model, formula, elm, isotp)           [Phase 3]
-services/            Rust daemons (vehicle-gateway, recorder, power/camera/audio)    [Phase 3/6]
+shared/proto/        versioned gRPC/protobuf API (f250.<domain>.v1); `make proto` regenerates Dart
+crates/              Rust libraries: elm (MX+ client), telemetry, powerstroke-sim, proto
+services/            Rust daemons: vehicle-gateway, recorder (power/camera/audio in Phase 6)
 apps/infotainment/   Flutter UI, 800×480 (simulated data source today)
 simulator/           Power Stroke scenarios (f250.scenario.v1) + Dart engine; Rust transport in Phase 3
 agl/                 meta-f250 Yocto layer, build configs, target scripts            [Phase 5]
@@ -92,14 +92,13 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make sim-test` | Scenario simulator tests (Dart) |
 | `make ui-test` / `make ui-lint` | Flutter tests / analyzer |
 | `make ui-web` | Dashboard in a browser at http://127.0.0.1:8250. Add `SCENARIO=<id> START=<s>` to jump into a scenario |
+| `make sim` | Rust gateway (simulated) + macOS app over gRPC. `make gateway` / `make console` run the gateway or `obd-console` alone |
+| `make rust-test` / `make rust-lint` | Cargo workspace tests / fmt + clippy (needs `protoc`) |
 | `make ui` / `make ui-macos-build` | Dashboard as a macOS window / just build it (needs Xcode; the Makefile sets `DEVELOPER_DIR` if `xcode-select` points at the Command Line Tools) |
 
-These will be added as their phases land:
-
-- `make proto`
-- `make sim`
-- `make linux-test`
-- `make deploy PI=<host>`
+Also: `make proto` (regenerate the Dart gRPC client) and `make linux-test` (Rust
+in Docker, including the RFCOMM build). Still to come: `make deploy PI=<host>` (Phase 5).
+How to run the gateway, the MX+ flags and the recorder: [docs/setup/gateway.md](docs/setup/gateway.md).
 
 Test and lint targets for components that don't exist yet print `skip:` and exit 0.
 Run targets (`ui`, `sim`, `deploy`, `logs`) exit non-zero until their phase

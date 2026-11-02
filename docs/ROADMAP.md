@@ -79,25 +79,31 @@ Tags:
       (deployment target raised to 12.0, Xcode 27's minimum) and launches in an
       800×480 window (2026-11-01). Nothing has run on the Pi
 
-## Phase 3 — Vehicle-data backend [SIM] (next)
+## Phase 3 — Vehicle-data backend [SIM] ✅ (2026-11-01)
 
-Build order is set by the MX+ trial ([ADR-0011](architecture/adr/0011-mx-plus-trial-first.md)).
-Items marked ★ come first, because the trial needs them.
+The build order followed the MX+ trial ([ADR-0011](architecture/adr/0011-mx-plus-trial-first.md)).
+How to run it: [setup/gateway.md](setup/gateway.md).
 
-- [ ] ★ 3.1 Protos (`f250.vehicle.v1`) and buf
-- [ ] ★ 3.2 `crates/telemetry`: registry, units, formula grammar, staleness, computed signals, warnings, calibration
-- [ ] ★ 3.3 Seed `shared/signals/` (by hand, from `FORD_6_0_PIDS.md`)
-- [ ] 3.4 `tools/pid-importer` (can follow the trial)
-- [ ] ★ 3.5 `crates/elm`, ported from the C++ with its test vectors
-- [ ] ★ 3.6 Gateway transports: simulated, OBDLink (RFCOMM or serial). SocketCAN moved to 4.1
-- [ ] ★ 3.7 Scheduler
-- [ ] ★ 3.8 Recovery state machines (per PID, per link)
-- [ ] ★ 3.9 Event history and the health API
-- [ ] ★ 3.10 Recorder
-- [ ] ★ 3.11 UI driven by the gateway (`make sim`)
-- [ ] 3.12 Tests (the vcan CI job moves with SocketCAN to Phase 4)
-- [ ] ★ 3.13 `tools/obd-console`, so `TRUCK_SESSION.md` can run on the Pi
-- [ ] ★ 3.14 Flutter Linux desktop target, built on the Pi 5
+- [x] 3.1 Protos `f250.vehicle.v1` (VehicleService, DiagnosticsService), buf lint clean; Rust and Dart codegen
+- [x] 3.2 `crates/telemetry`: registry, units, formula grammar, calibration, validity/staleness, computed signals, link state, warnings (123 tests)
+- [x] 3.3 `shared/signals/` seeded from the Dart catalog, SAE J1979 and the Torque export only; trans_temp is the only VERIFIED_ON_TRUCK signal
+- [ ] 3.4 `tools/pid-importer` CLI: deferred until after the trial. The formula translator it needs exists (all 55 Torque rows translate)
+- [x] 3.5 `crates/elm`: sans-IO port of the C++ client with every C++ test, the real captures, the allow-list and ATRV (96 tests)
+- [x] 3.6 Transports: simulated (Rust port of the scenario engine, matches Dart on 38,520 golden observations) and OBDLink (serial / TCP / RFCOMM feature). SocketCAN moved to 4.1
+- [x] 3.7 Scheduler: priority, throughput budget, starvation guard, probe budget
+- [x] 3.8 Recovery: per-PID (ACTIVE → SUSPECT → BACKOFF → QUARANTINED) and per-link (connect / reset / reconnect ladder, capped jittered backoff, FAULT)
+- [x] 3.9 Event history and the health API (gateway and store events, ListEvents, Stats)
+- [x] 3.10 `services/recorder`: SQLite in WAL mode, retention by age and rows, CSV export; checked live against the gateway
+- [x] 3.11 App gateway mode (`VEHICLE_SOURCE=gateway`) with its own feed watchdog; `make sim`
+- [~] 3.12 Tests: 300+ Rust tests, a fake ELM adapter replaying the truck's captures, and app integration tests against the real gateway binary. **The Linux build of the RFCOMM path is checked only in CI** (Docker wasn't running locally). The vcan job moves to Phase 4 with SocketCAN
+- [x] 3.13 `tools/obd-console`: pids, on/off, probe, raw, stats, events, with a transcript file
+- [~] 3.14 Flutter Linux target added (800×480, `F250_FULLSCREEN=1`). **Not built yet**: it needs a Linux host, which the Pi provides in 3.5.1 (H17)
+
+Found along the way:
+
+- The ESP32-era poll intervals ask more of the MX+ than it delivers, so low priorities stretch, honestly reported. Retune them from the 3.5.4 throughput measurement ([setup/gateway.md](setup/gateway.md#known-issue-the-poll-intervals-ask-too-much-of-the-mx))
+- Fixed: a disabled watched signal marked the link degraded (Rust and Dart)
+- Fixed: the browser build's simulated values differed from the VM's (32-bit hashing)
 
 ## Phase 3.5 — MX+ truck trial (nothing to buy) [HW] [HUMAN]
 

@@ -97,7 +97,9 @@ endif
 
 linux-test: ## Rust tests inside Linux (Docker), including Linux-only code
 ifneq ($(HAVE_CARGO),)
-	docker run --rm -v "$(ROOT)":/src -w /src rust:1 cargo test --workspace
+	docker run --rm -v "$(ROOT)":/src -w /src -e CARGO_TARGET_DIR=/tmp/target rust:1 bash -c \
+	  "apt-get update -qq && apt-get install -y -qq protobuf-compiler libdbus-1-dev pkg-config >/dev/null && \
+	   cargo test --workspace && cargo build -p vehicle-gateway --features rfcomm"
 else
 	$(call skip,linux-test — no Cargo workspace yet (Phase 3))
 endif
@@ -141,8 +143,11 @@ else
 	@echo "ui-web: the Flutter app does not exist yet (Phase 2)"; exit 1
 endif
 
-ui-test: ## Flutter widget/unit tests
+ui-test: ## Flutter widget/unit tests (+ integration tests against the real gateway)
 ifneq ($(HAVE_APP),)
+ifneq ($(HAVE_CARGO),)
+	cargo build -q -p vehicle-gateway
+endif
 	cd $(APP_DIR) && $(FLUTTER) test -r expanded
 else
 	$(call skip,ui-test — no Flutter app yet (Phase 2))

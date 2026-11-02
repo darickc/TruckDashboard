@@ -8,6 +8,7 @@ members = [
     "crates/powerstroke-sim",
     "crates/proto",
     "services/vehicle-gateway",
+    "services/recorder",
     "tools/obd-console",
 ]
 

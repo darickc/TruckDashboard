@@ -55,6 +55,12 @@ jobs:
         run: echo "cargo=$([ -f Cargo.toml ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
       - if: steps.has.outputs.cargo == 'no'
         run: echo "skip — no Cargo workspace yet (Phase 3)"
+      - if: steps.has.outputs.cargo == 'yes' && runner.os == 'Linux'
+        name: protoc + BlueZ headers (rfcomm feature)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq protobuf-compiler libdbus-1-dev pkg-config
+      - if: steps.has.outputs.cargo == 'yes' && runner.os == 'macOS'
+        name: protoc
+        run: brew install protobuf
       - if: steps.has.outputs.cargo == 'yes'
         run: rustup show   # installs the toolchain from rust-toolchain.toml
       - if: steps.has.outputs.cargo == 'yes'
@@ -63,6 +69,9 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - if: steps.has.outputs.cargo == 'yes'
         run: cargo test --workspace
+      - if: steps.has.outputs.cargo == 'yes' && runner.os == 'Linux'
+        name: Gateway with BlueZ RFCOMM (the MX+ path on the Pi)
+        run: cargo clippy -p vehicle-gateway --features rfcomm --all-targets -- -D warnings
 
   proto:
     runs-on: ubuntu-24.04
@@ -76,8 +85,8 @@ jobs:
         uses: bufbuild/buf-action@v1
         with:
           input: shared/proto
-          breaking: ${{ github.event_name == 'pull_request' }}
-          breaking_against: ${{ github.event.repository.clone_url }}#branch=main,subdir=shared/proto
+          # Turn on once f250.vehicle.v1 is on main (there's nothing to compare against yet).
+          breaking: false
           push: false
 
   flutter:
