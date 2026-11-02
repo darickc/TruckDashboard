@@ -1,0 +1,105 @@
+# Roadmap
+
+This checklist tracks progress against [PROJECT_PLAN.md](PROJECT_PLAN.md).
+Step numbers match the plan.
+
+Legend:
+
+- `[x]` done
+- `[~]` done, with a caveat noted
+- `[ ]` not started
+
+Tags:
+
+- **[SIM]** runs in simulation only
+- **[HW]** needs hardware
+- **[HUMAN]** needs a person to check it
+
+## Phase 0 — Repository migration ✅ (2026-11-01)
+
+- [x] 0.1 Branch `feat/agl-pivot`
+- [x] 0.2 Firmware moved with `git mv` to `firmware/esp32/`. The Torque export
+      is at `shared/signals/imports/torque/`
+- [x] 0.3 Docs regrouped into `docs/esp32/` and `docs/diagnostics/`, links fixed
+      (`make docs-lint`: 0 broken)
+- [x] 0.4 `pio test -e native`: 140/140 pass. `pio run -e esp32dev` builds.
+      History follows the moved files
+
+## Phase 1 — Architecture, documentation, development environment
+
+- [x] 1.1 `CLAUDE.md`
+- [x] 1.2 `README.md` rewritten for the head unit
+- [x] 1.3 Architecture docs and ADRs 0001–0010 (`docs/architecture/`)
+- [x] 1.4 Hardware compatibility matrix, open questions, shopping list, bench log
+- [x] 1.5 Safety assumptions
+- [~] 1.6 `Makefile`, `rust-toolchain.toml` and `.fvmrc`, macOS and Linux build-host
+      setup docs. `make setup` was run on the development Mac. Xcode and
+      CocoaPods are checked but not installed by the script
+- [x] 1.7 This roadmap
+- [~] 1.8 CI in `.github/workflows/ci.yml` (docs, firmware, plus Rust, proto and
+      Flutter jobs that activate when those components exist). **Not yet run on
+      GitHub**, because nothing has been pushed. The vcan integration job is
+      deferred to Phase 3, since there is no Linux code to test yet
+
+## Phase 2 — Simulated dashboard [SIM]
+
+- [ ] 2.1 Scenario format plus the EOT/ECT-freeze and link-loss scenarios
+- [ ] 2.2 Flutter app scaffold, 800×480, day/night themes
+- [ ] 2.3 `VehicleDataSource` plus the simulated source
+- [ ] 2.4 App shell with the global alert layer and status bar
+- [ ] 2.5 Gauge widgets with stale and unverified states
+- [ ] 2.6 Home, Gauges, Diagnostics screens. Media and Nav placeholders, labelled as such
+- [ ] 2.7 Warnings with hysteresis, configured thresholds labelled as examples
+- [ ] 2.8 Tests: layout, touch targets, navigation, alerts, staleness
+
+## Phase 3 — Vehicle-data backend [SIM]
+
+- [ ] 3.1 Protos (`f250.vehicle.v1`) and buf
+- [ ] 3.2 `crates/telemetry`: registry, units, formula grammar, staleness, computed signals, warnings
+- [ ] 3.3 Seed `shared/signals/`
+- [ ] 3.4 `tools/pid-importer`
+- [ ] 3.5 `crates/elm`, ported from the C++ with its test vectors
+- [ ] 3.6 Gateway transports: simulated, SocketCAN, OBDLink
+- [ ] 3.7 Scheduler
+- [ ] 3.8 Recovery state machines (per PID, per link)
+- [ ] 3.9 Event history and the health API
+- [ ] 3.10 Recorder
+- [ ] 3.11 UI driven by the gateway (`make sim`)
+- [ ] 3.12 Tests, plus the vcan CI job
+
+## Phase 4 — Hardware communication [HW] [HUMAN]
+
+- [ ] 4.1 Bench bring-up. **Resolve the CAN termination** (H1)
+- [ ] 4.2 `tools/can-monitor`
+- [ ] 4.3 Stage A: passive census on the truck
+- [ ] 4.4 Stage B: corroborated broadcast decoders
+- [ ] 4.5 Stage C: ISO-TP diagnostics (opt-in)
+- [ ] 4.6 Stage D: OBDLink transport
+- [ ] 4.7 Dropout experiment
+- [ ] 4.8 Finish `TRUCK_SESSION.md` and promote the verified PIDs
+
+## Phase 5 — AGL deployment [HW]
+
+- [ ] 5.1 Confirm the build host and the release
+- [ ] 5.2 Prebuilt Vimba image plus the overlays. `diagnose-display.sh`
+- [ ] 5.3 HDMI / Raspberry Pi OS fallback procedure
+- [ ] 5.4 `agl/meta-f250`
+- [ ] 5.5 `make deploy`, flashing docs, log collection
+
+## Phase 6 — Infotainment
+
+- [ ] 6.1 audio-manager (A2DP sink, AVRCP, pairing window)
+- [ ] 6.2 Amplifier remote and mute sequencing (H5, H6)
+- [ ] 6.3 Volume knob
+- [ ] 6.4 GPS
+- [ ] 6.5 Offline map, then routing, then the update workflow
+- [ ] 6.6 camera-manager and the ADR-0009 spike
+- [ ] 6.7 power-manager
+
+## Phase 7 — Installation and reliability [HW] [HUMAN]
+
+- [ ] 7.1 Wiring diagrams
+- [ ] 7.2 Electrical validation
+- [ ] 7.3 Thermal validation
+- [ ] 7.4 Communication stress tests
+- [ ] 7.5 Acceptance checklist and troubleshooting guide

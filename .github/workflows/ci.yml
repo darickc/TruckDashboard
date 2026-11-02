@@ -1,0 +1,101 @@
+name: ci
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Markdown link check
+        run: python3 tools/dev/check_links.py
+
+  firmware:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: firmware/esp32
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            firmware/esp32/.pio/libdeps
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/esp32/platformio.ini') }}
+      - run: pip install platformio
+      - name: Host-side unit tests
+        run: pio test -e native
+      - name: Firmware build
+        run: pio run -e esp32dev
+
+  # The jobs below turn on automatically when their component lands; until then
+  # each one checks out the repo and reports that it skipped.
+  rust:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: has
+        run: echo "cargo=$([ -f Cargo.toml ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+      - if: steps.has.outputs.cargo == 'no'
+        run: echo "skip — no Cargo workspace yet (Phase 3)"
+      - if: steps.has.outputs.cargo == 'yes'
+        run: rustup show   # installs the toolchain from rust-toolchain.toml
+      - if: steps.has.outputs.cargo == 'yes'
+        run: cargo fmt --all -- --check
+      - if: steps.has.outputs.cargo == 'yes'
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - if: steps.has.outputs.cargo == 'yes'
+        run: cargo test --workspace
+
+  proto:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - id: has
+        run: echo "proto=$([ -f shared/proto/buf.yaml ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+      - if: steps.has.outputs.proto == 'no'
+        run: echo "skip — no protos yet (Phase 3)"
+      - if: steps.has.outputs.proto == 'yes'
+        uses: bufbuild/buf-action@v1
+        with:
+          input: shared/proto
+          breaking: ${{ github.event_name == 'pull_request' }}
+          breaking_against: ${{ github.event.repository.clone_url }}#branch=main,subdir=shared/proto
+          push: false
+
+  flutter:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - id: has
+        run: echo "app=$([ -f apps/infotainment/pubspec.yaml ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+      - if: steps.has.outputs.app == 'no'
+        run: echo "skip — no Flutter app yet (Phase 2)"
+      - if: steps.has.outputs.app == 'yes'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.3"   # keep in step with .fvmrc / the AGL image engine
+          channel: stable
+      - if: steps.has.outputs.app == 'yes'
+        working-directory: apps/infotainment
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
