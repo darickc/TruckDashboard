@@ -10,7 +10,8 @@
 # Status: written on the Mac, not yet run on a Pi. Record the first run in
 # docs/hardware/bench-log.md.
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
+# Not `git rev-parse`: a fresh Lite install has no git until this script runs.
+cd "$(dirname "$0")/../.."
 
 say()  { printf '\033[1m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33mWARN: %s\033[0m\n' "$*"; }
@@ -34,6 +35,7 @@ PKGS=(
   git curl unzip xz-utils zip build-essential pkg-config
   protobuf-compiler libdbus-1-dev                    # gateway (rfcomm feature)
   clang cmake ninja-build libgtk-3-dev liblzma-dev   # Flutter Linux desktop
+  cage grim                                          # kiosk compositor (Lite has no desktop), screenshots
   ${LIBSTDCXX:+"$LIBSTDCXX"}
 )
 sudo apt-get update -qq
@@ -64,7 +66,7 @@ else
   warn "bluetoothctl not found; the MX+ trial needs BlueZ (sudo apt-get install bluez)"
 fi
 if [[ -z "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]]; then
-  echo "  No desktop session in this shell (normal over SSH); 'make pi-run' finds the one on the Pi's screen"
+  echo "  No desktop session in this shell (normal over SSH, and on Lite); 'make pi-run' uses cage"
 fi
 grep -q "$HOME/fvm/bin" <<<"$(bash -ic 'echo $PATH' 2>/dev/null || true)" \
   || warn "Optional, for running fvm by hand: echo 'export PATH=\"\$HOME/fvm/bin:\$HOME/.cargo/bin:\$PATH\"' >> ~/.bashrc"

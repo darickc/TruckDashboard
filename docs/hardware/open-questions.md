@@ -23,6 +23,6 @@ a vendor answer, a measurement or a photo), recorded in
 | H14 | What is broadcast on HS-CAN without any request? | Stage B decoders | Stage A listen-only census | truck |
 | H15 | Is the MX+ Bluetooth link reliable alongside A2DP on the Pi 5's one radio? | Using the OBDLink transport in the car | Bench test both together; fall back to a USB BT dongle or the ESP32 bridge | bench |
 | H16 | Low-battery protection: where does the voltage measurement come from? | Low-voltage shutdown | Choose an ESP32 ADC or I2C ADC with a divider | design |
-| H17 | Does Flutter 3.38.3 build a Linux desktop app on the Pi 5 (arm64 host)? | MX+ trial UI (3.14) | Build on the Pi; fall back to `flutter-pi` | bench |
+| H17 | Does Flutter 3.38.3 build a Linux desktop app on the Pi 5 (arm64 host)? | MX+ trial UI (3.14) | **Answered 2026-11-01: yes.** It builds on the Pi and runs under `cage` ([bench-log](bench-log.md)) | bench |
 | H18 | Does the Pi 5 run stably from the truck-trial USB-C supply (undervoltage warnings, throttling)? | MX+ trial (3.5.3) | `vcgencmd get_throttled` before and after a drive | truck |
 | H19 | Does a gateway-side recovery (soft reset, then `ATZ`, then reconnect) restore a frozen PID without unplugging the MX+? | The core reliability claim | Phase 3.5.6 drive logs | truck |

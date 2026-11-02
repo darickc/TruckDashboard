@@ -97,7 +97,7 @@ How to run it: [setup/gateway.md](setup/gateway.md).
 - [x] 3.11 App gateway mode (`VEHICLE_SOURCE=gateway`) with its own feed watchdog; `make sim`
 - [x] 3.12 Tests: 300 Rust tests, a fake ELM adapter replaying the truck's captures, and app integration tests against the real gateway binary. All 300 also pass on Linux arm64 (Docker, the Pi 5's architecture), and the gateway builds there with the BlueZ RFCOMM feature (`make linux-test`, 2026-11-01). The vcan job moves to Phase 4 with SocketCAN
 - [x] 3.13 `tools/obd-console`: pids, on/off, probe, raw, stats, events, with a transcript file
-- [~] 3.14 Flutter Linux target added (800×480, `F250_FULLSCREEN=1`). **Not built yet**: it needs a Linux host, which the Pi provides in 3.5.1 (H17)
+- [x] 3.14 Flutter Linux target added (800×480, `F250_FULLSCREEN=1`). Built and run on the Pi 5 under `cage`, with no display attached **[BENCH]** (2026-11-01, H17 closed)
 
 Found along the way:
 
@@ -109,7 +109,8 @@ Found along the way:
 
 - [ ] 3.5.1 Raspberry Pi OS on the Pi 5. Display, touch and ribbon confirmed. `tools/pi/setup-raspios.sh`, `make pi-run`.
       The scripts and `make pi-setup` / `pi-build` / `pi-run` exist ([setup/raspberry-pi.md](setup/raspberry-pi.md)).
-      `run.sh` was checked headless on the Mac **[SIM]**. **Not run on the Pi yet**
+      On the Pi (Raspberry Pi OS Lite, no display yet): setup, build and the whole stack under `cage` on a virtual display
+      work **[BENCH]** ([bench-log](hardware/bench-log.md)). **Still open: display, touch and ribbon**, waiting for the cable
 - [ ] 3.5.2 MX+ paired (`00:04:3E:85:EA:FC`, Secure Simple Pairing: confirm the shown passkey, no PIN). Phone and ESP32 disconnected. Opt-in recorded in `bench-log.md`
 - [ ] 3.5.3 Temporary truck setup: USB-C power (5 V / 5 A preferred), secure mount, shutdown before key-off
 - [ ] 3.5.4 Driveway session: `TRUCK_SESSION.md` Parts 1–4 through `obd-console`, transcripts in `VERIFICATION_LOG.md`

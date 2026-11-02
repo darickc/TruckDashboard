@@ -173,7 +173,7 @@ docs-lint: ## Check relative Markdown links
 
 # ---- Raspberry Pi OS, MX+ trial (Phase 3.5); run these on the Pi ------------
 
-# Options for pi-run: TRANSPORT=sim|obdlink TRANSMIT=1 ADAPTER= ENABLE= BUDGET_RPS= UI=0
+# Options for pi-run: TRANSPORT=sim|obdlink TRANSMIT=1 ADAPTER= ENABLE= BUDGET_RPS= UI=0|headless
 pi-setup: ## On the Pi: install apt packages, Rust and Flutter (Phase 3.5.1)
 	tools/pi/setup-raspios.sh
 
