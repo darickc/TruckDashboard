@@ -1,0 +1,38 @@
+# Baseline: a warm truck idles, cruises, tows up a long grade, and comes back
+# to idle. Loops every 10 minutes. Every other scenario extends this one.
+#
+# SIMULATED VALUES. They are chosen to look plausible on a dashboard. They are
+# not measurements from this truck and must never be used as reference or
+# threshold data. Units are canonical (see docs/architecture/telemetry-model.md).
+# Baro is about 85 kPa, roughly 4,900 ft elevation.
+schema: f250.scenario.v1
+name: Drive cycle
+description: Warm idle, highway cruise, towing climb, descent, idle. No faults.
+duration_s: 600
+loop: true
+seed: 2007
+
+signals:
+  rpm:        {unit: rpm,  interval_ms: 250,  noise: 10,
+               keyframes: [[0, 690], [30, 690], [45, 1800], [200, 1850], [220, 2400], [380, 2500], [400, 1700], [540, 1600], [570, 690], [600, 690]]}
+  speed:      {unit: km/h, interval_ms: 500,  noise: 0.8, min: 0,
+               keyframes: [[0, 0], [30, 0], [60, 95], [200, 100], [220, 80], [380, 75], [400, 100], [540, 90], [570, 0], [600, 0]]}
+  ect:        {unit: degC, interval_ms: 1000, noise: 0.3,
+               keyframes: [[0, 88], [200, 89], [380, 99], [480, 93], [600, 88]]}
+  eot:        {unit: degC, interval_ms: 1000, noise: 0.3,
+               keyframes: [[0, 92], [200, 96], [380, 108], [480, 99], [600, 92]]}
+  trans_temp: {unit: degC, interval_ms: 1000, noise: 0.3,
+               keyframes: [[0, 55], [200, 70], [380, 95], [480, 82], [600, 55]]}
+  map:        {unit: kPa,  interval_ms: 250,  noise: 1.5,
+               keyframes: [[0, 86], [30, 86], [45, 115], [200, 120], [220, 200], [380, 230], [400, 110], [540, 115], [570, 86], [600, 86]]}
+  baro:       {unit: kPa,  interval_ms: 5000, keyframes: [[0, 85]]}
+  iat:        {unit: degC, interval_ms: 2000, noise: 0.5,
+               keyframes: [[0, 25], [200, 28], [380, 40], [480, 30], [600, 25]]}
+  load:       {unit: '%',  interval_ms: 500,  noise: 1, min: 0, max: 100,
+               keyframes: [[0, 18], [30, 18], [45, 35], [200, 38], [220, 80], [380, 85], [400, 30], [540, 35], [570, 18], [600, 18]]}
+  icp:        {unit: kPa,  interval_ms: 500,  noise: 150,
+               keyframes: [[0, 4000], [30, 4000], [45, 8000], [200, 8200], [220, 17000], [380, 18000], [400, 7500], [540, 8000], [570, 4000], [600, 4000]]}
+  ipr_duty:   {unit: '%',  interval_ms: 500,  noise: 0.5, min: 0, max: 100,
+               keyframes: [[0, 15], [30, 15], [45, 22], [200, 22], [220, 34], [380, 35], [400, 21], [540, 22], [570, 15], [600, 15]]}
+  ficm_main:  {unit: V,    interval_ms: 1000, noise: 0.2, keyframes: [[0, 48]]}
+  battery:    {unit: V,    interval_ms: 2000, noise: 0.05, keyframes: [[0, 14.1]]}

@@ -1,0 +1,23 @@
+name: powerstroke_sim
+description: >-
+  Deterministic 6.0L Power Stroke scenario simulator. Reads the shared scenario
+  YAML (also read by the Rust gateway's simulated transport in Phase 3) and
+  produces per-request observations: responses, timeouts, negative responses.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  yaml: ^3.1.3
+
+dev_dependencies:
+  test: ^1.26.0
+  lints: ^6.0.0
+
+# Scenario files ship as package assets so the Flutter app can load them with
+# rootBundle ('packages/powerstroke_sim/scenarios/<name>.yaml').
+flutter:
+  assets:
+    - scenarios/

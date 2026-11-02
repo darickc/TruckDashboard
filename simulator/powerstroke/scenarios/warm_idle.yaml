@@ -1,0 +1,19 @@
+# Parked at a warm idle with nothing changing. Useful for layout work and
+# for checking that a quiet, healthy truck shows no warnings.
+schema: f250.scenario.v1
+extends: drive_cycle
+name: Warm idle
+description: Engine warm, truck parked, everything healthy.
+duration_s: 120
+
+signals:
+  rpm:        {unit: rpm,  interval_ms: 250,  noise: 8,   keyframes: [[0, 690]]}
+  speed:      {unit: km/h, interval_ms: 500,  keyframes: [[0, 0]]}
+  ect:        {unit: degC, interval_ms: 1000, noise: 0.2, keyframes: [[0, 88]]}
+  eot:        {unit: degC, interval_ms: 1000, noise: 0.2, keyframes: [[0, 91]]}
+  trans_temp: {unit: degC, interval_ms: 1000, noise: 0.2, keyframes: [[0, 55]]}
+  map:        {unit: kPa,  interval_ms: 250,  noise: 0.8, keyframes: [[0, 86]]}
+  iat:        {unit: degC, interval_ms: 2000, noise: 0.3, keyframes: [[0, 25]]}
+  load:       {unit: '%',  interval_ms: 500,  noise: 0.8, keyframes: [[0, 18]]}
+  icp:        {unit: kPa,  interval_ms: 500,  noise: 100, keyframes: [[0, 4000]]}
+  ipr_duty:   {unit: '%',  interval_ms: 500,  noise: 0.4, keyframes: [[0, 15]]}

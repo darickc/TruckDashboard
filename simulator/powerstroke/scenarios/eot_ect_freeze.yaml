@@ -1,0 +1,16 @@
+# The field symptom this project exists to fix. While towing up the grade, the
+# EOT and ECT requests stop being answered, and every other gauge keeps
+# updating. The readings come back on their own once the fault clears.
+#
+# Expected behaviour:
+# - EOT and ECT go STALE and show their last value with its age.
+# - The EOT-ECT delta disappears. It is never computed from a frozen input.
+# - A communication warning names the affected signals.
+# - Everything else stays live.
+schema: f250.scenario.v1
+extends: drive_cycle
+name: EOT/ECT freeze
+description: EOT and ECT stop answering from 2:00 to 4:20; other PIDs keep working.
+
+faults:
+  - {kind: no_response, signals: [eot, ect], start_s: 120, end_s: 260}

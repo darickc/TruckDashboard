@@ -1,0 +1,22 @@
+# Malformed and refused responses: what the gateway must survive without
+# showing a wrong number.
+# - ICP always gets a negative response (7F 22 31, requestOutOfRange). It must
+#   end up UNSUPPORTED, not "0 psi".
+# - MAP answers undecodably for a minute. Boost must go invalid with it.
+# - Transmission temperature reports an impossible value for 30 s. It must be
+#   flagged OUT_OF_RANGE and never drive a warning.
+schema: f250.scenario.v1
+extends: drive_cycle
+name: Bad responses
+description: Negative responses for ICP, undecodable MAP, impossible trans temp.
+
+faults:
+  - {kind: negative_response, signals: [icp], nrc: 0x31, start_s: 0, end_s: 600}
+  - {kind: invalid_response, signals: [map], start_s: 100, end_s: 160}
+  - {kind: value_override, signals: [trans_temp], value: 400, start_s: 300, end_s: 330}
+
+# SIMULATED trouble code. P0128 is the generic SAE J2012 code for coolant
+# temperature below the thermostat regulating temperature. It is shown only to
+# exercise the DTC list.
+dtcs:
+  - {code: P0128, description: Coolant thermostat (coolant temperature below thermostat regulating temperature), status: stored}

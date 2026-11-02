@@ -1,0 +1,11 @@
+# The whole diagnostic link drops for 40 s, the way it would if an adapter
+# disconnected or the CAN controller went bus-off. Every value must go stale,
+# a critical "vehicle data lost" alert must show on every screen, and the
+# readings must resume without anyone touching anything.
+schema: f250.scenario.v1
+extends: drive_cycle
+name: Link loss
+description: All vehicle data lost from 1:30 to 2:10, then recovers.
+
+faults:
+  - {kind: link_down, start_s: 90, end_s: 130}
