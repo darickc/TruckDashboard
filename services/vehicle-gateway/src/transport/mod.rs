@@ -7,6 +7,7 @@
 
 pub mod obdlink;
 pub mod simulated;
+pub mod traffic;
 
 /// One answering module.
 #[derive(Debug, Clone, PartialEq)]

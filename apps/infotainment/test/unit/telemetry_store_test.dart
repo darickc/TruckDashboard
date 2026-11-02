@@ -187,6 +187,15 @@ void main() {
       expect(a.level, AlertLevel.advisory);
     });
 
+    test('a disabled watched signal does not degrade the link', () {
+      final s = TelemetryStore(
+          catalog: signalCatalog, clock: clock, rules: const [], watchedSignals: const ['egt']);
+      s.apply(PollResult(
+          signalId: 'rpm', at: clock.now(), outcome: PollOutcome.response, value: 700));
+      s.refresh();
+      expect(s.link, LinkState.up, reason: 'egt is disabled (no probe), never polled');
+    });
+
     test('source-reported link loss wins immediately', () {
       respond('eot', 90);
       store.setSourceLinkDown(true);

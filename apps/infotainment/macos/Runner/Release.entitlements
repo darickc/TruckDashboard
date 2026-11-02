@@ -4,5 +4,8 @@
 <dict>
 	<key>com.apple.security.app-sandbox</key>
 	<true/>
+	<!-- Connects to the vehicle gateway (gRPC on loopback) during development. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
 </dict>
 </plist>

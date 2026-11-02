@@ -325,7 +325,11 @@ class TelemetryStore extends ChangeNotifier {
       next = now - _startedAt > linkLostAfter ? LinkState.down : LinkState.connecting;
     } else if (now - last > linkLostAfter) {
       next = LinkState.down;
-    } else if (watchedSignals.any((id) => states[id]?.isValid == false)) {
+    } else if (watchedSignals.any((id) {
+      // A disabled signal was never polled; it isn't "not updating".
+      final s = states[id];
+      return s != null && s.def.enabled && !s.isValid;
+    })) {
       next = LinkState.degraded;
     } else {
       next = LinkState.up;

@@ -393,6 +393,35 @@ mod link {
     }
 
     #[test]
+    fn a_disabled_watched_signal_does_not_degrade_the_link() {
+        // EOT is disabled in the shipped registry (unverified, not opted in).
+        let registry = f250_telemetry::Registry::load_dir(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../shared/signals"
+        ))
+        .expect("registry");
+        let mut store = TelemetryStore::new(
+            &registry,
+            StoreConfig {
+                watched_signals: vec!["eot".into()],
+                ..StoreConfig::default()
+            },
+            Duration::ZERO,
+        );
+        store.apply(&PollResult::new(
+            "rpm",
+            Duration::ZERO,
+            Outcome::Response(700.0),
+        ));
+        store.refresh(Duration::ZERO);
+        assert_eq!(store.link(), LinkState::Up);
+        assert!(
+            store.alerts().is_empty(),
+            "no 'EOT not updating' for a PID never polled"
+        );
+    }
+
+    #[test]
     fn source_reported_link_loss_wins_immediately() {
         let mut h = Harness::new();
         h.respond("eot", 90.0);

@@ -21,6 +21,11 @@ rfcomm = ["dep:bluer"]
 
 [dependencies]
 f250-elm = { path = "../../crates/elm" }
+f250-telemetry = { path = "../../crates/telemetry" }
+f250-proto = { path = "../../crates/proto" }
+tonic = "0.14"
+tokio-stream = { version = "0.1", features = ["net", "sync"] }
+clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "signal", "fs"] }
 tokio-serial = "5"
 powerstroke-sim = { path = "../../crates/powerstroke-sim" }

@@ -703,7 +703,9 @@ impl TelemetryStore {
                     let degraded = self
                         .watched_signals
                         .iter()
-                        .any(|id| self.get(id).is_some_and(|s| !s.is_valid()));
+                        // A disabled signal (e.g. an unverified PID not
+                        // opted in) is not "not updating": it was never polled.
+                        .any(|id| self.get(id).is_some_and(|s| s.def.enabled && !s.is_valid()));
                     if degraded {
                         LinkState::Degraded
                     } else {

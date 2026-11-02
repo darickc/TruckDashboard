@@ -1246,6 +1246,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -1442,10 +1443,15 @@ name = "vehicle-gateway"
 version = "0.1.0"
 dependencies = [
  "bluer",
+ "clap",
  "f250-elm",
+ "f250-proto",
+ "f250-telemetry",
  "powerstroke-sim",
  "tokio",
  "tokio-serial",
+ "tokio-stream",
+ "tonic",
 ]
 
 [[package]]

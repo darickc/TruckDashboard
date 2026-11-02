@@ -1,0 +1,4 @@
+tags:
+  # Needs the vehicle-gateway binary (cargo build -p vehicle-gateway).
+  integration:
+    timeout: 2x

@@ -33,14 +33,18 @@ XCODE_ENV := $(if $(XCODE_DEV),DEVELOPER_DIR=$(XCODE_DEV),)
 SCENARIO ?= drive_cycle
 START    ?= 0
 WEB_PORT ?= 8250
-SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START)
+# App data source: sim (in-app simulator) or gateway (services/vehicle-gateway).
+SOURCE   ?= sim
+GATEWAY  ?= tcp:127.0.0.1:50251
+SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START) \
+              --dart-define=VEHICLE_SOURCE=$(SOURCE) --dart-define=GATEWAY=$(GATEWAY)
 
 .PHONY: help setup doctor test lint \
         fw-test fw-build \
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
-        sim deploy logs docs-lint
+        sim gateway console deploy logs docs-lint
 
 help: ## List targets
 	@grep -hE '^[a-z][a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -162,8 +166,14 @@ docs-lint: ## Check relative Markdown links
 
 # ---- not yet available ------------------------------------------------------
 
-sim: ## Gateway with the simulated transport driving the UI (Phase 3)
-	@echo "sim: available from Phase 3 (vehicle-gateway + simulated transport)"; exit 1
+gateway: ## Run the vehicle gateway with the simulator (SCENARIO=, START=) on $(GATEWAY)
+	cargo run -q -p vehicle-gateway -- --listen $(GATEWAY) --scenario $(SCENARIO) --sim-start-s $(START)
+
+sim: ## Gateway (simulated) + the macOS app reading from it over gRPC
+	tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)"
+
+console: ## obd-console against the gateway at $(GATEWAY)
+	cargo run -q -p obd-console -- --gateway $(GATEWAY)
 
 deploy: ## Copy services + UI bundle to a Pi: make deploy PI=<host> (Phase 5)
 	@echo "deploy: available from Phase 5"; exit 1

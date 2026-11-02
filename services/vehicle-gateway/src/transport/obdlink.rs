@@ -25,6 +25,7 @@ use f250_elm::{
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{mpsc, oneshot};
 
+use super::traffic::TrafficLog;
 use super::{Outcome, ResponderPayload};
 
 /// A bidirectional byte stream to the adapter.
@@ -185,11 +186,14 @@ impl ObdLink {
     pub fn spawn(
         connector: Connector,
         config: ElmConfig,
+        traffic: Option<TrafficLog>,
     ) -> Result<(Self, mpsc::Receiver<DriverEvent>), String> {
         let elm = ElmClient::new(config).map_err(|e| format!("{e}"))?;
         let (cmd_tx, cmd_rx) = mpsc::channel(32);
         let (ev_tx, ev_rx) = mpsc::channel(256);
-        tokio::spawn(Driver::new(elm, connector, cmd_rx, ev_tx).run());
+        let mut driver = Driver::new(elm, connector, cmd_rx, ev_tx);
+        driver.traffic = traffic;
+        tokio::spawn(driver.run());
         Ok((ObdLink { cmd: cmd_tx }, ev_rx))
     }
 
@@ -250,6 +254,8 @@ struct Driver {
     epoch: Instant,
     /// The one request in flight (the ELM is half-duplex).
     pending: Option<(RequestId, Pending)>,
+    traffic: Option<TrafficLog>,
+    rx_line: Vec<u8>,
 }
 
 impl Driver {
@@ -267,6 +273,8 @@ impl Driver {
             stream: None,
             epoch: Instant::now(),
             pending: None,
+            traffic: None,
+            rx_line: Vec::new(),
         }
     }
 
@@ -294,7 +302,11 @@ impl Driver {
                     }
                 } => match read {
                     Ok(0) => self.lost("adapter closed the connection").await,
-                    Ok(n) => { let now = self.now(); self.elm.receive(&buf[..n], now); }
+                    Ok(n) => {
+                        let now = self.now();
+                        self.log_rx(&buf[..n], now);
+                        self.elm.receive(&buf[..n], now);
+                    }
                     Err(e) => self.lost(&format!("read failed: {e}")).await,
                 },
                 _ = sleep => {}
@@ -400,8 +412,31 @@ impl Driver {
         None
     }
 
+    fn log_rx(&mut self, bytes: &[u8], now: u64) {
+        let Some(log) = self.traffic.as_mut() else {
+            return;
+        };
+        for &b in bytes {
+            if b == b'\r' || b == b'\n' || b == b'>' {
+                if !self.rx_line.is_empty() {
+                    log.line(now, "RX", &String::from_utf8_lossy(&self.rx_line));
+                    self.rx_line.clear();
+                }
+                if b == b'>' {
+                    log.line(now, "RX", ">");
+                }
+            } else if self.rx_line.len() < 256 {
+                self.rx_line.push(b);
+            }
+        }
+    }
+
     async fn flush(&mut self) {
         while let Some(bytes) = self.elm.poll_transmit() {
+            let now = self.now();
+            if let Some(log) = self.traffic.as_mut() {
+                log.line(now, "TX", String::from_utf8_lossy(&bytes).trim_end());
+            }
             let Some(s) = self.stream.as_mut() else {
                 return;
             };
