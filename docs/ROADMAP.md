@@ -32,9 +32,10 @@ Tags:
 - [x] 1.3 Architecture docs and ADRs 0001–0010 (`docs/architecture/`)
 - [x] 1.4 Hardware compatibility matrix, open questions, shopping list, bench log
 - [x] 1.5 Safety assumptions
-- [~] 1.6 `Makefile`, `rust-toolchain.toml` and `.fvmrc`, macOS and Linux build-host
-      setup docs. `make setup` was run on the development Mac. Xcode and
-      CocoaPods are checked but not installed by the script
+- [~] 1.6 `Makefile`, `rust-toolchain.toml` (Rust 1.99.1) and `.fvmrc` (Flutter 3.38.3),
+      macOS and Linux build-host setup docs. `make setup` succeeds on the development
+      Mac (2026-11-01). **Xcode and CocoaPods are not installed yet.** They are needed
+      for `make ui` (the macOS desktop window) in Phase 2, but not for `make ui-test`
 - [x] 1.7 This roadmap
 - [~] 1.8 CI in `.github/workflows/ci.yml` (docs, firmware, plus Rust, proto and
       Flutter jobs that activate when those components exist). **Not yet run on

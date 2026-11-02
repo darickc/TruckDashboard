@@ -28,7 +28,8 @@ RUSTUP_BIN="$(brew --prefix rustup)/bin"
 export PATH="$RUSTUP_BIN:$HOME/.cargo/bin:$PATH"
 
 say "Rust toolchain (rust-toolchain.toml)"
-rustup show active-toolchain || rustup toolchain install
+rustup toolchain install   # reads rust-toolchain.toml
+rustup show active-toolchain
 rustc --version
 
 say "Flutter SDK (.fvmrc)"
