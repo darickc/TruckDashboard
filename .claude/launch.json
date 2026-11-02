@@ -4,14 +4,14 @@
     {
       "name": "infotainment-web",
       "runtimeExecutable": "make",
-      "runtimeArgs": ["ui-web"],
-      "port": 8250
+      "runtimeArgs": ["ui-web", "WEB_PORT=8251"],
+      "port": 8251
     },
     {
       "name": "infotainment-web-freeze",
       "runtimeExecutable": "make",
-      "runtimeArgs": ["ui-web", "SCENARIO=eot_ect_freeze", "START=110"],
-      "port": 8250
+      "runtimeArgs": ["ui-web", "SCENARIO=eot_ect_freeze", "START=110", "WEB_PORT=8251"],
+      "port": 8251
     }
   ]
 }

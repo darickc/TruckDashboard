@@ -26,6 +26,7 @@ skip = @echo "skip: $(1)"
 # Simulator start point for ui / ui-web, e.g. SCENARIO=eot_ect_freeze START=110
 SCENARIO ?= drive_cycle
 START    ?= 0
+WEB_PORT ?= 8250
 SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START)
 
 .PHONY: help setup doctor test lint \
@@ -116,9 +117,9 @@ else
 	@echo "ui: the Flutter app does not exist yet (Phase 2)"; exit 1
 endif
 
-ui-web: ## Serve the dashboard (release build) at http://127.0.0.1:8250 — no Xcode needed
+ui-web: ## Serve the dashboard (release build) at http://127.0.0.1:$(WEB_PORT) — no Xcode needed
 ifneq ($(HAVE_APP),)
-	cd $(APP_DIR) && $(FLUTTER) run --release -d web-server --web-port 8250 --web-hostname 127.0.0.1 $(SIM_DEFINES)
+	cd $(APP_DIR) && $(FLUTTER) run --release -d web-server --web-port $(WEB_PORT) --web-hostname 127.0.0.1 $(SIM_DEFINES)
 else
 	@echo "ui-web: the Flutter app does not exist yet (Phase 2)"; exit 1
 endif
