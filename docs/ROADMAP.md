@@ -37,10 +37,11 @@ Tags:
       Mac (2026-11-01). **Xcode and CocoaPods are not installed yet.** They are needed
       for `make ui` (the macOS desktop window) in Phase 2, but not for `make ui-test`
 - [x] 1.7 This roadmap
-- [~] 1.8 CI in `.github/workflows/ci.yml` (docs, firmware, plus Rust, proto and
-      Flutter jobs that activate when those components exist). **Not yet run on
-      GitHub**, because nothing has been pushed. The vcan integration job is
-      deferred to Phase 3, since there is no Linux code to test yet
+- [x] 1.8 CI in `.github/workflows/ci.yml` (docs, firmware, plus Rust, proto and
+      Flutter jobs that activate when those components exist). First run was green
+      on 2026-11-01 ([run 41369789926](https://github.com/darickc/TruckDashboard/actions/runs/41369789926)).
+      The Rust, proto and Flutter jobs only reported "skip" so far. The vcan
+      integration job is deferred to Phase 3, since there is no Linux code to test yet
 
 ## Phase 2 — Simulated dashboard [SIM]
 
