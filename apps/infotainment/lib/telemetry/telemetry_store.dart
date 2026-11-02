@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/clock.dart';
 import '../model/signal.dart';
+import 'calibration.dart';
 import 'event_log.dart';
 import 'poll_result.dart';
 import 'signal_state.dart';
@@ -35,7 +36,9 @@ class TelemetryStore extends ChangeNotifier {
     required List<WarningRule> rules,
     this.watchedSignals = const [],
     this.linkLostAfter = const Duration(seconds: 3),
+    Map<String, Calibration> calibrations = const {},
   })  : warnings = WarningEngine(rules),
+        _calibrations = {...calibrations},
         _order = [for (final d in catalog) d.id],
         states = {for (final d in catalog) d.id: SignalState(d)..reset()} {
     _linkSince = _startedAt = clock.now();
@@ -52,6 +55,7 @@ class TelemetryStore extends ChangeNotifier {
 
   final Map<String, SignalState> states;
   final List<String> _order;
+  final Map<String, Calibration> _calibrations;
   final events = EventLog();
 
   LinkState _link = LinkState.connecting;
@@ -77,6 +81,23 @@ class TelemetryStore extends ChangeNotifier {
   double requestsPerSecond(Duration now) {
     _recentRequests.removeWhere((t) => now - t > const Duration(seconds: 10));
     return _recentRequests.length / 10.0;
+  }
+
+  Calibration calibrationOf(String id) => _calibrations[id] ?? Calibration.identity;
+
+  /// Changes a signal's calibration at runtime. The last good reading is
+  /// rescaled from its raw value, so the display changes at once instead of
+  /// mixing old and new factors.
+  void setCalibration(String id, Calibration c) {
+    final s = states[id];
+    if (s == null) throw ArgumentError.value(id, 'id', 'unknown signal');
+    if (s.def.isComputed) throw ArgumentError.value(id, 'id', 'computed signals are not calibrated');
+    _calibrations[id] = c;
+    if (s.lastGoodRaw != null) s.lastGoodValue = c.apply(s.lastGoodRaw!);
+    events.add(TelemetryEvent(clock.now(), DateTime.now(), EventSeverity.info,
+        '${s.def.shortName} calibration ×${c.scale.toStringAsFixed(4)}'
+        '${c.offset == 0 ? '' : ' ${c.offset >= 0 ? '+' : ''}${c.offset}'}'));
+    refresh();
   }
 
   /// Clears everything (used when the simulated scenario changes).
@@ -106,10 +127,12 @@ class TelemetryStore extends ChangeNotifier {
     if (r.responder != null) s.lastResponder = r.responder;
     switch (r.outcome) {
       case PollOutcome.response:
-        final v = r.value!;
+        final raw = r.value!;
+        final v = calibrationOf(r.signalId).apply(raw);
         _lastAnyResponse = r.at;
         if (v.isFinite && v >= s.def.min && v <= s.def.max) {
           s.lastGoodValue = v;
+          s.lastGoodRaw = raw;
           s.lastGoodAt = r.at;
           s.lastRejectedValue = null;
           s.successes++;

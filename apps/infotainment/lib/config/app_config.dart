@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 
 import '../model/signal.dart';
+import '../telemetry/calibration.dart';
 import '../telemetry/warnings.dart';
 
 enum GaugeStyle { digital, circular, compact }
@@ -26,11 +27,19 @@ class GaugeProfile {
 /// catalog at load time: a typo in a signal id fails fast with a message,
 /// rather than a tile quietly showing nothing.
 class AppConfig {
-  const AppConfig({required this.rules, required this.watched, required this.profiles});
+  const AppConfig({
+    required this.rules,
+    required this.watched,
+    required this.profiles,
+    this.calibrations = const {},
+  });
 
   final List<WarningRule> rules;
   final List<String> watched;
   final List<GaugeProfile> profiles;
+
+  /// Signal id → correction from assets/config/calibration.json.
+  final Map<String, Calibration> calibrations;
 
   static const maxTilesPerProfile = 8;
 
@@ -39,10 +48,12 @@ class AppConfig {
       await bundle.loadString('assets/config/warning_rules.json'),
       await bundle.loadString('assets/config/gauge_profiles.json'),
       signals,
+      calibrationJson: await bundle.loadString('assets/config/calibration.json'),
     );
   }
 
-  static AppConfig parse(String rulesJson, String profilesJson, Map<String, SignalDef> signals) {
+  static AppConfig parse(String rulesJson, String profilesJson, Map<String, SignalDef> signals,
+      {String? calibrationJson}) {
     void known(String id, String where) {
       if (!signals.containsKey(id)) throw FormatException('$where: unknown signal "$id"');
     }
@@ -79,6 +90,19 @@ class AppConfig {
       profiles.add(GaugeProfile(m['id'] as String, m['name'] as String, tiles));
     }
     if (profiles.isEmpty) throw const FormatException('no gauge profiles');
-    return AppConfig(rules: rules, watched: watched, profiles: profiles);
+
+    final calibrations = <String, Calibration>{};
+    if (calibrationJson != null) {
+      final c = jsonDecode(calibrationJson) as Map<String, dynamic>;
+      for (final MapEntry(key: id, value: j) in (c['signals'] as Map<String, dynamic>? ?? {}).entries) {
+        known(id, 'calibration');
+        if (signals[id]!.isComputed) {
+          throw FormatException('calibration $id: computed signals follow their inputs; calibrate those');
+        }
+        calibrations[id] = Calibration.fromJson(id, j as Map<String, dynamic>);
+      }
+    }
+    return AppConfig(
+        rules: rules, watched: watched, profiles: profiles, calibrations: calibrations);
   }
 }

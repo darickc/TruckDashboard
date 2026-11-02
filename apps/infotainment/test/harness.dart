@@ -43,6 +43,7 @@ class Harness {
       clock: clock,
       rules: testConfig.rules,
       watchedSignals: testConfig.watched,
+      calibrations: testConfig.calibrations,
     );
     final sim = SimulationController(
         store: store, bundle: rootBundle, available: testScenarios, autoRun: false)

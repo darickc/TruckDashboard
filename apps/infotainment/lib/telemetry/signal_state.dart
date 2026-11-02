@@ -15,9 +15,13 @@ class SignalState {
   Validity validity = Validity.noData;
   double? value;
 
-  /// Last reading that passed validation, and when it was measured.
+  /// Last reading that passed validation (calibrated), and when it was
+  /// measured.
   double? lastGoodValue;
   Duration? lastGoodAt;
+
+  /// The decoded value before calibration, for the last good reading.
+  double? lastGoodRaw;
 
   /// Most recent request outcome of any kind.
   PollOutcome? lastOutcome;
@@ -43,7 +47,7 @@ class SignalState {
 
   void reset() {
     validity = def.enabled ? Validity.noData : Validity.disabled;
-    value = lastGoodValue = lastRejectedValue = null;
+    value = lastGoodValue = lastGoodRaw = lastRejectedValue = null;
     lastGoodAt = lastOutcomeAt = null;
     lastOutcome = null;
     lastNrc = lastLatencyMs = null;

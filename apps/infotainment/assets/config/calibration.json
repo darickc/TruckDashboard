@@ -1,0 +1,10 @@
+{
+  "_comment": "Per-signal corrections, applied as displayed = raw × scale + offset (canonical units). Use this when a reading is consistently off, e.g. vehicle speed on tires that differ from the size programmed into the PCM: scale = true speed ÷ reported speed, measured as described in docs/diagnostics/CALIBRATION.md. Changes only what the head unit shows and records; nothing is written to the truck. Allowed scale range: 0.5–2.0.",
+  "signals": {
+    "speed": {
+      "scale": 1.0,
+      "offset": 0,
+      "note": "Not measured yet: set from a GPS comparison (docs/diagnostics/CALIBRATION.md)."
+    }
+  }
+}

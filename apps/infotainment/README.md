@@ -49,5 +49,9 @@ Switch between them in the app under **Diagnostics → Developer**.
   `TapTarget`, and a test checks every tap handler on every screen.
 - **Thresholds are configuration** (`assets/config/warning_rules.json`),
   labelled as examples.
+- **Truck-specific corrections** (e.g. speed on non-stock tires) live in
+  `assets/config/calibration.json` and apply before range checks and warnings.
+  Diagnostics → Developer adjusts speed live (until restart). See
+  [CALIBRATION.md](../../docs/diagnostics/CALIBRATION.md).
 - **Display assumption:** logical px = physical px (devicePixelRatio 1.0) on
   the target. To be confirmed with flutter-auto in Phase 5.

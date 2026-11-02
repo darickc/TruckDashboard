@@ -30,6 +30,7 @@ get blurred:
 | `response.length` | `2` | Payload bytes required. A shorter payload is a `DECODE_ERROR` |
 | `decode.formula` | `((A*256)+B)/8` | Safe grammar (ADR-006), never `eval` |
 | `decode.signed` | `false` | |
+| `calibration` | `{scale: 1.0526, offset: 0, note: …}` | Optional, truck-specific correction, applied after decoding (see [Calibration](#calibration)) |
 | `range` | `{min: -40, max: 150}` | Plausibility limits. Values outside become `OUT_OF_RANGE` |
 | `poll.priority` | `1` | 0 is highest |
 | `poll.interval_ms` | `1000` | A **target**. The budget may stretch it, and the stretch is reported |
@@ -105,6 +106,20 @@ not even a last-good delta. A delta built from one fresh and one frozen reading
 is exactly the misleading number this project must never display.
 
 `boost = map − baro` follows the same rule.
+
+## Calibration
+
+Some signals need a correction specific to this truck. The usual one is vehicle
+speed on non-stock tires. Calibration is `displayed = raw × scale + offset`,
+applied to every accepted reading **before** the range check, warnings and
+computed signals. It is configured per signal (Phase 2:
+`apps/infotainment/assets/config/calibration.json`; Phase 3: a `calibration`
+block in the registry) and can be adjusted live. The scale is bounded to
+0.5–2.0, to catch typos.
+
+Samples keep the raw value next to the calibrated one (`last_good_raw`), so a
+wrong factor can be fixed afterwards and the evidence is never lost. Procedure:
+[docs/diagnostics/CALIBRATION.md](../diagnostics/CALIBRATION.md).
 
 ## Units
 

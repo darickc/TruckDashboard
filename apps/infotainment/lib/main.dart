@@ -36,6 +36,7 @@ Future<AppServices> createServices(AssetBundle bundle,
     clock: SystemMonotonicClock(),
     rules: config.rules,
     watchedSignals: config.watched,
+    calibrations: config.calibrations,
   );
   final simulation =
       SimulationController(store: store, bundle: bundle, available: scenarios)

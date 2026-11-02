@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/settings.dart';
 import '../../model/units.dart';
+import '../../telemetry/calibration.dart';
 import '../../telemetry/event_log.dart';
 import '../../telemetry/signal_state.dart';
 import '../app_scope.dart';
@@ -114,14 +115,16 @@ class _SignalList extends StatelessWidget {
           child: ListView.builder(
             itemCount: rows.length,
             itemExtent: 34,
-            itemBuilder: (context, i) => _signalRow(rows[i], now, s.settings.units, p),
+            itemBuilder: (context, i) => _signalRow(
+                rows[i], now, s.settings.units, p, s.store.calibrationOf(rows[i].def.id)),
           ),
         ),
       ]);
     });
   }
 
-  Widget _signalRow(SignalState st, Duration now, UnitSystem units, Palette p) {
+  Widget _signalRow(
+      SignalState st, Duration now, UnitSystem units, Palette p, Calibration cal) {
     final d = st.def;
     final value = st.isValid
         ? '${formatValue(d, st.value!, units)} ${displayUnitFor(d.quantity, units).label}'
@@ -146,7 +149,16 @@ class _SignalList extends StatelessWidget {
       SizedBox(
           width: 64,
           child: Text(age == null || d.isComputed ? '—' : formatAge(age), style: dim)),
-      SizedBox(width: 92, child: Text(provenanceLabel(d.provenance), style: dim)),
+      SizedBox(
+          width: 92,
+          child: Text(
+              cal.isIdentity
+                  ? provenanceLabel(d.provenance)
+                  : '${provenanceLabel(d.provenance)} ×${cal.scale.toStringAsFixed(3)}',
+              key: ValueKey('diag-source-${d.id}'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: dim)),
       SizedBox(
           width: 92,
           child: Text(d.isComputed ? '—' : '${st.successes} / ${st.failures}',
@@ -334,6 +346,10 @@ class _Developer extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 4),
+        Text('SPEED CALIBRATION', style: label),
+        const SizedBox(height: 6),
+        const _SpeedCalibration(),
+        const SizedBox(height: kGap),
         Text('UNITS', style: label),
         const SizedBox(height: 6),
         Row(children: [
@@ -355,5 +371,85 @@ class _Developer extends StatelessWidget {
         ]),
       ]);
     });
+  }
+}
+
+/// Adjusts the vehicle-speed correction factor while driving alongside a GPS
+/// reference. Changes last until the app restarts; the note says how to keep
+/// one.
+class _SpeedCalibration extends StatelessWidget {
+  const _SpeedCalibration();
+
+  static const _id = 'speed';
+  static const _steps = [(-0.01, '−1%'), (-0.001, '−0.1%'), (0.001, '+0.1%'), (0.01, '+1%')];
+
+  @override
+  Widget build(BuildContext context) => _Live(builder: _build);
+
+  Widget _build(BuildContext context) {
+    final s = AppScope.of(context);
+    final p = Palette.of(context);
+    final store = s.store;
+    final cal = store.calibrationOf(_id);
+    final configured = s.config.calibrations[_id] ?? Calibration.identity;
+    final st = store[_id]!;
+    final units = s.settings.units;
+    final unit = displayUnitFor(st.def.quantity, units).label;
+    final raw = st.lastGoodRaw;
+    final reading = raw == null
+        ? 'No speed reading yet'
+        : 'Truck reports ${formatValue(st.def, raw, units)} $unit → '
+            'shown ${formatValue(st.def, cal.apply(raw), units)} $unit';
+    final changed = cal.scale != configured.scale;
+
+    void set(double scale) {
+      final clamped = scale.clamp(Calibration.minScale, Calibration.maxScale).toDouble();
+      // Round away float drift from repeated steps (1.0 + 0.001 × n).
+      final rounded = (clamped * 10000).roundToDouble() / 10000;
+      store.setCalibration(_id, cal.copyWith(scale: rounded));
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        SizedBox(
+          width: 120,
+          child: Text('×${cal.scale.toStringAsFixed(4)}',
+              key: const ValueKey('speed-scale'),
+              style: TextStyle(
+                  fontSize: 22, fontWeight: FontWeight.w800, fontFeatures: tabular, color: p.text)),
+        ),
+        for (final (delta, text) in _steps) ...[
+          SizedBox(
+            width: 92,
+            child: TapTarget(
+                key: ValueKey('speed-scale-$text'),
+                label: 'Speed scale $text',
+                padding: EdgeInsets.zero,
+                onTap: () => set(cal.scale * (1 + delta)),
+                child: Text(text, style: const TextStyle(fontSize: 16))),
+          ),
+          const SizedBox(width: kGap),
+        ],
+        SizedBox(
+          width: 110,
+          child: TapTarget(
+              key: const ValueKey('speed-scale-reset'),
+              label: 'Reset speed scale to the configured value',
+              padding: EdgeInsets.zero,
+              onTap: () => store.setCalibration(_id, configured),
+              child: const Text('Reset', style: TextStyle(fontSize: 16))),
+        ),
+      ]),
+      const SizedBox(height: 6),
+      Text(reading,
+          key: const ValueKey('speed-scale-reading'),
+          style: TextStyle(fontSize: 14, color: p.text)),
+      Text(
+          changed
+              ? 'Adjusted from ×${configured.scale.toStringAsFixed(4)}. Lasts until restart: to keep it, '
+                  'set "scale" for speed in assets/config/calibration.json.'
+              : 'Scale = true speed ÷ speed the truck reports (from a steady GPS comparison).',
+          style: TextStyle(fontSize: 13, color: changed ? p.advisory : p.textDim)),
+    ]);
   }
 }
