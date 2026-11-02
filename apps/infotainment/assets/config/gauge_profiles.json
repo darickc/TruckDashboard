@@ -1,5 +1,5 @@
 {
-  "_comment": "Gauge layouts for the Gauges screen. Each profile lays out as a grid of up to 8 tiles (4 × 2). The style is digital, circular or compact. Edit freely; signal ids come from the signal catalog. EGT (signal \"egt\") can go back on a profile once a probe is installed.",
+  "_comment": "Gauge layouts for the Gauges screen. Each profile lays out as a grid of up to 8 tiles (4 × 2). The style is digital, circular or compact. Optional \"header\" puts one more signal at the right end of the profile-selector row. Edit freely; signal ids come from the signal catalog. EGT (signal \"egt\") can go back on a profile once a probe is installed.",
   "profiles": [
     {
       "id": "engine",
@@ -18,6 +18,7 @@
     {
       "id": "towing",
       "name": "Towing",
+      "header": "rpm",
       "tiles": [
         {"signal": "trans_temp", "style": "digital"},
         {"signal": "eot", "style": "digital"},

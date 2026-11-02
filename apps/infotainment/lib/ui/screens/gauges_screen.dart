@@ -42,6 +42,13 @@ class GaugesScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: kGap),
               ],
+              const Spacer(),
+              if (profile.headerSignalId != null)
+                SizedBox(
+                  width: 240,
+                  child: HeaderReadout(
+                      key: ValueKey('header-${profile.id}'), signalId: profile.headerSignalId!),
+                ),
             ]),
           ),
           const SizedBox(height: kGap),

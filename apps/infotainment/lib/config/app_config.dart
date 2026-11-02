@@ -16,11 +16,15 @@ class GaugeTileSpec {
 }
 
 class GaugeProfile {
-  const GaugeProfile(this.id, this.name, this.tiles);
+  const GaugeProfile(this.id, this.name, this.tiles, {this.headerSignalId});
 
   final String id;
   final String name;
   final List<GaugeTileSpec> tiles;
+
+  /// Optional readout at the right end of the profile-selector row, for one
+  /// more value without giving up a tile (e.g. RPM while towing).
+  final String? headerSignalId;
 }
 
 /// Configuration loaded from assets/config/. Validated against the signal
@@ -87,7 +91,10 @@ class AppConfig {
       if (tiles.isEmpty || tiles.length > maxTilesPerProfile) {
         throw FormatException('gauge profile ${m['id']}: 1..$maxTilesPerProfile tiles');
       }
-      profiles.add(GaugeProfile(m['id'] as String, m['name'] as String, tiles));
+      final header = m['header'] as String?;
+      if (header != null) known(header, 'gauge profile ${m['id']} header');
+      profiles.add(GaugeProfile(m['id'] as String, m['name'] as String, tiles,
+          headerSignalId: header));
     }
     if (profiles.isEmpty) throw const FormatException('no gauge profiles');
 

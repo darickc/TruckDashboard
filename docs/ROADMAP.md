@@ -62,7 +62,7 @@ Tags:
       that they are not implemented
 - [x] 2.7 Warnings with hysteresis, minimum duration and gates, from
       `assets/config/warning_rules.json`, labelled as examples
-- [x] 2.8 Tests: 93 app tests (unit, scenario playback, 800×480 layout across
+- [x] 2.8 Tests: 97 app tests (unit, scenario playback, 800×480 layout across
       5 situations × 2 themes, touch targets, navigation, alert visibility, stale
       rendering) and 27 simulator tests
 - [x] Fuel level (`22 16 C1` from the Torque export, **unverified**) on Home and in the
@@ -71,7 +71,8 @@ Tags:
 - [x] Per-signal calibration (`raw × scale + offset`), configured in
       `assets/config/calibration.json`, with a live speed-scale control under
       Developer. Speed is back on the Home summary and in the towing profile, in the
-      slot EGT had (no probe installed). Procedure:
+      slot EGT had (no probe installed). Profiles can show one extra signal at the
+      right of the selector row (`"header"` in `gauge_profiles.json`); towing shows RPM Procedure:
       [CALIBRATION.md](diagnostics/CALIBRATION.md). The factor has not been measured
       on the truck yet; it ships at ×1.0
 - [x] Checked by eye in a browser (`make ui-web`). The macOS app builds with Xcode 27.2

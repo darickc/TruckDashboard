@@ -171,3 +171,64 @@ class CompactIndicator extends StatelessWidget {
     );
   }
 }
+
+/// Single-line readout sized for a 60 px header row: label, large value,
+/// unit. Same validity rules and frame as every other gauge.
+class HeaderReadout extends StatelessWidget {
+  const HeaderReadout({super.key, required this.signalId});
+
+  final String signalId;
+
+  @override
+  Widget build(BuildContext context) {
+    return SignalBuilder(
+      signalId: signalId,
+      builder: (context, v) {
+        final p = Palette.of(context);
+        return GaugeFrame(
+          view: v,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(children: [
+              Text(v.def.shortName,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: p.textDim)),
+              if (v.isUnverified) ...[const SizedBox(width: 6), const UnverifiedBadge()],
+              const SizedBox(width: 10),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      if (!v.isCurrent && v.status.isNotEmpty) ...[
+                        Text(v.status,
+                            key: ValueKey('header-status-$signalId'),
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w700, color: v.statusColor)),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(v.primary,
+                          key: ValueKey('header-value-$signalId'),
+                          style: TextStyle(
+                              fontSize: 32,
+                              height: 1.0,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: tabular,
+                              color: v.isCurrent ? p.text : p.stale)),
+                      if (v.primary != '—') ...[
+                        const SizedBox(width: 4),
+                        Text(v.unit, style: TextStyle(fontSize: 15, color: p.textDim)),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        );
+      },
+    );
+  }
+}
