@@ -94,6 +94,14 @@ jobs:
           flutter-version: "3.38.3"   # keep in step with .fvmrc / the AGL image engine
           channel: stable
       - if: steps.has.outputs.app == 'yes'
+        name: Simulator package
+        working-directory: simulator/powerstroke
+        run: |
+          dart pub get
+          dart analyze
+          dart test
+      - if: steps.has.outputs.app == 'yes'
+        name: Infotainment app
         working-directory: apps/infotainment
         run: |
           flutter pub get

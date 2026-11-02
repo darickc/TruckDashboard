@@ -71,8 +71,9 @@ The pin keeps the app compatible with the engine on the truck.
 | Command | What |
 |---|---|
 | `make fw-test` / `make fw-build` | ESP32 host tests / firmware build |
-| `make ui` | Run the dashboard in an 800×480 window *(Phase 2)* |
-| `make ui-test` | Flutter tests *(Phase 2)* |
+| `make ui-web` | Dashboard in a browser at http://127.0.0.1:8250 (release build; no Xcode needed). `SCENARIO=eot_ect_freeze START=110` jumps into a scenario |
+| `make ui` | Dashboard in an 800×480 macOS window (needs Xcode; CocoaPods only once plugins are added) |
+| `make ui-test` / `make sim-test` | Flutter app tests / simulator tests |
 | `make proto` | Regenerate gRPC code *(Phase 3)* |
 | `make sim` | Gateway with the simulated Power Stroke driving the UI *(Phase 3)* |
 | `make linux-test` | Rust tests in a Linux container *(Phase 3)* |

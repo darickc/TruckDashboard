@@ -43,16 +43,28 @@ Tags:
       The Rust, proto and Flutter jobs only reported "skip" so far. The vcan
       integration job is deferred to Phase 3, since there is no Linux code to test yet
 
-## Phase 2 — Simulated dashboard [SIM]
+## Phase 2 — Simulated dashboard [SIM] ✅ (2026-11-01)
 
-- [ ] 2.1 Scenario format plus the EOT/ECT-freeze and link-loss scenarios
-- [ ] 2.2 Flutter app scaffold, 800×480, day/night themes
-- [ ] 2.3 `VehicleDataSource` plus the simulated source
-- [ ] 2.4 App shell with the global alert layer and status bar
-- [ ] 2.5 Gauge widgets with stale and unverified states
-- [ ] 2.6 Home, Gauges, Diagnostics screens. Media and Nav placeholders, labelled as such
-- [ ] 2.7 Warnings with hysteresis, configured thresholds labelled as examples
-- [ ] 2.8 Tests: layout, touch targets, navigation, alerts, staleness
+- [x] 2.1 Scenario format `f250.scenario.v1` (`simulator/powerstroke`). Six scenarios,
+      including the EOT/ECT freeze, link loss, FICM sag and bad responses
+- [x] 2.2 Flutter app `apps/infotainment`: an 800×480 layout that letterboxes in any
+      dev window, day and night themes. Platforms are macOS and web (preview)
+- [x] 2.3 `VehicleDataSource` plus `SimulatedVehicleDataSource`. The gRPC source is
+      not written; it arrives in Phase 3 rather than shipping as a stub
+- [x] 2.4 Shell: status bar (SIMULATED badge, link state, clock), a global alert
+      banner that can't be dismissed, and the nav bar
+- [x] 2.5 Digital, circular and compact gauges. Stale gauges show the hatch,
+      last-good value and age. An unverified definition gets a badge
+- [x] 2.6 Home, Gauges (engine and towing profiles from JSON), Diagnostics (signals,
+      link, DTCs, events, developer). Media, Navigation and Cameras say plainly
+      that they are not implemented
+- [x] 2.7 Warnings with hysteresis, minimum duration and gates, from
+      `assets/config/warning_rules.json`, labelled as examples
+- [x] 2.8 Tests: 76 app tests (unit, scenario playback, 800×480 layout across
+      5 situations × 2 themes, touch targets, navigation, alert visibility, stale
+      rendering) and 27 simulator tests
+- [~] Checked by eye in a browser (`make ui-web`). **The macOS window target
+      has not been run, because Xcode is not installed.** Nothing has run on the Pi
 
 ## Phase 3 — Vehicle-data backend [SIM]
 

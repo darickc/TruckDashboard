@@ -70,8 +70,8 @@ shared/signals/      signal registry (YAML); imports/torque/exportedPIDs.csv
 shared/proto/        versioned gRPC/protobuf API (f250.<domain>.v1)                  [Phase 3]
 crates/              Rust libraries (telemetry model, formula, elm, isotp)           [Phase 3]
 services/            Rust daemons (vehicle-gateway, recorder, power/camera/audio)    [Phase 3/6]
-apps/infotainment/   Flutter UI, 800×480                                             [Phase 2]
-simulator/           Power Stroke scenarios + simulated transport                    [Phase 2/3]
+apps/infotainment/   Flutter UI, 800×480 (simulated data source today)
+simulator/           Power Stroke scenarios (f250.scenario.v1) + Dart engine; Rust transport in Phase 3
 agl/                 meta-f250 Yocto layer, build configs, target scripts            [Phase 5]
 tools/               pid-importer, can-monitor, diagnostics, dev/ helpers
 docs/                architecture/ (ADRs), hardware/, wiring/, setup/, safety/, diagnostics/, esp32/
@@ -89,11 +89,14 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make lint` | Link check, plus Rust/Flutter/proto lint once those exist |
 | `make fw-test` | ESP32 host tests (`pio test -e native`) |
 | `make fw-build` | ESP32 firmware build |
+| `make sim-test` | Scenario simulator tests (Dart) |
+| `make ui-test` / `make ui-lint` | Flutter tests / analyzer |
+| `make ui-web` | Dashboard in a browser at http://127.0.0.1:8250. Add `SCENARIO=<id> START=<s>` to jump into a scenario |
+| `make ui` | Dashboard as a macOS window (needs Xcode) |
 
 These will be added as their phases land:
 
 - `make proto`
-- `make ui` / `make ui-test`
 - `make sim`
 - `make linux-test`
 - `make deploy PI=<host>`

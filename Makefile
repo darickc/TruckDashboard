@@ -15,6 +15,7 @@ export PATH := $(shell brew --prefix rustup 2>/dev/null)/bin:$(HOME)/.cargo/bin:
 
 FW_DIR  := firmware/esp32
 APP_DIR := apps/infotainment
+SIM_DIR := simulator/powerstroke
 
 HAVE_CARGO   := $(wildcard Cargo.toml)
 HAVE_APP     := $(wildcard $(APP_DIR)/pubspec.yaml)
@@ -22,11 +23,16 @@ HAVE_PROTO   := $(wildcard shared/proto/buf.yaml)
 
 skip = @echo "skip: $(1)"
 
+# Simulator start point for ui / ui-web, e.g. SCENARIO=eot_ect_freeze START=110
+SCENARIO ?= drive_cycle
+START    ?= 0
+SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START)
+
 .PHONY: help setup doctor test lint \
         fw-test fw-build \
         rust-test rust-lint linux-test \
         proto proto-lint \
-        ui ui-test ui-lint \
+        ui ui-web ui-test ui-lint sim-test \
         sim deploy logs docs-lint
 
 help: ## List targets
@@ -49,7 +55,7 @@ doctor: ## Print tool versions without installing anything
 
 # ---- aggregate --------------------------------------------------------------
 
-test: fw-test rust-test ui-test ## Run every test available in this environment
+test: fw-test sim-test rust-test ui-test ## Run every test available in this environment
 
 lint: docs-lint rust-lint proto-lint ui-lint ## Run every linter available
 
@@ -105,20 +111,31 @@ endif
 
 ui: ## Run the dashboard on macOS (800x480 window)
 ifneq ($(HAVE_APP),)
-	cd $(APP_DIR) && $(FLUTTER) run -d macos
+	cd $(APP_DIR) && $(FLUTTER) run -d macos $(SIM_DEFINES)
 else
 	@echo "ui: the Flutter app does not exist yet (Phase 2)"; exit 1
 endif
 
+ui-web: ## Serve the dashboard (release build) at http://127.0.0.1:8250 — no Xcode needed
+ifneq ($(HAVE_APP),)
+	cd $(APP_DIR) && $(FLUTTER) run --release -d web-server --web-port 8250 --web-hostname 127.0.0.1 $(SIM_DEFINES)
+else
+	@echo "ui-web: the Flutter app does not exist yet (Phase 2)"; exit 1
+endif
+
 ui-test: ## Flutter widget/unit tests
 ifneq ($(HAVE_APP),)
-	cd $(APP_DIR) && $(FLUTTER) test
+	cd $(APP_DIR) && $(FLUTTER) test -r expanded
 else
 	$(call skip,ui-test — no Flutter app yet (Phase 2))
 endif
 
-ui-lint: ## flutter analyze
+sim-test: ## Power Stroke scenario simulator tests (Dart)
+	cd $(SIM_DIR) && fvm dart test -r expanded
+
+ui-lint: ## flutter analyze (app + simulator package)
 ifneq ($(HAVE_APP),)
+	cd $(SIM_DIR) && fvm dart analyze
 	cd $(APP_DIR) && $(FLUTTER) analyze
 else
 	$(call skip,ui-lint — no Flutter app yet (Phase 2))

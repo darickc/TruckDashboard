@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "infotainment-web",
+      "runtimeExecutable": "make",
+      "runtimeArgs": ["ui-web"],
+      "port": 8250
+    },
+    {
+      "name": "infotainment-web-freeze",
+      "runtimeExecutable": "make",
+      "runtimeArgs": ["ui-web", "SCENARIO=eot_ect_freeze", "START=110"],
+      "port": 8250
+    }
+  ]
+}

@@ -28,14 +28,16 @@ It also provides:
 
 ## Status
 
-Phases 0–1 are complete: the repository is migrated, and the architecture,
-documentation and development environment are in place.
+Phases 0–2 are complete. The repository is migrated, the architecture, docs and
+development environment are in place, and a **simulated** 800×480 dashboard
+runs on the Mac.
 
 | Area | State |
 |---|---|
 | ESP32 firmware (`firmware/esp32/`) | Builds; 140 host tests pass. On the truck, reads RPM and transmission temp through an OBDLink MX+ `[TRUCK]` |
 | Architecture, ADRs, hardware research | Written. See [docs/architecture/](docs/architecture/overview.md) |
-| Flutter dashboard (simulated) | Phase 2. Not started |
+| Flutter dashboard (`apps/infotainment`) | Runs with **simulated** data: gauges, global alerts, stale-data handling, diagnostics. 76 tests `[SIM]` |
+| Power Stroke simulator (`simulator/powerstroke`) | 6 scenarios, including the EOT/ECT freeze. 27 tests `[SIM]` |
 | Rust vehicle gateway | Phase 3. Not started |
 | CAN hardware, AGL image, infotainment | Phases 4–7. Not started. **No head-unit hardware purchased yet** |
 
@@ -88,6 +90,8 @@ Details: [docs/architecture/overview.md](docs/architecture/overview.md).
 make setup      # installs or checks the dev tools with Homebrew (see docs/setup/macos.md)
 make test       # runs every test that exists for this environment
 make lint       # Markdown link check, plus linters as components appear
+make ui-web     # dashboard in a browser at http://127.0.0.1:8250 (simulated data)
+make ui-web SCENARIO=eot_ect_freeze START=110   # jump straight to the EOT/ECT freeze
 ```
 
 ESP32 firmware only:
@@ -109,7 +113,9 @@ AGL images build on a Linux x86_64 host, not on the Mac. See
 | [`firmware/esp32/`](firmware/esp32/README.md) | ESP32 firmware (PlatformIO) |
 | [`shared/signals/`](shared/signals/) | Signal registry and the Torque PID import |
 | [`tools/dev/`](tools/dev/) | Development scripts: macOS setup, link checker |
-| `shared/proto/`, `crates/`, `services/`, `apps/`, `simulator/`, `agl/`, `tests/` | Not created yet. Each appears in the phase that implements it ([roadmap](docs/ROADMAP.md)) |
+| [`apps/infotainment/`](apps/infotainment/README.md) | Flutter touchscreen UI |
+| [`simulator/powerstroke/`](simulator/powerstroke/README.md) | Scenario simulator and scenario files |
+| `shared/proto/`, `crates/`, `services/`, `agl/`, `tests/` | Not created yet. Each appears in the phase that implements it ([roadmap](docs/ROADMAP.md)) |
 
 ## License
 
