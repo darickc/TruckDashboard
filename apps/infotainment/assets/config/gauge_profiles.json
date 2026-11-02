@@ -25,7 +25,7 @@
         {"signal": "eot_ect_delta", "style": "digital"},
         {"signal": "boost", "style": "circular"},
         {"signal": "egt", "style": "digital"},
-        {"signal": "speed", "style": "digital"},
+        {"signal": "fuel_level", "style": "digital"},
         {"signal": "ficm_main", "style": "digital"}
       ]
     }

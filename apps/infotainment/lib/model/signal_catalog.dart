@@ -111,6 +111,16 @@ const signalCatalog = <SignalDef>[
     staleAfter: Duration(seconds: 8),
   ),
   SignalDef(
+    // Torque export row "[FORD]Fuel Level", 0x2216C1, ((A*256)+B)/328 %.
+    // Unverified: which module answers, and whether the scaling matches the
+    // cluster gauge, are open questions (TRUCK_SESSION.md Part 3).
+    id: 'fuel_level', name: 'Fuel level', shortName: 'Fuel',
+    quantity: Quantity.percent, unit: '%',
+    provenance: Provenance.importedUnverified,
+    min: 0, max: 100, request: '22 16 C1',
+    staleAfter: Duration(seconds: 15),
+  ),
+  SignalDef(
     id: 'egt', name: 'Exhaust gas temp', shortName: 'EGT',
     quantity: Quantity.temperature, unit: 'degC',
     provenance: Provenance.auxSensor,

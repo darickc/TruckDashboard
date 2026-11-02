@@ -36,3 +36,6 @@ signals:
                keyframes: [[0, 15], [30, 15], [45, 22], [200, 22], [220, 34], [380, 35], [400, 21], [540, 22], [570, 15], [600, 15]]}
   ficm_main:  {unit: V,    interval_ms: 1000, noise: 0.2, keyframes: [[0, 48]]}
   battery:    {unit: V,    interval_ms: 2000, noise: 0.05, keyframes: [[0, 14.1]]}
+  # Slow burn with slosh noise. Jumps back to 62 % when the cycle loops.
+  fuel_level: {unit: '%',  interval_ms: 5000, noise: 1.5, min: 0, max: 100,
+               keyframes: [[0, 62], [600, 59]]}

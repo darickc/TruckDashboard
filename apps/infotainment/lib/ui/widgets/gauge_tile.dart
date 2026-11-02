@@ -140,18 +140,30 @@ class CompactIndicator extends StatelessWidget {
                     color: v.isCurrent && v.level == AlertLevel.none ? p.ok : dot,
                     shape: BoxShape.circle)),
             const SizedBox(width: 8),
-            Expanded(
+            // The name is capped so the value column always reaches the right
+            // edge; both truncate rather than overflow ("STALE · 2 min").
+            ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 90),
                 child: Text(v.def.shortName,
-                    maxLines: 1, style: TextStyle(fontSize: 15, color: p.textDim))),
-            Text(
-              v.isCurrent ? '${v.primary} ${v.unit}' : (v.status.isEmpty ? '—' : v.status),
-              key: ValueKey('compact-$signalId'),
-              maxLines: 1,
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: tabular,
-                  color: v.isCurrent ? p.text : v.statusColor),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 15, color: p.textDim))),
+            const SizedBox(width: 6),
+            if (v.isUnverified) UnverifiedBadge(key: ValueKey('unverified-$signalId')),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                v.isCurrent ? '${v.primary} ${v.unit}' : (v.status.isEmpty ? '—' : v.status),
+                key: ValueKey('compact-$signalId'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: tabular,
+                    color: v.isCurrent ? p.text : v.statusColor),
+              ),
             ),
           ]),
         );

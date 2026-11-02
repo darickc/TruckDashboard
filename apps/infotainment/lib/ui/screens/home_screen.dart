@@ -146,7 +146,7 @@ class _HealthPanel extends StatelessWidget {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  for (final id in const ['rpm', 'boost', 'ficm_main', 'battery', 'speed'])
+                  for (final id in const ['fuel_level', 'rpm', 'boost', 'ficm_main', 'battery'])
                     CompactIndicator(signalId: id),
                 ],
               ),

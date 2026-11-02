@@ -21,6 +21,13 @@ void main() {
         ['trans_temp']);
   });
 
+  test('fuel level comes from the Torque export and is marked unverified', () {
+    final fuel = signalsById['fuel_level']!;
+    expect(fuel.provenance, Provenance.importedUnverified);
+    expect(fuel.request, '22 16 C1');
+    expect(fuel.quantity, Quantity.percent);
+  });
+
   test('computed signals reference existing, non-computed inputs', () {
     for (final s in signalCatalog.where((s) => s.isComputed)) {
       expect(s.inputs, isNotEmpty, reason: s.id);

@@ -60,9 +60,12 @@ Tags:
       that they are not implemented
 - [x] 2.7 Warnings with hysteresis, minimum duration and gates, from
       `assets/config/warning_rules.json`, labelled as examples
-- [x] 2.8 Tests: 76 app tests (unit, scenario playback, 800×480 layout across
+- [x] 2.8 Tests: 81 app tests (unit, scenario playback, 800×480 layout across
       5 situations × 2 themes, touch targets, navigation, alert visibility, stale
       rendering) and 27 simulator tests
+- [x] Fuel level (`22 16 C1` from the Torque export, **unverified**) on Home and in the
+      towing profile. Computed values now inherit UNVERIFIED from their inputs, and
+      compact rows show the badge
 - [~] Checked by eye in a browser (`make ui-web`). **The macOS window target
       has not been run, because Xcode is not installed.** Nothing has run on the Pi
 

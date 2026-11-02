@@ -28,6 +28,7 @@ class SignalView {
     required this.showHatch,
     required this.level,
     required this.validity,
+    required this.isUnverified,
   });
 
   final SignalDef def;
@@ -50,7 +51,13 @@ class SignalView {
   final AlertLevel level;
   final Validity validity;
 
-  bool get isUnverified => def.provenance == Provenance.importedUnverified;
+  /// The definition (or, for a computed signal, any input's definition) has
+  /// not been confirmed on this truck.
+  final bool isUnverified;
+
+  static bool _unverified(SignalDef def) =>
+      def.provenance == Provenance.importedUnverified ||
+      def.inputs.any((id) => signalsById[id] != null && _unverified(signalsById[id]!));
 
   static SignalView of(TelemetryStore store, String id, UnitSystem units, Palette p) {
     final s = store[id]!;
@@ -76,6 +83,7 @@ class SignalView {
           showHatch: hatch,
           level: current ? level : AlertLevel.none,
           validity: s.validity,
+          isUnverified: _unverified(def),
         );
 
     switch (s.validity) {

@@ -47,10 +47,11 @@ Unverified rows are disabled by default; verified ones are listed in
 | Transmission gear | Auto | `2211B3` / 7DF | A/2 | Torque | |
 | Transmission gear (method 2) | **TCM** | `2211B3` / **TODO** | A/2 | TODO | |
 | Battery voltage | Auto | `221172` / 7DF | A/16 V | Torque | |
+| Fuel level | Auto | `2216C1` / 7DF | ((A·256)+B)/328 % | Torque | shown on the head-unit dashboard as UNVERIFIED. Not in the ESP32 table (reference comment only), so verify with `raw 2216C1`. SAE `01 2F` (A·100/255 %) is an alternative **only if** `raw 0120` reports PID 2F as supported |
 | ICP **voltage** | — | **TODO** | **TODO** | TODO | not in the Torque export; find a FORScan/X-Gauge definition before implementing |
 
 Additional imported-but-unused rows (misfire counters, CHT, FICM logic/vehicle
-power, fuel level, IAT2, throttle, tire pressures via header `726`, ABS values,
+power, IAT2, throttle, tire pressures via header `726`, ABS values,
 etc.) are preserved as reference comments at the bottom of `PidDefs.cpp`.
 
 ## Module addressing — TODO, verify on truck

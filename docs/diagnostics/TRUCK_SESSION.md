@@ -218,6 +218,7 @@ Order — the ones that need no driving first:
 | `iprduty` | `22 1434` | ~10–20 % at idle | should track inversely with ICP |
 | `vgtduty` | `22 096D` | varies with load | |
 | `gear1` | `22 11B3` | see below | |
+| *(none; use `raw`)* | `22 16C1` | roughly the cluster's fuel gauge, as a percentage | not in the ESP32 PID table, so `raw 2216C1` and decode ((A·256)+B)/328 by hand. Note who answers (7E8, 7E9 or both). Read it at two clearly different tank levels (e.g. before and after a fill-up): one reading can't confirm a scale factor. Also run `raw 0120` and record whether SAE PID 2F (fuel tank level) is in the supported bitmap |
 
 ### Gear gets its own step
 
