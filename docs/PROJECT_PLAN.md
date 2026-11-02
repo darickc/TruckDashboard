@@ -9,7 +9,7 @@
 
 The repository today holds working ESP32 firmware. It reads the truck through an
 OBDLink MX+ over Bluetooth SPP and prints gauge pages to the serial port. It has
-137 host-side tests, a serial console, and a verification log of real findings
+140 host-side tests, a serial console, and a verification log of real findings
 from the truck.
 
 The project is now becoming a **Raspberry Pi 5 head unit running Automotive Grade
@@ -36,7 +36,7 @@ Engineering priorities, in this order:
 
 ### Knowledge carried forward from the existing repo (verified on the truck)
 
-These are facts, recorded in [docs/VERIFICATION_LOG.md](VERIFICATION_LOG.md). They
+These are facts, recorded in [docs/VERIFICATION_LOG.md](diagnostics/VERIFICATION_LOG.md). They
 seed the new signal registry. They are not assumptions.
 
 | Fact | Evidence |
@@ -215,7 +215,7 @@ No hardware-dependent step is marked done until it has run on real hardware.
    - `FORD_6_0_PIDS.md`, `VERIFICATION_LOG.md`, `TRUCK_SESSION.md` → `docs/diagnostics/`
    - fix every relative link
 4. **0.4** Verify the move:
-   - `cd firmware/esp32 && pio test -e native` passes all 137 tests
+   - `cd firmware/esp32 && pio test -e native` passes all 140 tests
    - `pio run -e esp32dev` builds
    - `grep` finds no stale paths
 
@@ -548,7 +548,7 @@ The procedure goes in `docs/diagnostics/dropout-capture.md`.
 
 | Phase | Command or evidence |
 |---|---|
-| 0 | `cd firmware/esp32 && pio test -e native` (137 pass); `pio run -e esp32dev`; `git log --follow` on a moved file |
+| 0 | `cd firmware/esp32 && pio test -e native` (140 pass); `pio run -e esp32dev`; `git log --follow` on a moved file |
 | 1 | `make setup && make test` on macOS; CI green; links checked |
 | 2 | `make ui` (800×480 window; run the freeze scenario and see stale badges); `make ui-test` |
 | 3 | `make test` (Rust and Flutter); `make sim` drives the UI through the gateway; recovery-transition tests; `make linux-test` in Docker |

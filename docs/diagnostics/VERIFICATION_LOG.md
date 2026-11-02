@@ -11,7 +11,7 @@ Each entry records:
 - **(d)** date and conditions (cold/warm, KOEO/idle/driving)
 
 The procedure is in [FORD_6_0_PIDS.md](FORD_6_0_PIDS.md#verification-procedure-benchdriveway-engine-running);
-the tooling is in [CONSOLE.md](CONSOLE.md).
+the tooling is in [CONSOLE.md](../esp32/CONSOLE.md).
 
 > **A note on what counts as evidence.** Torque Pro uses the same definitions
 > imported into `PidDefs.cpp` from `exportedPIDs.csv`. Agreement with Torque

@@ -9,7 +9,7 @@
 // project compiles (and runs, via SerialDisplay) with no display hardware.
 //
 // Adding the real display later = implement IDisplay in a new class and swap
-// the instance in main.cpp. See docs/DISPLAY_PLAN.md.
+// the instance in main.cpp. See docs/esp32/DISPLAY_PLAN.md.
 
 #include <cstdint>
 

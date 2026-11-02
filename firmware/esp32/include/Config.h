@@ -1,7 +1,7 @@
 #pragma once
 //
 // Central configuration — everything a user should ever need to tune lives
-// here. See README.md "Configuration" for details.
+// here. See firmware/esp32/README.md "Configuration" for details.
 
 #include "Log.h"
 #include "PidDefs.h"
@@ -64,7 +64,7 @@ inline constexpr uint32_t kReconnectMaxMs = 30000;
 //   ATAT1 adaptive timing ATSP6 ISO 15765-4 CAN, 11-bit/500k
 // ATSP6 is pinned, not assumed: `raw ATDPN` on the truck returned "A6" —
 // protocol 6, reached by auto-detection (2026-08-09, see
-// docs/VERIFICATION_LOG.md). Pinning it skips the "SEARCHING..." round on every
+// docs/diagnostics/VERIFICATION_LOG.md). Pinning it skips the "SEARCHING..." round on every
 // reconnect. Revert to "ATSP0" if the adapter is ever moved to another vehicle.
 // ---------------------------------------------------------------------------
 inline constexpr const char* kElmInitCommands[] = {
@@ -79,7 +79,7 @@ inline constexpr size_t kElmInitCommandCount =
 // MILESTONE 1: generic engine RPM only (plus barometric pressure, the input
 // for derived boost). Enable Ford PIDs ONE AT A TIME while watching raw
 // traffic (kLogRawObdTraffic) and verifying readings against a known-good
-// tool — see docs/FORD_6_0_PIDS.md. Poll rates/priorities live in the PID
+// tool — see docs/diagnostics/FORD_6_0_PIDS.md. Poll rates/priorities live in the PID
 // table (lib/ObdCore/src/PidDefs.cpp).
 // ---------------------------------------------------------------------------
 inline constexpr obd::PidKey kEnabledPids[] = {

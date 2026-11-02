@@ -3,8 +3,9 @@
 gen_pids.py — one-shot generator: exportedPIDs.csv (Torque Pro export) -> C++
 PID table rows for lib/ObdCore/src/PidDefs.cpp.
 
-Usage:
-    python3 scripts/gen_pids.py exportedPIDs.csv
+Usage (from firmware/esp32/):
+    python3 scripts/gen_pids.py            # reads the repo's Torque export
+    python3 scripts/gen_pids.py <file.csv>
 
 The output is REVIEWED BY A HUMAN and pasted into PidDefs.cpp — this script
 is not part of the build. Rationale: mechanically transcribing 50+ scale
@@ -29,6 +30,7 @@ What it does:
 """
 
 import csv
+from pathlib import Path
 import re
 import sys
 
@@ -113,6 +115,11 @@ def fmt_float(x):
     return f"{x:.9g}f"
 
 
+# The export lives with the signal registry, not with the firmware.
+DEFAULT_CSV = (Path(__file__).resolve().parents[3]
+               / "shared/signals/imports/torque/exportedPIDs.csv")
+
+
 def main(path):
     active, comments, manual = [], [], []
     with open(path, newline="") as fh:
@@ -178,4 +185,4 @@ def main(path):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "exportedPIDs.csv")
+    main(sys.argv[1] if len(sys.argv) > 1 else str(DEFAULT_CSV))

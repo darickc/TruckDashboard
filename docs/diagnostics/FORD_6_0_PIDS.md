@@ -1,7 +1,7 @@
 # Ford 6.0L Power Stroke PID reference (2007 F-250)
 
 **Rule: nothing on this page is guessed.** Every Ford request/formula comes from
-the owner's Torque Pro export (`exportedPIDs.csv`). "Definition imported from
+the owner's Torque Pro export ([`exportedPIDs.csv`](../../shared/signals/imports/torque/exportedPIDs.csv)). "Definition imported from
 Torque" and "verified on this truck" are different claims — the `Verified`
 column below means *confirmed against the actual truck with a known-good tool*.
 Unknowns are marked **TODO**, not filled in.
@@ -77,7 +77,7 @@ works today. The `ATSH` headers below only matter for the throughput work
 
 ### Verification procedure (bench/driveway, engine running)
 
-Run it from the [serial console](CONSOLE.md) — no reflash per PID.
+Run it from the [serial console](../esp32/CONSOLE.md) — no reflash per PID.
 
 1. `pio run -e esp32dev -t upload && pio device monitor`, then `log raw on`.
 2. `probe <pid> 10`. Each attempt prints **which CAN ID answered**, the raw

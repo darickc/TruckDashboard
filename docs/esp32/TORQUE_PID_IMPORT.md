@@ -24,7 +24,7 @@ Torque's `Header` column is **not** an OBDLink `ATSH` value when it's symbolic:
   (`7DF`, ISO 15765-4 standard — the one thing safely assumed).
 - `TCM`, `ABS` → `ObdModule::Tcm` / `Abs` → **ATSH unknown (`nullptr`)**. The
   firmware refuses to send these until the real header is verified on the truck
-  (see [FORD_6_0_PIDS.md](FORD_6_0_PIDS.md)). Never invented.
+  (see [FORD_6_0_PIDS.md](../diagnostics/FORD_6_0_PIDS.md)). Never invented.
 - `726`, `C410F1` → literal headers, preserved verbatim
   (`ObdModule::Hdr726` / `HdrC410F1`).
 
@@ -46,7 +46,7 @@ Example: EOT `(((A*256)+B)/100)-40` ⇒ `{offset 0, width 2, unsigned, scale 0.0
 ## Workflow
 
 ```bash
-python3 scripts/gen_pids.py exportedPIDs.csv
+cd firmware/esp32 && python3 scripts/gen_pids.py
 ```
 
 prints three sections:

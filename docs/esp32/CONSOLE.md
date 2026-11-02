@@ -43,7 +43,7 @@ short name (`on hpop`).
 
 ## `probe` — the verification workhorse
 
-`probe` runs the procedure from [FORD_6_0_PIDS.md](FORD_6_0_PIDS.md) for one PID
+`probe` runs the procedure from [FORD_6_0_PIDS.md](../diagnostics/FORD_6_0_PIDS.md) for one PID
 without a reflash, and prints the thing the old flow could not produce: what
 **every** module that answered said, decoded, side by side.
 
@@ -125,7 +125,7 @@ commands is far cheaper than a desynced cache quietly mislabelling readings.
 The console runs on `loopTask`; `ElmClient` and `PidScheduler` are private to the
 OBD task and their state machines assume single-threaded access. The console
 therefore never touches them. It posts into a single-slot
-[`CommandMailbox`](../lib/Console/src/CommandMailbox.h); the OBD task claims the
+[`CommandMailbox`](../../firmware/esp32/lib/Console/src/CommandMailbox.h); the OBD task claims the
 request at a point where it already knows the adapter is idle, executes it,
 appends reply lines, and marks it done. One command in flight at a time — a
 second `post()` is refused with "busy" rather than dropped silently.

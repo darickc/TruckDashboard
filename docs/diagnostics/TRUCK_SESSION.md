@@ -5,7 +5,7 @@ seven open questions in [VERIFICATION_LOG.md](VERIFICATION_LOG.md) interlock —
 question 4 is only meaningful if question 2 says yes — and working out the order
 while the engine idles wastes the expensive resource.
 
-Everything here uses commands the [console](CONSOLE.md) already has. No reflash.
+Everything here uses commands the [console](../esp32/CONSOLE.md) already has. No reflash.
 
 **Before you go out:** `pio run -e esp32dev -t upload`, confirm the truck
 connects, then `pio device monitor` and leave the laptop on the seat.
@@ -39,16 +39,16 @@ The previous session's `ATSH` result is uninterpretable without it, and that is
 almost certainly why question 2 is still open. What happened:
 
 1. `raw ATSH 7E1` finished. `ElmClient::finishRequest` saw `rawMode_` and called
-   `markAddressingUnknown()` ([ElmClient.cpp:131](../lib/ObdCore/src/ElmClient.cpp)),
+   `markAddressingUnknown()` ([ElmClient.cpp:131](../../firmware/esp32/lib/ObdCore/src/ElmClient.cpp)),
    setting the header cache to the `"?"` sentinel.
 2. The operator was typing the next line, so `console->busy()` was false and
-   [ObdTask.cpp:100](../src/ObdTask.cpp) let the scheduler submit a due PID.
+   [ObdTask.cpp:100](../../firmware/esp32/src/ObdTask.cpp) let the scheduler submit a due PID.
 3. `ElmClient::submit` compared that PID's header to the cache. `RpmSae` is
    `ObdModule::Auto` → `7DF`, and `strcmp("7DF", "?") != 0`, so it sent
    **`ATSH7DF`**.
 4. The typed `ATSH 7E1` was gone. `raw 010C` then went out functionally —
    `submitRaw` sets `prepCount_ = 0` and sends the line verbatim
-   ([ElmClient.cpp:70](../lib/ObdCore/src/ElmClient.cpp)), on whatever header the
+   ([ElmClient.cpp:70](../../firmware/esp32/lib/ObdCore/src/ElmClient.cpp)), on whatever header the
    adapter actually has.
 
 `RpmSae` polls at 100 ms. The odds of it *not* firing between two typed lines
@@ -94,7 +94,7 @@ could equally mean physical addressing works or that one module went quiet.
 
 | Result | Conclusion | Action |
 |---|---|---|
-| One responder each, both answer on 7DF | Physical addressing works | Fill `ObdModule::Tcm` = `7E1`, `Pcm` = `7E0` in `moduleAtshHeader()` ([PidDefs.cpp](../lib/ObdCore/src/PidDefs.cpp)), with this transcript as the evidence. Questions 4 and 5 go live. |
+| One responder each, both answer on 7DF | Physical addressing works | Fill `ObdModule::Tcm` = `7E1`, `Pcm` = `7E0` in `moduleAtshHeader()` ([PidDefs.cpp](../../firmware/esp32/lib/ObdCore/src/PidDefs.cpp)), with this transcript as the evidence. Questions 4 and 5 go live. |
 | Both answer every time, with nothing polling | Physical addressing is genuinely unusable on this adapter/truck pair | Record it as a settled finding. Leave the module headers `nullptr` **permanently** and rely on `expectedResponder`, which already works — that is how `TransTemp1` is pinned. Skip the first block of Part 2. |
 | Nobody answers on 7E0/7E1 | The header format is wrong, not the mechanism | Try `raw ATSH 07E1` (leading zero). Record either way. |
 
@@ -151,7 +151,7 @@ raw 2213101446
 If both DIDs come back in one response, that is roughly 3× the throughput and
 rewrites every poll interval in the PID table. Implementing it is a later
 milestone; **proving or disproving it now** is what makes the budget in
-[OBD_PROTOCOL.md](OBD_PROTOCOL.md#throughput-budget) trustworthy.
+[OBD_PROTOCOL.md](../esp32/OBD_PROTOCOL.md#throughput-budget) trustworthy.
 
 ### `2211BD` on `C410F1` (question 7)
 
@@ -269,7 +269,7 @@ from this number.
 
 ### Warning thresholds
 
-All six rules at [Config.h:138-151](../include/Config.h) are labelled
+All six rules at [Config.h:138-151](../../firmware/esp32/include/Config.h) are labelled
 `*** EXAMPLE DEFAULTS ONLY — VERIFY BEFORE TRUSTING ***`. They are commonly cited
 6.0L community numbers, not measurements from this truck.
 

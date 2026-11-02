@@ -1,4 +1,13 @@
-# TruckDashboard
+# ESP32 firmware (auxiliary controller)
+
+> **Status in the head-unit project.** This firmware predates the pivot to a
+> Raspberry Pi 5 running AGL ([project plan](../../docs/PROJECT_PLAN.md)). It still
+> builds, its 140 host tests still pass, and its console is still the tool for
+> the open truck-verification items. Its future role is the head unit's
+> auxiliary I/O controller (EGT probe, volume knob, possibly an MX+ bridge); its
+> ELM/ISO-TP logic and test vectors are the reference for the Rust gateway.
+> Everything below describes the firmware as it stands; paths are relative to
+> `firmware/esp32/` unless they link elsewhere.
 
 Custom digital gauge firmware for a **2007 Ford F-250 6.0L Power Stroke**, running
 entirely on **one ESP32-WROOM-32**:
@@ -31,28 +40,28 @@ gauge pages — currently to USB Serial, later to a 1.75" round 466×466 AMOLED.
   on this truck, so every answer is kept with the CAN ID that sent it. Divergence
   is judged on *decoded* values, not bytes — at idle the two disagree in bytes on
   nearly every request but by only ~1 rpm in meaning
-- **[Interactive serial console](docs/CONSOLE.md)**: `pids`, `on`/`off`,
+- **[Interactive serial console](../../docs/esp32/CONSOLE.md)**: `pids`, `on`/`off`,
   `probe <pid> [n]`, `raw`, `hdr`, `snap`, `stats`, `display` — verify a PID or
   try an ATSH candidate without a reflash. Input is echoed, the display pauses
   when you start typing, and write/clear/control services are refused unless
   `unsafe on` is typed
 - Vehicle data model, PID scheduler with per-PID stats and a throughput-budget
   warning, warning manager, derived values, Serial "display",
-  **137 host-side unit tests**
+  **140 host-side unit tests**
 
 **Scaffolded, not yet verified on the truck:** all Ford enhanced PIDs (EOT, FICM,
 ICP, IPR, VGT, MAP, EBP, trans temp, gear, battery) — definitions imported from a
 Torque Pro export, disabled by default. The tooling to verify them now exists;
-the session itself is next. See [docs/FORD_6_0_PIDS.md](docs/FORD_6_0_PIDS.md)
-for the procedure, [docs/TRUCK_SESSION.md](docs/TRUCK_SESSION.md) for the ordered
+the session itself is next. See [docs/FORD_6_0_PIDS.md](../../docs/diagnostics/FORD_6_0_PIDS.md)
+for the procedure, [docs/TRUCK_SESSION.md](../../docs/diagnostics/TRUCK_SESSION.md) for the ordered
 script to run out at the truck, and
-[docs/VERIFICATION_LOG.md](docs/VERIFICATION_LOG.md) for where the evidence goes.
+[docs/VERIFICATION_LOG.md](../../docs/diagnostics/VERIFICATION_LOG.md) for where the evidence goes.
 
 **Known:** the measured Bluetooth round trip is ~96 ms (~10 requests/s), not the
 30–60 ms originally assumed. The PID table's poll intervals ask for far more than
 that once the Ford PIDs are on; the scheduler degrades by priority and now says
 so out loud. Rebalancing is a job for after the throughput experiments — see
-[docs/OBD_PROTOCOL.md](docs/OBD_PROTOCOL.md#throughput-budget).
+[docs/OBD_PROTOCOL.md](../../docs/esp32/OBD_PROTOCOL.md#throughput-budget).
 
 ## Hardware
 
@@ -76,7 +85,7 @@ The only shared object is `VehicleData`, guarded by one mutex; the UI copies a
 snapshot and works lock-free. The whole protocol stack (`lib/ObdCore`) has **zero
 Arduino dependencies** and runs natively under unit tests.
 
-Full details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/OBD_PROTOCOL.md](docs/OBD_PROTOCOL.md).
+Full details: [docs/ARCHITECTURE.md](../../docs/esp32/ARCHITECTURE.md), [docs/OBD_PROTOCOL.md](../../docs/esp32/OBD_PROTOCOL.md).
 
 ## Building and flashing
 
@@ -130,26 +139,26 @@ Everything tunable is in [include/Config.h](include/Config.h):
 
 ## Adding a new PID
 
-1. If it's in the Torque export: `python3 scripts/gen_pids.py exportedPIDs.csv`
+1. If it's in the Torque export: `python3 scripts/gen_pids.py` (reads `shared/signals/imports/torque/exportedPIDs.csv`)
    prints ready-made rows — or copy the reference comment already in
    [lib/ObdCore/src/PidDefs.cpp](lib/ObdCore/src/PidDefs.cpp).
 2. Add a `PidKey` enum value ([PidDefs.h](lib/ObdCore/src/PidDefs.h)) and, if it's a
    new physical quantity, a `ChannelId` + metadata row.
 3. Add the table row in `PidDefs.cpp` with `verified=false`,
    `expectedResponder=0` and `expectedResponses=0`.
-4. Flash once. From then on use the [console](docs/CONSOLE.md) — no reflash per
+4. Flash once. From then on use the [console](../../docs/esp32/CONSOLE.md) — no reflash per
    PID: `log raw on`, then `probe <pid> 10`.
 5. Compare against an independent reference. Note that Torque uses the same
    definitions imported here, so agreeing with it proves the transport works,
    not that the scaling is right — prefer a multimeter, a cross-check against a
    verified SAE PID, or a distinctive expected value.
-6. Record the evidence in [docs/VERIFICATION_LOG.md](docs/VERIFICATION_LOG.md),
-   flip `verified=true`, and update [docs/FORD_6_0_PIDS.md](docs/FORD_6_0_PIDS.md).
+6. Record the evidence in [docs/VERIFICATION_LOG.md](../../docs/diagnostics/VERIFICATION_LOG.md),
+   flip `verified=true`, and update [docs/FORD_6_0_PIDS.md](../../docs/diagnostics/FORD_6_0_PIDS.md).
    If two ECUs answered with different values, pin `expectedResponder` to the one
    that proved to own the DID.
 
-Details: [docs/TORQUE_PID_IMPORT.md](docs/TORQUE_PID_IMPORT.md). For the next
-session specifically, work through [docs/TRUCK_SESSION.md](docs/TRUCK_SESSION.md)
+Details: [docs/TORQUE_PID_IMPORT.md](../../docs/esp32/TORQUE_PID_IMPORT.md). For the next
+session specifically, work through [docs/TRUCK_SESSION.md](../../docs/diagnostics/TRUCK_SESSION.md)
 — an ordered script covering the open addressing and capability questions, which
 interlock and are best answered in one sitting.
 
@@ -157,7 +166,7 @@ interlock and are best answered in one sitting.
 
 Implement `IDisplay` (three methods) in a new class against the chosen
 controller's driver, swap the instance in `main.cpp`. Nothing else changes — the
-OBD stack has no idea what renders. Plan: [docs/DISPLAY_PLAN.md](docs/DISPLAY_PLAN.md).
+OBD stack has no idea what renders. Plan: [docs/DISPLAY_PLAN.md](../../docs/esp32/DISPLAY_PLAN.md).
 
 ## Future external sensors (EGT, low-pressure fuel)
 
@@ -204,6 +213,7 @@ lib/Sensors/            future external sensor interface
 lib/Log/                leveled logger
 scripts/gen_pids.py     Torque CSV → C++ PID table generator (run once, reviewed)
 test/                   host-side Unity tests + scripted mock transport
-docs/                   architecture / protocol / PID / display / testing docs
-exportedPIDs.csv        Torque Pro export (source of Ford PID definitions)
+../../docs/esp32/       architecture / protocol / console / display / testing docs
+../../docs/diagnostics/ PID reference, verification log, truck session script
+../../shared/signals/imports/torque/exportedPIDs.csv   Torque Pro export
 ```

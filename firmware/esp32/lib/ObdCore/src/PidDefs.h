@@ -9,7 +9,7 @@
 //     specific. DIDs and scaling come from the user's Torque Pro export
 //     (exportedPIDs.csv); they are trusted as "definition verified from
 //     Torque" but each remains verified=false until confirmed on the truck.
-//     See docs/FORD_6_0_PIDS.md and docs/TORQUE_PID_IMPORT.md.
+//     See docs/diagnostics/FORD_6_0_PIDS.md and docs/esp32/TORQUE_PID_IMPORT.md.
 //
 // IMPORTANT: never invent Ford DIDs, headers, or scaling. Unverified module
 // addressing is represented as a nullptr ATSH header, which ElmClient refuses
@@ -89,7 +89,7 @@ const char* moduleName(ObdModule m);
 /// Override a module's addressing at RUNTIME, for a verification session.
 ///
 /// This is the "try ATSH 7E0 (+ ATCRA 7E8) for the PCM and re-request" step
-/// from docs/FORD_6_0_PIDS.md, made possible without a reflash. It is NOT a
+/// from docs/diagnostics/FORD_6_0_PIDS.md, made possible without a reflash. It is NOT a
 /// backdoor around the no-guessing rule: the compiled-in default stays nullptr,
 /// the override is never persisted, it dies on reboot, and it exists only so an
 /// operator can type a *candidate* and watch what the truck says. A candidate

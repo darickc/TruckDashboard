@@ -64,7 +64,7 @@ void PidScheduler::begin(const PidDefinition* table, size_t tableSize,
 bool PidScheduler::add(const PidDefinition& def, uint32_t now)
 {
     if (moduleAtshHeader(def.module) == nullptr) {
-        LOGW(kTag, "%s: module '%s' header UNVERIFIED — skipped (see docs/FORD_6_0_PIDS.md)",
+        LOGW(kTag, "%s: module '%s' header UNVERIFIED — skipped (see docs/diagnostics/FORD_6_0_PIDS.md)",
              def.name, moduleName(def.module));
         return false;
     }
