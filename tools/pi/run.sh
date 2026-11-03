@@ -88,6 +88,13 @@ case "$UI" in
       if [[ "$UI" == headless ]]; then
         export WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1
       else
+        # cage needs a login that owns the screen (a seat). An SSH login has
+        # none, and cage would only time out after 10 s.
+        if [[ -z "$(loginctl show-session "${XDG_SESSION_ID:-}" -p Seat --value 2>/dev/null)" ]]; then
+          echo "This login has no seat (SSH?), so cage can't take the Pi's screen."
+          echo "Over SSH use 'make pi-start' (same options); or run this on the Pi's console."
+          exit 1
+        fi
         KIOSK=1
       fi
       unset WAYLAND_DISPLAY DISPLAY

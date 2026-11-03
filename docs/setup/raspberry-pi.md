@@ -120,8 +120,9 @@ the new one would take over its socket.
 
 ### Over SSH: `make pi-start`
 
-`make pi-run` started over SSH fails after 10 s with "Timeout waiting session
-to become active". An SSH login has no seat, so `cage` can't take the screen.
+`make pi-run` can't run the app over SSH: an SSH login has no seat, so `cage`
+can't take the screen. `run.sh` checks for that and stops at once with "This
+login has no seat (SSH?)" (it used to time out after 10 s).
 `make pi-start` runs the same `run.sh` as a transient systemd service on
 `tty7` with a PAM login session, which gets `seat0`:
 
