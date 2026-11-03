@@ -65,6 +65,12 @@ pub fn eot() -> ObdRequest {
     ObdRequest::new(ObdCommand::did(0x1310))
 }
 
+/// Eot as shipped: 22 1310, functional, pinned to the PCM at 7E8
+/// (VERIFICATION_LOG.md 2026-11-03).
+pub fn eot_pinned() -> ObdRequest {
+    ObdRequest::new(ObdCommand::did(0x1310)).with_expected_responder(0x7E8)
+}
+
 /// Icp: 22 1446, functional.
 pub fn icp() -> ObdRequest {
     ObdRequest::new(ObdCommand::did(0x1446))

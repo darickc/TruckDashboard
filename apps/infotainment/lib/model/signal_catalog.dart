@@ -33,7 +33,7 @@ const signalCatalog = <SignalDef>[
     id: 'eot', name: 'Engine oil temp', shortName: 'EOT',
     quantity: Quantity.temperature, unit: 'degC',
     provenance: Provenance.importedUnverified,
-    min: -40, max: 150, request: '22 13 10',
+    min: -40, max: 150, request: '22 13 10', responder: '7E8',
     staleAfter: Duration(seconds: 4),
   ),
   SignalDef(

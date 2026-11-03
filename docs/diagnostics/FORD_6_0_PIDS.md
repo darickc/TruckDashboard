@@ -33,7 +33,7 @@ Unverified rows are disabled by default; verified ones are listed in
 
 | Parameter | Module (Torque) | Request/Header | Formula | Verified | Notes |
 |---|---|---|---|---|---|
-| Engine oil temp (EOT) | Auto | `221310` / 7DF | (((A·256)+B)/100)−40 °C | Torque | |
+| Engine oil temp (EOT) | **PCM (7E8)** | `221310` / 7DF | (((A·256)+B)/100)−40 °C | Torque; tracks ECT 9–59 °C (2026-11-03), not yet promoted | TCM answers `7F 22 12`. Pinned `rx_id = 7E8` so a window holding only the TCM's refusal is one miss, not a 60 s quarantine. Needs a fully warm reading and a FORScan cross-check |
 | FICM main power | Auto | `2209D0` / 7DF | ((A·256)+B)/256 V | Torque | healthy ≈ 48 V |
 | Injection control pressure (ICP) | Auto | `221446` / 7DF | ((A·256)+B)·0.57 psi | Torque | |
 | IPR duty cycle | Auto | `221434` / 7DF | A·13.53/35 % | Torque | |

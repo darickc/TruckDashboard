@@ -8,7 +8,8 @@
 # docs/diagnostics/VERIFICATION_LOG.md before a row is promoted.
 #
 # Header "Auto" in the export = functional request 0x7DF (FORD_6_0_PIDS.md).
-# Which module answers each DID is not established, so no rx_id is pinned.
+# A row pins rx_id only where the truck showed which module owns the DID
+# (VERIFICATION_LOG.md); the others leave the responder open.
 # Ranges and stale times mirror apps/infotainment/lib/model/signal_catalog.dart;
 # poll values come from firmware/esp32/lib/ObdCore/src/PidDefs.cpp where the
 # row exists there.
@@ -19,7 +20,12 @@
   quantity: temperature
   unit: degC
   source: diagnostic
-  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 13 10"}
+  # Functional request; the PCM (0x7E8) answers with the value and the TCM
+  # (0x7E9) answers 7F 22 12. About 1 window in 100 closes after the TCM's
+  # refusal and before the PCM's value, so the responder is pinned: the TCM's
+  # frames are dropped and that window counts as one miss, not "unsupported"
+  # (VERIFICATION_LOG.md, 2026-11-03).
+  request: {protocol: iso15765, tx_id: "0x7DF", rx_id: "0x7E8", payload: "22 13 10"}
   response: {expect: "62 13 10", length: 2}
   decode: {formula: "(((A*256)+B)/100)-40", unit: degC}
   range: {min: -40, max: 150}

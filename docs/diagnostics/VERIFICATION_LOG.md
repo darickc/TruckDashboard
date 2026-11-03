@@ -222,6 +222,133 @@ retest must disable every PID first (`off rpmsae`, `off barosae`,
 [TRUCK_SESSION.md](TRUCK_SESSION.md) Part 1, which also adds a `7DF` control so
 "only one answered" cannot be confused with "one module went quiet".
 
+## 2026-11-03 — EOT: cold soak (KOEO), then a 16-minute drive and idle
+
+Adapter: OBDLink MX+ `00:04:3E:85:EA:FC`, on the Pi through the vehicle gateway
+Protocol: 6 (pinned by the gateway's `ATSP6`)
+Gateway: `eacb081`, `make pi-start TRANSPORT=obdlink TRANSMIT=1 ENABLE=eot`
+Data: `~/f250-data/20261103-143123-obdlink/` (KOEO) and
+`~/f250-data/20261103-154423-obdlink/` (drive) on the Pi: adapter traffic log,
+recorder database, gateway log; console transcripts `obd-console-1793741529.log`
+and `obd-console-1793745942.log`.
+
+### Responder census for `22 1310`
+
+`probe` prints positive answers only, so the TCM's refusal is not in the
+transcripts below. The traffic log has every line:
+
+```
+  760753 TX 221310
+  760793 RX 7E9037F2212           7F 22 12 — TCM: negative, NRC 0x12
+  760796 RX 7E8056213102691       62 13 10 26 91 — PCM: positive
+  760837 RX >
+```
+
+| Session | `221310` requests | PCM value + TCM refusal | TCM refusal only | `NO DATA` |
+|---|---|---|---|---|
+| KOEO (14:31) | 412 | 407 | 2 | 3 (at the end, when every signal stopped answering) |
+| Drive (15:44) | 738 | 731 | 7 | 0 |
+
+The PCM (7E8) owns EOT; the TCM (7E9) answers every request with `7F 22 12`.
+The TCM answered first in 459 of the 738 drive windows.
+
+### EOT — `22 1310` — cold soak
+
+KOEO, engine cold-soaked:
+
+```
+> probe eot 5
+  #1 ok 89 ms
+      7E8 : 12 FF = 8.630
+  ... (5 of 5 identical)
+> probe ect 5
+  #1 ok 65 ms
+      7E9 : 31 = 9.000
+      7E8 : 31 = 9.000
+  ... (5 of 5 identical)
+> pids
+  * eot_ect_delta              Computed                          Valid        -0.37 degC
+  * eot            22 13 10    ImportedUnverified   ACTIVE       Valid        8.63 degC
+  * trans_temp     22 16 74    VerifiedOnTruck      ACTIVE       Valid        8.96 degC
+  * ect            01 05       Sae                  ACTIVE       Valid        9.00 degC
+  * iat            01 0F       Sae                  ACTIVE       Valid        10.00 degC
+```
+
+Decoded: `12FF` = 4863; 4863/100 − 40 = **8.63 °C**.
+Reference: on a cold-soaked engine, oil, coolant, transmission fluid and intake
+air all sit at ambient. ECT (SAE) 9.0 °C, trans_temp (verified) 8.96 °C, IAT
+10.0 °C. EOT is within 0.4 °C of ECT. This rules out the gross errors (byte
+order, 0.1 instead of 0.01 °C/bit, °F, a wrong offset). A single point cannot
+confirm the slope.
+
+### EOT — `22 1310` — warm-up on the drive
+
+Recorder samples, last value in each minute (°C; speed km/h):
+
+| Time | EOT | ECT | Trans | Speed | rpm |
+|---|---|---|---|---|---|
+| 15:44 | 9.4 | 9.0 | 9.7 | 0 | 910 |
+| 15:46 | 14.7 | 20.0 | 12.4 | 0 | 927 |
+| 15:48 | 24.4 | 32.0 | 18.3 | 41 | 2305 |
+| 15:50 | 41.1 | 44.0 | 27.6 | 72 | 1736 |
+| 15:52 | 49.6 | 50.0 | 36.6 | 74 | 1979 |
+| 15:53 | 53.7 | 52.0 | 39.4 | 76 | 1861 |
+| 15:56 | 58.6 | 56.0 | 48.2 | 52 | 1813 |
+| 15:58 | 58.7 | 56.0 | 49.7 | 0 | 697 |
+
+At idle after the drive:
+
+```
+> probe eot 5
+  #1 ok 120 ms
+      7E8 : 26 91 = 58.730
+  ... (5 of 5 identical)
+> probe ect 5
+  #1 ok 104 ms
+      7E9 : 60 = 56.000
+      7E8 : 60 = 56.000
+  ... (5 of 5 identical)
+```
+
+Decoded: `2691` = 9873; 9873/100 − 40 = **58.73 °C**.
+Reference: ECT (SAE) over a 50 °C span. EOT trails ECT while warming (oil heats
+more slowly than coolant), crosses it around 52 °C and settles 2.7 °C above it
+at idle. A wrong scale factor or offset could not follow ECT across this span
+from both ends. Not reached: full operating temperature (ECT only got to
+56 °C), and no FORScan reading.
+
+Verdict: **not yet verified.** The transport, the owning module and the decode
+are consistent with SAE ECT at 9 °C and across 9–59 °C. Promote it after a
+fully warm reading and a FORScan cross-check.
+
+### EOT dropped out about once a minute: one refusal read as "unsupported"
+
+In 7 of 738 drive windows the adapter closed the response after the TCM's
+refusal, before the PCM answered (adaptive timing, `ATAT1`):
+
+```
+   31112 TX 221310
+   31130 RX 7E9037F2212
+   31160 RX >                     no 7E8 line in this window
+```
+
+With no `rx_id`, the gateway saw only NRC 0x12, which
+`nrc_means_unsupported` treats as "unsupported": `ACTIVE → QUARANTINED`
+on one miss, then one probe every 60 s. The gateway log has
+`eot: ACTIVE → QUARANTINED (Unsupported ×1)` at 15:44:54, 15:48:38,
+15:49:47, 15:52:44 and so on. Each one recovered about 60 s later
+(`QUARANTINED → ACTIVE (answered)`). The dashboard showed EOT and EOT−ECT as
+STALE meanwhile, not as a frozen value. The same truncation hits `trans_temp`
+in reverse (19 of 1250 windows missed the PCM's `7F 22 31`), harmlessly,
+because that row is pinned to 7E9.
+
+**Fix:** `eot` now pins `rx_id: "0x7E8"` (`shared/signals/ford_enhanced.yaml`).
+The ELM client drops 7E9's frames before parsing them, so a truncated window
+is `NoResponder`, one ordinary miss, instead of a quarantine. Test vectors
+from this session are in `crates/elm/tests/captures.rs`
+(`eot_capture_pinned_to_pcm`, `eot_capture_tcm_negative_only`). `[SIM]` only:
+not yet re-run on the truck.
+
 ## Open questions for the next session
 
 1. ~~**Who is 7E9?**~~ **ANSWERED: the TCM.** It owns `22 1674` (transmission

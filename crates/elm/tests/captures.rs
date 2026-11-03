@@ -1,6 +1,6 @@
 //! Test vectors taken verbatim from docs/diagnostics/VERIFICATION_LOG.md
-//! (captured on the truck, 2026-08-09). The tests themselves are `[SIM]`: the
-//! captured bytes are replayed through the scripted adapter.
+//! (captured on the truck, 2026-08-09 and 2026-11-03). The tests themselves
+//! are `[SIM]`: the captured bytes are replayed through the scripted adapter.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -147,6 +147,60 @@ fn trans_temp_capture_pcm_negative_only() {
     );
 
     h.submit(trans_temp1()).unwrap();
+    h.pump(200);
+    assert_eq!(h.last_obd().result, ElmResult::NoResponder);
+    assert_eq!(h.mismatch, "");
+}
+
+/// EOT on the 2026-11-03 drive (adapter traffic log). The usual window: the
+/// TCM refuses (`7F 22 12`), the PCM answers `26 91` = 58.73 °C. Pinned to
+/// 7E8, the TCM's frame is dropped and the PCM's value is reported.
+#[test]
+fn eot_capture_pinned_to_pcm() {
+    let mut h = Harness::with_default();
+    h.boot(vec![step(
+        "221310",
+        "7E9037F2212\r7E8056213102691\r\r>",
+        20,
+    )]);
+
+    h.submit(eot_pinned()).unwrap();
+    h.pump(12_000);
+
+    let r = h.last_obd();
+    assert_eq!(r.result, ElmResult::Ok);
+    assert_eq!(r.responder_id, Some(0x7E8));
+    assert_eq!(r.payload, [0x26, 0x91]);
+    assert!(r.negative_responses.is_empty());
+    assert_eq!(r.ignored_responder_frames, 1);
+}
+
+/// The other 7 of 738 windows on that drive: adaptive timing closed the window
+/// after the TCM's refusal, before the PCM answered. Unpinned, that reads as
+/// NRC 0x12, which the gateway treats as "unsupported" and quarantines for
+/// 60 s (the dropouts seen on the dashboard). Pinned, it is NoResponder: one
+/// ordinary miss.
+#[test]
+fn eot_capture_tcm_negative_only() {
+    let mut h = Harness::with_default();
+    h.boot(vec![
+        step("221310", "7E9037F2212\r\r>", 20),
+        step("221310", "7E9037F2212\r\r>", 20),
+    ]);
+
+    h.submit(eot()).unwrap();
+    h.pump(12_000);
+    let neg = NegativeResponse {
+        can_id: Some(0x7E9),
+        service: Some(0x22),
+        nrc: Some(0x12),
+    };
+    assert_eq!(
+        h.last_obd().result,
+        ElmResult::Error(ErrorCause::NegativeResponse(neg))
+    );
+
+    h.submit(eot_pinned()).unwrap();
     h.pump(200);
     assert_eq!(h.last_obd().result, ElmResult::NoResponder);
     assert_eq!(h.mismatch, "");
