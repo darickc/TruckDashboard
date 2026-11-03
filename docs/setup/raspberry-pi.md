@@ -184,9 +184,11 @@ to `session.txt`, and powers off. The Power button appears only:
 
 - with `make pi-run` or `make pi-start` in the kiosk (`cage` on the Pi's
   screen), not in a desktop session or with `UI=headless`
-- when `sudo -n systemctl poweroff` is allowed without a password. It is on
-  Raspberry Pi OS for the first user. Otherwise `run.sh` says "No Power button"
-  at startup
+- when logind lets that session power off without a password (`CanPowerOff`
+  is `yes`). That is polkit's default for the active session on a seat, the
+  user at the screen (`allow_active` in `org.freedesktop.login1.policy` on the
+  Pi's Raspberry Pi OS Lite). No sudo, no sudoers change. Otherwise `run.sh` says "No Power button" at startup, and
+  `session.txt` records `power btn: not offered`
 
 **Over SSH:**
 

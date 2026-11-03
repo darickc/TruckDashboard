@@ -15,7 +15,8 @@ abstract class PowerControl {
   /// Ends the app with [powerOffExitCode]. Does not return on the Pi.
   void powerOff();
 
-  /// `F250_POWER_OFF=1` from run.sh (kiosk under cage, poweroff permitted).
+  /// `F250_POWER_OFF=1` from run.sh (kiosk under cage, and logind lets the
+  /// session power off).
   /// Never available on the web build.
   static PowerControl forPlatform() => impl.platformPowerControl();
 }

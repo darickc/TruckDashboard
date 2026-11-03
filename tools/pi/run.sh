@@ -13,8 +13,9 @@
 #
 # In the kiosk (cage on the Pi's screen) the dashboard has a Power button. The
 # app then exits with POWER_OFF_EXIT; this script stops the recorder and the
-# gateway as usual, then powers the Pi off. It is offered only when
-# `sudo -n systemctl poweroff` is allowed without a password.
+# gateway as usual, then powers the Pi off. It is offered only when logind says
+# this session may power off without a password (CanPowerOff = yes: polkit's
+# default for the active session on a seat, i.e. the user at the screen).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -68,6 +69,7 @@ esac
 #   - none (Raspberry Pi OS Lite): fullscreen under the cage kiosk compositor
 #   - UI=headless: cage on a virtual display, to test without a screen
 APP_CMD=()
+KIOSK=0
 POWER_OFF=0
 case "$UI" in
   0) ;;
@@ -85,10 +87,8 @@ case "$UI" in
       command -v cage >/dev/null || { echo "No desktop session and no cage kiosk: run 'make pi-setup'"; exit 1; }
       if [[ "$UI" == headless ]]; then
         export WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1
-      elif sudo -n -l systemctl poweroff >/dev/null 2>&1; then
-        POWER_OFF=1
       else
-        echo "No Power button: 'sudo systemctl poweroff' needs a password here."
+        KIOSK=1
       fi
       unset WAYLAND_DISPLAY DISPLAY
       APP_CMD=(cage -- "$APP_BIN")
@@ -108,6 +108,19 @@ mkdir -p "$SESSION"
   echo "transmit:  $([[ "$TRANSPORT" == obdlink && "$TRANSMIT" == 1 ]] && echo enabled || echo off)"
   echo "gateway:   $GW_BIN ${gw_args[*]}"
 } >"$SESSION/session.txt"
+
+# A pi-start session is active only once its VT is in front, so wait for that
+# (cage waits too) before asking logind.
+can_power_off() {
+  if [[ -n "${XDG_SESSION_ID:-}" ]]; then
+    for _ in $(seq 20); do
+      [[ "$(loginctl show-session "$XDG_SESSION_ID" -p Active --value 2>/dev/null)" == yes ]] && break
+      sleep 0.5
+    done
+  fi
+  [[ "$(busctl call org.freedesktop.login1 /org/freedesktop/login1 \
+        org.freedesktop.login1.Manager CanPowerOff 2>/dev/null)" == 's "yes"' ]]
+}
 
 PIDS=()
 cleanup() {
@@ -134,7 +147,15 @@ PIDS+=($!)
 
 echo "Recording to $SESSION"
 if [[ ${#APP_CMD[@]} -gt 0 ]]; then
+  if [[ "$KIOSK" == 1 ]]; then
+    if can_power_off; then
+      POWER_OFF=1
+    else
+      echo "No Power button: logind does not let this session power off without a password."
+    fi
+  fi
   echo "app:       ${APP_CMD[*]}" >>"$SESSION/session.txt"
+  echo "power btn: $([[ "$POWER_OFF" == 1 ]] && echo offered || echo not offered)" >>"$SESSION/session.txt"
   # In the background, because bash runs the TERM trap only after a
   # foreground command returns; `wait` returns as soon as a signal arrives.
   F250_FULLSCREEN="${F250_FULLSCREEN:-1}" F250_POWER_OFF="$POWER_OFF" \
@@ -149,7 +170,7 @@ if [[ ${#APP_CMD[@]} -gt 0 ]]; then
     trap - EXIT
     cleanup
     sync
-    exec sudo -n systemctl poweroff
+    exec systemctl poweroff
   fi
   exit "$app_status"
 else
