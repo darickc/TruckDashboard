@@ -14,10 +14,9 @@ Status:
 - **On the original 7" display** `[BENCH]`, 2026-11-02: DSI1, stock
   `config.txt` (no overlay), HAT not fitted. `make pi-run` started on the Pi
   fills the screen under `cage`, and touch works.
-- **Doesn't work yet:** `make pi-run` started over SSH. An SSH login has no seat,
-  so `cage` times out after 10 s ("Timeout waiting session to become active").
-  Start it from the Pi's own console, and stop it from SSH with
-  `pkill -TERM -f '^bash tools/pi/run.sh'`.
+- **Over SSH** `[BENCH]`, 2026-11-02: `make pi-start` / `make pi-stop` start
+  and stop the dashboard on the screen. `make pi-run` itself doesn't work over
+  SSH (see [Over SSH](#over-ssh-make-pi-start)).
 - **Not tested yet:**
   - the ribbon with the CarPiHAT fitted (H3)
   - Bluetooth to the MX+, and anything on the truck
@@ -88,8 +87,11 @@ Expect the first build to take a while on the Pi.
 ## 3. Run
 
 `make pi-run` builds anything that changed, then starts the gateway, the
-recorder and the fullscreen app. Closing the app or pressing Ctrl-C stops all
-three.
+recorder and the fullscreen app. Run it from the Pi's own console; over SSH,
+use [`make pi-start`](#over-ssh-make-pi-start). Ctrl-C in the shell that
+started it stops all three, as does the app exiting. Under `cage` the keyboard
+goes to the app, so Ctrl-C on the Pi's own keyboard doesn't reach that shell:
+stop it from SSH with `pkill -TERM -f '^bash tools/pi/run.sh'`.
 
 | Command | What it does |
 |---|---|
@@ -115,6 +117,24 @@ Other options:
 
 `run.sh` refuses to start if a `vehicle-gateway` is already running, because
 the new one would take over its socket.
+
+### Over SSH: `make pi-start`
+
+`make pi-run` started over SSH fails after 10 s with "Timeout waiting session
+to become active". An SSH login has no seat, so `cage` can't take the screen.
+`make pi-start` runs the same `run.sh` as a transient systemd service on
+`tty7` with a PAM login session, which gets `seat0`:
+
+| Command | What it does |
+|---|---|
+| `make pi-start` | Builds, then starts the dashboard on the screen. Takes the same options as `pi-run` (`TRANSPORT=`, `TRANSMIT=1`, `ENABLE=`, …), except `UI` |
+| `make pi-stop` | Stops it cleanly (app, recorder, then gateway) and switches the screen back to `tty1` |
+| `make pi-status` | Whether it's running, and its last log lines |
+| `journalctl -t f250-dashboard -f` | Follow its log |
+
+It needs `sudo`. Nothing is installed: the service is gone after a reboot,
+and it doesn't start at boot. [tools/pi/service.sh](../../tools/pi/service.sh)
+has the details.
 
 Before you use the MX+, pair it once (step 3.5.2 in the plan). Disconnect the
 phone and the ESP32 first.

@@ -196,4 +196,31 @@ installed; `libseat1` 0.9.1).
 Fix: TODO. The cage wiki's way is a systemd unit with its own VT and a PAM
 session (`PAMName=`, `TTYPath=`), which gets a logind session on `seat0`
 ([Starting Cage on boot with systemd](https://github.com/cage-kiosk/cage/wiki/Starting-Cage-on-boot-with-systemd)).
-Closes: the cursor fix (verified). Not the SSH start.
+Closes: the cursor fix (verified). Not the SSH start (see the next entry).
+
+## 2026-11-02 — `make pi-start` / `pi-stop` over SSH [BENCH]
+
+Same Pi, display and image; keyboard unplugged. `tools/pi` and `Makefile`
+copied from the working tree with rsync. Simulator only, transmits nothing.
+Run over SSH from the Mac: `make pi-start`, `make pi-status`, a `grim`
+screenshot, then `tools/pi/service.sh stop`. Two cycles, 19:11 and 19:12.
+
+Result:
+    start      systemd-run unit f250-dashboard (transient), PAMName=login on tty7.
+               loginctl: new session on seat0, tty7 (SSH sessions have no seat).
+               cage: "connector DSI-1: Modesetting with 800x480 @ 60.029 Hz".
+               Gateway, recorder and app running; processes in session-N.scope
+    screen     grim screenshot: Home, SIMULATED, "Link up", 14/14 current,
+               800x480, no letterboxing
+    stop       systemctl stop signals run.sh only (KillMode=mixed); run.sh stops
+               app, recorder, gateway: "Session saved in …", `stopped:` in
+               session.txt, no processes left, tty7 session closed, chvt back to 1
+    logs       first cycle: `journalctl -u f250-dashboard` had only systemd's own
+               lines, because PAM moves the processes to the session scope. Fixed
+               with SyslogIdentifier; second cycle: `journalctl -t f250-dashboard`
+               has run.sh, cage and app output
+
+Verdict: pass [BENCH, simulated data]. The dashboard can be started and stopped
+over SSH. Not shown: starting it at boot (not set up), the owner looking at the
+screen during the run (the screenshot is cage's output), the MX+.
+Closes: the SSH start from the previous entry.

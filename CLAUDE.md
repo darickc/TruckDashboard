@@ -95,6 +95,7 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make sim` | Rust gateway (simulated) + macOS app over gRPC. `make gateway` / `make console` run the gateway or `obd-console` alone |
 | `make rust-test` / `make rust-lint` | Cargo workspace tests / fmt + clippy (needs `protoc`) |
 | `make pi-setup` / `pi-build` / `pi-run` | On the Pi (Raspberry Pi OS, Phase 3.5): install the tools, release-build, run gateway + recorder + app. `pi-run` uses the simulator unless `TRANSPORT=obdlink`, and polls only with `TRANSMIT=1`. See [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md) |
+| `make pi-start` / `pi-stop` / `pi-status` | On the Pi, over SSH: `pi-run` as a transient systemd service on tty7 (an SSH login has no seat, so `cage` can't take the screen from it) |
 | `make ui` / `make ui-macos-build` | Dashboard as a macOS window / just build it (needs Xcode; the Makefile sets `DEVELOPER_DIR` if `xcode-select` points at the Command Line Tools) |
 
 Also: `make proto` (regenerate the Dart gRPC client) and `make linux-test` (Rust
