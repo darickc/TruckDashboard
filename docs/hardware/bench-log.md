@@ -162,4 +162,38 @@ The keyboard's pointer interfaces are left alone (bench only).
 To verify: after `make pi-setup`, the command above no longer lists
 `vc4-hdmi-0/1`; with the keyboard unplugged, `make pi-run` shows no cursor and
 touch still works.
-Closes: nothing until verified.
+Closes: nothing until verified (see the next entry).
+
+## 2026-11-02 — Cursor fix verified; `make pi-run` over SSH fails [BENCH]
+
+Same Pi. `tools/pi` copied from `4e462a3` with rsync (the Pi's checkout is
+`3b27c69` plus the copied files); `make pi-setup` run on the Pi by the owner.
+The rule is at `/etc/udev/rules.d/90-f250-kiosk-input.rules`.
+
+Cursor: `make pi-run` started on the Pi's console with the keyboard in shows the
+cursor (the keyboard's own pointer interfaces). Unplugging the keyboard removes
+it, and the dashboard stays up. With the keyboard out, libinput lists only:
+
+    Device:  10-0038 generic ft5x06 (79)   Capabilities: touch
+    Device:  pwr_button                    Capabilities: keyboard
+
+`Gdk-Message: Unable to load  from the cursor theme` in `app.log` is the
+app's GTK cursor lookup and had no visible effect.
+
+SSH: `make pi-run` started over SSH fails after 10 s (two tries, 18:57 and
+18:58). `app.log`:
+
+    [libseat] [seatd/seat.c:80] Could not open terminal for VT 0: Permission denied
+    [libseat] [libseat/libseat.c:73] Seat opened with backend 'builtin'
+    [backend/backend.c:105] Timeout waiting session to become active
+    [../cage.c:335] Unable to create the wlroots backend
+
+Cause: `loginctl list-sessions` shows the console login on `tty1` with
+`seat0` and the SSH sessions with no seat. libseat cannot use logind for a
+session without a seat, so it falls back to its built-in seatd. That
+needs to open the VT, which the user can't (`seatd` the daemon isn't
+installed; `libseat1` 0.9.1).
+Fix: TODO. The cage wiki's way is a systemd unit with its own VT and a PAM
+session (`PAMName=`, `TTYPath=`), which gets a logind session on `seat0`
+([Starting Cage on boot with systemd](https://github.com/cage-kiosk/cage/wiki/Starting-Cage-on-boot-with-systemd)).
+Closes: the cursor fix (verified). Not the SSH start.

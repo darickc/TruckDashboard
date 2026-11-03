@@ -14,10 +14,12 @@ Status:
 - **On the original 7" display** `[BENCH]`, 2026-11-02: DSI1, stock
   `config.txt` (no overlay), HAT not fitted. `make pi-run` started on the Pi
   fills the screen under `cage`, and touch works.
+- **Doesn't work yet:** `make pi-run` started over SSH. An SSH login has no seat,
+  so `cage` times out after 10 s ("Timeout waiting session to become active").
+  Start it from the Pi's own console, and stop it from SSH with
+  `pkill -TERM -f '^bash tools/pi/run.sh'`.
 - **Not tested yet:**
   - the ribbon with the CarPiHAT fitted (H3)
-  - `cage` on the physical screen when `make pi-run` is started over SSH
-    rather than from a login on the Pi's own console
   - Bluetooth to the MX+, and anything on the truck
 
 ## 1. Install (once)
@@ -65,8 +67,8 @@ To see which devices are pointers:
 sudo libinput list-devices | grep -E '^Device:|^Capabilities:'
 ```
 
-The fix is **not yet checked on the Pi**: rerun the command above after
-`make pi-setup`. `vc4-hdmi-0` and `vc4-hdmi-1` should be gone.
+Checked on the Pi `[BENCH]`, 2026-11-02: after `make pi-setup`, `vc4-hdmi-0`
+and `vc4-hdmi-1` are gone, and with the keyboard unplugged there is no cursor.
 
 ## 2. Build
 

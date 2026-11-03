@@ -9,7 +9,7 @@
 # (tools/pi/udev). BlueZ ships with Raspberry Pi OS; it is only checked.
 #
 # Status: run on the Pi 5 on 2026-11-01 (docs/hardware/bench-log.md). The
-# udev step was added on 2026-11-02 and has not been run on a Pi yet.
+# udev step was added and run on it on 2026-11-02.
 set -euo pipefail
 # Not `git rev-parse`: a fresh Lite install has no git until this script runs.
 cd "$(dirname "$0")/../.."
