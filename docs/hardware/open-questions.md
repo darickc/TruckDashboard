@@ -9,7 +9,7 @@ a vendor answer, a measurement or a photo), recorded in
 |---|---|---|---|---|
 | H1 | Can the CarPiHAT PRO 5's 120 Ω CAN terminator be disabled (jumper, solder bridge) or removed? | **Any connection to the truck's DLC** | Ask TJD. On arrival, measure CANH–CANL with the HAT unpowered: about 120 Ω means it's fitted | owner |
 | H2 | What are the HAT's input voltage range, load-dump/TVS rating and reverse-polarity protection? | Permanent installation | Ask TJD. Until answered, plan an external fuse, TVS and reverse-polarity protection | owner |
-| H3 | Does the DSI ribbon (22→15) clear the HAT on a Pi 5, and on which port? | Display mounting | Test fit, then photo | bench |
+| H3 | Does the DSI ribbon (22→15) clear the HAT on a Pi 5, and on which port? | Display mounting | Test fit, then photo. **Partly answered 2026-11-02:** DSI1 works without the HAT ([bench-log](bench-log.md)); the fit with the HAT is untested | bench |
 | H4 | Can an NVMe base or SSD be stacked with the HAT, or should storage be a USB SSD? | Storage design (Phase 5) | Test fit; check PCIe FFC routing | bench |
 | H5 | What state does OUT_0/OUT_1 take on reset, panic and watchdog reboot? | Amplifier safety | Scope or meter during forced crashes | bench |
 | H6 | What is the DAC's line-out level, and does it mute while booting? | Amplifier gain staging | 0 dBFS tone into the meter; scope at power-up | bench |

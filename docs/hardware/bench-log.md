@@ -70,3 +70,30 @@ on the Pi 5 and the stack runs end to end on it [BENCH, simulated data]. It does
 physical screen when started over SSH, Bluetooth to the MX+ (3.5.2) or anything
 on the truck.
 Closes: H17 (Flutter 3.38.3 builds and runs the Linux desktop app on the Pi 5).
+
+## 2026-11-02 — Original 7" DSI display on the Pi 5, console only [BENCH]
+
+Hardware: the Pi 5 from the 2026-11-01 entry, Raspberry Pi OS Lite (trixie).
+Original Raspberry Pi 7" touchscreen on **DSI1** (the connector next to the
+USB ports) with the 22-way to 15-way display cable. **No CarPiHAT fitted.**
+`/boot/firmware/config.txt` unchanged (stock auto-detect, no overlay added).
+Reported by the owner; no `dmesg` or photo captured.
+
+Result:
+    picture    Boot messages and the Linux console show on the panel
+    backlight  On (the console is readable)
+    touch      Not tested. Lite has no GUI, so nothing on screen reacts to touch
+    app        Not run on the physical screen (`make pi-run` not tried yet)
+
+Verdict: partial. The panel, cable and DSI1 work with stock Raspberry Pi OS
+configuration [BENCH]. This does **not** show touch, the dashboard under `cage`
+on the physical screen, or the ribbon clearing the HAT (H3).
+Closes: nothing. 3.5.1 stays open (touch, app on screen, HAT fit).
+
+Next, on the Pi's own console (not SSH), to finish 3.5.1:
+
+```bash
+dmesg | grep -i -E 'dsi|panel|ft5406|edt|touch'   # driver evidence for this log
+sudo apt install libinput-tools && sudo libinput list-devices | grep -A2 -i touch
+make pi-run                                        # app fullscreen under cage; tap the tabs
+```
