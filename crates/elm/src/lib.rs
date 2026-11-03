@@ -12,7 +12,11 @@
 //! * One request in flight at a time, completed by the `>` prompt.
 //! * A long deadline for the first request after init (protocol
 //!   `SEARCHING...`) and the per-request timeout afterwards.
-//! * Recovery ladder: a timeout sends a bare CR to provoke a prompt;
+//! * Recovery ladder: after a timeout the client sends nothing and waits for
+//!   the request's own late prompt; if none comes it probes with `ATI` and
+//!   needs the identification line before the prompt (the ESP32 sends a bare
+//!   CR here, which the adapter answers by repeating the last command;
+//!   docs/hardware/bench-log.md, 2026-11-02);
 //!   `max_consecutive_timeouts` timeouts, a failed recovery or a failed
 //!   init/reset trigger a full `ATZ` re-init; after `max_reset_attempts`
 //!   failed resets the client goes [`ElmState::Offline`] and the owner

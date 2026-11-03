@@ -41,7 +41,8 @@ pub enum ElmState {
     Idle,
     /// A request is in flight.
     AwaitingResponse,
-    /// A bare CR was sent after a timeout, waiting for a fresh prompt.
+    /// A request timed out: waiting for its late prompt, then for the answer
+    /// to an `ATI` probe. Nothing new is sent until one of them arrives.
     Recovering,
 }
 
@@ -104,7 +105,10 @@ pub struct ElmConfig {
     /// The first request after init may trigger protocol `SEARCHING...`;
     /// a `SEARCHING` line also re-arms this deadline.
     pub first_data_timeout_ms: u64,
-    /// Wait for the prompt after the recovery CR; also the idle deadline.
+    /// After a request timeout, how long to wait for that request's own late
+    /// prompt before probing the adapter with `ATI`.
+    pub late_reply_timeout_ms: u64,
+    /// Wait for the answer to the recovery `ATI` probe; also the idle deadline.
     pub recovery_timeout_ms: u64,
     /// Raw console commands (`ATZ` needs headroom).
     pub raw_timeout_ms: u64,
@@ -129,6 +133,7 @@ impl Default for ElmConfig {
             reset_timeout_ms: 6000,
             init_timeout_ms: 2000,
             first_data_timeout_ms: 10_000,
+            late_reply_timeout_ms: 1000,
             recovery_timeout_ms: 2000,
             raw_timeout_ms: 3000,
             max_consecutive_timeouts: 3,
@@ -322,7 +327,7 @@ pub enum ResetReason {
     ResetTimeout,
     /// An init command timed out.
     InitTimeout,
-    /// No prompt after the recovery CR.
+    /// No late prompt, and no answer to the recovery `ATI` probe.
     RecoveryFailed,
     /// `max_consecutive_timeouts` request timeouts in a row.
     ConsecutiveTimeouts,
@@ -331,11 +336,20 @@ pub enum ResetReason {
 /// A step on the recovery ladder (docs/architecture/diagnostic-recovery.md).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RecoveryStep {
-    /// Step 1: a request timed out; a bare CR was sent to provoke a prompt.
-    ProvokePrompt {
+    /// Step 1: a request timed out. Nothing is sent; the client waits up to
+    /// `late_reply_timeout_ms` for that request's own late prompt.
+    ///
+    /// Not a bare CR: an ELM327 answers a bare CR by repeating the last
+    /// command, and the timed-out request's late prompt was then taken for
+    /// the CR's answer, so every later reply was paired with the wrong request
+    /// (docs/hardware/bench-log.md, 2026-11-02).
+    AwaitLateReply {
         /// Timeouts in a row so far.
         consecutive_timeouts: u8,
     },
+    /// Step 1b: no late prompt came. `ATI` was sent; only its identification
+    /// line followed by a prompt counts as the adapter answering.
+    ProbeAdapter,
     /// Step 2: full `ATZ` re-init.
     AdapterReset {
         /// 1-based attempt number.
@@ -557,6 +571,22 @@ fn adapter_error(cls: LineClass, line: &str) -> Option<ErrorCause> {
 // The client
 // ---------------------------------------------------------------------------
 
+/// Sent when a timed-out request's prompt never arrives. Unlike a bare CR it
+/// does not repeat the last command, and its answer can be told apart from a
+/// straggler.
+const PROBE_COMMAND: &str = "ATI";
+
+/// Where [`ElmState::Recovering`] is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RecoveryPhase {
+    /// Waiting for the timed-out request's own prompt. Nothing sent.
+    AwaitingLateReply,
+    /// `ATI` sent; a prompt before its answer is a straggler's.
+    Probing,
+    /// The `ATI` answer arrived; its prompt ends recovery.
+    ProbeAnswered,
+}
+
 /// Sans-IO ELM327/STN client. See the crate documentation for the driving
 /// loop.
 #[derive(Debug, Clone)]
@@ -590,6 +620,7 @@ pub struct ElmClient {
     prep_overhead_ms: u64,
     prep_command_count: u64,
     consecutive_timeouts: u8,
+    recovery: RecoveryPhase,
     last_sent: String,
     adapter_id: Option<String>,
     next_id: u64,
@@ -629,6 +660,7 @@ impl ElmClient {
             prep_overhead_ms: 0,
             prep_command_count: 0,
             consecutive_timeouts: 0,
+            recovery: RecoveryPhase::AwaitingLateReply,
             last_sent: String::new(),
             adapter_id: None,
             next_id: 1,
@@ -1005,6 +1037,11 @@ impl ElmClient {
                     self.init_cmd_failed = true;
                 }
             }
+            ElmState::Recovering
+                if self.recovery == RecoveryPhase::Probing && self.is_probe_answer(line) =>
+            {
+                self.recovery = RecoveryPhase::ProbeAnswered;
+            }
             ElmState::Idle | ElmState::Recovering => {
                 if cls != LineClass::Ignorable {
                     let state = self.state;
@@ -1203,9 +1240,20 @@ impl ElmClient {
                 }
             }
             ElmState::AwaitingResponse => self.request_prompt(now_ms),
-            ElmState::Recovering => self.set_state(ElmState::Idle),
+            ElmState::Recovering => match self.recovery {
+                RecoveryPhase::AwaitingLateReply | RecoveryPhase::ProbeAnswered => {
+                    self.set_state(ElmState::Idle);
+                }
+                // A straggler's prompt: the ATI answer has not come yet.
+                RecoveryPhase::Probing => {}
+            },
             ElmState::Idle | ElmState::Offline => {}
         }
+    }
+
+    /// `ATI` answers with the same identification as the `ATZ` banner.
+    fn is_probe_answer(&self, line: &str) -> bool {
+        line.starts_with("ELM327") || self.adapter_id.as_deref() == Some(line)
     }
 
     fn init_complete(&mut self) {
@@ -1351,17 +1399,30 @@ impl ElmClient {
                     self.consecutive_timeouts = 0;
                     self.escalate_or_reset(now_ms, ResetReason::ConsecutiveTimeouts);
                 } else {
-                    // Provoke a fresh prompt so we know the adapter listens.
+                    // A slow reply usually still ends in its own prompt: wait
+                    // for it, sending nothing (see RecoveryStep::AwaitLateReply).
                     self.set_state(ElmState::Recovering);
+                    self.recovery = RecoveryPhase::AwaitingLateReply;
                     let consecutive_timeouts = self.consecutive_timeouts;
-                    self.emit(ElmEvent::Recovery(RecoveryStep::ProvokePrompt {
+                    self.emit(ElmEvent::Recovery(RecoveryStep::AwaitLateReply {
                         consecutive_timeouts,
                     }));
-                    self.send_line("");
-                    self.deadline_ms = now_ms + self.cfg.recovery_timeout_ms;
+                    self.deadline_ms = now_ms + self.cfg.late_reply_timeout_ms;
                 }
             }
-            ElmState::Recovering => self.escalate_or_reset(now_ms, ResetReason::RecoveryFailed),
+            ElmState::Recovering => match self.recovery {
+                RecoveryPhase::AwaitingLateReply => {
+                    // The request (or its answer) was lost: ask the adapter
+                    // something whose answer can be recognised.
+                    self.recovery = RecoveryPhase::Probing;
+                    self.emit(ElmEvent::Recovery(RecoveryStep::ProbeAdapter));
+                    self.send_line(PROBE_COMMAND);
+                    self.deadline_ms = now_ms + self.cfg.recovery_timeout_ms;
+                }
+                RecoveryPhase::Probing | RecoveryPhase::ProbeAnswered => {
+                    self.escalate_or_reset(now_ms, ResetReason::RecoveryFailed);
+                }
+            },
             ElmState::Idle => {
                 // Idle deadline is benign: refresh it.
                 self.deadline_ms = now_ms + self.cfg.recovery_timeout_ms;

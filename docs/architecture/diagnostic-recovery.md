@@ -91,7 +91,7 @@ stateDiagram-v2
 
 | Step | SocketCAN | OBDLink (ELM/STN) |
 |---|---|---|
-| 1. Soft | Drain and reset the ISO-TP socket | Bare CR, wait for `>` |
+| 1. Soft | Drain and reset the ISO-TP socket | Send nothing and wait for the timed-out request's own `>` (1 s); if none, send `ATI` and wait for its answer. Never a bare CR: the ELM repeats the last command ([bench-log](../hardware/bench-log.md), 2026-11-02) |
 | 2. Reset | Re-create the sockets. If the controller is bus-off, wait for `restart-ms` | `ATZ` and the full init sequence |
 | 3. Reconnect | Interface down/up, done by the privileged helper | Close and reopen the RFCOMM or serial link |
 | 4. Give up | `BACKOFF`, then eventually `FAULT`. The UI shows "Vehicle data unavailable" | Same |

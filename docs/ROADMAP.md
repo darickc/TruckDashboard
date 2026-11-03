@@ -103,6 +103,7 @@ Found along the way:
 
 - The ESP32-era poll intervals ask more of the MX+ than it delivers, so low priorities stretch, honestly reported. Retune them from the 3.5.4 throughput measurement ([setup/gateway.md](setup/gateway.md#known-issue-the-poll-intervals-ask-too-much-of-the-mx))
 - Fixed: a disabled watched signal marked the link degraded (Rust and Dart)
+- Fixed: after a timeout the ELM client sent a bare CR, which the adapter answers by repeating the last command, so later replies paired with the wrong request (seen on the truck 2026-11-02; [bench-log](hardware/bench-log.md)). It now waits for the late prompt, then probes with `ATI` **[SIM]**. The ESP32 firmware still sends the bare CR
 - Fixed: the browser build's simulated values differed from the VM's (32-bit hashing)
 
 ## Phase 3.5 — MX+ truck trial (nothing to buy) [HW] [HUMAN]

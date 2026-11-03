@@ -91,14 +91,16 @@ fn negative_response_is_error() {
     assert_eq!(h.mismatch, "");
 }
 
-// C++: test_timeout_then_recovery
+// C++: test_timeout_then_recovery. Diverges from the C++, which sends a bare
+// CR here (bench-log 2026-11-02): the Rust client waits for a late prompt,
+// then probes with ATI.
 #[test]
 fn timeout_then_recovery() {
     let mut h = Harness::with_default();
     h.boot(vec![
         step("010C", "7E804410C1AF8\r\r>", 20), // first request OK
         step("010C", "", 0),                    // adapter goes silent
-        step("", "\r>", 20),                    // recovery CR gets a prompt back
+        step("ATI", "ELM327 v1.4b\r\r>", 20),   // the probe gets an answer
     ]);
 
     h.submit(rpm()).unwrap();
@@ -108,7 +110,7 @@ fn timeout_then_recovery() {
     h.submit(rpm()).unwrap();
     h.pump(600); // past the 500 ms per-request timeout
     assert_eq!(h.last_obd().result, ElmResult::Timeout);
-    h.pump(100); // recovery prompt arrives
+    h.pump(1000 + 100); // no late prompt; the probe answer arrives
     assert_eq!(h.elm.state(), ElmState::Idle);
     assert_eq!(h.mismatch, "");
 }
@@ -426,9 +428,9 @@ fn header_cache_invalidated_by_atz_recovery() {
         step("221674", "7E8056216740A2C\r\r>", 20), // now cached on "726"
         // Three silent requests drive the timeout ladder into a full ATZ.
         step("221674", "", 0),
-        step("", "\r>", 20),
+        step("ATI", "ELM327 v1.4b\r\r>", 20),
         step("221674", "", 0),
-        step("", "\r>", 20),
+        step("ATI", "ELM327 v1.4b\r\r>", 20),
         step("221674", "", 0),
     ];
     extra.extend(boot_steps());
@@ -446,7 +448,7 @@ fn header_cache_invalidated_by_atz_recovery() {
         h.submit(on726.clone()).unwrap();
         h.pump(700); // past the 500 ms per-request timeout
         assert_eq!(h.last_obd().result, ElmResult::Timeout);
-        h.pump(200); // recovery prompt / ATZ banner
+        h.pump(1000 + 200); // probe answer / ATZ banner
     }
     h.pump(500); // finish re-init
     assert_eq!(h.elm.state(), ElmState::Idle);

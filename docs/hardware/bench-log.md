@@ -297,3 +297,8 @@ real adapter freeze (H19), a drive.
 Closes: nothing. 3.5.2 still needs the `bluetoothctl` transcript.
 Follow-ups: fix the timeout recovery in `crates/elm` (and note it for the
 ESP32); timestamps in gateway.log; `SuccessExitStatus=130` for the pi-start unit.
+Update, same day: the recovery is fixed in `crates/elm` [SIM]. After a timeout
+the client sends nothing and waits up to 1 s for the late prompt, then probes
+with `ATI`. A test replays the 18294–18999 ms sequence above. Not yet run on the
+truck. The ESP32 firmware still sends the bare CR (noted in
+`docs/esp32/OBD_PROTOCOL.md`).

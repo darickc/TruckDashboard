@@ -131,6 +131,12 @@ does with it:
 ## Recovery ladder
 
 1. Timeout → bare CR, wait for `>` (`Recovering`).
+   **Known issue, fixed in the Rust port only:** an ELM327 answers a bare CR by
+   repeating the last command, and the timed-out request's late `>` is taken
+   for the CR's answer, so later replies pair with the wrong request. Seen on
+   the truck through the MX+ ([bench-log](../hardware/bench-log.md),
+   2026-11-02). The Rust client (`crates/elm`) waits for the late prompt and
+   then probes with `ATI` instead. This firmware still has the bare CR.
 2. 3 consecutive timeouts, or recovery fails → full `ATZ` re-init (STN likely slept).
 3. 2 failed resets → `Offline`; the OBD task tears down Bluetooth and reconnects
    from scratch with exponential backoff (2 s → 30 s).

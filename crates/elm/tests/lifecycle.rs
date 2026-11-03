@@ -68,7 +68,7 @@ fn atrv_errors() {
         step("ATRV", "?\r\r>", 5),
         step("ATRV", "BANANA\r\r>", 5),
         step("ATRV", "", 0),
-        step("", "\r>", 5),
+        step("ATI", "ELM327 v1.4b\r\r>", 5),
     ]);
     h.submit(Request::ReadVoltage).unwrap();
     h.pump(50);
@@ -92,7 +92,7 @@ fn atrv_errors() {
     h.submit(Request::ReadVoltage).unwrap();
     h.pump(2000); // init_timeout_ms
     assert_eq!(h.last_voltage().result, ElmResult::Timeout);
-    h.pump(50);
+    h.pump(1000 + 50); // no late prompt: the ATI probe answers
     assert_eq!(h.elm.state(), ElmState::Idle);
     assert_eq!(h.mismatch, "");
 }
