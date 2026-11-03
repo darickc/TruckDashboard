@@ -224,3 +224,76 @@ Verdict: pass [BENCH, simulated data]. The dashboard can be started and stopped
 over SSH. Not shown: starting it at boot (not set up), the owner looking at the
 screen during the run (the screenshot is cage's output), the MX+.
 Closes: the SSH start from the previous entry.
+
+## 2026-11-02 — First MX+ session on the Pi: key on, then idle [TRUCK]
+
+Hardware: the Pi 5 and display from the entries above, in the truck; OBDLink
+MX+ `00:04:3E:85:EA:FC` in the DLC over Bluetooth (RFCOMM). No added wiring.
+Run by the owner: `make pi-start TRANSPORT=obdlink TRANSMIT=1` at `4b586ac`,
+19:50:05–19:56:17 (6 min 12 s), then `make pi-stop`. `obd-console` in a second
+SSH session. Session: `~/f250-data/20261102-195005-obdlink/` on the Pi
+(`traffic/adapter-traffic.1.log`, 12 838 lines; `obd-console-1793674333.log`).
+Transmit opt-in (ADR-0007): `TRANSMIT=1`, read-only services only; nothing
+outside `01 03 07 09 22` and the init `AT` commands appears in the traffic log.
+Pairing itself was not logged (no `bluetoothctl` transcript).
+
+Result:
+    connect    one RFCOMM connect failure ("Connection reset by peer", os error 104),
+               then connected; the first ATZ got no answer for 7.5 s, the second
+               did: "ELM327 v1.4b". Init ATE0 ATL0 ATS0 ATH1 ATAT1 ATSP6 all OK
+    adapter    raw ATRV 12.2V key on, 13.5–13.6V later (engine running);
+               raw ATDPN 6 (matches the ESP32's protocol 6 on this truck)
+    responders 7E8 and 7E9 both answer the 01 PIDs; 221674: 7E9 62 16 74 …, 7E8 7F 22 31
+    values     at idle (console `pids`, 310 s): rpm 689.75, speed 0, ect 50 °C,
+               iat 18 °C, load 38.8 %, baro 85 kPa, trans_temp 49.72 °C. Only
+               trans_temp is VERIFIED_ON_TRUCK; the SAE PIDs use published
+               formulas but have no verification-log entry for this session
+    throughput 13.3 requests/s over 310 s (console `stats`); p50 65–84 ms,
+               p95 96–127 ms. Failures: rpm 1/834, speed 5/533, load 2/361,
+               trans_temp 1/268, ect/baro/iat 0
+    run.sh     `make pi-stop` stopped it cleanly, but systemd marks the unit
+               `failed` because run.sh exits 130 on SIGTERM (cosmetic, see below)
+
+**A dropout, and its cause in the traffic log.** Times are ms since connect.
+
+    17860 TX 010C ... 18084 / 18226 RX      replies slow from ~30 ms to 200–360 ms
+    18294 TX 010D
+    18795 TX (bare CR)                      500 ms timeout → client sends CR to provoke a prompt
+    18925 RX >                              the LATE prompt of 010D; the client takes it
+                                            as the answer to the CR and goes Idle
+    18996 TX 010D
+    18999 RX 7E803410D00                    3 ms later: the ELM's REPEAT of 010D (a bare CR
+                                            repeats the last command), paired with the new request
+    ...                                     replies stay one request behind; commands are sent
+                                            before the prompt
+    20855 TX ATRV → RX 7E803410D00          an ATRV "answered" with a speed reply
+    21770 RX STOPPED                        the ELM aborted a command (a byte arrived mid-request)
+
+What followed (gateway.log, which has no timestamps; times from the traffic log):
+link DEGRADED ↔ RECOVERING_SOFT about ten times; from 24.8 s to 78.8 s only
+ATRV went out (every 2–6 s), so the dashboard had no fresh PID data for 54 s.
+From 80 s to ~145 s rpm, speed, ect and trans_temp were barely polled
+(backed off; load and iat were), then full polling resumed without any
+intervention and stayed clean to the end (≈13 requests/s, 140–370 s).
+
+Interpretation (from this log; not yet reproduced on the bench):
+- The recovery step is wrong for an ELM327. A bare CR means "repeat the last
+  command", and the client treats the first `>` after it as the CR's answer,
+  even when it is the timed-out request's own late prompt. One latency spike
+  above 500 ms is enough to put replies out of step. The ESP32 firmware has
+  the same step (`docs/esp32/OBD_PROTOCOL.md`, "Timeout → bare CR").
+- Values were not mis-assigned across PIDs here: the positive-response echo
+  check rejected mismatched replies (gateway: "speed: … Invalid ×1"), and a
+  same-PID repeat carries that PID's own, one-cycle-old value.
+- Why the latency spiked at 17.9 s is unknown (key on, engine off; Bluetooth?).
+- Whether this is how the ESP32-era "frozen PID" started is a hypothesis for
+  3.5.7, not shown.
+
+Verdict: partial pass. The Pi drives the MX+ end to end: connect, init,
+read-only polling at ≈13 requests/s, live values on the dashboard [TRUCK]. It
+also shows a recovery bug that turns one slow reply into ~2 minutes of
+degraded data. Not shown: a logged pairing transcript (3.5.2), recovery from a
+real adapter freeze (H19), a drive.
+Closes: nothing. 3.5.2 still needs the `bluetoothctl` transcript.
+Follow-ups: fix the timeout recovery in `crates/elm` (and note it for the
+ESP32); timestamps in gateway.log; `SuccessExitStatus=130` for the pi-start unit.
