@@ -116,7 +116,7 @@ the PRO 5.
 | DAC | Burr-Brown, 192 kHz/24-bit, 3.5 mm out, `hifiberry-dacplus-std` (PCM512x family inferred). Line-out level not documented. Config instructions conflict between sources | V / C |
 | 12 V inputs | 5 opto-isolated, 12–18 V: IGN BCM12, REV BCM7, ILLUM BCM13, IN_1 BCM14, IN_2 BCM17 | V |
 | 12 V outputs | OUT_0 BCM27 and OUT_1 BCM22, high-side, 1 A each | V |
-| RTC | DS1307 (`i2c-rtc,ds1307`). No battery; runs from the permanent 12 V feed | V |
+| RTC | DS1307 (`i2c-rtc,ds1307`). No battery; runs from the permanent 12 V feed. Not needed: the head unit uses the Pi 5's onboard RTC with a J5 battery ([matrix](hardware/compatibility-matrix.md#raspberry-pi-5-onboard-rtc)) | V |
 | Pin conflicts | SPI CE1 shares BCM7 with the reverse input (fix: `spi0-cs,cs1_pin=24`). BCM14 is UART TX | V / inferred |
 | Display fit | The HAT's 5 V output was tested with the original display. Whether the DSI ribbon clears the HAT on a Pi 5 is not documented | V / U |
 
@@ -503,7 +503,8 @@ that decision chose.
 2. **5.2** First flash the **prebuilt Vimba Pi 5 Flutter image** and enable:
    - `vc4-kms-dsi-7inch`
    - the CAN overlay
-   - the DAC, RTC and gpio-poweroff overlays
+   - the DAC and gpio-poweroff overlays
+   - RTC battery charging on the Pi 5's onboard RTC (`dtparam=rtc_bbat_vchg=3000000`; [H20](hardware/open-questions.md)). Add the DS1307 overlay only if a CarPiHAT is fitted and chosen as the clock
 
    Then check the display, touch, backlight, CAN and audio. Write `agl/scripts/diagnose-display.sh`, which collects:
    - DRM connectors

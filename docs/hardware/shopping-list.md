@@ -13,6 +13,7 @@ At most:
 |---|---|---|
 | USB-C PD supply for the Pi in the truck | Temporary power for the trial | Prefer 5 V / 5 A (for example the official 27 W supply, through a 12 V inverter or a USB-C PD car adapter that does 5 A). A 3 A supply works with reduced USB current. **Not** the permanent install |
 | microSD card | Raspberry Pi OS | Probably on hand |
+| Raspberry Pi 5 RTC battery (official, rechargeable Li-Mn coin cell, JST-SH plug) | Keeps the Pi's onboard RTC running while the power is cut, so logs have the right time after a cold start | Plugs into J5 (BAT). **Not** a CR2032 or other primary cell. Turn on charging: see [Clock](../setup/raspberry-pi.md#clock) |
 
 **Purchase decision after the trial:** _not made yet_. Record it here, with a
 link to `docs/diagnostics/mx-plus-trial.md`.

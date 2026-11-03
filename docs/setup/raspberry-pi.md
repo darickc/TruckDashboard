@@ -199,3 +199,31 @@ sudo poweroff
 
 The recorder uses SQLite WAL, so a power cut loses at most the last few
 seconds. SD-card corruption is still a risk, so keep a spare image.
+
+## Clock
+
+**Not tested yet** ([H20](../hardware/open-questions.md)). The Pi 5 has its own
+RTC. When the power is cut, it keeps time only with a battery on the **J5
+(BAT)** connector. Use the official rechargeable Li-Mn cell, not a CR2032
+([compatibility matrix](../hardware/compatibility-matrix.md#raspberry-pi-5-onboard-rtc)).
+
+1. Plug the battery into J5.
+2. Turn on charging. It is off by default. Add this line to
+   `/boot/firmware/config.txt`, then reboot:
+
+   ```
+   dtparam=rtc_bbat_vchg=3000000
+   ```
+
+3. Check it:
+
+   ```bash
+   cat /sys/class/rtc/rtc0/charging_voltage
+   ```
+
+   ```bash
+   sudo hwclock -r
+   ```
+
+Telemetry ages use the monotonic clock, so a wrong wall clock never makes stale
+data look current. It only puts the wrong time in the logs.

@@ -53,6 +53,24 @@ Update a row whenever a source or a test changes it, and keep the citation.
 | On Raspberry Pi OS Lite (trixie, kernel 6.18) | **Works with no `config.txt` change** on DSI1: picture, backlight, touch (edt_ft5x06 at I2C 10-0038), and the app fullscreen under `cage` | T | [bench-log](bench-log.md), 2026-11-02 |
 | Legacy `rpi-ft5406` needed | It shouldn't be with the KMS overlay | U | — |
 
+## Raspberry Pi 5 onboard RTC
+
+The head unit keeps time while parked with this RTC and a battery on J5. No RTC
+on the power HAT is needed. Researched 2026-11-03. Source for the `V` rows:
+[RPi docs, Real Time Clock](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#real-time-clock-rtc).
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| RTC on the board | Yes. It runs from a backup battery on the **J5 (BAT)** connector. It works without a battery while the board has power | V | RPi docs |
+| Battery | Official cell: rechargeable lithium-manganese coin cell, pre-fitted 2-pin JST-SH plug | V | RPi docs |
+| Wrong cells | Not a primary (non-rechargeable) lithium cell such as a CR2032: the backup draw is higher than a dedicated RTC chip's, so it would not last. Not Li-ion | V | RPi docs |
+| Charging | Off by default. Turn it on with `dtparam=rtc_bbat_vchg=3000000` in `config.txt` (sysfs range 1300000–4400000, presumably µV) | V | RPi docs |
+| Retention | Single-digit µA when powered down, so months | V | RPi docs |
+| Wake alarm | `POWER_OFF_ON_HALT=1` and `WAKE_ON_GPIO=0` in the EEPROM config, then write `/sys/class/rtc/rtc0/wakealarm`. About 3 mA while waiting | V | RPi docs |
+| Without a battery | Time is presumably lost whenever the HAT's power switch cuts 5 V. The docs imply this but don't say it | inferred | — |
+| In the AGL image | Whether the AGL kernel enables the Pi 5 RTC driver and honours `rtc_bbat_vchg` is not checked. Verify on the image: `ls /sys/class/rtc/`, `cat /sys/class/rtc/rtc0/charging_voltage`, `hwclock -r` | U | — |
+| Holds time across a parked night | Not tested ([H20](open-questions.md)) | U | — |
+
 ## CarPiHAT PRO 5 (TJD; sold by The Pi Hut, TPH-106064, and Core Electronics)
 
 Documentation is the [CarPiHat wiki](https://github.com/gecko242/CarPiHat/wiki).
@@ -73,6 +91,7 @@ from the previous model; that came from a search snippet only.
 | 12 V inputs (opto, 12–18 V) | IGN BCM12, REV BCM7, ILLUM BCM13, IN_1 BCM14, IN_2 BCM17 | V | wiki |
 | 12 V outputs | OUT_0 BCM27, OUT_1 BCM22. High-side, 1 A each | V | wiki |
 | RTC | DS1307, `dtoverlay=i2c-rtc,ds1307`. No battery; uses the permanent 12 V feed | V | wiki |
+| RTC choice | Not needed: the plan uses the [Pi 5 onboard RTC](#raspberry-pi-5-onboard-rtc). If this overlay is also enabled there are two RTCs; pick one as `rtc0` for `hwclock`/systemd | decision | — |
 | Breakouts | I2C, 1-Wire. Fan and shroud included. No room for the Active Cooler | V | wiki |
 | Pin conflicts | SPI CE1 = BCM7 = REV input (fix: `dtoverlay=spi0-cs,cs1_pin=24`). IN_1 (BCM14) = UART TX, so don't enable a GPIO-header serial console; the Pi 5 has a dedicated debug UART connector | V / inferred | wiki |
 | Camera input | None | V (absent) | — |
