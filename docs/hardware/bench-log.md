@@ -77,23 +77,40 @@ Hardware: the Pi 5 from the 2026-11-01 entry, Raspberry Pi OS Lite (trixie).
 Original Raspberry Pi 7" touchscreen on **DSI1** (the connector next to the
 USB ports) with the 22-way to 15-way display cable. **No CarPiHAT fitted.**
 `/boot/firmware/config.txt` unchanged (stock auto-detect, no overlay added).
-Reported by the owner; no `dmesg` or photo captured.
+Picture reported by the owner; `dmesg` below, no photo.
 
 Result:
     picture    Boot messages and the Linux console show on the panel
     backlight  On (the console is readable)
-    touch      Not tested. Lite has no GUI, so nothing on screen reacts to touch
+    touch      Controller found (edt_ft5x06 at I2C 10-0038, see dmesg). Input not
+               tested: Lite has no GUI, so nothing on screen reacts to touch
     app        Not run on the physical screen (`make pi-run` not tried yet)
 
+`dmesg | grep -i -E 'dsi|panel|ft5406|edt|touch'`, the lines that matter (the
+rest are `Fixed dependency cycle(s)` notices and IOMMU setup; no errors):
+
+    [4.196174] drm-rp1-dsi 1f00118000.dsi: rp1dsi_host_attach: Attach DSI device name=tc358762 channel=0 lanes=1 format=0 flags=0x815 hs_rate=0 lp_rate=0
+    [4.202758] [drm] Initialized drm-rp1-dsi 1.0.0 for 1f00118000.dsi on minor 0
+    [4.318295] edt_ft5x06 10-0038: supply iovcc not found, using dummy regulator
+    [4.324396] drm-rp1-dsi 1f00118000.dsi: [drm] rp1dsi: Nominal Byte clock 90000000 DPI clock 30000000 (parent rate 90000000)
+    [4.707531] drm-rp1-dsi 1f00118000.dsi: [drm] fb0: drm-rp1-dsidrmf frame buffer device
+    [4.723097] drm-rp1-dsi 1f00118000.dsi: rp1dsi_bind succeeded
+
+So the RP1 DSI host bound the display's TC358762 bridge (1 lane) as DRM minor 0
+(`/dev/dri/card0`), and the FT5x06 touch driver probed at I2C address 0x38.
+The touch controller shows up on I2C bus 10 here, not the i2c-4/i2c-6 the
+compatibility matrix lists for the display ports. **UNVERIFIED** why (bus
+numbering or a mux on this kernel); check with `i2cdetect -l` if it matters
+for AGL. The dummy `iovcc` regulator warning did not stop the driver probing.
+
 Verdict: partial. The panel, cable and DSI1 work with stock Raspberry Pi OS
-configuration [BENCH]. This does **not** show touch, the dashboard under `cage`
-on the physical screen, or the ribbon clearing the HAT (H3).
+configuration, and the touch controller probes [BENCH]. This does **not** show
+touch input, the dashboard under `cage` on the physical screen, or the ribbon clearing the HAT (H3).
 Closes: nothing. 3.5.1 stays open (touch, app on screen, HAT fit).
 
 Next, on the Pi's own console (not SSH), to finish 3.5.1:
 
 ```bash
-dmesg | grep -i -E 'dsi|panel|ft5406|edt|touch'   # driver evidence for this log
 sudo apt install libinput-tools && sudo libinput list-devices | grep -A2 -i touch
 make pi-run                                        # app fullscreen under cage; tap the tabs
 ```
