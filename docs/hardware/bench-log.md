@@ -302,3 +302,44 @@ the client sends nothing and waits up to 1 s for the late prompt, then probes
 with `ATI`. A test replays the 18294–18999 ms sequence above. Not yet run on the
 truck. The ESP32 firmware still sends the bare CR (noted in
 `docs/esp32/OBD_PROTOCOL.md`).
+
+## 2026-11-02 — Second MX+ session, with the timeout-recovery fix: idle [TRUCK]
+
+Same Pi, display and MX+, in the truck. Owner ran `make pi-start
+TRANSPORT=obdlink TRANSMIT=1` at `d74f9af` (the ELM client waits for the late
+prompt, then probes with `ATI`; no bare CR), 20:29:01–20:32:33 (3 min 32 s),
+engine running at idle. No `obd-console` this time. Session:
+`~/f250-data/20261102-202901-obdlink/` (`traffic/adapter-traffic.1.log`,
+9 789 lines). Values below were decoded from the traffic log on the Mac
+(SAE J1979 formulas; trans_temp with the registry's `((A*256)+B)/8` °F from
+7E9), not read from the dashboard.
+
+Result:
+    connect    first try; ATZ answered in 881 ms ("ELM327 v1.4b"), init all OK
+    gateway    gateway.log has only "listening on unix:/tmp/f250/vehicle.sock":
+               no disconnect, no DEGRADED, no recovery
+    timeouts   none. 2 488 request→prompt times: 51 under 50 ms, 2 010 at
+               50–99 ms, 424 at 100–199 ms, 2 at 200–499 ms, none ≥ 500 ms;
+               mean 82 ms. No bare CR, no ATI probe, no STOPPED
+    throughput 222–258 requests per 20 s window (≈ 11–13/s) for all 210 s
+    adapter    ATRV 13.8–13.9 V
+    values     rpm 662.75–1281.50 (idle ≈ 690, one blip), speed 0, ect 54 °C
+               throughout, iat 25 °C, load 7–46 %, baro 85 kPa,
+               trans_temp 46.3–46.5 °C
+    responders 7E8 and 7E9 both answer 010C: |difference| median 0.75 rpm,
+               p95 3.75, max 58 (897 pairs). Run 1: median 0.25, p95 2.75
+
+Same decode of the first session (19:50, `20261102-195005-obdlink`): rpm 0
+until ≈ 215 s (key on, engine off), then ≈ 690 at idle, max 1084.75; ect
+55 → 50 °C; iat 47 → 18 °C after the engine started; trans_temp 48.6–50.8 °C.
+
+Verdict: pass for a clean session [TRUCK]: polling steady at ≈ 12 requests/s
+for 3.5 min with no link events. It does **not** test the recovery fix: no
+request timed out, so the new path never ran. That evidence needs a run where
+a reply goes past 500 ms (longer sessions, a drive).
+ECT reads flat at 54 °C for the whole run while being answered fresh
+(different request each time), so this is not a transport freeze; whether
+54 °C is right needs the cluster gauge or a scan tool beside it. ECT falling
+55 → 50 °C at idle in the first session is unexplained (cold evening?), also
+unchecked against the gauge.
+Closes: nothing.
