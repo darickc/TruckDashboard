@@ -343,3 +343,30 @@ ECT reads flat at 54 °C for the whole run while being answered fresh
 55 → 50 °C at idle in the first session is unexplained (cold evening?), also
 unchecked against the gauge.
 Closes: nothing.
+
+## 2026-11-02 — Dashboard Power button shuts the Pi down [BENCH]
+
+Same Pi and display, indoors, simulator (transmits nothing). Pi at `eacb081`.
+The owner started the dashboard (session `20261102-212819-sim`), tapped Power,
+then Cancel, then Power and Shut down; the screen went dark. After the green
+light stopped, they unplugged and replugged the Pi.
+
+Result:
+    offered    session.txt "power btn: offered": logind's CanPowerOff was "yes"
+               in the kiosk session (polkit allow_active; no sudo, which needs a
+               password on this Pi)
+    shutdown   session.txt, in order: "power off: requested from the dashboard",
+               then "stopped: 2026-11-02T21:28:47-07:00" (written by run.sh's
+               ordered stop: app, recorder, gateway), then `systemctl poweroff`
+    data       recorder export of a copy of the session database: 408 samples,
+               32 events, last sample 26.9 s into the 28 s run; reads cleanly
+    earlier    over SSH, `make pi-run` correctly said "No Power button" (no seat),
+               then cage timed out; run.sh now refuses that case at once
+
+Verdict: pass [BENCH, simulated data]. The button appears in a session that
+owns the screen and runs the clean stop before powering off. Not shown from
+logs: the OS shutdown itself (this Pi keeps no persistent journal and no
+wtmp), only the owner seeing the screen go dark; how the run was started
+(console or `make pi-start`) isn't recorded; Cancel was seen by the owner, not
+logged; nothing in the truck yet.
+Closes: the shutdown part of roadmap 3.5.3 on the bench.
