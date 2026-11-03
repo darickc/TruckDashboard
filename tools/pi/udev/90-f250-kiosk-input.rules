@@ -1,0 +1,9 @@
+# Installed by tools/pi/setup-raspios.sh (make pi-setup).
+#
+# The Pi 5's HDMI-CEC remote inputs (vc4-hdmi-0, vc4-hdmi-1) exist with
+# nothing plugged in and report a pointer capability. cage draws a cursor
+# whenever any pointer exists, so on a touch-only head unit the cursor sat on
+# the dashboard (2026-11-02, docs/hardware/bench-log.md). The truck uses no
+# HDMI, so libinput ignores them. Only libinput: the kernel devices stay.
+# https://wayland.freedesktop.org/libinput/doc/latest/ignoring-devices.html
+ACTION!="remove", SUBSYSTEM=="input", KERNEL=="event[0-9]*", ATTRS{name}=="vc4-hdmi-[0-9]", ENV{LIBINPUT_IGNORE_DEVICE}="1"

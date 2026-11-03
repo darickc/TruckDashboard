@@ -39,10 +39,34 @@ It installs:
 - the apt packages: build tools, `protoc`, `libdbus-1-dev` for RFCOMM, and
   Flutter's Linux desktop packages
 - `cage` (kiosk compositor) and `grim` (screenshots)
+- a udev rule, [90-f250-kiosk-input.rules](../../tools/pi/udev/90-f250-kiosk-input.rules),
+  so that `cage` draws no mouse cursor (see [No mouse cursor](#no-mouse-cursor))
 - the Rust toolchain pinned in `rust-toolchain.toml`, using rustup
 - Flutter 3.38.3 from `.fvmrc`, using fvm
 
 It is safe to re-run. It only checks BlueZ, which ships with the OS.
+
+### No mouse cursor
+
+`cage` draws a cursor whenever any input device can act as a pointer. Two kinds
+did on the bench Pi (2026-11-02, [bench-log](../hardware/bench-log.md)):
+
+- The HDMI-CEC remote inputs `vc4-hdmi-0` and `vc4-hdmi-1`. They exist with
+  nothing plugged in, so they would show a cursor in the truck too. The udev
+  rule tells libinput to ignore them. Restart `make pi-run` after `make pi-setup`.
+- A keyboard's extra USB interfaces. The ROCCAT Suora has a "Mouse" and a
+  "Consumer Control" interface that both count as pointers. The rule leaves
+  these alone, so the cursor stays while such a keyboard is plugged in. The
+  truck has no keyboard.
+
+To see which devices are pointers:
+
+```bash
+sudo libinput list-devices | grep -E '^Device:|^Capabilities:'
+```
+
+The fix is **not yet checked on the Pi**: rerun the command above after
+`make pi-setup`. `vc4-hdmi-0` and `vc4-hdmi-1` should be gone.
 
 ## 2. Build
 

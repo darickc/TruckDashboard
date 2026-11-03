@@ -133,3 +133,33 @@ physical screen. Still not shown: the ribbon with the HAT fitted (H3), `cage`
 on the physical screen when `make pi-run` is started over SSH, and any of this
 under AGL (the AGL `config.txt` doesn't enable the display).
 Closes: roadmap 3.5.1.
+
+## 2026-11-02 — Mouse cursor on the dashboard under cage [BENCH]
+
+Hardware and image as in the previous entry, plus a ROCCAT Suora USB keyboard.
+No mouse or trackpad. Symptom: a mouse cursor drawn over the dashboard.
+
+`sudo libinput list-devices | grep -E '^Device:|^Capabilities:'`:
+
+    Device:  10-0038 generic ft5x06 (79)        Capabilities: touch
+    Device:  ROCCAT ROCCAT Suora                Capabilities: keyboard
+    Device:  ROCCAT ROCCAT Suora Mouse          Capabilities: pointer
+    Device:  ROCCAT ROCCAT Suora System Control Capabilities: keyboard
+    Device:  ROCCAT ROCCAT Suora Consumer Control Capabilities: keyboard pointer
+    Device:  pwr_button                         Capabilities: keyboard
+    Device:  vc4-hdmi-0                         Capabilities: keyboard pointer
+    Device:  vc4-hdmi-1                         Capabilities: keyboard pointer
+
+Cause: cage 0.3.1 shows a cursor whenever the seat has a pointer, and hides it
+only when none exists (`seat.c`, "Hide cursor if the seat doesn't have pointer
+capability"). The `vc4-hdmi-*` devices are the HDMI ports' CEC remote inputs.
+They are there with no HDMI connected, so the cursor would appear in the truck
+as well, not only with this keyboard.
+
+Fix (not yet run on the Pi): `tools/pi/udev/90-f250-kiosk-input.rules` sets
+`LIBINPUT_IGNORE_DEVICE=1` on `vc4-hdmi-[0-9]`, installed by `make pi-setup`.
+The keyboard's pointer interfaces are left alone (bench only).
+To verify: after `make pi-setup`, the command above no longer lists
+`vc4-hdmi-0/1`; with the keyboard unplugged, `make pi-run` shows no cursor and
+touch still works.
+Closes: nothing until verified.

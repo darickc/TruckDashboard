@@ -5,10 +5,11 @@
 # Installs with apt: build tools, protoc, libdbus (the gateway's RFCOMM
 # feature) and Flutter's Linux desktop packages. Then installs the Rust
 # toolchain pinned in rust-toolchain.toml (rustup) and the Flutter SDK pinned
-# in .fvmrc (fvm). BlueZ ships with Raspberry Pi OS; it is only checked.
+# in .fvmrc (fvm), and a udev rule that keeps cage from drawing a cursor
+# (tools/pi/udev). BlueZ ships with Raspberry Pi OS; it is only checked.
 #
-# Status: written on the Mac, not yet run on a Pi. Record the first run in
-# docs/hardware/bench-log.md.
+# Status: run on the Pi 5 on 2026-11-01 (docs/hardware/bench-log.md). The
+# udev step was added on 2026-11-02 and has not been run on a Pi yet.
 set -euo pipefail
 # Not `git rev-parse`: a fresh Lite install has no git until this script runs.
 cd "$(dirname "$0")/../.."
@@ -40,6 +41,14 @@ PKGS=(
 )
 sudo apt-get update -qq
 sudo apt-get install -y "${PKGS[@]}"
+
+say "udev: no cursor from the HDMI-CEC inputs under cage"
+RULE=tools/pi/udev/90-f250-kiosk-input.rules
+if ! cmp -s "$RULE" "/etc/udev/rules.d/$(basename "$RULE")"; then
+  sudo install -m 0644 "$RULE" /etc/udev/rules.d/
+  sudo udevadm control --reload
+  sudo udevadm trigger --subsystem-match=input --action=change
+fi
 
 say "Rust toolchain (rust-toolchain.toml)"
 export PATH="$HOME/.cargo/bin:$PATH"
