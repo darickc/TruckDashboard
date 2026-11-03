@@ -50,6 +50,7 @@ Update a row whenever a source or a test changes it, and keep the citation.
 | Backlight | Regulator-based (`raspberrypi,7inch-touchscreen-panel-regulator`, I2C 0x45). The Pi 5 uses i2c-4/i2c-6 for the display ports | V | [overlay dts](https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.12.y/arch/arm/boot/dts/overlays/vc4-kms-dsi-7inch-overlay.dts), linux#5813 |
 | In the AGL image | The `vc4-kms-dsi-7inch.dtbo` overlay and the edt-ft5x06, tc358762, rpi-panel-attiny-regulator and rpi-backlight modules | V | manifest |
 | Enabled in AGL `config.txt` | **No.** Only `vc4-kms-v3d-pi5,cma-256`. No `display_auto_detect`. `rpi-ft5406` is commented out | V | [AGL config.txt](https://download.automotivelinux.org/AGL/release/vimba/22.0.0/raspberrypi5/deploy/images/raspberrypi5/bootfiles/config.txt) |
+| On Raspberry Pi OS Lite (trixie, kernel 6.18) | **Works with no `config.txt` change** on DSI1: picture, backlight, touch (edt_ft5x06 at I2C 10-0038), and the app fullscreen under `cage` | T | [bench-log](bench-log.md), 2026-11-02 |
 | Legacy `rpi-ft5406` needed | It shouldn't be with the KMS overlay | U | — |
 
 ## CarPiHAT PRO 5 (TJD; sold by The Pi Hut, TPH-106064, and Core Electronics)

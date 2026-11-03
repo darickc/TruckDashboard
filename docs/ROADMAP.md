@@ -107,11 +107,12 @@ Found along the way:
 
 ## Phase 3.5 — MX+ truck trial (nothing to buy) [HW] [HUMAN]
 
-- [ ] 3.5.1 Raspberry Pi OS on the Pi 5. Display, touch and ribbon confirmed. `tools/pi/setup-raspios.sh`, `make pi-run`.
+- [x] 3.5.1 Raspberry Pi OS on the Pi 5. Display, touch and ribbon confirmed. `tools/pi/setup-raspios.sh`, `make pi-run`.
       The scripts and `make pi-setup` / `pi-build` / `pi-run` exist ([setup/raspberry-pi.md](setup/raspberry-pi.md)).
       On the Pi (Raspberry Pi OS Lite, no display yet): setup, build and the whole stack under `cage` on a virtual display
       work **[BENCH]** ([bench-log](hardware/bench-log.md)). The original 7" display shows the console on DSI1 with stock
-      `config.txt`, no HAT fitted **[BENCH]** (2026-11-02). **Still open: touch, the app under `cage` on the screen, and the ribbon with the HAT (H3)**
+      `config.txt`, no HAT fitted; touch works and `make pi-run` fills the screen under `cage` **[BENCH]** (2026-11-02).
+      The ribbon fit with the HAT (H3) is left to the HAT's arrival
 - [ ] 3.5.2 MX+ paired (`00:04:3E:85:EA:FC`, Secure Simple Pairing: confirm the shown passkey, no PIN). Phone and ESP32 disconnected. Opt-in recorded in `bench-log.md`
 - [ ] 3.5.3 Temporary truck setup: USB-C power (5 V / 5 A preferred), secure mount, shutdown before key-off
 - [ ] 3.5.4 Driveway session: `TRUCK_SESSION.md` Parts 1–4 through `obd-console`, transcripts in `VERIFICATION_LOG.md`

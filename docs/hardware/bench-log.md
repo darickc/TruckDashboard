@@ -114,3 +114,22 @@ Next, on the Pi's own console (not SSH), to finish 3.5.1:
 sudo apt install libinput-tools && sudo libinput list-devices | grep -A2 -i touch
 make pi-run                                        # app fullscreen under cage; tap the tabs
 ```
+
+## 2026-11-02 — Dashboard and touch on the 7" display [BENCH]
+
+Hardware and image as in the previous entry: original 7" display on DSI1,
+22-way to 15-way display cable, no CarPiHAT, stock `config.txt`. No MX+, no
+vehicle. Reported by the owner; no photo or screenshot.
+Run: `make pi-run` (simulator, transmits nothing), started on the Pi itself
+as the previous entry's next steps say.
+
+Result:
+    app        The dashboard runs fullscreen under `cage` and fills the 800x480 panel
+    touch      Taps work in the app
+
+Verdict: pass for ADR-0005 stage 0 on Raspberry Pi OS [BENCH, simulated data].
+Display, touch and the ribbon work, and the stack runs fullscreen on the
+physical screen. Still not shown: the ribbon with the HAT fitted (H3), `cage`
+on the physical screen when `make pi-run` is started over SSH, and any of this
+under AGL (the AGL `config.txt` doesn't enable the display).
+Closes: roadmap 3.5.1.

@@ -11,10 +11,10 @@ Status:
   - `make pi-setup` and `make pi-build` work on Raspberry Pi OS Lite (trixie).
   - The whole stack runs with `UI=headless`, and with `UI=0`.
   - The MX+ transport stays PASSIVE_ONLY without `TRANSMIT=1`.
-- **Display, console only** `[BENCH]`, 2026-11-02: the original 7" display
-  shows the console on DSI1 with stock `config.txt` (no overlay), HAT not fitted.
+- **On the original 7" display** `[BENCH]`, 2026-11-02: DSI1, stock
+  `config.txt` (no overlay), HAT not fitted. `make pi-run` started on the Pi
+  fills the screen under `cage`, and touch works.
 - **Not tested yet:**
-  - touch, and the app on the physical screen
   - the ribbon with the CarPiHAT fitted (H3)
   - `cage` on the physical screen when `make pi-run` is started over SSH
     rather than from a login on the Pi's own console
