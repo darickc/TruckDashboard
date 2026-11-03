@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../config/app_config.dart';
+import '../core/power.dart';
 import '../core/settings.dart';
 import '../data/gateway_connection.dart';
 import '../data/simulation_controller.dart';
@@ -17,6 +18,7 @@ class AppServices {
     required this.config,
     this.simulation,
     this.gateway,
+    this.power = const NoPowerControl(),
     this.refreshPeriod = const Duration(milliseconds: 250),
   }) : assert((simulation == null) != (gateway == null), 'exactly one data source');
 
@@ -28,6 +30,9 @@ class AppServices {
 
   /// Vehicle gateway connection (Phase 3), or null.
   final GatewayConnection? gateway;
+
+  /// Whether, and how, the screen can shut the head unit down.
+  final PowerControl power;
 
   /// Changes a signal's calibration wherever the data is produced.
   Future<void> setCalibration(String id, Calibration c) async {

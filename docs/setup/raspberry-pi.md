@@ -173,11 +173,25 @@ See [gateway.md](gateway.md#diagnosing-with-obd-console) for the commands.
 
 ## Power
 
-There is no ignition sensing yet. Before key-off, shut down over SSH or from
-the desktop:
+There is no ignition sensing yet, so shut the Pi down **before key-off**. Then
+wait until the screen goes dark and the green light stops blinking.
+
+**From the dashboard:** tap **Power** at the right end of the nav bar, then
+**Shut down**. The question replaces the tabs for 8 seconds and then goes away
+unless you answer it. The app exits, `run.sh` stops the recorder and the gateway
+as it would for `make pi-stop`, writes `power off: requested from the dashboard`
+to `session.txt`, and powers off. The Power button appears only:
+
+- with `make pi-run` or `make pi-start` in the kiosk (`cage` on the Pi's
+  screen), not in a desktop session or with `UI=headless`
+- when `sudo -n systemctl poweroff` is allowed without a password. It is on
+  Raspberry Pi OS for the first user. Otherwise `run.sh` says "No Power button"
+  at startup
+
+**Over SSH:**
 
 ```bash
-sudo shutdown -h now
+sudo poweroff
 ```
 
 The recorder uses SQLite WAL, so a power cut loses at most the last few

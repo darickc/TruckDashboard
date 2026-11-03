@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'config/app_config.dart';
 import 'core/clock.dart';
+import 'core/power.dart';
 import 'core/settings.dart';
 import 'data/gateway_connection.dart';
 import 'data/simulation_controller.dart';
@@ -53,7 +54,11 @@ Future<AppServices> createServices(
     case 'gateway':
       final connection = GatewayConnection.create(store, GatewayEndpoint.parse(gateway))..start();
       return AppServices(
-          store: store, settings: AppSettings(), config: config, gateway: connection);
+          store: store,
+          settings: AppSettings(),
+          config: config,
+          gateway: connection,
+          power: PowerControl.forPlatform());
     case 'sim':
       final scenarios = await SimulationController.loadAll(bundle);
       final simulation =
@@ -61,7 +66,11 @@ Future<AppServices> createServices(
             ..select(scenarios.containsKey(scenario) ? scenario : scenarios.keys.first,
                 startAt: startAt);
       return AppServices(
-          store: store, settings: AppSettings(), config: config, simulation: simulation);
+          store: store,
+          settings: AppSettings(),
+          config: config,
+          simulation: simulation,
+          power: PowerControl.forPlatform());
     default:
       throw FormatException('VEHICLE_SOURCE must be sim or gateway, got "$source"');
   }

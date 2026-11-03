@@ -115,7 +115,8 @@ Found along the way:
       `config.txt`, no HAT fitted; touch works and `make pi-run` fills the screen under `cage` **[BENCH]** (2026-11-02).
       The ribbon fit with the HAT (H3) is left to the HAT's arrival
 - [ ] 3.5.2 MX+ paired (`00:04:3E:85:EA:FC`, Secure Simple Pairing: confirm the shown passkey, no PIN). Phone and ESP32 disconnected. Opt-in recorded in `bench-log.md`
-- [ ] 3.5.3 Temporary truck setup: USB-C power (5 V / 5 A preferred), secure mount, shutdown before key-off
+- [ ] 3.5.3 Temporary truck setup: USB-C power (5 V / 5 A preferred), secure mount, shutdown before key-off.
+      Dashboard **Power** button (confirm, then clean stop and `systemctl poweroff`; [setup/raspberry-pi.md](setup/raspberry-pi.md#power)) **[SIM]**, not yet tried on the Pi
 - [ ] 3.5.4 Driveway session: `TRUCK_SESSION.md` Parts 1–4 through `obd-console`, transcripts in `VERIFICATION_LOG.md`
 - [ ] 3.5.5 Speed calibration factor measured against GPS
 - [ ] 3.5.6 Logged drives: Torque-style polling and the budgeted schedule, with `ATRV` voltage and STN chatter logged

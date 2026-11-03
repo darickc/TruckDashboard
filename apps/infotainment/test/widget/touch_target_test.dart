@@ -1,3 +1,4 @@
+import 'package:f250_infotainment/core/power.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/theme.dart';
 import 'package:f250_infotainment/ui/widgets/tap_target.dart';
@@ -40,4 +41,22 @@ void main() {
       expectAllTargetsLargeEnough(tester, 'diagnostics/$section');
     }
   });
+
+  testWidgets('the power button and the shutdown question are 60×60 too', (tester) async {
+    final h = await Harness.start(tester, power: _AllowPowerOff());
+    expectAllTargetsLargeEnough(tester, 'with power button');
+    await tester.tap(find.byKey(const ValueKey('nav-power')));
+    await tester.pump();
+    expectAllTargetsLargeEnough(tester, 'shutdown question');
+    await h.goTo(AppTab.diagnostics);
+    expectAllTargetsLargeEnough(tester, 'shutdown question over diagnostics');
+  });
+}
+
+class _AllowPowerOff implements PowerControl {
+  @override
+  bool get canPowerOff => true;
+
+  @override
+  void powerOff() {}
 }

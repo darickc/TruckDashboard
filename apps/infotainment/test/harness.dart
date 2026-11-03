@@ -1,5 +1,6 @@
 import 'package:f250_infotainment/config/app_config.dart';
 import 'package:f250_infotainment/core/clock.dart';
+import 'package:f250_infotainment/core/power.dart';
 import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/data/simulation_controller.dart';
 import 'package:f250_infotainment/model/signal_catalog.dart';
@@ -33,7 +34,9 @@ class Harness {
   TelemetryStore get store => services.store;
 
   static Future<Harness> start(WidgetTester tester,
-      {String scenario = 'drive_cycle', DayNight theme = DayNight.night}) async {
+      {String scenario = 'drive_cycle',
+      DayNight theme = DayNight.night,
+      PowerControl power = const NoPowerControl()}) async {
     tester.view.physicalSize = const Size(800, 480);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -53,6 +56,7 @@ class Harness {
       settings: AppSettings(theme: theme),
       config: testConfig,
       simulation: sim,
+      power: power,
       refreshPeriod: null,
     );
     await tester.pumpWidget(InfotainmentApp(services: services));

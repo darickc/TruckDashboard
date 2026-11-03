@@ -10,6 +10,11 @@
 #
 # Each run gets its own directory under $DATA_DIR (default ~/f250-data) with
 # the recorder database, the adapter traffic log and every process's log.
+#
+# In the kiosk (cage on the Pi's screen) the dashboard has a Power button. The
+# app then exits with POWER_OFF_EXIT; this script stops the recorder and the
+# gateway as usual, then powers the Pi off. It is offered only when
+# `sudo -n systemctl poweroff` is allowed without a password.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -32,6 +37,8 @@ for bin in "$GW_BIN" "$REC_BIN"; do
   [[ -x "$bin" ]] || { echo "$bin not found: run 'make pi-build' first"; exit 1; }
 done
 [[ "$UI" == 0 || -x "$APP_BIN" ]] || { echo "app bundle not found: run 'make pi-build' first"; exit 1; }
+# apps/infotainment/lib/core/power.dart: powerOffExitCode.
+POWER_OFF_EXIT=42
 # The gateway replaces a stale socket, which would cut off one still running.
 if pgrep -x vehicle-gateway >/dev/null; then
   echo "A vehicle-gateway is already running (pid $(pgrep -x vehicle-gateway | tr '\n' ' ')). Stop it first."
@@ -61,6 +68,7 @@ esac
 #   - none (Raspberry Pi OS Lite): fullscreen under the cage kiosk compositor
 #   - UI=headless: cage on a virtual display, to test without a screen
 APP_CMD=()
+POWER_OFF=0
 case "$UI" in
   0) ;;
   1|headless)
@@ -77,6 +85,10 @@ case "$UI" in
       command -v cage >/dev/null || { echo "No desktop session and no cage kiosk: run 'make pi-setup'"; exit 1; }
       if [[ "$UI" == headless ]]; then
         export WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1
+      elif sudo -n -l systemctl poweroff >/dev/null 2>&1; then
+        POWER_OFF=1
+      else
+        echo "No Power button: 'sudo systemctl poweroff' needs a password here."
       fi
       unset WAYLAND_DISPLAY DISPLAY
       APP_CMD=(cage -- "$APP_BIN")
@@ -125,10 +137,21 @@ if [[ ${#APP_CMD[@]} -gt 0 ]]; then
   echo "app:       ${APP_CMD[*]}" >>"$SESSION/session.txt"
   # In the background, because bash runs the TERM trap only after a
   # foreground command returns; `wait` returns as soon as a signal arrives.
-  F250_FULLSCREEN="${F250_FULLSCREEN:-1}" "${APP_CMD[@]}" > >(tee "$SESSION/app.log") 2>&1 &
+  F250_FULLSCREEN="${F250_FULLSCREEN:-1}" F250_POWER_OFF="$POWER_OFF" \
+    "${APP_CMD[@]}" > >(tee "$SESSION/app.log") 2>&1 &
   APP_PID=$!
   PIDS+=("$APP_PID")
-  wait "$APP_PID"
+  app_status=0
+  wait "$APP_PID" || app_status=$?
+  # cage returns its client's exit status (cage.c, return_app_code, v0.3.1).
+  if [[ "$POWER_OFF" == 1 && "$app_status" == "$POWER_OFF_EXIT" ]]; then
+    echo "power off: requested from the dashboard" | tee -a "$SESSION/session.txt"
+    trap - EXIT
+    cleanup
+    sync
+    exec sudo -n systemctl poweroff
+  fi
+  exit "$app_status"
 else
   echo "Headless (UI=0). Ctrl-C to stop."
   wait "${PIDS[0]}"

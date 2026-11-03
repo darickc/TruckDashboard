@@ -35,14 +35,15 @@ case "${1:-}" in
       [[ -n "${!v:-}" ]] && env_args+=("--setenv=$v=${!v}")
     done
     # KillMode=mixed: `stop` signals run.sh only, so it stops the app, then the
-    # recorder, then the gateway (the order it records cleanly in).
+    # recorder, then the gateway (the order it records cleanly in). run.sh
+    # exits 130 on SIGTERM, which is that clean stop, not a failure.
     sudo systemd-run --unit="$UNIT" --description="F-250 dashboard (tools/pi/run.sh)" \
       --uid="$(id -un)" --working-directory="$PWD" "${env_args[@]}" \
       -p PAMName=login -p TTYPath="/dev/tty$VT" -p TTYReset=yes -p TTYVHangup=yes \
       -p TTYVTDisallocate=yes -p StandardInput=tty-fail \
       -p StandardOutput=journal -p StandardError=journal -p SyslogIdentifier="$UNIT" \
       -p UtmpIdentifier="tty$VT" -p UtmpMode=user \
-      -p KillMode=mixed -p TimeoutStopSec=15 \
+      -p KillMode=mixed -p TimeoutStopSec=15 -p SuccessExitStatus=130 \
       tools/pi/run.sh
     # The session only becomes active, and cage only gets the screen, once its
     # VT is in front.
