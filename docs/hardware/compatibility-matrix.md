@@ -1,7 +1,7 @@
 # Hardware compatibility matrix
 
-Researched **2026-11-01**. Nothing here has been tested on hardware yet. **No
-head-unit hardware has been purchased.**
+Researched **2026-11-01**. Nothing here has been tested on hardware yet. The
+only head-unit purchase so far is the USB CAN adapter (2026-11-03, below).
 
 Status key:
 
@@ -127,6 +127,27 @@ applies to the Pi 5 variant must be checked when the HAT is fitted.
 | J1850 PWM | Not present in 2006/07 scans. 2004 trucks used it | F / U | forum |
 | FICM | Not a separate module. Its voltages appear as PCM PIDs | F | forum |
 | Turn signal / reverse on HS-CAN | Unknown. The GEM is on K-line, so turn signals are probably not on HS-CAN | U | — |
+
+## USB CAN adapter: Jhoinrch RH-02 Pro
+
+Bought 2026-11-03 (Amazon B0FSVNBKQ4). Source: the manufacturer's manual
+(Manuals+ copy, "Jhoinrch RH-02 Pro Isolation USB to CAN FD Adapter User
+Manual", model RH-02 Pro-1), unless noted.
+[ADR-0012](../architecture/adr/0012-direct-can-usb-adapter.md).
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| Design | CANable 2.0, STM32G431CBT6 | V (manual) | manual |
+| Isolation | 1.5 kV power, 5.7 kV RMS signal. TVS/ESD/GDT protection | V (manual) / U (not measured) | manual |
+| Terminals | CAN H, GND, CAN L, 5V (3.81 mm block). 5V is an output | V (manual) | manual |
+| Termination | 120 Ω, switchable: **up = off**, down = on | V (manual) / U (not measured) | manual; check on the bench ([wiring](../wiring/dlc-can-adapter.md)) |
+| Boot switch | Up = working, down = DFU | V (manual) | manual |
+| Factory firmware | The manual says **slcan** in its setup section and **candleLight** in its firmware section | **C** | manual; `tools/pi/can.sh status` settles it |
+| candleLight on CANable 2.0 | Available; enumerates as native SocketCAN (`gs_usb`); no CAN FD | F | [canable.io](https://canable.io/index.html), [Makerbase CANable 2.0 manual](https://download.kamami.pl/p1192913-Makerbase%20CANable%20V2.0%20Use%20Manual.pdf) |
+| Listen-only | Listed as a mode by the manual. Under `gs_usb`, set with `ip link … listen-only on` | V (manual, kernel docs) / U (this board) | `can.sh listen` refuses if the driver doesn't accept it |
+| Listen-only over `slcand` | Unknown | U | — |
+| Pi 5 kernel (Raspberry Pi OS, 6.18.50) | Ships `gs_usb`, `slcan`, `vcan`, `can-isotp` modules | T | `ls /lib/modules/…` on the Pi, 2026-11-03 |
+| macOS (Apple silicon) | "Not temporarily supported" per the manual | V (manual) | manual — irrelevant here, it runs on the Pi |
 
 ## Linux CAN facts
 

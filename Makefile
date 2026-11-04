@@ -46,7 +46,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
         sim gateway console deploy logs docs-lint \
-        pi-setup pi-build pi-run pi-start pi-stop pi-status
+        pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can
 
 help: ## List targets
 	@grep -hE '^[a-z][a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -173,7 +173,7 @@ docs-lint: ## Check relative Markdown links
 
 # ---- Raspberry Pi OS, MX+ trial (Phase 3.5); run these on the Pi ------------
 
-# Options for pi-run and pi-start: TRANSPORT=sim|obdlink TRANSMIT=1 ADAPTER= ENABLE= BUDGET_RPS= UI=0|headless
+# Options for pi-run and pi-start: TRANSPORT=sim|obdlink|can TRANSMIT=1 ADAPTER= CAN_IF= ENABLE= BUDGET_RPS= UI=0|headless
 pi-setup: ## On the Pi: install apt packages, Rust and Flutter (Phase 3.5.1)
 	tools/pi/setup-raspios.sh
 
@@ -184,7 +184,7 @@ pi-build: ## On the Pi: release-build the gateway (RFCOMM), recorder, obd-consol
 	cd $(APP_DIR) && $(FLUTTER) build linux --release \
 	  --dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:/tmp/f250/vehicle.sock
 
-pi-run: pi-build ## On the Pi: gateway + recorder + fullscreen app (simulator unless TRANSPORT=obdlink)
+pi-run: pi-build ## On the Pi: gateway + recorder + fullscreen app (simulator unless TRANSPORT=obdlink|can)
 	tools/pi/run.sh
 
 pi-start: pi-build ## On the Pi: pi-run as a systemd service on tty7; works over SSH (same options)
@@ -195,6 +195,9 @@ pi-stop: ## On the Pi: stop the pi-start service cleanly
 
 pi-status: ## On the Pi: state and recent log of the pi-start service
 	tools/pi/service.sh status
+
+pi-can: ## On the Pi: direct-CAN adapter, CMD=status|listen|active|down|capture (docs/setup/can.md)
+	tools/pi/can.sh $(or $(CMD),status) $(SECS)
 
 # ---- not yet available ------------------------------------------------------
 

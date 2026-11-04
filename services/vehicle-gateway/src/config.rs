@@ -12,6 +12,9 @@ pub enum TransportKind {
     Sim,
     /// OBDLink MX+ / ELM327 over serial, TCP or RFCOMM.
     Obdlink,
+    /// Direct CAN on a SocketCAN interface (Linux): the gateway's own
+    /// single-frame ISO-TP requests (ADR-0012).
+    Can,
 }
 
 #[derive(Debug, Clone, Parser)]
@@ -45,6 +48,14 @@ pub struct Config {
     /// OBDLink: serial:/dev/cu.X[@baud] | tcp:host:port | rfcomm:AA:BB:..[/channel].
     #[arg(long)]
     pub adapter: Option<String>,
+    /// CAN: SocketCAN interface name.
+    #[arg(long, default_value = "can0")]
+    pub can_if: String,
+    /// CAN: how long to collect answers to a request that isn't pinned to
+    /// one responder, ms. 50 ms is the commonly cited ISO 15765-4 P2CAN
+    /// maximum (UNVERIFIED here; the traffic log measures the real figure).
+    #[arg(long, default_value_t = 50)]
+    pub can_window_ms: u64,
     /// Allow diagnostic requests to the vehicle (read-only services only).
     /// Off by default: the gateway stays PASSIVE_ONLY.
     #[arg(long)]
@@ -70,6 +81,9 @@ impl Config {
         self.budget_rps.unwrap_or(match self.transport {
             TransportKind::Sim => 15.0,
             TransportKind::Obdlink => 10.0,
+            // Not measured: one unpinned request waits the whole window, so
+            // 20/s is the ceiling at 50 ms. Retune from `stats` on the truck.
+            TransportKind::Can => 20.0,
         })
     }
 }

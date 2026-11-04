@@ -5,6 +5,8 @@
 //! Only one transport exists per gateway process, so two transports can
 //! never transmit at the same time (ADR-0007, Phase 4.6).
 
+pub mod can;
+pub mod isotp;
 pub mod obdlink;
 pub mod simulated;
 pub mod traffic;

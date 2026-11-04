@@ -87,6 +87,26 @@ There are three kinds of output:
 - Together these are the evidence for the dropout analysis
   ([PROJECT_PLAN](../PROJECT_PLAN.md#what-the-mx-trial-phase-35-can-already-show)).
 
+## With the USB CAN adapter (direct CAN)
+
+`--transport can --can-if can0` sends the gateway's own single-frame ISO-TP
+requests on a SocketCAN interface instead of going through an ELM adapter
+([ADR-0012](../architecture/adr/0012-direct-can-usb-adapter.md)). The same
+`--transmit` opt-in, allow-list, scheduler, recovery, recorder and UI apply.
+`--can-window-ms` (default 50) is how long it collects answers to a request
+not pinned to one responder. The interface itself is set up by
+`tools/pi/can.sh`, listen-only unless `active`. The bench and truck
+procedure is in [can.md](can.md).
+
+```bash
+cargo run -p vehicle-gateway --release -- \
+    --transport can --can-if can0 --transmit \
+    --listen unix:/tmp/f250/vehicle.sock --traffic-log ./traffic --enable eot
+```
+
+Status: `[SIM]` (in-memory bus replaying the truck's captures), compiled and
+unit-tested on the Pi 5. Not run against the adapter or the truck yet.
+
 ## Known issue: the poll intervals ask too much of the MX+
 
 The registry's poll intervals came from the ESP32 table (MAP and ICP every

@@ -20,5 +20,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0009](0009-camera-rendering.md) | Camera rendering chosen by a measured spike | Proposed |
 | [0010](0010-offline-maps-routing.md) | flutter_map + offline tiles; Valhalla routing | Proposed |
 | [0011](0011-mx-plus-trial-first.md) | MX+ truck trial before buying CAN hardware | Accepted |
+| [0012](0012-direct-can-usb-adapter.md) | Direct CAN through a USB CANable adapter, with our own single-frame ISO-TP | Accepted |
 
 New ADRs use the next number and the same headings.

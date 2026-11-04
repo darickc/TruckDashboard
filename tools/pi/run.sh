@@ -5,6 +5,9 @@
 #   make pi-run                                   # simulator (bench: display, touch, full stack)
 #   make pi-run TRANSPORT=obdlink                 # MX+, PASSIVE_ONLY: the adapter is never opened
 #   make pi-run TRANSPORT=obdlink TRANSMIT=1      # MX+, read-only polling (ADR-0007 opt-in)
+#   make pi-run TRANSPORT=can                     # direct CAN (can0), PASSIVE_ONLY: never opened
+#   make pi-run TRANSPORT=can TRANSMIT=1          # direct CAN polling; can0 must be up in active
+#                                                 # mode first (tools/pi/can.sh active, ADR-0012)
 #   make pi-run ... UI=0                          # gateway + recorder only, no app
 #   make pi-run ... UI=headless                   # app under cage on a virtual display (no screen needed)
 #
@@ -21,6 +24,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 TRANSPORT="${TRANSPORT:-sim}"
 ADAPTER="${ADAPTER:-rfcomm:00:04:3E:85:EA:FC}"
+CAN_IF="${CAN_IF:-can0}"
 TRANSMIT="${TRANSMIT:-0}"
 ENABLE="${ENABLE:-}"
 BUDGET_RPS="${BUDGET_RPS:-}"
@@ -58,8 +62,25 @@ case "$TRANSPORT" in
       echo "PASSIVE_ONLY: the adapter will not be opened and nothing reaches the vehicle."
       echo "To poll (read-only services only), opt in with TRANSMIT=1 (ADR-0007)."
     fi ;;
+  can)
+    gw_args+=(--can-if "$CAN_IF")
+    if [[ "$TRANSMIT" == 1 ]]; then
+      gw_args+=(--transmit)
+      # The gateway can't change the interface mode (that needs root), so say
+      # now if its polls can't reach the bus, rather than after 5 s of silence.
+      if [[ ! -e "/sys/class/net/$CAN_IF" ]]; then
+        echo "$CAN_IF does not exist: plug in the CAN adapter and run 'tools/pi/can.sh active'"; exit 1
+      fi
+      if ip -details link show "$CAN_IF" | grep -q LISTEN-ONLY; then
+        echo "$CAN_IF is in listen-only mode: polls would never reach the bus."
+        echo "Switch it with 'tools/pi/can.sh active' (ADR-0012), or drop TRANSMIT=1."; exit 1
+      fi
+    else
+      echo "PASSIVE_ONLY: $CAN_IF will not be opened and nothing reaches the vehicle."
+      echo "To poll (read-only services only), opt in with TRANSMIT=1 (ADR-0007)."
+    fi ;;
   *)
-    echo "TRANSPORT must be sim or obdlink, got '$TRANSPORT'"; exit 1 ;;
+    echo "TRANSPORT must be sim, obdlink or can, got '$TRANSPORT'"; exit 1 ;;
 esac
 [[ -n "$ENABLE" ]] && gw_args+=(--enable "$ENABLE")
 [[ -n "$BUDGET_RPS" ]] && gw_args+=(--budget-rps "$BUDGET_RPS")
@@ -106,14 +127,18 @@ esac
 
 SESSION="$DATA_DIR/$(date +%Y%m%d-%H%M%S)-$TRANSPORT"
 mkdir -p "$SESSION"
-[[ "$TRANSPORT" == obdlink ]] && gw_args+=(--traffic-log "$SESSION/traffic")
+[[ "$TRANSPORT" == obdlink || "$TRANSPORT" == can ]] && gw_args+=(--traffic-log "$SESSION/traffic")
 {
   echo "started:   $(date -Iseconds)"
   echo "commit:    $(git rev-parse --short HEAD)$(git diff --quiet || echo ' (uncommitted changes)')"
   echo "host:      $(hostname) $(uname -srm)"
   echo "transport: $TRANSPORT"
-  echo "transmit:  $([[ "$TRANSPORT" == obdlink && "$TRANSMIT" == 1 ]] && echo enabled || echo off)"
+  echo "transmit:  $([[ "$TRANSPORT" != sim && "$TRANSMIT" == 1 ]] && echo enabled || echo off)"
   echo "gateway:   $GW_BIN ${gw_args[*]}"
+  if [[ "$TRANSPORT" == can ]]; then
+    echo "interface:"
+    ip -details -statistics link show "$CAN_IF" 2>&1 | sed 's/^/  /'
+  fi
 } >"$SESSION/session.txt"
 
 # A pi-start session is active only once its VT is in front, so wait for that
@@ -134,6 +159,10 @@ cleanup() {
   # Stop the recorder before the gateway so it records the shutdown cleanly.
   for ((i=${#PIDS[@]}-1; i>=0; i--)); do kill "${PIDS[i]}" 2>/dev/null || true; done
   wait 2>/dev/null || true
+  if [[ "$TRANSPORT" == can ]]; then
+    { echo "interface at stop:"; ip -details -statistics link show "$CAN_IF" 2>&1 | sed 's/^/  /'; } \
+      >>"$SESSION/session.txt"
+  fi
   echo "stopped:   $(date -Iseconds)" >>"$SESSION/session.txt"
   echo "Session saved in $SESSION"
 }

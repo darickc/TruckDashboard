@@ -23,6 +23,7 @@ use crate::link::{
 };
 use crate::poll::{Miss, PollPolicy, nrc_means_unsupported};
 use crate::scheduler::Scheduler;
+use crate::transport::can::{CanLink, CanTiming, Opener};
 use crate::transport::obdlink::{DriverEvent, LinkSpec, ObdLink, RawOutcome};
 use crate::transport::simulated::SimulatedTransport;
 use crate::transport::traffic::TrafficLog;
@@ -67,6 +68,7 @@ pub enum Command {
 enum Transport {
     Sim(Box<SimulatedTransport>),
     Obd(ObdLink),
+    Can(CanLink),
 }
 
 pub struct Core {
@@ -89,11 +91,28 @@ pub struct Core {
 
 impl Core {
     /// Loads the registry and warnings, applies `--enable`, and builds the
-    /// transport. Returns the core, its driver-event receiver (OBDLink only)
-    /// and a snapshot receiver for subscribers.
+    /// transport. Returns the core, its driver-event receiver (OBDLink and
+    /// CAN) and a snapshot receiver for subscribers.
     #[allow(clippy::type_complexity)]
     pub fn new(
         cfg: Config,
+    ) -> Result<
+        (
+            Self,
+            Option<mpsc::Receiver<DriverEvent>>,
+            watch::Receiver<Arc<pb::Snapshot>>,
+        ),
+        String,
+    > {
+        Self::with_can_opener(cfg, None)
+    }
+
+    /// [`Core::new`], with the CAN bus supplied by the caller instead of a
+    /// SocketCAN socket (tests: an in-memory bus with scripted ECUs).
+    #[allow(clippy::type_complexity)]
+    pub fn with_can_opener(
+        cfg: Config,
+        can_opener: Option<Opener>,
     ) -> Result<
         (
             Self,
@@ -111,7 +130,7 @@ impl Core {
                 powerstroke_sim::Scenario::load(&cfg.scenario_dir, &cfg.scenario)
                     .map_err(|e| format!("scenario: {e}"))?,
             ),
-            TransportKind::Obdlink => None,
+            TransportKind::Obdlink | TransportKind::Can => None,
         };
         let mut enable = cfg.enable.clone();
         let mut auto_enabled = Vec::new();
@@ -188,6 +207,22 @@ impl Core {
                 let (link, rx) = ObdLink::spawn(spec.connector(), elm, traffic)?;
                 (Transport::Obd(link), Some(rx))
             }
+            TransportKind::Can => {
+                let traffic = match &cfg.traffic_log {
+                    Some(dir) => Some(
+                        TrafficLog::new(dir.clone()).map_err(|e| format!("traffic log: {e}"))?,
+                    ),
+                    None => None,
+                };
+                let opener = can_opener
+                    .unwrap_or_else(|| crate::transport::can::socket::opener(cfg.can_if.clone()));
+                let timing = CanTiming {
+                    window: Duration::from_millis(cfg.can_window_ms),
+                };
+                let (link, rx) =
+                    CanLink::spawn(cfg.can_if.clone(), opener, allow_list()?, timing, traffic);
+                (Transport::Can(link), Some(rx))
+            }
         };
 
         let (snapshot_tx, snapshot_rx) = watch::channel(Arc::new(pb::Snapshot::default()));
@@ -242,7 +277,7 @@ impl Core {
     fn transmit_enabled(&self) -> bool {
         match self.transport {
             Transport::Sim(_) => true,
-            Transport::Obd(_) => self.cfg.transmit,
+            Transport::Obd(_) | Transport::Can(_) => self.cfg.transmit,
         }
     }
 
@@ -400,6 +435,26 @@ impl Core {
                     Action::RetryAt(_) => {}
                 }
             }
+            (Transport::Can(link), a) => {
+                let link = link.clone();
+                match a {
+                    Action::Connect => link.connect().await, // → Connected + Ready / ConnectFailed
+                    Action::InitAdapter => {}                // nothing to initialise
+                    Action::Recover(RecoveryStep::Soft) => {
+                        // Socket open and interface up? Sends nothing.
+                        let ev = if link.check().await {
+                            LinkEvent::RecoveryOk
+                        } else {
+                            LinkEvent::RecoveryFailed
+                        };
+                        Box::pin(self.link_event(ev)).await;
+                    }
+                    Action::Recover(RecoveryStep::Reset | RecoveryStep::Reconnect) => {
+                        link.reset().await; // reopen the socket → Ready / ConnectFailed
+                    }
+                    Action::RetryAt(_) => {}
+                }
+            }
         }
     }
 
@@ -520,6 +575,17 @@ impl Core {
                 outcome
             }
             Transport::Obd(link) => {
+                if !self.cfg.transmit {
+                    return Outcome::Refused {
+                        reason: "transmit disabled (--transmit not given)".into(),
+                    };
+                }
+                match obd_request(def) {
+                    Ok(req) => link.clone().request(req).await,
+                    Err(reason) => Outcome::Refused { reason },
+                }
+            }
+            Transport::Can(link) => {
                 if !self.cfg.transmit {
                     return Outcome::Refused {
                         reason: "transmit disabled (--transmit not given)".into(),
@@ -710,26 +776,21 @@ impl Core {
                         refused: "the simulated transport has no adapter".into(),
                         ..Default::default()
                     }),
-                    Transport::Obd(_) if !self.cfg.transmit => Ok(pb::RawResponse {
-                        refused: "transmit disabled (--transmit not given)".into(),
-                        ..Default::default()
-                    }),
+                    Transport::Obd(_) | Transport::Can(_) if !self.cfg.transmit => {
+                        Ok(pb::RawResponse {
+                            refused: "transmit disabled (--transmit not given)".into(),
+                            ..Default::default()
+                        })
+                    }
                     Transport::Obd(link) => {
                         let link = link.clone();
-                        let RawOutcome {
-                            lines,
-                            latency_ms,
-                            refused,
-                        } = link.raw(line.clone()).await;
-                        self.log(
-                            EventSeverity::Info,
-                            format!("raw {line} → {} line(s)", lines.len()),
-                        );
-                        Ok(pb::RawResponse {
-                            lines,
-                            latency_ms,
-                            refused: refused.unwrap_or_default(),
-                        })
+                        let raw = link.raw(line.clone()).await;
+                        Ok(self.raw_response(&line, raw))
+                    }
+                    Transport::Can(link) => {
+                        let link = link.clone();
+                        let raw = link.raw(line.clone()).await;
+                        Ok(self.raw_response(&line, raw))
                     }
                 };
                 let _ = reply.send(result);
@@ -737,6 +798,23 @@ impl Core {
             Command::Stats { reset, reply } => {
                 let _ = reply.send(Ok(self.stats(reset)));
             }
+        }
+    }
+
+    fn raw_response(&mut self, line: &str, raw: RawOutcome) -> pb::RawResponse {
+        let RawOutcome {
+            lines,
+            latency_ms,
+            refused,
+        } = raw;
+        self.log(
+            EventSeverity::Info,
+            format!("raw {line} → {} line(s)", lines.len()),
+        );
+        pb::RawResponse {
+            lines,
+            latency_ms,
+            refused: refused.unwrap_or_default(),
         }
     }
 
@@ -977,6 +1055,7 @@ impl Core {
                 sim.scenario_seconds(now.as_millis() as u64),
             ),
             Transport::Obd(_) => ("obdlink".to_string(), false, String::new(), 0.0),
+            Transport::Can(link) => (format!("can:{}", link.interface), false, String::new(), 0.0),
         };
         let rps = self.store.requests_per_second(now);
         let load = self.sched.load();

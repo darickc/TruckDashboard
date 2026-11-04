@@ -125,13 +125,19 @@ Found along the way:
 
 ## Phase 4 — CAN hardware communication [HW] [HUMAN]
 
-Starts after the purchase decision in 3.5.7.
+Starts after the purchase decision in 3.5.7. The USB CAN adapter was bought
+early (2026-11-03, [ADR-0012](architecture/adr/0012-direct-can-usb-adapter.md)),
+so 4.1, 4.3, 4.5 and 4.7 can run with it.
 
 - [ ] 4.1 Bench bring-up plus the gateway's SocketCAN transport. **Resolve the CAN termination** (H1)
+      Done `[SIM]`: `--transport can` (single-frame ISO-TP on a raw SocketCAN socket), `tools/pi/can.sh`
+      (listen-only by default, `active` on request, capture), tests against an in-memory bus replaying
+      the truck's captures; compiled and unit-tested on the Pi 5. Still open: the adapter on the bench
+      (firmware, listen-only, terminator), [docs/setup/can.md](setup/can.md)
 - [ ] 4.2 `tools/can-monitor`
 - [ ] 4.3 Stage A: passive census on the truck
 - [ ] 4.4 Stage B: corroborated broadcast decoders
-- [ ] 4.5 Stage C: ISO-TP diagnostics (opt-in)
+- [ ] 4.5 Stage C: ISO-TP diagnostics (opt-in). Our own single-frame ISO-TP instead of kernel `can-isotp` (ADR-0012)
 - [ ] 4.6 Stage D: transport switching and the no-simultaneous-transmit rule, MX+ and CAN both present
 - [ ] 4.7 Dropout experiment (listen-only CAN capture while the MX+ polls)
 - [ ] 4.8 Finish whatever 3.5 left open in `TRUCK_SESSION.md`, over direct CAN

@@ -35,3 +35,6 @@ workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 bluer = { version = "0.17", features = ["rfcomm"], optional = true }
+# SocketCAN for the direct-CAN transport (ADR-0012). No system libraries;
+# netlink is left out because the gateway never configures the interface.
+socketcan = { version = "4", default-features = false, features = ["tokio"] }

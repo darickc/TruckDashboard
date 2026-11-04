@@ -38,9 +38,9 @@ or (untested on hardware) the MX+. See [docs/setup/gateway.md](docs/setup/gatewa
 | Architecture, ADRs, hardware research | Written. See [docs/architecture/](docs/architecture/overview.md) |
 | Flutter dashboard (`apps/infotainment`) | Runs with **simulated** data: gauges, global alerts, stale-data handling, diagnostics, fuel level, speed calibration. 99 tests `[SIM]` |
 | Power Stroke simulator (`simulator/powerstroke`) | 6 scenarios, including the EOT/ECT freeze. 27 tests `[SIM]` |
-| Rust vehicle gateway (`services/vehicle-gateway`) | Runs with the simulator or the MX+ (serial/TCP/RFCOMM). gRPC API, recovery logic, recorder, `obd-console`. Tested against a fake adapter replaying the truck's captures `[SIM]`. **Not yet run against the real MX+** |
+| Rust vehicle gateway (`services/vehicle-gateway`) | Runs with the simulator, the MX+ (serial/TCP/RFCOMM) or direct CAN on SocketCAN (ADR-0012). gRPC API, recovery logic, recorder, `obd-console`. Tested against a fake adapter and an in-memory CAN bus replaying the truck's captures `[SIM]`. The CAN transport has not run against the adapter yet |
 | MX+ truck trial | Phase 3.5. Not started. Needs only owned hardware |
-| CAN hardware, AGL image, infotainment | Phases 4–7. Not started. **No head-unit hardware purchased yet.** Purchases are decided by the MX+ trial |
+| CAN hardware, AGL image, infotainment | Phases 4–7. A USB CAN adapter (Jhoinrch RH-02 Pro) was bought 2026-11-03; bench and truck steps in [docs/setup/can.md](docs/setup/can.md). The rest of the purchases are decided by the MX+ trial |
 
 **Next: Phase 3.5, an MX+ truck trial**: the Pi 5 and display on Raspberry Pi OS,
 talking to the OBDLink MX+ over Bluetooth. It needs no new hardware, and its
