@@ -27,7 +27,7 @@ it, on 2026-11-03 ([ADR-0012](../architecture/adr/0012-direct-can-usb-adapter.md
 | CarPiHAT PRO 5 | Power latch, opto inputs, 12 V outputs, CAN, DAC, RTC | **First ask TJD about the CAN terminator and the input protection** ([H1, H2](open-questions.md)) |
 | Display FFC, **22-way to 15-way, display type** | Pi 5 ↔ original display | A camera-type cable leaves the screen dark |
 | USB candleLight/CANable CAN adapter (`gs_usb`) | Direct CAN from the Pi; listen-only capture; fallback if the HAT's terminator can't be removed | **Bought 2026-11-03:** Jhoinrch RH-02 Pro (CANable 2.0, isolated, switchable 120 Ω). [Matrix](compatibility-matrix.md#usb-can-adapter-jhoinrch-rh-02-pro) |
-| OBD-II Y-splitter plus a DLC breakout (male J1962 to wires/terminals) | **Needed to connect the RH-02 Pro**: its CAN side is a screw terminal block. The splitter lets the MX+ and the Pi share the DLC for the dropout experiment; the breakout gives CANH/CANL access for a meter | [Wiring](../wiring/dlc-can-adapter.md) |
+| OBD-II Y-splitter plus a DLC breakout (male J1962 to wires/terminals) | **Needed to connect the RH-02 Pro**: its CAN side is a screw terminal block. The splitter lets the MX+ and the Pi share the DLC for the dropout experiment; the breakout gives CANH/CANL access for a meter | **Owned** (owner, 2026-11-03). Check its pinout by continuity before use: [wiring](../wiring/dlc-can-adapter.md) |
 | Bench 12 V supply (current-limited) | Powers the HAT without the truck | |
 | microSD (for Raspberry Pi OS and the AGL prebuilt image) | Staged bring-up (ADR-0005) | |
 | USB SSD | Production storage | Or NVMe, once [H4](open-questions.md) is answered |

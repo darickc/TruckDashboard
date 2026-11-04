@@ -15,7 +15,9 @@ change to the truck's wiring. Not the permanent installation.
 - **A way to reach DLC pins 6, 14 and 5** without cutting anything: an OBD-II
   male breakout/pigtail (male J1962 plug to bare wires or screw terminals),
   ideally an OBD-II Y-splitter too, so the MX+ can stay plugged in beside it
-  ([shopping list](../hardware/shopping-list.md)).
+  ([shopping list](../hardware/shopping-list.md)). The owner has one
+  (2026-11-03). Its pinout is unchecked: do the continuity row in the
+  sign-off table first.
 - A multimeter.
 
 ## Connections
