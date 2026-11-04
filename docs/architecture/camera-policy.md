@@ -12,14 +12,16 @@ Pi 5.
 
 | Input | Source | Never |
 |---|---|---|
-| Reverse | CarPiHAT REV opto input (BCM7), via the power-manager | A raw 12 V line on GPIO |
-| Left turn | IN_1 (BCM14), via the power-manager | Same |
-| Right turn | IN_2 (BCM17), via the power-manager | Same |
+| Reverse | Opto-isolated input board → Pi GPIO (proposed BCM5, a config value), via the power-manager ([wiring](../wiring/power-and-inputs.md)) | A raw 12 V line on GPIO |
+| Left / right turn | **To be decided by a CAN check.** If HS-CAN carries them, a corroborated broadcast decoder in the gateway (Stage B). Otherwise two more channels on the same opto board | Same. Never by polling a module |
 | Gear and speed | Gateway signals, used **only** to decide whether manual selection is allowed | — |
 
-Turn signals are expected **not** to be available on HS-CAN: the GEM is
-reportedly on the K-line, and this is unverified. The hardware inputs are
-therefore the primary source.
+Turn signals are expected **not** to be on HS-CAN: the GEM is reportedly on the
+K-line, and this is unverified. The listen-only
+[event captures](../setup/can.md#event-captures-turn-signals-and-reverse)
+settle it ([H14](../hardware/open-questions.md)). A broadcast found there is
+used only after Stage B corroborates it against the stalk. Reverse stays on its
+hardware input either way; a CAN reverse signal would only cross-check it.
 
 The camera manager **never** asks the gateway to transmit anything.
 

@@ -18,7 +18,7 @@ Status:
   and stop the dashboard on the screen. `make pi-run` itself doesn't work over
   SSH (see [Over SSH](#over-ssh-make-pi-start)).
 - **Not tested yet:**
-  - the ribbon with the CarPiHAT fitted (H3)
+  - the ribbon with the DAC HAT fitted (H3)
   - Bluetooth to the MX+, and anything on the truck
 
 ## 1. Install (once)

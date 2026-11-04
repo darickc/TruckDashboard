@@ -1,7 +1,9 @@
 # Hardware compatibility matrix
 
 Researched **2026-11-01**. Nothing here has been tested on hardware yet. The
-only head-unit purchase so far is the USB CAN adapter (2026-11-03, below).
+only head-unit purchase so far is the USB CAN adapter (2026-11-03, below). The
+mini-box DCDC-USB was chosen for power on 2026-11-04 and has not been bought yet
+([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md)).
 
 Status key:
 
@@ -19,9 +21,8 @@ Update a row whenever a source or a test changes it, and keep the citation.
 |---|---|
 | Pi 5 + AGL Vimba 22.0.0 | **Supported.** Official prebuilt images (V) |
 | Pi 5 + original 7" DSI display under AGL | **Expected to work with configuration.** The driver and overlay ship, but the display isn't turned on by default (V). Not tested |
-| Pi 5 + CarPiHAT PRO 5 | **Plausible.** It's marketed for the Pi 5 (V). The CAN termination and electrical protection need answers before vehicle use (U) |
-| CarPiHAT PRO 5 + original display | **Unknown.** The power side was tested with the official display (V). Ribbon routing with the HAT fitted is undocumented (U) |
-| CarPiHAT MCP2515 + 2007 F-250 HS-CAN | **Plausible.** 500 k HS-CAN is verified on this truck (T, protocol 6). The controller supports 500 k. A **termination conflict is likely** (see below) |
+| Pi 5 + mini-box DCDC-USB (automotive mode, PSW → J2) | **Plausible.** It can be set to 5 V, and J2 takes a normally-open momentary closure (V). Whether PSW is such a closure, the pulse timing, and the current at 5 V are not documented (U) |
+| Pi 5 + CarPiHAT PRO 5 | **Not used** ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md)). Kept below as a research record |
 
 ## AGL / OS
 
@@ -55,8 +56,8 @@ Update a row whenever a source or a test changes it, and keep the citation.
 
 ## Raspberry Pi 5 onboard RTC
 
-The head unit keeps time while parked with this RTC and a battery on J5. No RTC
-on the power HAT is needed. Researched 2026-11-03. Source for the `V` rows:
+The head unit keeps time while parked with this RTC and a battery on J5. No
+separate RTC is needed. Researched 2026-11-03. Source for the `V` rows:
 [RPi docs, Real Time Clock](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#real-time-clock-rtc).
 
 | Item | Finding | Status | Source |
@@ -67,11 +68,70 @@ on the power HAT is needed. Researched 2026-11-03. Source for the `V` rows:
 | Charging | Off by default. Turn it on with `dtparam=rtc_bbat_vchg=3000000` in `config.txt` (sysfs range 1300000–4400000, presumably µV) | V | RPi docs |
 | Retention | Single-digit µA when powered down, so months | V | RPi docs |
 | Wake alarm | `POWER_OFF_ON_HALT=1` and `WAKE_ON_GPIO=0` in the EEPROM config, then write `/sys/class/rtc/rtc0/wakealarm`. About 3 mA while waiting | V | RPi docs |
-| Without a battery | Time is presumably lost whenever the HAT's power switch cuts 5 V. The docs imply this but don't say it | inferred | — |
+| Without a battery | Time is presumably lost whenever the power supply cuts 5 V. The docs imply this but don't say it | inferred | — |
 | In the AGL image | Whether the AGL kernel enables the Pi 5 RTC driver and honours `rtc_bbat_vchg` is not checked. Verify on the image: `ls /sys/class/rtc/`, `cat /sys/class/rtc/rtc0/charging_voltage`, `hwclock -r` | U | — |
 | Holds time across a parked night | Not tested ([H20](open-questions.md)) | U | — |
 
+## mini-box DCDC-USB
+
+Chosen for power on 2026-11-04
+([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md)). Sources:
+
+- the [product page](https://www.mini-box.com/DCDC-USB)
+- the [Quick Installation Guide](https://resources.mini-box.com/online/PWR-DCDC-USB/PWR-DCDC-USB-manual.pdf), v1.0c ("QIG")
+- the [Advanced USB configuration manual](https://resources.mini-box.com/online/PWR-DCDC-USB/PWR-DCDC-USB-Advanced-USB-configuration-manual.pdf) ("USB manual")
+
+All read 2026-11-04.
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| Input | 6–34 V. Electronic shutdown at 34 V; clamping at 35–37 V | V | QIG p. 5 |
+| Output | 12 V by default. Jumpers give 5, 6, 9, 12, 13.5, 16, 19 or 24 V; USB gives 5–24 V in fine steps. A jumper change needs a power cycle | V | QIG p. 3, product page |
+| Output current | Up to 10 A, 100 W, limited by the 10 A input fuse. The current chart covers **only the 12 V output** (8 A from 10 V in). **The limit at 5 V is not stated** | V / U (5 V) | QIG p. 5 |
+| Regulation | ±2.5 % | V | QIG p. 5 |
+| Cooling | Forced air above 40 W, or above 65 °C | V | QIG p. 5 |
+| Connectors | Mini-Fit Jr 4-pin input (VIN, GND, IGN; harness red, black, white) and output (VOUT, GND; harness yellow, black) | V | QIG p. 2, 5 |
+| Modes | DUMB, AUTOMOTIVE, SCRIPT, UPS, set by jumpers | V | QIG p. 3–4 |
+| Automotive mode | Reads the ignition wire and sends ON/OFF pulses to the motherboard | V | QIG p. 3 |
+| OFFDELAY | Time from ignition off to the ON/OFF pulse | V | QIG p. 4 |
+| HARDOFF | Time from the pulse to output off. Can be "Never" | V | QIG p. 4 |
+| Timer presets (jumpers) | 0/0, 5 s/60 s, 5 s/never, 1 min/1 min, 15 min/1 min, 15 min/never, 30 min/1 min, 2 h/never | V | QIG p. 4 |
+| Timers over USB | Each preset's off-delay and hard-off values can be changed (max 17:59:59 or Never). Takes effect at the next power cycle | V | USB manual p. 4–6 |
+| Deep-discharge cutoff | Below 11.2 V **during HARDOFF**, power is cut | V | QIG p. 4–5 |
+| Shutdown sensing | None documented. The sequence is purely timer-based | V (by omission) | QIG p. 4 |
+| Standby draw | "Well under 1 mA" in automotive mode | V (claim) / U (not measured) | product page |
+| PSW header | 2 pins. "Soft ON/OFF control for motherboard. Connect this to motherboard ON/OFF pins" | V | QIG p. 2 |
+| PSW electrical form | Not documented: open-collector, relay contact or driven voltage. Polarity unknown | U | — ([H21](open-questions.md)) |
+| PSW pulse length and the ON pulse's timing | Not documented. The SCRIPT-mode example uses a 500 ms PSW pulse | U | USB manual p. 7 (example only) |
+| Ignition returns during HARDOFF | Not documented | U | — ([H23](open-questions.md)) |
+| Vaux | "Unregulated switched input" for peripherals in automotive modes. When it switches is not documented | V / U | QIG p. 2 |
+| USB telemetry | The Windows tool shows input, ignition and output voltages, the PSW and output state, and the off-delay and hard-off timers | V | USB manual p. 2–3 |
+| USB telemetry on Linux | mini-box links a Linux tool, [mini-box/dcdc-usb](https://github.com/mini-box/dcdc-usb). Not checked: whether it reads these values in automotive mode on the Pi | U | — ([H24](open-questions.md)) |
+
+## Raspberry Pi 5 power button and 5 V input
+
+Source: [RPi docs](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html),
+sections "Power button", "Power supply", "Universal Serial Bus (USB)" and
+"Raspberry Pi bootloader configuration". Read 2026-11-04.
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| J2 | "Located between the RTC battery connector and the board edge." Takes a **normally-open momentary switch bridging the two pads**. Briefly closing it does the same as the onboard power button | V | Power button |
+| J2 pad polarity, debounce | Not documented | U | — measure ([H21](open-questions.md)) |
+| Press while running | Raspberry Pi OS Lite: one press starts a shutdown. With the desktop, a menu appears (press again, or press twice quickly). On AGL, logind's `HandlePowerKey` decides; power-manager sets it to `ignore` and handles the key itself | V (RPi OS) / U (AGL) | Power button |
+| Press while halted but powered | "Restarts the board" | V | Power button |
+| Press and hold | Forces a hard shutdown. **No duration is given** | V / U (duration) | Power button |
+| Boots when power is applied | Stated for the first power-up. The docs don't say so for later power-ups. `WAIT_FOR_POWER_BUTTON` (default 0) with `POWER_OFF_ON_HALT=1` would instead wait for the button | V / U | Power button, bootloader config |
+| Halted draw | About 1–1.4 W by default. About 0.01 W with `POWER_OFF_ON_HALT=1` | V | Power supply |
+| USB current on a non-5 A supply | Downstream USB is limited to 600 mA (1.6 A on a 5 A supply). The budget is shared with the fan header | V | Power supply, USB |
+| Telling the Pi it has a 5 A supply | `PSU_MAX_CURRENT=5000` in the EEPROM skips USB-PD negotiation and assumes that rating. The docs don't spell out its effect on the 600 mA limit; check with `vcgencmd get_config usb_max_current_enable` | V / U (effect) | Bootloader config, USB |
+| `usb_max_current_enable=1` | Documented for **USB boot** on a 3 A supply. Not documented as a way to raise the peripheral current | V | Boot sequence |
+| 5 V into the GPIO header | Bypasses the PMIC: USB current isn't visible. The docs don't present it as a supported way to power the board. **Use the USB-C input** | V / U | Power supplies and Raspberry Pi OS |
+
 ## CarPiHAT PRO 5 (TJD; sold by The Pi Hut, TPH-106064, and Core Electronics)
+
+> **Not used** ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md),
+> 2026-11-04). This section is kept as a research record.
 
 Documentation is the [CarPiHat wiki](https://github.com/gecko242/CarPiHat/wiki).
 **It is not specific to the PRO 5.** The Pi Hut says the pinout hasn't changed
@@ -126,7 +186,7 @@ applies to the Pi 5 variant must be checked when the HAT is fitted.
 | MS-CAN (pins 3/11) | The 2008 manual lists it. 2006–07 scans show no MS-CAN modules | C | [Ford 418-00 copy](https://www.scribd.com/document/492204330), forum |
 | J1850 PWM | Not present in 2006/07 scans. 2004 trucks used it | F / U | forum |
 | FICM | Not a separate module. Its voltages appear as PCM PIDs | F | forum |
-| Turn signal / reverse on HS-CAN | Unknown. The GEM is on K-line, so turn signals are probably not on HS-CAN | U | — |
+| Turn signal / reverse on HS-CAN | Unknown. The GEM is on K-line, so turn signals are probably not on HS-CAN | U | — check with a listen-only [event capture](../setup/can.md#event-captures-turn-signals-and-reverse) |
 
 ## USB CAN adapter: Jhoinrch RH-02 Pro
 
@@ -162,7 +222,7 @@ Manual", model RH-02 Pro-1), unless noted.
 
 | If… | Then |
 |---|---|
-| The CarPiHAT's termination can't be removed or disabled | Use a **USB candleLight/CANable** adapter (`gs_usb`) with configurable or no termination for the DLC. Keep the HAT for power, inputs and the DAC |
-| Isolation is wanted | Waveshare 2-CH CAN HAT: isolated, jumper termination, 16 MHz, INT GPIO23/25 ([wiki](https://www.waveshare.com/wiki/2-CH_CAN_HAT)). **Conflicts** with the CarPiHAT's GPIO23 and BCM7 if stacked |
-| The CarPiHAT's power protection can't be confirmed | Add an external fuse, a TVS and reverse-polarity protection ahead of it, or use a dedicated automotive Pi power supply with an ignition latch plus a separate I2S DAC HAT |
-| The DSI ribbon doesn't clear the HAT | Route the ribbon around the HAT or use a GPIO extender/riser. Last resort: an HDMI display (changes the display decision) |
+| PSW is a driven voltage, not a contact ([H21](open-questions.md)) | Put a small reed relay or optocoupler between PSW and J2 |
+| The DCDC-USB can't hold 5 V at the Pi's load ([H25](open-questions.md)) | Run it at 12 V into a dedicated 5 V / 5 A converter, and keep it for the ignition logic and PSW |
+| The turn signals aren't on HS-CAN | Two more channels on the reverse input's opto board |
+| A CAN HAT is wanted instead of USB | Waveshare 2-CH CAN HAT: isolated, jumper termination, 16 MHz, INT GPIO23/25 ([wiki](https://www.waveshare.com/wiki/2-CH_CAN_HAT)). Check its pins against the DAC HAT and the opto inputs |

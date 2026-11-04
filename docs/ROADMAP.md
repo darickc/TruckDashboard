@@ -113,7 +113,7 @@ Found along the way:
       On the Pi (Raspberry Pi OS Lite, no display yet): setup, build and the whole stack under `cage` on a virtual display
       work **[BENCH]** ([bench-log](hardware/bench-log.md)). The original 7" display shows the console on DSI1 with stock
       `config.txt`, no HAT fitted; touch works and `make pi-run` fills the screen under `cage` **[BENCH]** (2026-11-02).
-      The ribbon fit with the HAT (H3) is left to the HAT's arrival
+      The ribbon fit with the DAC HAT (H3) is left to its arrival
 - [ ] 3.5.2 MX+ paired (`00:04:3E:85:EA:FC`, Secure Simple Pairing: confirm the shown passkey, no PIN). Phone and ESP32 disconnected. Opt-in recorded in `bench-log.md`
 - [ ] 3.5.3 Temporary truck setup: USB-C power (5 V / 5 A preferred), secure mount, shutdown before key-off.
       Dashboard **Power** button (confirm, then clean stop and `systemctl poweroff`; [setup/raspberry-pi.md](setup/raspberry-pi.md#power)) works on the Pi **[BENCH]** (2026-11-02, [bench-log](hardware/bench-log.md)).
@@ -129,13 +129,13 @@ Starts after the purchase decision in 3.5.7. The USB CAN adapter was bought
 early (2026-11-03, [ADR-0012](architecture/adr/0012-direct-can-usb-adapter.md)),
 so 4.1, 4.3, 4.5 and 4.7 can run with it.
 
-- [ ] 4.1 Bench bring-up plus the gateway's SocketCAN transport. **Resolve the CAN termination** (H1)
+- [ ] 4.1 Bench bring-up plus the gateway's SocketCAN transport. **Resolve the CAN termination** (the adapter's switch)
       Done `[SIM]`: `--transport can` (single-frame ISO-TP on a raw SocketCAN socket), `tools/pi/can.sh`
       (listen-only by default, `active` on request, capture), tests against an in-memory bus replaying
       the truck's captures; compiled and unit-tested on the Pi 5. Still open: the adapter on the bench
       (firmware, listen-only, terminator), [docs/setup/can.md](setup/can.md)
 - [ ] 4.2 `tools/can-monitor`
-- [ ] 4.3 Stage A: passive census on the truck
+- [ ] 4.3 Stage A: passive census on the truck, plus the turn-signal/reverse event captures (H14)
 - [ ] 4.4 Stage B: corroborated broadcast decoders
 - [ ] 4.5 Stage C: ISO-TP diagnostics (opt-in). Our own single-frame ISO-TP instead of kernel `can-isotp` (ADR-0012)
 - [ ] 4.6 Stage D: transport switching and the no-simultaneous-transmit rule, MX+ and CAN both present
@@ -153,12 +153,12 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
 ## Phase 6 — Infotainment
 
 - [ ] 6.1 audio-manager (A2DP sink, AVRCP, pairing window)
-- [ ] 6.2 Amplifier remote and mute sequencing (H5, H6)
+- [ ] 6.2 Amplifier remote and mute sequencing (H5, H6; DAC HAT and remote switch TBD, ADR-0013)
 - [ ] 6.3 Volume knob
 - [ ] 6.4 GPS
 - [ ] 6.5 Offline map, then routing, then the update workflow
 - [ ] 6.6 camera-manager and the ADR-0009 spike
-- [ ] 6.7 power-manager
+- [ ] 6.7 power-manager: the DCDC-USB power key and USB telemetry, the reverse input ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 

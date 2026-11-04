@@ -67,7 +67,8 @@ Every other Ford enhanced PID is imported from a Torque Pro export and stays
 flowchart LR
   subgraph Truck
     DLC[OBD-II DLC<br/>HS-CAN 500k]
-    IN[12 V signals<br/>ign / reverse / turn / illum]
+    IN[12 V signals<br/>reverse · turn if not on CAN]
+    ACC[ACC + battery]
   end
   subgraph Pi5[Raspberry Pi 5 · AGL]
     GW[vehicle-gateway<br/>Rust]
@@ -78,7 +79,8 @@ flowchart LR
     UI[Flutter UI<br/>800×480]
   end
   DLC -- SocketCAN / OBDLink --> GW
-  IN -- opto-isolated HAT inputs --> PWR
+  IN -- opto-isolated input board --> PWR
+  ACC -- DCDC-USB: power, PSW pulse, USB telemetry --> PWR
   GW -- gRPC f250.vehicle.v1 --> UI
   GW --> REC
   PWR --> CAM

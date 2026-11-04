@@ -20,11 +20,11 @@ flowchart LR
   PHONE[Phone<br/>Android / iPhone] -- A2DP SBC/AAC --> BZ[BlueZ]
   BZ --> PW[PipeWire bluez5 node]
   PW --> WP{WirePlumber policy<br/>AGL roles}
-  WP --> DAC[CarPiHAT DAC<br/>I2S, hifiberry-dacplus-std]
+  WP --> DAC[I2S DAC HAT<br/>model TBD]
   WP -. future .-> USBDAC[multichannel USB DAC]
   DAC -- line level RCA --> AMP[existing amplifiers<br/>front 4-ch + sub]
   AMP --> SPK[speakers / subwoofers]
-  PM[power-manager] -- OUT_0 12 V remote --> AMP
+  PM[power-manager] -- GPIO-driven 12 V remote, part TBD --> AMP
 ```
 
 - **The Pi never drives speakers directly.** Line out only, to amplifiers.
@@ -53,9 +53,11 @@ flowchart LR
   then the amp remote turns on, then the DAC unmutes.
 - On shutdown, the DAC is muted, then the amp remote turns off, then a delay,
   then the pipeline stops.
-- A Pi crash must leave the amplifiers **off**. That depends on the OUT_0
-  default state, which is to be verified (see
+- A Pi crash must leave the amplifiers **off**. That depends on the
+  amplifier-remote output's default state, which is to be verified (see
   [power-states.md](power-states.md#crash-and-reset-behaviour-to-be-verified-on-hardware)).
-- The CarPiHAT DAC line-out level and mute behaviour are undocumented. Measure
-  them before connecting the amplifiers, and set the amplifier gain against a
+- The DAC is no longer the CarPiHAT's
+  ([ADR-0013](adr/0013-dcdc-usb-power-supply.md)). Choose an I2S DAC HAT whose
+  line-out level and mute-at-boot behaviour are documented (H6). Measure them
+  anyway before connecting the amplifiers, and set the amplifier gain against a
   0 dBFS test tone.

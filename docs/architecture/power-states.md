@@ -4,83 +4,139 @@ Status: **design**. It is implemented in `services/power-manager` in Phase 6.
 The electrical behaviour is unverified until it is measured on the bench and in
 the truck (Phase 7).
 
-The hardware assumptions come from the CarPiHAT PRO 5 documentation. See the
-[compatibility matrix](../hardware/compatibility-matrix.md), where several
-items are unverified for the PRO 5:
+The hardware is a **mini-box DCDC-USB** in automotive mode
+([ADR-0013](adr/0013-dcdc-usb-power-supply.md)). Its documented behaviour and
+gaps are in the
+[compatibility matrix](../hardware/compatibility-matrix.md#mini-box-dcdc-usb).
+The wiring is in [power-and-inputs.md](../wiring/power-and-inputs.md).
 
-| Function | Pin | Notes |
+| Function | Source | Notes |
 |---|---|---|
-| Ignition sense | BCM12 | Opto-isolated |
-| Power latch | BCM25 | `gpio-poweroff` overlay keeps the latch low after halt |
-| Amplifier remote | OUT_0 (BCM27) | 12 V high-side, 1 A |
-| Illumination input | BCM13 | Drives day/night |
+| Ignition | Radio-harness ACC → DCDC-USB **IGN** | The Pi doesn't see it directly. power-manager reads it over USB (H24) |
+| Power to the Pi | DCDC-USB **VOUT** at about 5 V → Pi 5 | Output is switched by the DCDC-USB's timers |
+| Shutdown request | DCDC-USB **PSW** → Pi 5 **J2** pads | A momentary closure, the same as pressing the Pi's power button. Electrical form to be confirmed (H21) |
+| Battery voltage | DCDC-USB input voltage, over USB | H24. Fallback: an ESP32 ADC (H16) |
+| Reverse input | Opto board → Pi GPIO | Owned by power-manager, passed to camera-manager ([camera policy](camera-policy.md)) |
+| Amplifier remote | GPIO-driven switched 12 V output, part TBD | Must fail **off** (H5) |
+| Illumination | None | Day/night from sun position, see below |
 
 ## Goals
 
 - Boot on ignition and shut down cleanly after the ignition goes off.
 - Ride through cranking dips and short ignition blips without rebooting.
-- Never drain the truck's batteries when parked. The HAT draws under 1 mA when
-  off; this is the documented figure and is to be measured.
+- Never drain the truck's batteries when parked:
+  - The DCDC-USB's standby draw is documented as "well under 1 mA". It is
+    still to be measured.
+  - The Pi is unpowered once HARDOFF expires.
 - Mute the audio before the amplifiers switch on and before they switch off, so
   there is no pop.
 - Protect the filesystem: shut down cleanly, and keep the root filesystem
-  read-only where possible (Phase 5).
+  read-only where possible (Phase 5). A hard cut must be survivable.
+
+## How the DCDC-USB sequences power
+
+The documented behaviour (Quick Installation Guide, p. 4):
+
+1. **Ignition on.** The output comes on and the Pi 5 boots because it has
+   power. The supply also sends an ON pulse, which a motherboard needs and the
+   Pi does not. Its timing is undocumented (H21).
+2. **Ignition off.** After **OFFDELAY**, the supply pulses PSW. That is the
+   Pi's shutdown request.
+3. **After the pulse.** The output stays on for **HARDOFF**, then is cut. If
+   the battery falls below **11.2 V** during HARDOFF, the output is cut early.
+
+The supply never learns whether the Pi actually halted, so **HARDOFF must be
+longer than the worst measured shutdown time**, with margin.
+
+Example timer settings (configuration, set over USB, and examples to tune):
+
+| Timer | Example | Constraint |
+|---|---|---|
+| OFFDELAY | 30 s | Longer than any ACC dropout while cranking (H22). Longer means the screen survives a quick stop |
+| HARDOFF | 60 s | Longer than the worst measured shutdown time. The manual suggests 1 minute for battery-sensitive installs |
 
 ## State machine
 
+The Pi never decides on its own to halt because of the ignition. It follows
+the supply's pulse, so there is only one timer authority.
+
 ```mermaid
 stateDiagram-v2
-  [*] --> STARTING: HAT powers Pi (ignition on)
-  STARTING --> RUNNING: services healthy, latch held
-  STARTING --> SHUTTING_DOWN: ignition off during boot for ≥ ign_off_grace
-  RUNNING --> SHUTDOWN_PENDING: ignition off (debounced ign_debounce_ms)
-  SHUTDOWN_PENDING --> RUNNING: ignition on again (cancel)
-  SHUTDOWN_PENDING --> SHUTTING_DOWN: off for ≥ shutdown_delay_s
+  [*] --> STARTING: VOUT on (ignition on)
+  STARTING --> RUNNING: services healthy and boot window over
+  RUNNING --> SHUTDOWN_PENDING: telemetry says ignition off
+  SHUTDOWN_PENDING --> RUNNING: telemetry says ignition on again
+  SHUTDOWN_PENDING --> SHUTTING_DOWN: power key (PSW pulse)
+  RUNNING --> SHUTTING_DOWN: power key, ignition off or telemetry unavailable
+  RUNNING --> RUNNING: power key with ignition on (stray pulse, logged)
   RUNNING --> SHUTTING_DOWN: low voltage for ≥ low_v_hold_s (if measured)
-  SHUTTING_DOWN --> OFF: halt complete, latch released by gpio-poweroff
-  RUNNING --> FAULT: GPIO unavailable / watchdog / repeated service failure
-  FAULT --> SHUTTING_DOWN: ignition off
+  SHUTTING_DOWN --> OFF: halt (or reboot if ignition came back)
+  RUNNING --> FAULT: telemetry lost / watchdog / repeated service failure
+  FAULT --> SHUTTING_DOWN: power key
   FAULT --> RUNNING: condition clears
-  OFF --> [*]
+  OFF --> [*]: HARDOFF expires, VOUT cut
 ```
 
 | State | Entry | Actions | Exit |
 |---|---|---|---|
-| `OFF` | Halt completes | Latch released; the HAT cuts power | The HAT powers the Pi on ignition |
-| `STARTING` | Boot | Claim GPIO. Assert the latch. Amp remote **off**. Audio muted | All core services report ready |
-| `RUNNING` | Startup completes | Audio unmutes, then a settle delay, then the amp remote turns on. Backlight follows day/night | Ignition off, low voltage, or a fault |
-| `SHUTDOWN_PENDING` | Ignition off (debounced) | Keep running. Show a countdown banner. Recorder flushes | Ignition returns (**cancel**), or the delay expires |
-| `SHUTTING_DOWN` | Delay expired, or low voltage | Mute, then amp remote off, then a delay, then stop services, sync, `systemctl poweroff` | Halt |
-| `FAULT` | GPIO lost, or repeated failures | Report in the UI. Keep the latch. Amp remote off | Condition clears, or ignition goes off |
+| `OFF` | Halt completes | Nothing runs. The supply cuts VOUT when HARDOFF expires | Ignition on, so VOUT on |
+| `STARTING` | Boot | Claim the GPIO. Amp remote **off**. Audio muted. **Ignore the power key** for `boot_key_ignore_s` (the supply's ON pulse) | All core services report ready and the boot window is over |
+| `RUNNING` | Startup completes | Audio unmutes, then a settle delay, then the amp remote turns on. Backlight follows day/night | Ignition off (telemetry), a power key, low voltage, or a fault |
+| `SHUTDOWN_PENDING` | Telemetry says ignition off | Keep running. Show a countdown banner, using the supply's off-delay timer if it is readable. Recorder flushes | Ignition returns (**cancel**), or the PSW pulse arrives |
+| `SHUTTING_DOWN` | Power key accepted, or low voltage | Mute, then amp remote off, then a delay, then stop services and sync. Last check: if telemetry says the ignition is on again, `systemctl reboot`; otherwise `systemctl poweroff` | Halt or reboot |
+| `FAULT` | Telemetry lost, GPIO lost, or repeated failures | Report in the UI. Amp remote off. Fall back to **pulse-only**: any power key outside the boot window shuts down | Condition clears, or a power key |
 
-Defaults are configurable, and every one is an example to tune:
+Configuration defaults (every one is an example to tune):
 
 | Setting | Default |
 |---|---|
-| `ign_debounce_ms` | 500 |
-| `shutdown_delay_s` | 10 (the HAT example script uses 10 s) |
-| `ign_off_grace` | 5 s |
+| `boot_key_ignore_s` | 30, until H21 measures when the ON pulse arrives |
+| `low_v_hold_s` | 30 |
+| `telemetry_poll_ms` | 1000 |
 
-Low-voltage shutdown needs an actual voltage measurement. The HAT doesn't
-document one, so the source is still to be chosen:
+logind must not act on the power key itself: set `HandlePowerKey=ignore` in
+`logind.conf`. power-manager reads the key from the input device and decides.
 
-- an ESP32 ADC with a divider
-- an I2C ADC
-- the PCM's battery-voltage PID while the engine computer is awake (not
-  usable with the ignition off)
+### Edge cases of a toggle signal
+
+The PSW pulse means "press the button". It doesn't mean "be off". These cases
+follow from that:
+
+| Case | What happens | Handling |
+|---|---|---|
+| The ON pulse arrives after boot has started | Without handling, it would read as a shutdown request | Ignored during `boot_key_ignore_s`. If telemetry says the ignition is on, it is ignored at any time |
+| The Pi is already halted when the off-pulse arrives | The pulse **wakes** the Pi, then HARDOFF cuts it mid-boot | Avoid halting with the ignition on: the UI offers Restart, not Shut down. A mid-boot cut must be survivable (read-only root, Phase 5) |
+| The ignition returns during HARDOFF | The Pi finishes halting while VOUT stays on, so the head unit stays dark until the next key cycle | The reboot-instead-of-halt check covers part of the window. Whether the supply then sends an ON pulse is unknown (H23) |
+| The Pi hangs | The pulse does nothing | HARDOFF cuts power anyway: the backstop |
+| Someone presses the Pi's onboard button | Same as a PSW pulse | Same rules |
+
+Halted draw: by default a halted Pi 5 draws about 1–1.4 W until HARDOFF cuts
+it. `POWER_OFF_ON_HALT=1` lowers that to about 0.01 W. The docs don't say
+whether the Pi then boots on its own when power is reapplied, so it stays at
+the default until a bench test shows it does.
+
+## Low voltage
+
+- During HARDOFF, the DCDC-USB cuts power below 11.2 V (documented).
+- While running, a low-voltage shutdown needs a measurement. In order of
+  preference:
+  1. the DCDC-USB's input voltage over USB (H24)
+  2. an ESP32 ADC with a divider (H16)
+
+  The PCM's battery-voltage PID is not usable with the ignition off.
 
 ## Crash and reset behaviour (to be verified on hardware)
 
 - The amp remote output is the risk: a Pi crash must not leave the amplifiers
-  on, producing noise. Phase 6.2 must measure what OUT_0 does in each of these
-  cases:
+  on, producing noise. Phase 6.2 must measure what the chosen output does in
+  each of these cases:
   - after a kernel panic
   - after a watchdog reset
   - with the GPIO line released
 
-  The required result is that the output goes off. If the HAT's default doesn't
-  guarantee that, add a pull-down, or a hardware timer that drops remote turn-on
-  when the Pi stops toggling a heartbeat.
+  The required result is that the output goes off. Use a pull-down on the
+  driving GPIO. If that isn't enough, add a hardware timer that drops remote
+  turn-on when the Pi stops toggling a heartbeat.
 - Watchdogs:
   - systemd `RuntimeWatchdogSec` drives the Pi's hardware watchdog
   - each service sets `WatchdogSec`
@@ -89,10 +145,10 @@ document one, so the source is still to be chosen:
 
 ## Day/night and brightness
 
-- Inputs, in order of preference:
-  1. the illumination wire (BCM13, the headlamp-on signal)
-  2. a sun-position calculation from GPS time and location
-  3. a manual override
+- Inputs, in order of preference. There is no illumination wire
+  ([ADR-0013](adr/0013-dcdc-usb-power-supply.md)).
+  1. a sun-position calculation from GPS time and location
+  2. a manual override
 - Backlight: the original 7" display's backlight is regulator-based. Find it
   under `/sys/class/backlight/` on the Pi 5 at runtime; don't hard-code the
   path. A udev rule grants the power-manager write access.

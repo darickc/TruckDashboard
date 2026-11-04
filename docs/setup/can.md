@@ -98,6 +98,45 @@ What it answers:
 - **The broadcast census** (Phase 4.3): which IDs the modules send without
   being asked, and how often.
 
+### Event captures: turn signals and reverse
+
+These decide whether the turn signals can come from HS-CAN, or need two more
+opto inputs ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md),
+[H14](../hardware/open-questions.md)). They are still listen-only.
+
+Take **one capture per action**, so each file holds one event. Key on, engine
+off (KOEO), parked, with the parking brake set. Write the action and the
+folder name in `bench-log.md` as you go: the folder name is the only label.
+
+```bash
+tools/pi/can.sh capture 30           # 1. baseline: nothing touched
+tools/pi/can.sh capture 30           # 2. left turn signal on for the whole capture
+tools/pi/can.sh capture 30           # 3. right turn signal
+tools/pi/can.sh capture 30           # 4. hazards
+tools/pi/can.sh capture 30           # 5. in reverse, reverse lamps on (brake/clutch held)
+tools/pi/can.sh capture 30           # 6. headlights on (a spare data point)
+```
+
+How to read them:
+
+- A **turn signal** shows as bytes in one ID that toggle at the flasher rate
+  (roughly 1–2 Hz) in capture 2. A different bit toggles in capture 3. Both
+  toggle in capture 4. **None of it** toggles in capture 1.
+- **Reverse** shows as a byte that changes when R is selected in capture 5 and
+  stays steady otherwise. On this truck it may come from the TCM's gear
+  position.
+- **Nothing found** means the turn signals are not on HS-CAN. The GEM is
+  reportedly on the K-line, so that is the expected answer. It is then settled:
+  wire two more opto-board channels ([wiring](../wiring/power-and-inputs.md)).
+- **Something found** is only a candidate. Repeat it on another day, check
+  that the toggle tracks the stalk and the flasher, and record it in
+  `VERIFICATION_LOG.md`. It becomes a Stage B decoder (Phase 4.4) with its
+  provenance. **Until then the camera doesn't use it.**
+
+A diff helper that lists the IDs and bytes that change between two captures
+belongs in `tools/can-monitor` (Phase 4.2). TODO; until then, compare the
+`candump` logs by hand or with a short script.
+
 **With the MX+ on a Y-splitter and the gateway polling through it** (`make
 pi-start TRANSPORT=obdlink TRANSMIT=1 ENABLE=eot`), the same capture also
 records the MX+'s requests and every module's answers on the wire. That is

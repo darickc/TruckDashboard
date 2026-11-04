@@ -18,7 +18,8 @@ Related:
    sends user intents. It never opens a CAN socket, a serial port or a GPIO line.
 2. **One owner per hardware resource.**
    - `vehicle-gateway` owns the vehicle bus and adapters.
-   - `power-manager` owns the CarPiHAT GPIO.
+   - `power-manager` owns the GPIO inputs and outputs, the power key and the
+     DCDC-USB's USB link.
    - `camera-manager` owns the V4L2 devices.
    - `audio-manager` owns the BlueZ policy.
 3. **Versioned interfaces.** Protobuf packages are named `f250.<domain>.v1`.
@@ -34,9 +35,10 @@ Related:
 ```mermaid
 flowchart TB
   subgraph HW[Hardware]
-    CAN[CAN controller<br/>MCP2515 on CarPiHAT · or USB gs_usb]
+    CAN[CAN controller<br/>USB gs_usb adapter]
     MX[OBDLink MX+<br/>Bluetooth SPP]
-    GPIO[CarPiHAT opto inputs / 12 V outputs<br/>IGN · REV · ILLUM · IN_1 · IN_2 · OUT_0/1]
+    PSU[mini-box DCDC-USB<br/>ignition · PSW → J2 · USB telemetry]
+    GPIO[opto input board → GPIO<br/>REV · turn signals if not on CAN · amp remote out]
     V4L[USB/UVC cameras]
     GNSS[USB GNSS]
     BT[Bluetooth radio]
@@ -47,7 +49,7 @@ flowchart TB
   subgraph SVC[Rust services · systemd]
     GW[vehicle-gateway<br/>transports · scheduler · decode · health]
     REC[recorder<br/>SQLite · CSV export]
-    PWR[power-manager<br/>ignition · latch · amp remote · backlight]
+    PWR[power-manager<br/>power key · ignition telemetry · amp remote · backlight]
     CAMM[camera-manager<br/>policy · pipelines]
     AUDM[audio-manager<br/>BlueZ · PipeWire policy]
     NAV[navigation backend<br/>gpsd · Valhalla]
@@ -61,6 +63,7 @@ flowchart TB
   MX --> GW
   ESP --> GW
   GPIO --> PWR
+  PSU --> PWR
   V4L --> CAMM
   GNSS --> NAV
   BT --> AUDM
@@ -116,7 +119,7 @@ in Phase 5.
 
 | Unit | User | Notes |
 |---|---|---|
-| `f250-power-manager.service` | dedicated, `gpio` group | Starts first. Holds the power latch. `WatchdogSec` |
+| `f250-power-manager.service` | dedicated, `gpio` and `input` groups, plus a udev rule for the DCDC-USB | Starts first. Handles the power key (logind `HandlePowerKey=ignore`). `WatchdogSec` |
 | `f250-vehicle-gateway.service` | dedicated, CAN access | Socket at `/run/f250/vehicle.sock`. Transmit is disabled unless config opts in |
 | `f250-recorder.service` | dedicated | Writes `/var/lib/f250/` only |
 | `f250-camera-manager.service` | dedicated, `video` group | |

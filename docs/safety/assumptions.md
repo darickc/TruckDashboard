@@ -28,8 +28,8 @@ owner's explicit agreement.
   would without the Pi. The CAN node must not disturb the bus. This means
   correct bitrate, correct termination, and listen-only until verified.
 - **Electrical isolation from vehicle signals.** No 12 V signal ever reaches Pi
-  GPIO. Inputs go through the HAT's opto-isolated inputs or equivalent
-  protection.
+  GPIO. Inputs go through a protected opto-isolated input board whose output
+  side runs from the Pi's 3.3 V.
 - **Failure-safe audio.** A crash must leave the amplifiers off or muted. This
   is to be verified ([H5](../hardware/open-questions.md)).
 - **Battery protection.** The unit must not drain the truck's batteries when

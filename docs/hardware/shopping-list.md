@@ -15,20 +15,29 @@ At most:
 | microSD card | Raspberry Pi OS | Probably on hand |
 | Raspberry Pi 5 RTC battery (official, rechargeable Li-Mn coin cell, JST-SH plug) | Keeps the Pi's onboard RTC running while the power is cut, so logs have the right time after a cold start | Plugs into J5 (BAT). **Not** a CR2032 or other primary cell. Turn on charging: see [Clock](../setup/raspberry-pi.md#clock) |
 
-**Purchase decision after the trial:** _not made yet_ for the CarPiHAT and
-the rest of Stage 1. Record it here, with a link to
-`docs/diagnostics/mx-plus-trial.md`. The USB CAN adapter was bought ahead of
-it, on 2026-11-03 ([ADR-0012](../architecture/adr/0012-direct-can-usb-adapter.md)).
+**Purchase decision:**
+
+- The USB CAN adapter was bought on 2026-11-03, ahead of the trial report
+  ([ADR-0012](../architecture/adr/0012-direct-can-usb-adapter.md)).
+- **2026-11-04:** power comes from a **mini-box DCDC-USB**, and the
+  **CarPiHAT PRO 5 is not bought**
+  ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md)). Its other
+  jobs are listed below as separate parts.
+- The rest of Stage 1 follows the trial report,
+  `docs/diagnostics/mx-plus-trial.md`.
 
 ## Stage 1 — CAN bench bring-up (Phases 4–5), decided by the trial
 
 | Item | Why | Notes / alternatives |
 |---|---|---|
-| CarPiHAT PRO 5 | Power latch, opto inputs, 12 V outputs, CAN, DAC, RTC | **First ask TJD about the CAN terminator and the input protection** ([H1, H2](open-questions.md)) |
+| mini-box DCDC-USB | Ignition-aware 6–34 V supply; VOUT about 5 V to the Pi; PSW pulse to J2 | **Chosen 2026-11-04, not bought yet.** Bench it before the truck: [H21, H23–H25](open-questions.md). [Matrix](compatibility-matrix.md#mini-box-dcdc-usb) |
+| USB-C power lead (bare wires to a USB-C plug), heavy enough for 5 A | DCDC-USB VOUT into the Pi 5's USB-C input | Short, to keep the voltage drop low. Not into the GPIO header ([matrix](compatibility-matrix.md#raspberry-pi-5-power-button-and-5-v-input)) |
+| 2-pin lead to the Pi 5's J2 pads | PSW → J2 | Needs a header or wires soldered to J2 |
+| Opto-isolated input board, at least 4 channels, 12 V automotive inputs | Reverse now; turn signals later if CAN doesn't carry them | Output side powered from the Pi's 3.3 V ([H26](open-questions.md)) |
 | Display FFC, **22-way to 15-way, display type** | Pi 5 ↔ original display | A camera-type cable leaves the screen dark |
-| USB candleLight/CANable CAN adapter (`gs_usb`) | Direct CAN from the Pi; listen-only capture; fallback if the HAT's terminator can't be removed | **Bought 2026-11-03:** Jhoinrch RH-02 Pro (CANable 2.0, isolated, switchable 120 Ω). [Matrix](compatibility-matrix.md#usb-can-adapter-jhoinrch-rh-02-pro) |
+| USB candleLight/CANable CAN adapter (`gs_usb`) | Direct CAN from the Pi; listen-only capture | **Bought 2026-11-03:** Jhoinrch RH-02 Pro (CANable 2.0, isolated, switchable 120 Ω). [Matrix](compatibility-matrix.md#usb-can-adapter-jhoinrch-rh-02-pro) |
 | OBD-II Y-splitter plus a DLC breakout (male J1962 to wires/terminals) | **Needed to connect the RH-02 Pro**: its CAN side is a screw terminal block. The splitter lets the MX+ and the Pi share the DLC for the dropout experiment; the breakout gives CANH/CANL access for a meter | **Owned** (owner, 2026-11-03). Check its pinout by continuity before use: [wiring](../wiring/dlc-can-adapter.md) |
-| Bench 12 V supply (current-limited) | Powers the HAT without the truck | |
+| Bench 12 V supply (current-limited) | Powers the DCDC-USB without the truck; a switch on its IGN lead stands in for the key | |
 | microSD (for Raspberry Pi OS and the AGL prebuilt image) | Staged bring-up (ADR-0005) | |
 | USB SSD | Production storage | Or NVMe, once [H4](open-questions.md) is answered |
 
@@ -37,9 +46,9 @@ it, on 2026-11-03 ([ADR-0012](../architecture/adr/0012-direct-can-usb-adapter.md
 | Item | Why |
 |---|---|
 | Inline fuse holders and fuses (constant and ignition feeds) | Protection near the source |
-| Automotive TVS (SMBJ/SMCJ class) and reverse-polarity protection | Until the HAT's protection is confirmed |
+| Automotive TVS (SMBJ/SMCJ class) | On the reverse tap, ahead of the opto board, unless the board's input protection is documented |
 | Wiring, ferrules, grommets, a remote-turn-on lead | Install |
-| Rotary encoder (volume knob) | Into the ESP32, or into Pi GPIO through the HAT's breakout |
+| Rotary encoder (volume knob) | Into the ESP32, or into Pi GPIO |
 | USB GNSS receiver (u-blox, gpsd-compatible) | Navigation |
 
 ## Stage 3 — chosen after measurement (Phase 6)
@@ -48,5 +57,7 @@ it, on 2026-11-03 ([ADR-0012](../architecture/adr/0012-direct-can-usb-adapter.md
 |---|---|
 | Cameras and capture hardware | UVC first; latency and driver checks ([camera policy](../architecture/camera-policy.md)) |
 | Amplifier(s) | Only after the existing amplifiers are inspected ([H8](open-questions.md)) |
+| I2S DAC HAT | Documented line level and mute-at-boot behaviour ([H6](open-questions.md)); its pins must not clash with the opto inputs |
+| Amplifier-remote switch (GPIO-driven, switched 12 V, fails off) | The amplifier inventory ([H8](open-questions.md)) and the crash test ([H5](open-questions.md)) |
 | USB Bluetooth dongle | Only if the MX+ and A2DP conflict on the onboard radio ([H15](open-questions.md)) |
 | EGT thermocouple and amplifier (for example MAX31856) | Optional auxiliary sensor through the ESP32 |

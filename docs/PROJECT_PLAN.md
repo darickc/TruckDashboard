@@ -104,6 +104,11 @@ Status key:
 
 ### CarPiHAT PRO 5 (TJD; sold by The Pi Hut and Core Electronics)
 
+> **Not used.** Dropped on 2026-11-04 in favour of a mini-box DCDC-USB, a
+> separate opto input board and a DAC HAT
+> ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md)). The findings
+> below are kept as a research record.
+
 Documentation lives on the GitHub wiki (gecko242/CarPiHat). It is not specific to
 the PRO 5.
 
@@ -140,8 +145,11 @@ the PRO 5.
    reverse-polarity details. Plan an external fuse and TVS until they answer.
 3. **The DSI cable fit and the HAT stack must be checked by hand.** This includes
    any NVMe base.
-4. **Reverse and turn signals come from the HAT's opto inputs.** The plan is REV,
-   then IN_1 for left and IN_2 for right. They do not come from CAN or OBD polling.
+4. **Reverse comes from an opto-isolated input board on Pi GPIO**
+   ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md); this replaced
+   the HAT's opto inputs). **Turn signals are checked on HS-CAN first** with a
+   listen-only event capture. If they aren't there, they use two more channels
+   on the same board. Never OBD polling.
 5. **The MX+ is still needed for K-line modules.** Its Bluetooth link shares the
    Pi's radio with A2DP. Mitigations:
    - use the transport for validation only
@@ -457,7 +465,7 @@ the OBDLink MX+ over Bluetooth. It produces real data before any money is spent
    - which dropout hypotheses the logs eliminate or support (see the table below)
    - whether automatic recovery restored frozen PIDs without unplugging the adapter
    - measured throughput
-   - the hardware decision: CarPiHAT PRO 5, USB CAN adapter, both, or not yet. Record the decision in `shopping-list.md`.
+   - the hardware decision. Already made: the USB CAN adapter (ADR-0012) and, for power, the DCDC-USB with no CarPiHAT (ADR-0013). Record anything further in `shopping-list.md`.
 
    *Done when:*
    - the truck's dashboard has run on the Pi from MX+ data
@@ -475,9 +483,8 @@ the OBDLink MX+ over Bluetooth. It produces real data before any money is spent
 Starts after the purchase decision in 3.5.7. The hardware it uses is whatever
 that decision chose.
 
-1. **4.1** Do the **bench bring-up** on a Pi 5 running Raspberry Pi OS, using the CarPiHAT, or the alternative adapter if the HAT is rejected. Add the gateway's `SocketCan` transport (moved here from 3.6):
-   - SPI and MCP2515 overlay at 8 MHz with INT BCM23
-   - check the INT pull with `pinctrl` (raspberrypi/linux#6106)
+1. **4.1** Do the **bench bring-up** on a Pi 5 running Raspberry Pi OS, with the USB CAN adapter (ADR-0012; the CarPiHAT is dropped, ADR-0013). Add the gateway's `SocketCan` transport (moved here from 3.6):
+   - firmware and listen-only on the adapter
    - loopback test
    - **measure and resolve the termination**
 2. **4.2** Build `tools/can-monitor`:
@@ -489,6 +496,7 @@ that decision chose.
 3. **4.3** **Stage A on the truck**, passive and listen-only only, after a [HUMAN] wiring checklist:
    - confirm 500 k
    - record the broadcast census at KOEO, idle and driving
+   - the **event captures**: turn signals, hazards and reverse, one capture each ([can.md](setup/can.md#event-captures-turn-signals-and-reverse)). They decide whether the turn signals need opto inputs (H14)
 4. **4.4** **Stage B:** decoders only for broadcast signals that can be corroborated (for example against the RPM and speed PIDs). Each records its provenance and confidence. **No guessed definitions are shown as validated.**
 5. **4.5** **Stage C:** active diagnostics through kernel ISO-TP (`can-isotp`), PCM `7E0/7E8` and TCM `7E1/7E9`, first proven with a single request. It needs both the transmit opt-in and the checklist. Polling is conservative and has a kill switch.
 6. **4.6** **Stage D:** the OBDLink transport already ran on the truck in Phase 3.5. Here, confirm two things:
@@ -503,8 +511,9 @@ that decision chose.
 2. **5.2** First flash the **prebuilt Vimba Pi 5 Flutter image** and enable:
    - `vc4-kms-dsi-7inch`
    - the CAN overlay
-   - the DAC and gpio-poweroff overlays
-   - RTC battery charging on the Pi 5's onboard RTC (`dtparam=rtc_bbat_vchg=3000000`; [H20](hardware/open-questions.md)). Add the DS1307 overlay only if a CarPiHAT is fitted and chosen as the clock
+   - the DAC HAT's overlay
+   - `HandlePowerKey=ignore` for logind (power-manager handles the key; ADR-0013)
+   - RTC battery charging on the Pi 5's onboard RTC (`dtparam=rtc_bbat_vchg=3000000`; [H20](hardware/open-questions.md))
 
    Then check the display, touch, backlight, CAN and audio. Write `agl/scripts/diagnose-display.sh`, which collects:
    - DRM connectors
@@ -536,10 +545,10 @@ that decision chose.
    - volume limits
    - leaves an extension point for HFP and echo cancellation
 2. **6.2** **Amplifier control**:
-   - OUT_0 switches the amplifier remote line
+   - a GPIO-driven switched 12 V output (part TBD) switches the amplifier remote line
    - power-up order: mute, then the pipeline, then a delay, then remote on
    - shutdown order: mute, then remote off, then a delay, then halt
-   - verify the OUT_x state when the Pi crashes or the watchdog resets it [HW]
+   - verify the output's state when the Pi crashes or the watchdog resets it [HW] (H5)
 3. **6.3** **Physical volume knob** on the ESP32 (encoder) or on Pi GPIO.
 4. **6.4** **GPS**: a USB GNSS receiver through gpsd. Check that gpsd is in meta-oe; otherwise write a minimal NMEA reader.
 5. **6.5** **Navigation**, in order:
@@ -552,34 +561,38 @@ that decision chose.
    - the ADR-009 rendering spike
    - the policy state machine: reverse priority, turn-signal debounce and hold, hazard suppression, restore the previous screen
    - camera-loss warnings
-   - inputs only from the HAT's protected opto inputs, never raw 12 V
+   - inputs only from the protected opto input board, never raw 12 V (turn signals from a corroborated CAN broadcast instead, if 4.3 finds one)
    - camera hardware chosen by measured driver support and latency on the Pi 5 (UVC first)
 
    Tests: reverse priority, debounce, missing source, return to the previous screen, and hazard behaviour.
-7. **6.7** **power-manager**, the single owner of the HAT GPIO:
+7. **6.7** **power-manager**, the single owner of the GPIO, the power key and the DCDC-USB link ([power-states.md](architecture/power-states.md)):
    - states: `OFF, STARTING, RUNNING, SHUTDOWN_PENDING (cancellable), SHUTTING_DOWN, FAULT`
-   - latch on BCM25
-   - ignition debounce
-   - low-voltage behaviour, which needs a voltage measurement such as an ESP32 ADC or I2C ADC with a divider [HW]
-   - illumination input drives the day/night theme
+   - the power key (the DCDC-USB's PSW pulse on J2): ignored during the boot window and while the ignition is on
+   - ignition and battery voltage read from the DCDC-USB over USB (H24); pulse-only fallback without it
+   - reboot instead of halting if the ignition came back during shutdown
+   - low-voltage behaviour, from the DCDC-USB's input voltage or an ESP32 ADC [HW]
+   - the reverse input, with debounce
+   - day/night from sun position and a manual override (no illumination wire)
    - backlight dimming
    - systemd and hardware watchdogs
+   - revisit the dashboard **Power** button: Restart, not Shut down, while the ignition is on
 
-   Tests: ignition transitions, shutdown cancellation, low voltage, and a process dying unexpectedly.
+   Tests: the power key in every state, stray pulses during boot, telemetry loss, shutdown cancellation, reboot instead of halt, low voltage, and a process dying unexpectedly.
 
 ### Phase 7 — Installation and reliability [HW] [HUMAN]
 
 1. **7.1** Wiring diagrams in `docs/wiring/`:
-   - fused constant and ignition feeds
+   - fused constant feed and the ACC feed to the DCDC-USB ([power-and-inputs.md](wiring/power-and-inputs.md))
+   - PSW to J2, and VOUT to the Pi's USB-C input
    - external TVS
    - ground scheme
    - DLC tap or Y-cable
    - amplifier signal, remote and separate fused power
-   - reverse and turn-signal taps into the opto inputs
+   - the reverse tap (and turn-signal taps, if needed) into the opto input board
    - camera power
 
    Each diagram must be reviewed by a person before installation.
-2. **7.2** Electrical validation: cranking dip, load dump, parked current draw (target ≤ 1 mA when off), and the CAN termination measured again in the vehicle.
+2. **7.2** Electrical validation: cranking dip, load dump, parked current draw (target ≤ 1 mA when off), the ACC feed's behaviour while cranking (H22), HARDOFF against the measured shutdown time, and the CAN termination measured again in the vehicle.
 3. **7.3** Thermal validation in a closed cab in summer, with throttle logging.
 4. **7.4** Communication stress tests: long drives, dropout injection, and recovery statistics.
 5. **7.5** An on-vehicle acceptance checklist and a troubleshooting guide.
@@ -672,8 +685,9 @@ already have if the display runs on the Pi 5.
 
 | Item | Note |
 |---|---|
-| CarPiHAT PRO 5 | Confirm termination and protection details with TJD first |
-| USB candleLight CAN adapter | Bench and fallback CAN; makes listen-only capture alongside the HAT possible |
+| mini-box DCDC-USB | Chosen 2026-11-04 instead of the CarPiHAT PRO 5 (ADR-0013) |
+| Opto-isolated input board, I2S DAC HAT, amplifier-remote switch | The CarPiHAT's other jobs (ADR-0013) |
+| USB candleLight CAN adapter | Bought 2026-11-03 (ADR-0012) |
 | 22→15-way display FFC | Display type, **not** a camera cable |
 | OBD-II Y-splitter and DLC breakout | |
 | USB GNSS receiver | u-blox based |
