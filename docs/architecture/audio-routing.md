@@ -20,20 +20,43 @@ flowchart LR
   PHONE[Phone<br/>Android / iPhone] -- A2DP SBC/AAC --> BZ[BlueZ]
   BZ --> PW[PipeWire bluez5 node]
   PW --> WP{WirePlumber policy<br/>AGL roles}
-  WP --> DAC[I2S DAC HAT<br/>model TBD]
-  WP -. future .-> USBDAC[multichannel USB DAC]
-  DAC -- line level RCA --> AMP[existing amplifiers<br/>front 4-ch + sub]
-  AMP --> SPK[speakers / subwoofers]
-  PM[power-manager] -- GPIO-driven 12 V remote, part TBD --> AMP
+  WP --> FC[filter-chain<br/>crossover · fader · sub level]
+  FC --> DAC[HiFiBerry DAC8x<br/>4 stereo jacks]
+  DAC -- jack 1 front, jack 2 rear --> AMP4[new 4-ch amp]
+  DAC -- jack 3 sub, mono --> R150[Rockford R150-2<br/>bridged mono]
+  AMP4 --> SPK[4 factory speakers]
+  R150 --> SUBS[2 × 10-inch subs]
+  ACC[Radio harness ACC] --> TD[Delay-on timer relay<br/>part TBD]
+  TD -- REM --> AMP4
+  TD -- REM --> R150
 ```
 
 - **The Pi never drives speakers directly.** Line out only, to amplifiers.
-- The amplifier inventory is still unknown. Inspect it before buying anything
-  (Phase 6/7). Options:
-  - reuse the existing amplifiers
-  - a compact 4-channel amplifier
-  - a separate subwoofer amplifier
-  - a future multichannel USB DAC
+- The DAC, the channel map and keeping the R150-2 are decided in
+  [ADR-0014](adr/0014-multichannel-dac8x.md). The wiring is in
+  [wiring/audio.md](../wiring/audio.md).
+- What the Pioneer did and what replaces it (owner, 2026-11-04): its built-in
+  amp drove the 4 SuperCab speakers, so a new 4-channel amp replaces that.
+  Its sub pre-out fed the R150-2, so DAC8x jack 3 now feeds it.
+
+## Channel map and DSP
+
+| DAC8x jack | Destination | Processing (example values, configuration) |
+|---|---|---|
+| 1 | 4-ch amp front | High-pass (for example 80 Hz), balance |
+| 2 | 4-ch amp rear | High-pass, balance, fader against jack 1 |
+| 3 | R150-2, both legs | (L+R)/2, low-pass (for example 80 Hz), sub level |
+| 4 | — | Spare |
+
+- The crossover runs in a PipeWire **filter-chain** in front of the DAC8x
+  sink. audio-manager writes and owns its parameters.
+- The fader, balance, sub level and crossover frequency are user settings with
+  configured limits. The defaults are examples, not recommendations (rule 10).
+- audio-manager validates the configuration before applying it. For example,
+  no full-range signal to jack 3, and the front and rear filters never off
+  without an explicit setting. Both are unit-tested `[SIM]`.
+- Which ALSA channel pair comes out of which physical jack is TODO, found on
+  the bench ([wiring checks](../wiring/audio.md#checks-before-sign-off)).
 
 ## audio-manager responsibilities
 
@@ -49,15 +72,20 @@ flowchart LR
 
 ## Pop prevention and failure safety
 
-- On startup, the DAC is muted, then the pipeline comes up, then a settle delay,
-  then the amp remote turns on, then the DAC unmutes.
-- On shutdown, the DAC is muted, then the amp remote turns off, then a delay,
-  then the pipeline stops.
-- A Pi crash must leave the amplifiers **off**. That depends on the
-  amplifier-remote output's default state, which is to be verified (see
+- **The Pi doesn't switch the amplifiers.** Their remote leads are on ACC
+  through a delay-on timer relay ([ADR-0014](adr/0014-multichannel-dac8x.md),
+  [wiring](../wiring/audio.md#remote-turn-on-acc-through-a-delay-on-timer)).
+- On startup, the DAC stays muted until the pipeline is up. The timer's delay
+  is set longer than that, so the amps come on after the DAC is ready.
+- At key-off, ACC drops and the amps go off at once. The Pi mutes the DAC and
+  stops the pipeline later, during its own shutdown.
+- A Pi crash with the key on leaves the amplifiers **on**. What the speakers
+  then do (silence, a pop or a buzz) is to be measured (H5, see
   [power-states.md](power-states.md#crash-and-reset-behaviour-to-be-verified-on-hardware)).
+  Key-off always ends it.
 - The DAC is no longer the CarPiHAT's
-  ([ADR-0013](adr/0013-dcdc-usb-power-supply.md)). Choose an I2S DAC HAT whose
-  line-out level and mute-at-boot behaviour are documented (H6). Measure them
-  anyway before connecting the amplifiers, and set the amplifier gain against a
-  0 dBFS test tone.
+  ([ADR-0013](adr/0013-dcdc-usb-power-supply.md)). It is the HiFiBerry DAC8x
+  ([ADR-0014](adr/0014-multichannel-dac8x.md)). Its maximum output (2.1 Vrms)
+  is documented; its **mute-at-boot behaviour is not** (H6). Measure both
+  before connecting the amplifiers, and set the amplifier gain against a
+  0 dBFS test tone ([gain staging](../wiring/audio.md#gain-staging)).

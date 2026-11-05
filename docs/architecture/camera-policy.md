@@ -12,7 +12,7 @@ Pi 5.
 
 | Input | Source | Never |
 |---|---|---|
-| Reverse | Opto-isolated input board → Pi GPIO (proposed BCM5, a config value), via the power-manager ([wiring](../wiring/power-and-inputs.md)) | A raw 12 V line on GPIO |
+| Reverse | Opto-isolated input board → Pi GPIO (proposed BCM6, a config value), via the power-manager ([wiring](../wiring/power-and-inputs.md)) | A raw 12 V line on GPIO |
 | Left / right turn | **To be decided by a CAN check.** If HS-CAN carries them, a corroborated broadcast decoder in the gateway (Stage B). Otherwise two more channels on the same opto board | Same. Never by polling a module |
 | Gear and speed | Gateway signals, used **only** to decide whether manual selection is allowed | — |
 

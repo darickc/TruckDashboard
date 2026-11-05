@@ -17,7 +17,7 @@ The wiring is in [power-and-inputs.md](../wiring/power-and-inputs.md).
 | Shutdown request | DCDC-USB **PSW** → Pi 5 **J2** pads | A momentary closure, the same as pressing the Pi's power button. Electrical form to be confirmed (H21) |
 | Battery voltage | DCDC-USB input voltage, over USB | H24. Fallback: an ESP32 ADC (H16) |
 | Reverse input | Opto board → Pi GPIO | Owned by power-manager, passed to camera-manager ([camera policy](camera-policy.md)) |
-| Amplifier remote | GPIO-driven switched 12 V output, part TBD | Must fail **off** (H5) |
+| Amplifier remote | Radio-harness ACC → delay-on timer relay → both amps' REM. **Not on the Pi** ([ADR-0014](adr/0014-multichannel-dac8x.md)) | Key-off cuts the amps at once, before the Pi shuts down ([wiring](../wiring/audio.md#remote-turn-on-acc-through-a-delay-on-timer)) |
 | Illumination | None | Day/night from sun position, see below |
 
 ## Goals
@@ -28,8 +28,10 @@ The wiring is in [power-and-inputs.md](../wiring/power-and-inputs.md).
   - The DCDC-USB's standby draw is documented as "well under 1 mA". It is
     still to be measured.
   - The Pi is unpowered once HARDOFF expires.
-- Mute the audio before the amplifiers switch on and before they switch off, so
-  there is no pop.
+- Keep the DAC muted until the audio pipeline is up, and mute it before
+  shutdown. The amplifiers themselves are switched by ACC through a delay-on
+  timer, not by the Pi: they come on after the Pi has booted and go off at
+  key-off, before the Pi stops.
 - Protect the filesystem: shut down cleanly, and keep the root filesystem
   read-only where possible (Phase 5). A hard cut must be survivable.
 
@@ -80,11 +82,11 @@ stateDiagram-v2
 | State | Entry | Actions | Exit |
 |---|---|---|---|
 | `OFF` | Halt completes | Nothing runs. The supply cuts VOUT when HARDOFF expires | Ignition on, so VOUT on |
-| `STARTING` | Boot | Claim the GPIO. Amp remote **off**. Audio muted. **Ignore the power key** for `boot_key_ignore_s` (the supply's ON pulse) | All core services report ready and the boot window is over |
-| `RUNNING` | Startup completes | Audio unmutes, then a settle delay, then the amp remote turns on. Backlight follows day/night | Ignition off (telemetry), a power key, low voltage, or a fault |
+| `STARTING` | Boot | Claim the GPIO. Audio muted. **Ignore the power key** for `boot_key_ignore_s` (the supply's ON pulse) | All core services report ready and the boot window is over |
+| `RUNNING` | Startup completes | Audio unmutes once the pipeline is up. Backlight follows day/night | Ignition off (telemetry), a power key, low voltage, or a fault |
 | `SHUTDOWN_PENDING` | Telemetry says ignition off | Keep running. Show a countdown banner, using the supply's off-delay timer if it is readable. Recorder flushes | Ignition returns (**cancel**), or the PSW pulse arrives |
-| `SHUTTING_DOWN` | Power key accepted, or low voltage | Mute, then amp remote off, then a delay, then stop services and sync. Last check: if telemetry says the ignition is on again, `systemctl reboot`; otherwise `systemctl poweroff` | Halt or reboot |
-| `FAULT` | Telemetry lost, GPIO lost, or repeated failures | Report in the UI. Amp remote off. Fall back to **pulse-only**: any power key outside the boot window shuts down | Condition clears, or a power key |
+| `SHUTTING_DOWN` | Power key accepted, or low voltage | Mute, then stop services and sync. Last check: if telemetry says the ignition is on again, `systemctl reboot`; otherwise `systemctl poweroff` | Halt or reboot |
+| `FAULT` | Telemetry lost, GPIO lost, or repeated failures | Report in the UI. Fall back to **pulse-only**: any power key outside the boot window shuts down | Condition clears, or a power key |
 
 Configuration defaults (every one is an example to tune):
 
@@ -127,16 +129,16 @@ the default until a bench test shows it does.
 
 ## Crash and reset behaviour (to be verified on hardware)
 
-- The amp remote output is the risk: a Pi crash must not leave the amplifiers
-  on, producing noise. Phase 6.2 must measure what the chosen output does in
-  each of these cases:
+- The amplifiers are on ACC through a delay-on timer, not on the Pi
+  ([ADR-0014](adr/0014-multichannel-dac8x.md)), so **a Pi crash with the key on
+  leaves them on**. Key-off always cuts them. Phase 6.2 must record what the
+  speakers do with the amps on (H5):
   - after a kernel panic
   - after a watchdog reset
-  - with the GPIO line released
 
-  The required result is that the output goes off. Use a pull-down on the
-  driving GPIO. If that isn't enough, add a hardware timer that drops remote
-  turn-on when the Pi stops toggling a heartbeat.
+  Silence or a short pop is acceptable. A sustained buzz (the DAC repeating
+  its last buffer) is not: then the remote goes back on a Pi output with a
+  hardware timer that drops it when the Pi stops toggling a heartbeat.
 - Watchdogs:
   - systemd `RuntimeWatchdogSec` drives the Pi's hardware watchdog
   - each service sets `WatchdogSec`

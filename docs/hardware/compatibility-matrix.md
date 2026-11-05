@@ -22,6 +22,7 @@ Update a row whenever a source or a test changes it, and keep the citation.
 | Pi 5 + AGL Vimba 22.0.0 | **Supported.** Official prebuilt images (V) |
 | Pi 5 + original 7" DSI display under AGL | **Expected to work with configuration.** The driver and overlay ship, but the display isn't turned on by default (V). Not tested |
 | Pi 5 + mini-box DCDC-USB (automotive mode, PSW → J2) | **Plausible.** It can be set to 5 V, and J2 takes a normally-open momentary closure (V). Whether PSW is such a closure, the pulse timing, and the current at 5 V are not documented (U) |
+| Pi 5 + HiFiBerry DAC8x | **Supported on Raspberry Pi OS** (overlay in the Raspberry Pi kernel tree; V). Not checked on the AGL kernel; mute at boot undocumented (U) |
 | Pi 5 + CarPiHAT PRO 5 | **Not used** ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md)). Kept below as a research record |
 
 ## AGL / OS
@@ -172,6 +173,27 @@ dtoverlay=gpio-poweroff,gpiopin=25,active_low
 
 Not yet reconciled with AGL: AGL uses `vc4-kms-v3d-pi5,cma-256`. Whether `noaudio`
 applies to the Pi 5 variant must be checked when the HAT is fitted.
+
+## HiFiBerry DAC8x
+
+Chosen 2026-11-04, not bought yet
+([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)). Wiring:
+[wiring/audio.md](../wiring/audio.md).
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| Compatibility | "Compatible with all Raspberry Pi 5". The datasheet doesn't mention older boards; retailers say Pi 5 only | V (Pi 5) / F (Pi 5 only) | [HiFiBerry datasheet](https://www.hifiberry.com/?p=201764), [PiShop](https://www.pishop.us/product/hifiberry-dac8x-for-raspberry-pi-5/) |
+| Channels | 8 output channels from four Burr-Brown 192 kHz/24-bit DACs | V | datasheet |
+| Connectors | 4 × 3.5 mm TRS (stereo pairs). The datasheet shows only a photo | F (retailer) | [Audiophonics](https://audiophonics.fr/en/dac-and-interface-modules/hifiberry-dac8x-p-19621.html) |
+| Output level | 2.1 Vrms maximum | V | datasheet |
+| SNR / THD+N / response | 112 dB, −93 dB (typical), 10 Hz–70 kHz (−3 dB) | V | datasheet |
+| Power | From the Pi, under 0.3 W | V | datasheet |
+| Overlay | `dtoverlay=hifiberry-dac8x` | V | datasheet |
+| GPIO used | The overlay puts **BCM18–27** in `i2s0` mode and reads **BCM5** as `hasadc-gpio` (active-low, detects the ADC8x add-on). Whether the board itself routes BCM5: not documented | V (overlay source) | [`hifiberry-dac8x-overlay.dts`, rpi-6.12.y](https://github.com/raspberrypi/linux/blob/rpi-6.12.y/arch/arm/boot/dts/overlays/hifiberry-dac8x-overlay.dts) |
+| Header pass-through | Not documented (H27) | U | — |
+| Mute at boot, pop behaviour | Not documented (H6) | U | — |
+| Jack-to-channel mapping | Not documented | U | — find with a test tone |
+| AGL kernel support | Not checked: whether the Vimba kernel ships this overlay | U | — Phase 5 |
 
 ## 2007 F-250 6.0L diagnostic network
 

@@ -33,7 +33,7 @@ flowchart LR
   PSW -- H21 first --> J2[Pi 5 J2 pads]
   USB -- telemetry, H24 --> PIUSB[Pi 5 USB-A]
   REV[Reverse lamp feed<br/>wire TODO, H9] -- fuse + TVS --> OPTO[Opto board ch 1]
-  OPTO -- 3.3 V side --> GPIO[Pi BCM5 · pin 29]
+  OPTO -- 3.3 V side --> GPIO[Pi BCM6 · pin 31]
 ```
 
 ## Connections
@@ -50,12 +50,16 @@ flowchart LR
 | Chassis ground | Opto board **channel 1 input −** | |
 | Pi **3.3 V** (pin 1 or 17) | Opto board **output VCC** | **Never 5 V.** The output must not pull a GPIO above 3.3 V |
 | Pi **GND** (for example pin 30) | Opto board **output GND** | |
-| Opto board **channel 1 out** | Pi **BCM5** (pin 29) | Proposed pin; it is a config value in power-manager. Expected active-low (the opto pulls the line down in reverse). Confirm on the bench ([H26](../hardware/open-questions.md)) |
-| Opto board channels 2–3 | Reserved: left and right turn (proposed BCM6, pin 31; BCM26, pin 37) | Only if the [CAN event captures](../setup/can.md#event-captures-turn-signals-and-reverse) find no turn signals |
+| Opto board **channel 1 out** | Pi **BCM6** (pin 31) | Proposed pin; it is a config value in power-manager. Moved from BCM5, which the DAC8x driver reads ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)). Expected active-low (the opto pulls the line down in reverse). Confirm on the bench ([H26](../hardware/open-questions.md)) |
+| Opto board channels 2–3 | Reserved: left and right turn (proposed BCM12, pin 32; BCM13, pin 33) | Only if the [CAN event captures](../setup/can.md#event-captures-turn-signals-and-reverse) find no turn signals |
 
-Pins to keep free for the DAC HAT: the I2S pins BCM18–21 (pins 12, 35, 38,
-40), plus whatever else the chosen HAT uses. Check its pinout against BCM5,
-BCM6 and BCM26 before wiring.
+Pins taken by the DAC8x ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)):
+its overlay claims **BCM18–27** for I2S and reads **BCM5** (ADC add-on detect).
+Leave BCM5 unconnected. The proposed input pins above avoid all of them
+([wiring/audio.md](audio.md#gpio-budget-with-the-dac8x)). The amplifier remote
+is not on the Pi; it is on ACC through a delay-on timer
+([wiring/audio.md](audio.md#remote-turn-on-acc-through-a-delay-on-timer)). Header access with
+the DAC8x fitted: [H27](../hardware/open-questions.md).
 
 ## DCDC-USB settings
 
@@ -83,7 +87,7 @@ limit is to be checked (H25).
 | 6 | Pi at full load: `vcgencmd get_throttled` | `0x0` | |
 | 7 | ACC wire on the truck: key on, crank, run, key off, door open | Record the voltage at each step (H22) | |
 | 8 | Reverse wire on the truck, in and out of reverse | About 12 V in reverse, 0 V otherwise (H9) | |
-| 9 | Opto output at BCM5 with the input at 0 V, 12 V and 14.5 V | 3.3 V idle, low when active, never above 3.3 V | |
+| 9 | Opto output at BCM6 with the input at 0 V, 12 V and 14.5 V | 3.3 V idle, low when active, never above 3.3 V | |
 | 10 | Parked draw after HARDOFF | Well under 1 mA (documented claim) | |
 
 Signed off by: _____ Date: _____

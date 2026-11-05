@@ -544,11 +544,11 @@ that decision chose.
    - an active-device policy for multiple phones
    - volume limits
    - leaves an extension point for HFP and echo cancellation
-2. **6.2** **Amplifier control**:
-   - a GPIO-driven switched 12 V output (part TBD) switches the amplifier remote line
-   - power-up order: mute, then the pipeline, then a delay, then remote on
-   - shutdown order: mute, then remote off, then a delay, then halt
-   - verify the output's state when the Pi crashes or the watchdog resets it [HW] (H5)
+2. **6.2** **Amplifier switching and mute** (ADR-0014):
+   - the amplifier remote is on ACC through a delay-on timer relay, not on the Pi
+   - set the delay above the measured boot-to-audio time [HW]
+   - the DAC stays muted until the pipeline is up, and is muted before shutdown
+   - record what the speakers do when the Pi panics or the watchdog resets it with the amps on [HW] (H5)
 3. **6.3** **Physical volume knob** on the ESP32 (encoder) or on Pi GPIO.
 4. **6.4** **GPS**: a USB GNSS receiver through gpsd. Check that gpsd is in meta-oe; otherwise write a minimal NMEA reader.
 5. **6.5** **Navigation**, in order:
@@ -686,7 +686,7 @@ already have if the display runs on the Pi 5.
 | Item | Note |
 |---|---|
 | mini-box DCDC-USB | Chosen 2026-11-04 instead of the CarPiHAT PRO 5 (ADR-0013) |
-| Opto-isolated input board, I2S DAC HAT, amplifier-remote switch | The CarPiHAT's other jobs (ADR-0013) |
+| Opto-isolated input board, I2S DAC HAT (DAC8x), delay-on timer relay for the amplifier remote | The CarPiHAT's other jobs (ADR-0013, ADR-0014) |
 | USB candleLight CAN adapter | Bought 2026-11-03 (ADR-0012) |
 | 22→15-way display FFC | Display type, **not** a camera cable |
 | OBD-II Y-splitter and DLC breakout | |

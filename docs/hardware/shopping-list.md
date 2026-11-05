@@ -56,8 +56,11 @@ At most:
 | Item | Decided by |
 |---|---|
 | Cameras and capture hardware | UVC first; latency and driver checks ([camera policy](../architecture/camera-policy.md)) |
-| Amplifier(s) | Only after the existing amplifiers are inspected ([H8](open-questions.md)) |
-| I2S DAC HAT | Documented line level and mute-at-boot behaviour ([H6](open-questions.md)); its pins must not clash with the opto inputs |
-| Amplifier-remote switch (GPIO-driven, switched 12 V, fails off) | The amplifier inventory ([H8](open-questions.md)) and the crash test ([H5](open-questions.md)) |
+| HiFiBerry DAC8x | **Chosen 2026-11-04** ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)), not bought. Pi 5 only. Check header access first ([H27](open-questions.md)) |
+| 3 × 3.5 mm TRS (stereo) → 2 × RCA male leads | Front, rear and sub from the DAC8x. Short ones if they meet longer RCA runs behind the dash; strain-relieve the jacks |
+| New 4-channel amplifier (replaces the Pioneer's built-in amp) | Owner's choice against these criteria: RCA inputs with a 4-channel input mode; about 50–75 W RMS × 4 at 4 Ω; stable at 2 Ω, in case the factory speakers are about 3 Ω ([H29](open-questions.md)); a REM input; small enough for behind the dash or under the rear seat. Crossovers can be flat (the Pi does them) |
+| Amplifier power kit for the new amp | Power wire, a fuse holder within about 18 in of the battery, ground lead, ring terminals. Gauge and fuse from the chosen amp's manual. Or a distribution block with one fuse per amp, if the R150-2's feed is big enough ([H28](open-questions.md)) |
+| RCA ground-loop isolator | Only if the engine-running whine test fails ([wiring](../wiring/audio.md#alternator-whine-and-ground-loops)) |
+| 12 V delay-on timer relay (adjustable delay, normally-open contact) and a small inline fuse | Switches both amps' REM from ACC, so they come on after the Pi has booted and go off at key-off ([wiring](../wiring/audio.md#remote-turn-on-acc-through-a-delay-on-timer)). Needs an adjustable delay above the Pi's measured boot time, and a contact rated for both REM inputs. Replaces the GPIO-driven remote switch ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)) |
 | USB Bluetooth dongle | Only if the MX+ and A2DP conflict on the onboard radio ([H15](open-questions.md)) |
 | EGT thermocouple and amplifier (for example MAX31856) | Optional auxiliary sensor through the ESP32 |

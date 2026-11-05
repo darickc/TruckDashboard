@@ -38,7 +38,7 @@ flowchart TB
     CAN[CAN controller<br/>USB gs_usb adapter]
     MX[OBDLink MX+<br/>Bluetooth SPP]
     PSU[mini-box DCDC-USB<br/>ignition · PSW → J2 · USB telemetry]
-    GPIO[opto input board → GPIO<br/>REV · turn signals if not on CAN · amp remote out]
+    GPIO[opto input board → GPIO<br/>REV · turn signals if not on CAN]
     V4L[USB/UVC cameras]
     GNSS[USB GNSS]
     BT[Bluetooth radio]
@@ -49,7 +49,7 @@ flowchart TB
   subgraph SVC[Rust services · systemd]
     GW[vehicle-gateway<br/>transports · scheduler · decode · health]
     REC[recorder<br/>SQLite · CSV export]
-    PWR[power-manager<br/>power key · ignition telemetry · amp remote · backlight]
+    PWR[power-manager<br/>power key · ignition telemetry · backlight]
     CAMM[camera-manager<br/>policy · pipelines]
     AUDM[audio-manager<br/>BlueZ · PipeWire policy]
     NAV[navigation backend<br/>gpsd · Valhalla]
@@ -85,7 +85,7 @@ flowchart TB
 | `crates/elm` | Rust | 3 | ELM327/STN client, a port of the tested C++ `ElmParser`/`ElmClient` |
 | `services/vehicle-gateway` | Rust | 3–4 | Transports (simulated, SocketCAN, OBDLink), scheduler, recovery, health, API |
 | `services/recorder` | Rust | 3 | Telemetry and event persistence, retention, export |
-| `services/power-manager` | Rust | 6 | Power state machine, GPIO ownership, amplifier remote, backlight, day/night |
+| `services/power-manager` | Rust | 6 | Power state machine, GPIO ownership, backlight, day/night. Not the amplifier remote, which is on ACC (ADR-0014) |
 | `services/camera-manager` | Rust | 6 | Camera selection policy, capture pipelines |
 | `services/audio-manager` | Rust | 6 | Pairing window, A2DP sink policy, AVRCP, volume limits |
 | navigation backend | Rust + Valhalla | 6 | Position, routing (ADR-010) |

@@ -152,8 +152,8 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
 
 ## Phase 6 — Infotainment
 
-- [ ] 6.1 audio-manager (A2DP sink, AVRCP, pairing window)
-- [ ] 6.2 Amplifier remote and mute sequencing (H5, H6; DAC HAT and remote switch TBD, ADR-0013)
+- [ ] 6.1 audio-manager (A2DP sink, AVRCP, pairing window), and the PipeWire filter-chain for the DAC8x: crossover, fader, sub level ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md))
+- [ ] 6.2 DAC mute sequencing (H6) and the crash test with the amps on (H5). The amps' remote is on ACC through a delay-on timer, not the Pi ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md)). Wiring design: [wiring/audio.md](wiring/audio.md)
 - [ ] 6.3 Volume knob
 - [ ] 6.4 GPS
 - [ ] 6.5 Offline map, then routing, then the update workflow

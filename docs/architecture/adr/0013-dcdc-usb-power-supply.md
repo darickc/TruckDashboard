@@ -64,8 +64,8 @@ button ([matrix](../../hardware/compatibility-matrix.md#raspberry-pi-5-power-but
    | Reverse input | A **protected opto-isolated input board** on Pi GPIO, read by power-manager. Its output side is powered from the Pi's **3.3 V**, never 5 V. At least 4 channels, so the turn signals can be added later |
    | Turn signals | **First check HS-CAN** with a listen-only event capture ([can.md](../../setup/can.md#event-captures-turn-signals-and-reverse)). If they aren't there, use two more channels on the same opto board |
    | Illumination | No input. Day/night comes from sun position (GPS time and location) and a manual override |
-   | DAC | An I2S DAC HAT, model TBD. Pick it by its documented line level and mute-at-boot behaviour (H6) |
-   | Amplifier remote | A GPIO-driven switched 12 V output that fails **off**, part TBD (H5). It waits on the amplifier inventory (H8) |
+   | DAC | An I2S DAC HAT. Pick it by its documented line level and mute-at-boot behaviour (H6). **Chosen: the HiFiBerry DAC8x ([ADR-0014](0014-multichannel-dac8x.md))** |
+   | Amplifier remote | A GPIO-driven switched 12 V output that fails **off**, part TBD (H5). It waits on the amplifier inventory (H8). **Superseded 2026-11-05:** ACC through a delay-on timer relay, not on the Pi ([ADR-0014](0014-multichannel-dac8x.md)) |
    | CAN | The USB adapter (ADR-0012), unchanged |
 
 5. **The UI offers Restart, not Shut down, while the ignition is on.** If the
@@ -96,7 +96,7 @@ button ([matrix](../../hardware/compatibility-matrix.md#raspberry-pi-5-power-but
   - the ignition returning during HARDOFF (H23)
 - **Without the USB telemetry, the Pi can't see the ignition.** The countdown
   banner and the reboot-instead-of-halt check need H24.
-- **More parts:** an opto board, a DAC HAT and an amplifier-remote switch,
+- **More parts:** an opto board, a DAC HAT and an amplifier-remote switch (now a delay-on timer relay on ACC, ADR-0014),
   instead of one HAT.
 - **The radio harness's ACC behaviour is unknown on this truck (H22).** It may
   drop while cranking, or stay on after key-off (Ford accessory delay).

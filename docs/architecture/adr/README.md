@@ -22,5 +22,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0011](0011-mx-plus-trial-first.md) | MX+ truck trial before buying CAN hardware | Accepted |
 | [0012](0012-direct-can-usb-adapter.md) | Direct CAN through a USB CANable adapter, with our own single-frame ISO-TP | Accepted |
 | [0013](0013-dcdc-usb-power-supply.md) | Power from a mini-box DCDC-USB; the CarPiHAT is dropped | Proposed (pending bench measurement) |
+| [0014](0014-multichannel-dac8x.md) | Multichannel DAC (HiFiBerry DAC8x), a new 4-channel amp, the R150-2 kept | Proposed (pending bench measurement) |
 
 New ADRs use the next number and the same headings.
