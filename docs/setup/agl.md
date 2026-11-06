@@ -59,6 +59,10 @@ twice; `dd` overwrites whatever disk you name), then `diskutil unmountDisk
 ## 3. First boot and SSH
 
 1. CAN adapter **unplugged**. Card in, Ethernet in, power on.
+   **The 7" panel stays dark on this first boot:** the stock image's
+   `config.txt` doesn't load the DSI overlay; our block adds it at deploy. The
+   green ACT LED flickering means it's booting. A monitor on HDMI0 should show
+   the AGL demo (UNVERIFIED).
 2. Find the Pi. The image has avahi, so try `ping raspberrypi5.local`
    (UNVERIFIED: the hostname should be the machine name). Otherwise look in
    the router's DHCP list.
