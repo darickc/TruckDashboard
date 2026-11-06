@@ -414,3 +414,30 @@ slcan firmware. `dfu-util` 0.11-3 is in the Pi's apt sources (now in
 
 Closes: the factory-firmware question (compatibility matrix). Open: flashing
 and `driver gs_usb` + `LISTEN-ONLY` on the bench.
+
+## 2026-11-05 — USB CAN adapter flashed with Candlelight 2.5 [BENCH]
+
+Same adapter and Pi, Pi at `5ca173a`. The owner ran `tools/pi/can.sh flash`
+(default Multiboard build) with the Boot switch down, then switched it up and
+replugged. The firmware file on the Pi (`~/f250-data/firmware/`) passed the
+script's SHA-256 check. Kernel log and `lsusb -v` (read over SSH):
+
+    20:00:08 usb 1-1: Product: DFU in FS Mode
+    20:01:51 usb 1-1: New USB device found, idVendor=1d50, idProduct=606f, bcdDevice=26.10
+    20:01:51 usb 1-1: Product: Candlelight 2.5 - Multiboard
+    20:01:51 gs_usb 1-1:1.0: Configuring for 1 interfaces
+    iManufacturer ElmueSoft (netcult.ch/elmue)
+
+`tools/pi/can.sh status`:
+
+    can0: driver gs_usb, state down
+    can state STOPPED (berr-counter tx 0 rx 0) restart-ms 0
+    gs_usb: tseg1 1..256 tseg2 1..128 sjw 1..128 brp 1..512 brp_inc 1
+    gs_usb: dtseg1 1..32 dtseg2 1..16 dsjw 1..16 dbrp 1..32 dbrp_inc 1
+    clock 160000000
+
+Verdict: pass. The adapter enumerates as `can0` under mainline `gs_usb` with
+no daemon; 160 MHz CAN clock; FD timing ranges present. Not yet shown:
+listen-only (`can.sh listen`, needs sudo), the terminator readings, and any
+frame on a bus.
+Closes: flashing (roadmap 4.1).
