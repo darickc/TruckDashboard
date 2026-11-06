@@ -466,3 +466,17 @@ matters.
 Closes: listen-only on the bench (roadmap 4.1), except the no-ACK proof.
 Open: the terminator readings and the breakout's continuity
 ([wiring sign-off](../wiring/dlc-can-adapter.md#sign-off)).
+
+## 2026-11-05 — CAN adapter terminator and DLC breakout checks [BENCH]
+
+Multimeter, adapter unplugged from everything. The owner confirmed:
+
+- termination switch up: CAN H–CAN L does not read ≈ 120 Ω (terminator off)
+- switch down: ≈ 120 Ω (terminator on); switch then left up
+- the DLC breakout's continuity: plug pin 6, 14 and 5 to the wires that go to
+  CAN H, CAN L and GND
+
+Exact readings weren't recorded. Verdict: pass. Signed off in the
+[wiring sheet](../wiring/dlc-can-adapter.md#sign-off).
+Open (need the truck): DLC 6–14 ≈ 60 Ω with ignition off, adapter
+disconnected and then connected; the 5V terminal left unconnected.
