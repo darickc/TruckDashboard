@@ -57,11 +57,16 @@ The plan said Phase 4.5 would use the kernel's ISO-TP sockets (`can-isotp`).
      plus error frames.
    - `run.sh` refuses `TRANSMIT=1` while the interface is listen-only, so a
      poll can't silently go nowhere.
-6. **Firmware: candleLight (`gs_usb`).** It needs no daemon, and listen-only
-   is a standard `ip link` option. The manual contradicts itself on which
-   firmware the RH-02 Pro ships with (slcan on one page, candleLight on
-   another). If it is slcan, flash candleLight before use; listen-only over
-   `slcand` is unverified ([setup](../../setup/can.md)).
+6. **Firmware: a `gs_usb` (candleLight-protocol) firmware.** It needs no
+   daemon, and listen-only is a standard `ip link` option. *Amended
+   2026-11-05:* ours shipped with the CANable 2.0 slcan firmware, which can't
+   do listen-only, and mainline candleLight_fw doesn't support the STM32G431
+   ([bench-log](../../hardware/bench-log.md)). We use **Candlelight 2.5**
+   (Elmue, MIT), flashed by `tools/pi/can.sh flash` from a pinned commit with
+   SHA-256 checks. It is a community firmware, not the board maker's, though
+   its manual says Jhoinrch now ships it as stock. If it misbehaves, the
+   fallback is a candleLight_fw port for the G431 or another adapter; slcan
+   stays ruled out for the listen-only sessions.
 
 ## Consequences
 

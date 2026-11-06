@@ -132,8 +132,9 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
 - [ ] 4.1 Bench bring-up plus the gateway's SocketCAN transport. **Resolve the CAN termination** (the adapter's switch)
       Done `[SIM]`: `--transport can` (single-frame ISO-TP on a raw SocketCAN socket), `tools/pi/can.sh`
       (listen-only by default, `active` on request, capture), tests against an in-memory bus replaying
-      the truck's captures; compiled and unit-tested on the Pi 5. Still open: the adapter on the bench
-      (firmware, listen-only, terminator), [docs/setup/can.md](setup/can.md)
+      the truck's captures; compiled and unit-tested on the Pi 5. Adapter arrived with slcan firmware,
+      which can't do listen-only `[BENCH]`; `can.sh flash` installs Candlelight 2.5 (gs_usb). Still open:
+      flashing, listen-only, terminator on the bench, [docs/setup/can.md](setup/can.md)
 - [ ] 4.2 `tools/can-monitor`
 - [ ] 4.3 Stage A: passive census on the truck, plus the turn-signal/reverse event captures (H14)
 - [ ] 4.4 Stage B: corroborated broadcast decoders

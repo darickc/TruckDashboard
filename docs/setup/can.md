@@ -11,7 +11,9 @@ Status:
   (`services/vehicle-gateway/tests/gateway_can.rs`). Compiled, linted and
   unit-tested on the Pi 5 (Linux arm64). With no adapter plugged in, the
   gateway reports `can0: No such device` and backs off (Pi, 2026-11-03).
-- **Adapter, bench and truck:** not done. The adapter hasn't arrived.
+- **Adapter:** arrived with the slcan firmware, which can't do listen-only
+  (`[BENCH]` 2026-11-05, [bench-log](../hardware/bench-log.md)). Not yet
+  flashed. Bench and truck: not done.
 
 The order is the point of this page: bench first, then listen-only on the
 truck, and only then polling.
@@ -19,7 +21,7 @@ truck, and only then polling.
 ## 0. Once: tools
 
 ```bash
-make pi-setup        # now also installs can-utils (candump, cansend, ...)
+make pi-setup        # now also installs can-utils (candump, cansend, ...) and dfu-util
 make pi-build        # the gateway now includes the CAN transport
 ```
 
@@ -34,29 +36,47 @@ tools/pi/can.sh status
 
 | You see | It means | Next |
 |---|---|---|
-| `can0: driver gs_usb` | candleLight firmware | Go to step 2 |
-| `No can0`, and a serial port like `/dev/serial/by-id/usb-…CANable…` | slcan firmware (what the manual's setup page says it ships with) | Flash candleLight (below) |
+| `can0: driver gs_usb` | candleLight-type firmware | Go to step 2 |
+| `No can0`, and a serial port like `/dev/serial/by-id/usb-…CANable2…` | slcan firmware. **Ours came like this** (canable2-fw `b158aa7`, 2026-11-05) | Flash Candlelight 2.5 (below) |
 | Neither, but `lsusb` lists `0483:df11` | It's in DFU mode | Boot switch up, replug |
 
-Write what you saw in [bench-log.md](../hardware/bench-log.md), with the
-`lsusb` line. The manual contradicts itself on the factory firmware, so this
-closes that question.
+### Flashing Candlelight 2.5 (if it came with slcan)
 
-### Flashing candleLight (only if it came with slcan)
+Why: the factory slcan firmware can't do listen-only. Its open command resets
+the silent mode, and it has no `L` command
+([bench-log 2026-11-05](../hardware/bench-log.md)). Mainline candleLight_fw
+doesn't support the STM32G431. **Candlelight 2.5** (Elmue, MIT) does, and
+shows up as a normal `gs_usb` device
+([matrix](../hardware/compatibility-matrix.md#usb-can-adapter-jhoinrch-rh-02-pro)).
 
-UNVERIFIED for this board: the RH-02 Pro is sold as a CANable 2.0 design,
-and the CANable project offers candleLight firmware for the CANable 2.0, but
-nobody has flashed this particular board here yet.
+The STM32's ROM bootloader can't be overwritten. If anything goes wrong, Boot
+switch down and flash again.
 
-1. Boot switch **down** (DFU), plug it in. `lsusb` should show an STM DFU
-   device.
-2. Flash with the CANable project's web updater (canable.io, Chrome) or with
-   `dfu-util`, choosing the **candleLight** build for the **CANable 2.0**.
-3. Boot switch **up**, replug, run `tools/pi/can.sh status` again: expect
-   `driver gs_usb`.
+1. Unplug the adapter. Boot switch **down** (DFU). Plug it into the Pi.
+   `tools/pi/can.sh status` should say it's in DFU mode.
+2. Flash:
 
-The candleLight build for the CANable 2.0 does not do CAN FD. The truck is
-classic CAN at 500 kbit/s, so nothing is lost.
+   ```bash
+   tools/pi/can.sh flash
+   ```
+
+   It downloads the firmware from a pinned commit, checks its SHA-256, checks
+   that the adapter is in DFU mode, asks you to type `flash`, then runs
+   `sudo dfu-util`.
+3. Unplug. Boot switch **up**. Plug it back in.
+   `tools/pi/can.sh status`: expect `can0: driver gs_usb`.
+4. Write the `status` output in [bench-log.md](../hardware/bench-log.md).
+
+Which build: `flash` uses the **Multiboard** build (internal RC oscillator,
+the same clock source as the factory firmware), which runs on any STM32G431
+CANable. The firmware's manual says RH-02 boards have a 25 MHz crystal "since
+2026". If you can see a crystal on the board (a small metal can marked
+25.000), `BOARD=jhoinrch tools/pi/can.sh flash` uses it instead. The
+Jhoinrch build on a board **without** the crystal probably won't start; DFU
+and the Multiboard build fix that.
+
+Candlelight 2.5 does CAN FD, but the truck is classic CAN at 500 kbit/s and
+the gateway only uses classic frames.
 
 ## 2. Bench: listen-only comes up
 

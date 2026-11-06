@@ -7,9 +7,11 @@
 #   tools/pi/can.sh active            # 500 kbit/s, normal mode: needed for TRANSPORT=can TRANSMIT=1
 #   tools/pi/can.sh down
 #   tools/pi/can.sh capture [SECONDS] # candump of every frame and error frame, with counters
+#   tools/pi/can.sh flash             # put Candlelight 2.5 (gs_usb) firmware on the adapter
 #
 # Options: CAN_IF (default can0), BITRATE (default 500000, the truck's HS-CAN:
-# ATDPN 6, VERIFICATION_LOG 2026-08-09), DATA_DIR (default ~/f250-data).
+# ATDPN 6, VERIFICATION_LOG 2026-08-09), DATA_DIR (default ~/f250-data),
+# BOARD (flash only: multiboard, the default, or jhoinrch).
 #
 # Listen-only is the default and the first step on the truck (ADR-0007): in
 # that mode the controller sends no ACKs and no error frames, so a wrong
@@ -17,16 +19,32 @@
 # explicit step, and the gateway's --transmit is a second, independent one.
 #
 # Written for the Jhoinrch RH-02 Pro (a CANable 2.0 design). With candleLight
-# firmware it is a gs_usb device and appears as can0 by itself. With the slcan
-# firmware it appears as a serial port instead; this script detects that and
-# stops, because listen-only over slcan is UNVERIFIED (docs/setup/can.md).
+# firmware it is a gs_usb device and appears as can0 by itself. Ours came with
+# the CANable 2.0 slcan firmware (normaldotcom canable2-fw b158aa7), which
+# appears as a serial port and can't do listen-only: its `O` (open) resets the
+# mode that `M1` (silent) set, and it has no `L`, the command the kernel's
+# slcan driver sends for listen-only (source read 2026-11-05,
+# docs/hardware/bench-log.md). This script detects it and stops; `flash`
+# replaces it.
 #
-# Status: [SIM] only. Not yet run against the adapter (it hasn't arrived).
+# Status: `status` run against the adapter [BENCH 2026-11-05]; the rest [SIM].
 set -euo pipefail
 
 CAN_IF="${CAN_IF:-can0}"
 BITRATE="${BITRATE:-500000}"
 DATA_DIR="${DATA_DIR:-$HOME/f250-data}"
+BOARD="${BOARD:-multiboard}"
+
+# Candlelight 2.5 (Elmue/CANable-2.5-firmware-Slcan-and-Candlelight, MIT),
+# pinned to one commit and checked by SHA-256 (taken 2026-11-05). It
+# enumerates as 1d50:606f, which mainline gs_usb binds, and maps gs_usb's
+# listen-only flag to the FDCAN's bus-monitoring mode (no ACKs).
+#   multiboard: internal RC oscillator, like the factory firmware. Runs on any
+#               STM32G431 CANable 2.0. The default.
+#   jhoinrch:   for RH-02 boards with a 25 MHz crystal (fitted "since 2026",
+#               per the firmware's manual). Only if you can see the crystal.
+FW_COMMIT=12aa9fa1210757923507f6d390f7f909049f4e84
+FW_URL="https://raw.githubusercontent.com/Elmue/CANable-2.5-firmware-Slcan-and-Candlelight/$FW_COMMIT/Binary%20Files"
 
 say()  { printf '\033[1m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33mWARN: %s\033[0m\n' "$*"; }
@@ -35,6 +53,9 @@ die()  { printf '\033[31m%s\033[0m\n' "$*"; exit 1; }
 [[ "$(uname -s)" == Linux ]] || die "can.sh runs on the Pi (Linux)"
 
 details() { ip -details -statistics link show "$CAN_IF"; }
+
+# The STM32's ROM bootloader (Boot switch down).
+in_dfu() { lsusb -d 0483:df11 >/dev/null 2>&1; }
 
 # Serial ports that look like a CANable running slcan firmware.
 slcan_ports() {
@@ -50,8 +71,9 @@ require_interface() {
   if [[ -n "$ports" ]]; then
     echo "No $CAN_IF, but this looks like a CANable with slcan firmware:"
     echo "$ports" | sed 's/^/  /'
-    die "Flash candleLight firmware first (docs/setup/can.md): slcan listen-only is unverified."
+    die "That firmware can't do listen-only. Flash Candlelight first: tools/pi/can.sh flash (docs/setup/can.md)."
   fi
+  in_dfu && die "The adapter is in DFU mode (Boot switch down). Switch it up and replug it."
   echo "No $CAN_IF and no CANable serial port. USB devices:"
   lsusb 2>/dev/null | sed 's/^/  /' || true
   die "Plug in the CAN adapter (and check the Boot switch is up, not DFU)."
@@ -89,7 +111,11 @@ case "${1:-status}" in
     else
       echo "No $CAN_IF."
       ports="$(slcan_ports)"
-      [[ -n "$ports" ]] && { echo "slcan-looking serial ports:"; echo "$ports" | sed 's/^/  /'; }
+      if [[ -n "$ports" ]]; then
+        echo "slcan-looking serial ports:"; echo "$ports" | sed 's/^/  /'
+        echo "  -> slcan firmware: no listen-only. Run 'tools/pi/can.sh flash'."
+      fi
+      in_dfu && echo "The adapter is in DFU mode (Boot switch down): ready for 'tools/pi/can.sh flash'."
       echo "USB devices:"; lsusb 2>/dev/null | sed 's/^/  /' || true
     fi
     ;;
@@ -141,6 +167,41 @@ case "${1:-status}" in
       candump -l "$CAN_IF,0:0,#FFFFFFFF" || true
     fi
     ;;
+  flash)
+    case "$BOARD" in
+      multiboard) fw="Candlelight2.5 - Multiboard - STM32G431.dfu"
+                  sum=19eb458d2c495d67e71e86ac598665308a11a271c3c11cd349045eb9b4c9055d ;;
+      jhoinrch)   fw="Candlelight2.5 - Jhoinrch - STM32G431.dfu"
+                  sum=693626c442a1125ff21fb33e299a2491df58616c73e021d382a55bb008177bac ;;
+      *) die "BOARD must be multiboard or jhoinrch, got '$BOARD'" ;;
+    esac
+    command -v dfu-util >/dev/null || die "dfu-util not found: run 'make pi-setup' (or: sudo apt install dfu-util)"
+    file="$DATA_DIR/firmware/${fw// /_}"
+    mkdir -p "$DATA_DIR/firmware"
+    if [[ ! -f "$file" ]]; then
+      say "Downloading $fw (commit ${FW_COMMIT:0:7})"
+      curl -fsSL -o "$file.part" "$FW_URL/${fw// /%20}"
+      mv "$file.part" "$file"
+    fi
+    echo "$sum  $file" | sha256sum -c --quiet - || { rm -f "$file"; die "Checksum mismatch: deleted $file. Not flashed."; }
+    echo "Firmware: $file (SHA-256 OK)"
+    if ! in_dfu; then
+      echo "The adapter is not in DFU mode. Unplug it, set the Boot switch DOWN, plug it back"
+      echo "in, then run this again. (lsusb should list 0483:df11 STMicroelectronics ... DFU.)"
+      exit 1
+    fi
+    say "Flashing Candlelight 2.5 ($BOARD) into the adapter over DFU"
+    echo "This replaces the adapter's firmware. The STM32's ROM bootloader stays, so the"
+    echo "Boot switch can always bring it back to DFU to be flashed again."
+    if [[ "${YES:-0}" != 1 ]]; then
+      read -r -p "Type 'flash' to continue: " answer
+      [[ "$answer" == flash ]] || die "Not flashed."
+    fi
+    sudo dfu-util -w -c 1 -i 0 -a 0 -D "$file"
+    echo
+    echo "Done. Unplug the adapter, set the Boot switch UP, plug it back in, then:"
+    echo "  tools/pi/can.sh status      # expect: $CAN_IF: driver gs_usb"
+    ;;
   *)
-    sed -n '2,12p' "$0"; exit 1 ;;
+    sed -n '2,14p' "$0"; exit 1 ;;
 esac

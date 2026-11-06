@@ -38,6 +38,7 @@ PKGS=(
   clang cmake ninja-build libgtk-3-dev liblzma-dev   # Flutter Linux desktop
   cage grim                                          # kiosk compositor (Lite has no desktop), screenshots
   can-utils                                          # candump etc. for the direct-CAN adapter (ADR-0012)
+  dfu-util                                           # flashes the adapter's firmware (tools/pi/can.sh flash)
   ${LIBSTDCXX:+"$LIBSTDCXX"}
 )
 sudo apt-get update -qq

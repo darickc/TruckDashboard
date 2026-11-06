@@ -224,10 +224,11 @@ Manual", model RH-02 Pro-1), unless noted.
 | Terminals | CAN H, GND, CAN L, 5V (3.81 mm block). 5V is an output | V (manual) | manual |
 | Termination | 120 Ω, switchable: **up = off**, down = on | V (manual) / U (not measured) | manual; check on the bench ([wiring](../wiring/dlc-can-adapter.md)) |
 | Boot switch | Up = working, down = DFU | V (manual) | manual |
-| Factory firmware | The manual says **slcan** in its setup section and **candleLight** in its firmware section | **C** | manual; `tools/pi/can.sh status` settles it |
-| candleLight on CANable 2.0 | Available; enumerates as native SocketCAN (`gs_usb`); no CAN FD | F | [canable.io](https://canable.io/index.html), [Makerbase CANable 2.0 manual](https://download.kamami.pl/p1192913-Makerbase%20CANable%20V2.0%20Use%20Manual.pdf) |
+| Factory firmware | **slcan**: the CANable 2.0 firmware, normaldotcom canable2-fw `b158aa7`. USB `16d0:117e`, "Openlight Labs CANable2". (The manual contradicted itself.) | T | [bench-log 2026-11-05](bench-log.md#2026-11-05--usb-can-adapter-factory-firmware-is-slcan-bench) |
+| Listen-only with the factory firmware | **Not possible.** `O` (open) resets the mode to normal after `M1` (silent) set it, and there is no `L` command, which the kernel's slcan driver sends for listen-only. Read from the source at that commit, not measured | U (source read) | [canable2-fw `src/can.c`, `src/slcan.c` @ b158aa7](https://github.com/normaldotcom/canable2-fw/tree/b158aa7ab106bc018715cd4d5f02f544f9de1830/src) |
+| Mainline candleLight_fw on the STM32G431 | **Not supported** ("STM32G431-based devices … are not supported by this project yet"). The canable.io claim of candleLight for CANable 2.0 conflicts | C | [candleLight_fw README](https://github.com/candle-usb/candleLight_fw), [canable.io](https://canable.io/index.html) |
+| Candlelight 2.5 (Elmue, MIT) | gs_usb-compatible firmware for STM32G431 CANables, with prebuilt DFU files including a "Jhoinrch" build. Enumerates as `1d50:606f` (mainline `gs_usb`). Maps gs_usb listen-only to FDCAN bus-monitoring (no ACKs). Its manual says Jhoinrch ships it as stock firmware since 2026, and that RH-02 boards have a 25 MHz crystal "since 2026" | F (read from source and manual) / U (this board) | [Elmue/CANable-2.5-firmware-Slcan-and-Candlelight @ 12aa9fa](https://github.com/Elmue/CANable-2.5-firmware-Slcan-and-Candlelight/tree/12aa9fa1210757923507f6d390f7f909049f4e84): `Firmware/Candlelight/control.c`, `usb_class.c`, the manual |
 | Listen-only | Listed as a mode by the manual. Under `gs_usb`, set with `ip link … listen-only on` | V (manual, kernel docs) / U (this board) | `can.sh listen` refuses if the driver doesn't accept it |
-| Listen-only over `slcand` | Unknown | U | — |
 | Pi 5 kernel (Raspberry Pi OS, 6.18.50) | Ships `gs_usb`, `slcan`, `vcan`, `can-isotp` modules | T | `ls /lib/modules/…` on the Pi, 2026-11-03 |
 | macOS (Apple silicon) | "Not temporarily supported" per the manual | V (manual) | manual — irrelevant here, it runs on the Pi |
 
@@ -239,6 +240,7 @@ Manual", model RH-02 Pro-1), unless noted.
 | Listen-only on the mcp251x driver | Driver support to be confirmed on the bench | U | — |
 | ISO-TP | Mainline since 5.10. `socket(PF_CAN, SOCK_DGRAM, CAN_ISOTP)`. `isotp*` tools in can-utils | V | [iso15765-2 docs](https://docs.kernel.org/networking/iso15765-2.html) |
 | USB CAN (candleLight) | Mainline `gs_usb` | V | [candleLight_fw](https://github.com/candle-usb/candleLight_fw) |
+| Listen-only on the slcan driver | The kernel's slcan driver (ip-configured, since 2022) sends `L` instead of `O` when listen-only is set. The firmware gives no ACK/NACK, so a firmware without `L` fails silently | F | [LKML patch "can: slcan: send the listen-only command to the adapter"](https://lkml.iu.edu/hypermail/linux/kernel/2207.2/06317.html) |
 
 ## Alternatives
 

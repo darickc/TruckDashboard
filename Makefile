@@ -196,7 +196,7 @@ pi-stop: ## On the Pi: stop the pi-start service cleanly
 pi-status: ## On the Pi: state and recent log of the pi-start service
 	tools/pi/service.sh status
 
-pi-can: ## On the Pi: direct-CAN adapter, CMD=status|listen|active|down|capture (docs/setup/can.md)
+pi-can: ## On the Pi: direct-CAN adapter, CMD=status|listen|active|down|capture|flash (docs/setup/can.md)
 	tools/pi/can.sh $(or $(CMD),status) $(SECS)
 
 # ---- not yet available ------------------------------------------------------

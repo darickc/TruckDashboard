@@ -370,3 +370,47 @@ wtmp), only the owner seeing the screen go dark; how the run was started
 (console or `make pi-start`) isn't recorded; Cancel was seen by the owner, not
 logged; nothing in the truck yet.
 Closes: the shutdown part of roadmap 3.5.3 on the bench.
+
+## 2026-11-05 — USB CAN adapter: factory firmware is slcan [BENCH]
+
+Jhoinrch RH-02 Pro plugged into the Pi 5 (Raspberry Pi OS, kernel
+6.18.50+rpt-rpi-2712), Boot switch up, nothing on its terminals. The owner ran
+`tools/pi/can.sh status`:
+
+    No can0.
+    slcan-looking serial ports:
+      /dev/serial/by-id/usb-Openlight_Labs_CANable2_b158aa7_github.com_normaldotcom_canable2.git_206C34844546-if00
+    Bus 001 Device 002: ID 16d0:117e MCS CANable2 b158aa7 github.com/normaldotcom/canable2.git
+
+Result: the factory firmware is the CANable 2.0 **slcan** firmware,
+normaldotcom/canable2-fw at commit `b158aa7` (its latest, 2022-07-07). This
+settles the manual's contradiction.
+
+Read from the firmware's source at that commit (not measured):
+
+- `M1` (silent) sets `FDCAN_MODE_BUS_MONITORING` only while closed, and `O`
+  (open, `can_enable()`) then sets `FDCAN_MODE_NORMAL` unconditionally. So the
+  silent mode never takes effect.
+- There is no `L` command (it falls to "invalid command"). `L` is what the
+  kernel's slcan driver sends for `listen-only on`, and the firmware sends no
+  ACK/NACK, so the kernel would not know it failed.
+
+So with the factory firmware the adapter always ACKs frames on the bus, and the
+listen-only first session (ADR-0007, ADR-0012) can't be done with it.
+
+Mainline candleLight_fw doesn't support the STM32G431. Decision: flash
+**Candlelight 2.5** (Elmue, MIT), which does, maps gs_usb listen-only to
+bus-monitoring mode, and enumerates as `1d50:606f` for mainline `gs_usb`.
+`tools/pi/can.sh flash` does it from a pinned commit (`12aa9fa`) with SHA-256
+checks. Default build: "Multiboard" (internal RC oscillator, like the factory
+firmware), because this unit shipped with old firmware and may predate the
+25 MHz crystal its manual says RH-02 boards have "since 2026".
+
+Also checked on the Pi [BENCH, adapter not flashed]: `can.sh flash` downloads
+both builds and verifies their checksums, deletes a tampered file and refuses,
+and stops when the adapter isn't in DFU mode; `can.sh listen` refuses with the
+slcan firmware. `dfu-util` 0.11-3 is in the Pi's apt sources (now in
+`make pi-setup`).
+
+Closes: the factory-firmware question (compatibility matrix). Open: flashing
+and `driver gs_usb` + `LISTEN-ONLY` on the bench.
