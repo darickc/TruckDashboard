@@ -1,0 +1,40 @@
+# Telemetry recorder on AGL (Stage 1 sideload). Reads the gateway's API and
+# writes /var/lib/f250/telemetry.sqlite, with its default retention.
+# Ordered after the gateway, so at shutdown it stops first and records the
+# gateway's last samples, as tools/pi/run.sh does.
+#
+# Status: [SIM]. Not run on the AGL image yet.
+[Unit]
+Description=F-250 telemetry recorder
+Requires=f250-gateway.service
+After=f250-gateway.service
+
+[Service]
+Type=simple
+User=f250
+Group=f250
+ExecStart=/opt/f250/bin/recorder run --gateway unix:/run/f250/vehicle.sock --db /var/lib/f250/telemetry.sqlite
+Restart=on-failure
+RestartSec=2
+UMask=0027
+StateDirectory=f250
+StateDirectoryMode=0750
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

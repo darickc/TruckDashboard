@@ -1,0 +1,32 @@
+# The dashboard on AGL (Stage 1 sideload): our Flutter app under flutter-auto,
+# as the compositor's background surface, in place of the AGL demo homescreen
+# (agl/scripts/stage1-setup.sh disables flutter-ics-homescreen.service).
+#
+# Modelled on the image's own flutter-ics-homescreen.service (meta-agl-demo,
+# Vimba): same user, runtime dir, environment file and flutter-auto bundle
+# layout. The window type, size and fullscreen come from the bundle's
+# config.toml (agl/flutter/config.toml).
+#
+# Exit status 42 is the dashboard's Power button: not a failure, no restart,
+# and ExecStopPost powers the Pi off (agl/rootfs/opt/f250/libexec/dashboard-stopped).
+#
+# Status: [SIM]. Not run on the AGL image yet.
+[Unit]
+Description=F-250 dashboard
+Requires=agl-compositor.service
+After=agl-compositor.service f250-gateway.service
+Wants=f250-gateway.service
+
+[Service]
+User=agl-driver
+EnvironmentFile=/etc/default/flutter
+Environment=XDG_RUNTIME_DIR=/run/user/1001/
+Environment=F250_POWER_OFF=1
+ExecStart=/usr/bin/flutter-auto -b /usr/share/flutter/f250_infotainment/${FLUTTER_VERSION}/${FLUTTER_RUNTIME} --xdg-shell-app-id homescreen
+ExecStopPost=+/opt/f250/libexec/dashboard-stopped
+Restart=on-failure
+RestartSec=2
+SuccessExitStatus=42
+
+[Install]
+WantedBy=graphical.target

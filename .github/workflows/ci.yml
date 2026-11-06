@@ -19,6 +19,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Markdown link check
         run: python3 tools/dev/check_links.py
+      - name: AGL Stage 1 scripts (simulated root, no Pi)
+        run: tools/dev/test-agl.sh
 
   firmware:
     runs-on: ubuntu-24.04

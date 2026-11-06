@@ -1,0 +1,16 @@
+# F-250 head unit: keep systemd-networkd away from the CAN adapter (ADR-0015).
+#
+# The AGL image ships /usr/lib/systemd/network/60-canbus-can.network
+# (meta-agl-core systemd-conf-canbus, Vimba), which matches every can*
+# interface and brings it up at 500 kbit/s in normal mode. In normal mode the
+# adapter ACKs every frame on the truck's bus: it transmits. This file has the
+# same name, so it replaces that one (files in /etc override /usr/lib).
+#
+# Unmanaged: networkd leaves the interface down, as Raspberry Pi OS does.
+# tools/pi/can.sh brings it up, listen-only unless asked for `active`
+# (ADR-0007, ADR-0012).
+[Match]
+Name=can*
+
+[Link]
+Unmanaged=yes

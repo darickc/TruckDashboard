@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Bring the direct-CAN interface up or down, and capture the bus (ADR-0012).
-# Run it on the Pi. Changing the interface needs sudo; status and capture don't.
+# Run it on the Pi. Changing the interface needs root (sudo, unless already
+# root, as on AGL where it is installed as f250-can); status and capture don't.
 #
 #   tools/pi/can.sh status            # adapter, driver, mode, bitrate, error counters
 #   tools/pi/can.sh listen            # 500 kbit/s, LISTEN-ONLY: the adapter never drives the bus
@@ -52,6 +53,10 @@ die()  { printf '\033[31m%s\033[0m\n' "$*"; exit 1; }
 
 [[ "$(uname -s)" == Linux ]] || die "can.sh runs on the Pi (Linux)"
 
+# AGL has no sudo, and its shell is root anyway.
+SUDO=sudo
+[[ "$(id -u)" == 0 ]] && SUDO=
+
 details() { ip -details -statistics link show "$CAN_IF"; }
 
 # The STM32's ROM bootloader (Boot switch down).
@@ -87,13 +92,13 @@ driver_of() {
 set_mode() { # listen-only on|off
   require_interface
   local lo="$1"
-  sudo ip link set "$CAN_IF" down
-  sudo ip link set "$CAN_IF" type can bitrate "$BITRATE" listen-only "$lo"
-  sudo ip link set "$CAN_IF" up
+  $SUDO ip link set "$CAN_IF" down
+  $SUDO ip link set "$CAN_IF" type can bitrate "$BITRATE" listen-only "$lo"
+  $SUDO ip link set "$CAN_IF" up
   local d
   d="$(details)"
   if [[ "$lo" == on ]] && ! grep -q LISTEN-ONLY <<<"$d"; then
-    sudo ip link set "$CAN_IF" down
+    $SUDO ip link set "$CAN_IF" down
     die "$CAN_IF came up WITHOUT listen-only; taken down again. The driver or firmware may not support it."
   fi
   if [[ "$lo" == off ]] && grep -q LISTEN-ONLY <<<"$d"; then
@@ -135,7 +140,7 @@ case "${1:-status}" in
     ;;
   down)
     require_interface
-    sudo ip link set "$CAN_IF" down
+    $SUDO ip link set "$CAN_IF" down
     echo "$CAN_IF down"
     ;;
   capture)
@@ -197,7 +202,7 @@ case "${1:-status}" in
       read -r -p "Type 'flash' to continue: " answer
       [[ "$answer" == flash ]] || die "Not flashed."
     fi
-    sudo dfu-util -w -c 1 -i 0 -a 0 -D "$file"
+    $SUDO dfu-util -w -c 1 -i 0 -a 0 -D "$file"
     echo
     echo "Done. Unplug the adapter, set the Boot switch UP, plug it back in, then:"
     echo "  tools/pi/can.sh status      # expect: $CAN_IF: driver gs_usb"

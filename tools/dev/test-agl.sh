@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+# `make agl-test`: tests for the AGL Stage 1 scripts (Phase 5), run against a
+# directory tree with system commands recorded, not run. Needs no Pi and no
+# root; works with macOS's bash 3.2.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+PASS=0
+FAIL=0
+T="$(mktemp -d)"
+trap 'rm -rf "$T"' EXIT
+
+ok()   { PASS=$((PASS + 1)); }
+fail() { FAIL=$((FAIL + 1)); printf '  FAIL %s\n' "$*"; }
+check() { if eval "$2"; then ok; else fail "$1"; fi; }   # check <name> <shell test>
+has_line() { grep -qxF -- "$2" "$1"; }                     # exact line in file
+count() { grep -cF -- "$2" "$1" || true; }
+
+SETUP=agl/scripts/stage1-setup.sh
+GW=agl/rootfs/opt/f250/libexec/gateway-start
+STOPPED=agl/rootfs/opt/f250/libexec/dashboard-stopped
+
+echo "syntax"
+for f in agl/scripts/*.sh agl/rootfs/opt/f250/libexec/* agl/rootfs/etc/profile.d/f250.sh tools/dev/deploy.sh tools/dev/logs.sh tools/pi/*.sh; do
+  check "bash -n $f" "bash -n '$f'"
+done
+for f in agl/scripts/*.sh agl/rootfs/opt/f250/libexec/*; do
+  check "$f is executable" "[[ -x '$f' ]]"
+done
+
+# A fake AGL root: the image's Flutter env, the end of its config.txt, the
+# agl-driver user, a deployed bundle, and the state the queries report.
+make_root() {
+  local r="$1"
+  mkdir -p "$r/etc/default" "$r/boot" "$r/.test" "$r/opt/f250/bin" \
+           "$r/usr/share/flutter/f250_infotainment/3.38.3/release/lib" \
+           "$r/usr/share/flutter/f250_infotainment/3.38.3/release/data/flutter_assets"
+  printf 'FLUTTER_VERSION=3.38.3\nFLUTTER_RUNTIME=release\n' >"$r/etc/default/flutter"
+  printf '# Enable VC4 Graphics\ndtoverlay=vc4-kms-v3d-pi5,cma-256\n\n# Seeed CAN FD HATs\n#dtoverlay=seeed-can-fd-hat-v2\n\n' >"$r/boot/config.txt"
+  printf 'root:x:0:0:root:/home/root:/bin/sh\nagl-driver:x:1001:1001::/home/agl-driver:/bin/sh\n' >"$r/etc/passwd"
+  printf 'root:x:0:\nagl-driver:x:1001:\n' >"$r/etc/group"
+  echo elf >"$r/usr/share/flutter/f250_infotainment/3.38.3/release/lib/libapp.so"
+  echo 3.38.3 >"$r/usr/share/flutter/f250_infotainment/3.38.3/release/flutter-version"
+  for u in kuksa-can-provider can-dev-helper flutter-ics-homescreen; do
+    echo enabled >"$r/.test/unit-$u.service"
+  done
+  # can0 up in NORMAL mode, as the image's networkd config would leave it.
+  printf '3: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UP mode DEFAULT group default qlen 1000\n    link/can  promiscuity 0\n    can state ERROR-ACTIVE restart-ms 100\n\t  bitrate 500000 sample-point 0.875\n' >"$r/.test/ip-can0"
+}
+setup() { ROOT="$1" F250_SYS_LOG="$1/.test/sys.log" bash "$SETUP" "${@:2}"; }
+
+echo "stage1-setup: apply"
+R="$T/root"
+make_root "$R"
+cp "$R/boot/config.txt" "$T/config.orig"
+setup "$R" >"$T/apply1.out" 2>&1 || { fail "apply exited non-zero"; cat "$T/apply1.out"; }
+L="$R/.test/sys.log"
+check "masks the KUKSA CAN provider"   "has_line '$L' 'systemctl mask --now kuksa-can-provider.service'"
+check "masks the vcan helper"          "has_line '$L' 'systemctl mask --now can-dev-helper.service'"
+check "takes can0 down (normal mode)"  "has_line '$L' 'ip link set can0 down'"
+check "reloads networkd"               "has_line '$L' 'networkctl reload'"
+check "networkd override installed"    "cmp -s agl/rootfs/etc/systemd/network/60-canbus-can.network '$R/etc/systemd/network/60-canbus-can.network'"
+check "override leaves can* unmanaged" "grep -qx 'Unmanaged=yes' '$R/etc/systemd/network/60-canbus-can.network'"
+check "CAN safety runs first"          "[[ \"\$(head -1 '$L')\" == 'systemctl mask --now kuksa-can-provider.service' ]]"
+check "adds group f250"                "has_line '$L' 'groupadd --system f250'"
+check "adds user f250"                 "grep -q '^useradd --system -g f250 ' '$L'"
+check "agl-driver joins f250"          "has_line '$L' 'usermod -aG f250 agl-driver'"
+check "disables the demo homescreen"   "has_line '$L' 'systemctl disable --now flutter-ics-homescreen.service'"
+check "enables our services"           "has_line '$L' 'systemctl enable f250-gateway.service f250-recorder.service f250-dashboard.service'"
+check "config.txt keeps the original"  "cmp -s '$T/config.orig' '$R/boot/config.txt.agl-orig'"
+check "config.txt has one f250 block"  "[[ \$(count '$R/boot/config.txt' '# >>> f250') == 1 ]]"
+check "config.txt enables the DSI panel" "has_line '$R/boot/config.txt' 'dtoverlay=vc4-kms-dsi-7inch'"
+check "config.txt keeps the image's lines" "has_line '$R/boot/config.txt' 'dtoverlay=vc4-kms-v3d-pi5,cma-256'"
+check "DAC8x overlay stays commented"  "! grep -qx 'dtoverlay=hifiberry-dac8x' '$R/boot/config.txt'"
+check "default settings installed"     "cmp -s agl/rootfs/etc/default/f250 '$R/etc/default/f250'"
+check "default transport is sim"       "has_line '$R/etc/default/f250' 'TRANSPORT=sim'"
+check "default transmit is off"        "has_line '$R/etc/default/f250' 'TRANSMIT=0'"
+check "helpers are executable"         "[[ -x '$R/opt/f250/libexec/gateway-start' && -x '$R/opt/f250/libexec/dashboard-stopped' ]]"
+check "units installed"                "[[ -f '$R/etc/systemd/system/f250-gateway.service' && -f '$R/etc/systemd/system/f250-dashboard.service' ]]"
+check "logind drop-in installed"       "[[ -f '$R/etc/systemd/logind.conf.d/50-f250-power-key.conf' ]]"
+B="$R/usr/share/flutter/f250_infotainment/3.38.3/release"
+check "bundle config.toml"             "cmp -s agl/flutter/config.toml '$B/config.toml'"
+check "bundle links the engine"        "[[ \"\$(readlink '$B/lib/libflutter_engine.so')\" == /usr/share/flutter/3.38.3/release/lib/libflutter_engine.so ]]"
+check "bundle links icudtl.dat"        "[[ \"\$(readlink '$B/data/icudtl.dat')\" == /usr/share/flutter/3.38.3/release/data/icudtl.dat ]]"
+
+echo "stage1-setup: apply again (idempotent)"
+cp "$R/boot/config.txt" "$T/config.after1"
+echo 'TRANSPORT=can' >"$R/etc/default/f250"           # the owner's settings
+echo masked >"$R/.test/unit-kuksa-can-provider.service"
+echo masked >"$R/.test/unit-can-dev-helper.service"
+echo disabled >"$R/.test/unit-flutter-ics-homescreen.service"
+rm "$R/.test/ip-can0"
+: >"$L"
+setup "$R" >"$T/apply2.out" 2>&1 || { fail "second apply exited non-zero"; cat "$T/apply2.out"; }
+check "config.txt unchanged"           "cmp -s '$T/config.after1' '$R/boot/config.txt'"
+check "original copy unchanged"        "cmp -s '$T/config.orig' '$R/boot/config.txt.agl-orig'"
+check "owner's settings kept"          "[[ \"\$(cat '$R/etc/default/f250')\" == TRANSPORT=can ]]"
+check "no second mask"                 "! grep -q 'systemctl mask' '$L'"
+check "no networkd reload"             "! grep -q 'networkctl' '$L'"
+check "no can0 change when absent"     "! grep -q '^ip ' '$L'"
+
+echo "stage1-setup: an older f250 block is replaced"
+sed -i.bak 's/^dtoverlay=vc4-kms-dsi-7inch$/dtoverlay=vc4-kms-dsi-7inch,dsi0/' "$R/boot/config.txt"
+setup "$R" >/dev/null 2>&1 || fail "apply over an old block exited non-zero"
+check "old block replaced"             "cmp -s '$T/config.after1' '$R/boot/config.txt'"
+
+echo "stage1-setup: can0 states"
+R2="$T/root2"; make_root "$R2"
+printf '3: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 state UP\n    link/can  promiscuity 0\n    can <LISTEN-ONLY> state ERROR-ACTIVE\n' >"$R2/.test/ip-can0"
+setup "$R2" >/dev/null 2>&1 || fail "apply (listen-only can0) exited non-zero"
+check "listen-only can0 left up"       "! grep -q '^ip ' '$R2/.test/sys.log'"
+R3="$T/root3"; make_root "$R3"
+printf '3: can0: <NOARP,UP,LOWER_UP> mtu 72 state UNKNOWN\n    link/can  promiscuity 0\n    vcan numtxqueues 1\n' >"$R3/.test/ip-can0"
+setup "$R3" >/dev/null 2>&1 || fail "apply (vcan can0) exited non-zero"
+check "virtual can0 removed"           "has_line '$R3/.test/sys.log' 'ip link delete can0'"
+R4="$T/root4"; make_root "$R4"
+printf '3: can0: <NOARP,ECHO> mtu 16 state DOWN\n    link/can  promiscuity 0\n' >"$R4/.test/ip-can0"
+setup "$R4" >/dev/null 2>&1 || fail "apply (can0 down) exited non-zero"
+check "down can0 left alone"           "! grep -q '^ip ' '$R4/.test/sys.log'"
+
+echo "stage1-setup: engine version mismatch"
+R5="$T/root5"; make_root "$R5"
+echo 3.41.0 >"$R5/usr/share/flutter/f250_infotainment/3.38.3/release/flutter-version"
+if setup "$R5" >"$T/mismatch.out" 2>&1; then fail "a bundle for another engine was accepted"; else ok; fi
+check "mismatch is explained"          "grep -q 'built with Flutter 3.41.0' '$T/mismatch.out'"
+
+echo "stage1-setup: --check"
+R6="$T/root6"; make_root "$R6"
+if setup "$R6" --check >"$T/check-before.out" 2>&1; then fail "--check passed before setup"; else ok; fi
+check "--check flags the CAN provider" "grep -q 'kuksa-can-provider.service is not masked' '$T/check-before.out'"
+check "--check flags normal-mode can0" "grep -q 'NORMAL mode' '$T/check-before.out'"
+check "--check changes nothing"        "[[ ! -s '$R6/.test/sys.log' && ! -e '$R6/etc/systemd/network/60-canbus-can.network' ]]"
+for b in vehicle-gateway recorder obd-console f250-can; do printf '#!/bin/sh\n' >"$R/opt/f250/bin/$b"; chmod +x "$R/opt/f250/bin/$b"; done
+for u in f250-gateway f250-recorder f250-dashboard; do echo enabled >"$R/.test/unit-$u.service"; done
+mkdir -p "$R/opt/f250/share/data/signals"; echo '{}' >"$R/opt/f250/share/data/warning_rules.json"
+if setup "$R" --check >"$T/check-after.out" 2>&1; then ok; else fail "--check after setup: $(grep FAIL "$T/check-after.out")"; fi
+
+echo "stage1-setup: --restore-demo"
+: >"$L"
+setup "$R" --restore-demo >/dev/null 2>&1 || fail "--restore-demo exited non-zero"
+check "restores the demo homescreen"   "has_line '$L' 'systemctl enable --now flutter-ics-homescreen.service'"
+check "stops our dashboard"            "has_line '$L' 'systemctl disable --now f250-dashboard.service'"
+
+echo "gateway-start"
+STUB="$T/vehicle-gateway"
+printf '#!/bin/sh\necho "$@"\n' >"$STUB"; chmod +x "$STUB"
+gw() { env -i PATH="$PATH" F250_GATEWAY_BIN="$STUB" STATE_DIRECTORY=/var/lib/f250 "$@" bash "$GW" 2>/dev/null; }
+check "sim"                 "[[ \"\$(gw TRANSPORT=sim)\" == '--listen unix:/run/f250/vehicle.sock --transport sim --signals /opt/f250/share/data/signals --warnings /opt/f250/share/data/warning_rules.json --scenario-dir /opt/f250/share/data/scenarios --scenario drive_cycle --sim-start-s 0' ]]"
+check "obdlink passive"     "[[ \"\$(gw TRANSPORT=obdlink)\" == '--listen unix:/run/f250/vehicle.sock --transport obdlink --signals /opt/f250/share/data/signals --warnings /opt/f250/share/data/warning_rules.json --adapter rfcomm:00:04:3E:85:EA:FC --traffic-log /var/lib/f250/traffic' ]]"
+check "obdlink transmit"    "[[ \"\$(gw TRANSPORT=obdlink TRANSMIT=1)\" == *' --transmit' ]]"
+check "can passive"         "[[ \"\$(gw TRANSPORT=can CAN_IF=can0)\" == '--listen unix:/run/f250/vehicle.sock --transport can --signals /opt/f250/share/data/signals --warnings /opt/f250/share/data/warning_rules.json --can-if can0 --traffic-log /var/lib/f250/traffic' ]]"
+check "TRANSMIT=0 never transmits" "[[ \"\$(gw TRANSPORT=can TRANSMIT=0)\" != *--transmit* ]]"
+check "can transmit refused without the interface" "! gw TRANSPORT=can TRANSMIT=1 CAN_IF=f250-test-none >/dev/null"
+check "enable and budget"   "[[ \"\$(gw TRANSPORT=sim ENABLE=rpm,trans_temp BUDGET_RPS=8)\" == *'--enable rpm,trans_temp --budget-rps 8' ]]"
+check "unknown transport refused" "! gw TRANSPORT=bogus >/dev/null"
+
+echo "dashboard-stopped"
+SB="$T/sbin"; mkdir -p "$SB"
+printf '#!/bin/sh\necho "systemctl $*" >>"%s/poweroff.log"\n' "$T" >"$SB/systemctl"; chmod +x "$SB/systemctl"
+env -i PATH="$SB:$PATH" EXIT_CODE=exited EXIT_STATUS=1 bash "$STOPPED" >/dev/null
+env -i PATH="$SB:$PATH" EXIT_CODE=killed EXIT_STATUS=TERM bash "$STOPPED" >/dev/null
+check "no power off on a crash or stop" "[[ ! -e '$T/poweroff.log' ]]"
+env -i PATH="$SB:$PATH" EXIT_CODE=exited EXIT_STATUS=42 bash "$STOPPED" >/dev/null
+check "power off on exit 42"  "has_line '$T/poweroff.log' 'systemctl poweroff --no-block'"
+
+echo "units"
+check "dashboard treats 42 as success" "grep -qx 'SuccessExitStatus=42' agl/rootfs/etc/systemd/system/f250-dashboard.service"
+check "power-off code matches the app" "grep -q 'const powerOffExitCode = 42;' apps/infotainment/lib/core/power.dart"
+check "socket path matches the build"  "grep -q 'SOCK=/run/f250/vehicle.sock' tools/dev/deploy.sh && grep -q 'unix:/run/f250/vehicle.sock' agl/rootfs/etc/systemd/system/f250-recorder.service"
+check "config block is marked"         "[[ \"\$(head -1 agl/boot/config-f250.txt)\" == '# >>> f250'* && \"\$(tail -1 agl/boot/config-f250.txt)\" == '# <<< f250' ]]"
+check "engine pin matches .fvmrc"      "grep -q \"AGL_FLUTTER_VERSION=\$(sed -n 's/.*\"flutter\": *\"\\([^\"]*\\)\".*/\\1/p' .fvmrc)\" agl/configurations/vimba.env"
+
+echo
+echo "agl-test: $PASS passed, $FAIL failed"
+[[ "$FAIL" == 0 ]]

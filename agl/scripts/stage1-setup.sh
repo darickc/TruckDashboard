@@ -1,0 +1,318 @@
+#!/bin/bash
+# Stage 1 of the AGL bring-up (ADR-0005): turn the prebuilt Vimba Pi 5 Flutter
+# image into the head unit, without a custom image build. Runs on the Pi, as
+# root. `make deploy PI=<host>` copies everything and runs it; it can also be
+# run by hand.
+#
+#   stage1-setup.sh                 # apply (idempotent), then say what changed
+#   stage1-setup.sh --check         # report only; changes nothing
+#   stage1-setup.sh --restore-demo  # back to the AGL demo homescreen (fallback)
+#
+# What "apply" does, in order:
+#   1. CAN safety first (ADR-0015): mask the demo's KUKSA CAN provider and its
+#      vcan helper, install the networkd override that leaves can* unmanaged,
+#      and take can0 down if it is up in normal mode.
+#   2. Append agl/boot/config-f250.txt to the boot partition's config.txt
+#      (between markers; the original is kept as config.txt.agl-orig).
+#   3. The f250 system user; agl-driver joins its group for the gateway socket.
+#   4. Install agl/rootfs/ (units, logind drop-in, /etc/default/f250, helpers).
+#      /etc/default/f250 is installed only if missing: it holds your settings.
+#   5. Link the dashboard bundle to the image's Flutter engine, after checking
+#      the engine version matches the one the bundle was built with.
+#   6. Disable the demo homescreen; enable the gateway, recorder and dashboard.
+#
+# A reboot applies config.txt and the logind change.
+#
+# Testing: ROOT=<dir> runs against a directory tree, and F250_SYS_LOG=<file>
+# records system commands (systemctl, ip, useradd, ...) instead of running
+# them (tools/dev/test-agl.sh).
+#
+# Status: [SIM] (tools/dev/test-agl.sh). Not run on the AGL image yet.
+set -euo pipefail
+
+MODE=apply
+case "${1:-}" in
+  "") ;;
+  --check) MODE=check ;;
+  --restore-demo) MODE=restore ;;
+  -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+  *) echo "usage: $0 [--check|--restore-demo]" >&2; exit 2 ;;
+esac
+
+ROOT="${ROOT:-}"
+HERE="$(cd "$(dirname "$0")/.." && pwd)"   # the agl/ directory
+APP_ID=f250_infotainment
+CAN_IF="${CAN_IF:-can0}"
+DEMO_HOMESCREEN=flutter-ics-homescreen.service
+CAN_UNITS=(kuksa-can-provider.service can-dev-helper.service)
+F250_UNITS=(f250-gateway.service f250-recorder.service f250-dashboard.service)
+BEGIN='# >>> f250'
+END='# <<< f250'
+
+if [[ -t 1 ]]; then B=$'\033[1m'; R=$'\033[31m'; Y=$'\033[33m'; G=$'\033[32m'; N=$'\033[0m'; else B='' R='' Y='' G='' N=''; fi
+say()  { printf '%s==> %s%s\n' "$B" "$*" "$N"; }
+ok()   { printf '  %sok%s    %s\n' "$G" "$N" "$*"; }
+warn() { printf '  %sWARN%s  %s\n' "$Y" "$N" "$*"; WARNINGS=$((WARNINGS + 1)); }
+bad()  { printf '  %sFAIL%s  %s\n' "$R" "$N" "$*"; FAILURES=$((FAILURES + 1)); }
+die()  { printf '%s%s%s\n' "$R" "$*" "$N" >&2; exit 1; }
+WARNINGS=0
+FAILURES=0
+
+# System commands: run them, or only record them under test.
+sys() {
+  if [[ -n "${F250_SYS_LOG:-}" ]]; then
+    echo "$*" >>"$F250_SYS_LOG"
+    return 0
+  fi
+  "$@"
+}
+
+# Queries that must not run under test answer from files in the test tree.
+unit_state() {   # enabled/disabled/masked/... for a unit, or "absent"
+  if [[ -n "${F250_SYS_LOG:-}" ]]; then
+    cat "$ROOT/.test/unit-$1" 2>/dev/null || echo absent
+  else
+    local s
+    s="$(systemctl is-enabled "$1" 2>/dev/null | head -1)" || true
+    case "$s" in
+      ""|not-found) echo absent ;;
+      *) echo "$s" ;;
+    esac
+  fi
+}
+can_details() {  # `ip -details link show $CAN_IF`, or nothing if absent
+  if [[ -n "${F250_SYS_LOG:-}" ]]; then
+    cat "$ROOT/.test/ip-$CAN_IF" 2>/dev/null || true
+  else
+    ip -details link show "$CAN_IF" 2>/dev/null || true
+  fi
+}
+
+can_up() {       # the interface flags (<...,UP,...>) of `ip link` output on stdin include UP
+  sed -n 's/^[0-9]*: [^<]*<\([^>]*\)>.*/\1/p' | head -1 | tr ',' '\n' | grep -qx UP
+}
+
+boot_config() {
+  local c
+  if [[ -n "${BOOT_CONFIG:-}" ]]; then echo "$ROOT$BOOT_CONFIG"; return; fi
+  for c in /boot/config.txt /boot/firmware/config.txt; do
+    [[ -f "$ROOT$c" ]] && { echo "$ROOT$c"; return; }
+  done
+  # Any mounted FAT partition holding a config.txt (the image's boot partition).
+  if [[ -z "$ROOT" ]] && command -v findmnt >/dev/null; then
+    for c in $(findmnt -rn -t vfat -o TARGET); do
+      [[ -f "$c/config.txt" ]] && { echo "$c/config.txt"; return; }
+    done
+  fi
+  return 1
+}
+
+flutter_version() {
+  sed -n 's/^FLUTTER_VERSION=//p' "$ROOT/etc/default/flutter" 2>/dev/null | head -1
+}
+
+# ---------------------------------------------------------------- check ----
+
+check() {
+  local cfg ver bundle d u
+  say "Vehicle bus safety (ADR-0015)"
+  for u in "${CAN_UNITS[@]}"; do
+    case "$(unit_state "$u")" in
+      masked*|absent) ok "$u is masked or absent" ;;
+      *) bad "$u is not masked: it opens $CAN_IF (run this script without --check)" ;;
+    esac
+  done
+  if cmp -s "$HERE/rootfs/etc/systemd/network/60-canbus-can.network" \
+            "$ROOT/etc/systemd/network/60-canbus-can.network"; then
+    ok "networkd leaves can* unmanaged (/etc/systemd/network/60-canbus-can.network)"
+  else
+    bad "the image's networkd config would bring $CAN_IF up in normal mode at 500k"
+  fi
+  d="$(can_details)"
+  if [[ -z "$d" ]]; then
+    ok "$CAN_IF absent (adapter unplugged)"
+  elif grep -q 'vcan' <<<"$d"; then
+    bad "$CAN_IF is a virtual CAN device (can-dev-helper); the adapter would appear under another name"
+  elif ! can_up <<<"$d"; then
+    ok "$CAN_IF is down"
+  elif grep -q LISTEN-ONLY <<<"$d"; then
+    ok "$CAN_IF is up, LISTEN-ONLY"
+  else
+    warn "$CAN_IF is up in NORMAL mode: it ACKs on the bus. Fine only after 'f250-can active' on purpose"
+  fi
+
+  say "Boot configuration"
+  if cfg="$(boot_config)"; then
+    if cmp -s <(sed -n "/^$BEGIN/,/^$END/p" "$cfg") "$HERE/boot/config-f250.txt"; then
+      ok "config.txt has the current f250 block ($cfg)"
+    elif grep -q "^$BEGIN" "$cfg"; then
+      warn "config.txt has an older f250 block: run this script to update it"
+    else
+      bad "config.txt has no f250 block: the 7\" display stays off"
+    fi
+  else
+    bad "config.txt not found (/boot, /boot/firmware or a mounted FAT partition)"
+  fi
+  if cmp -s "$HERE/rootfs/etc/systemd/logind.conf.d/50-f250-power-key.conf" \
+            "$ROOT/etc/systemd/logind.conf.d/50-f250-power-key.conf"; then
+    ok "logind ignores the power key (after a reboot)"
+  else
+    warn "logind still handles the power key"
+  fi
+
+  say "Services"
+  ver="$(flutter_version)"
+  bundle="$ROOT/usr/share/flutter/$APP_ID/$ver/release"
+  if [[ -z "$ver" ]]; then
+    bad "/etc/default/flutter has no FLUTTER_VERSION: is this the AGL Flutter image?"
+  elif [[ -f "$bundle/lib/libapp.so" && -d "$bundle/data/flutter_assets" ]]; then
+    ok "dashboard bundle for Flutter $ver installed"
+  else
+    bad "no dashboard bundle in $bundle (make deploy)"
+  fi
+  for d in vehicle-gateway recorder obd-console f250-can; do
+    [[ -x "$ROOT/opt/f250/bin/$d" ]] && ok "/opt/f250/bin/$d" || bad "/opt/f250/bin/$d missing (make deploy)"
+  done
+  if [[ -d "$ROOT/opt/f250/share/data/signals" && -f "$ROOT/opt/f250/share/data/warning_rules.json" ]]; then
+    ok "gateway data in /opt/f250/share/data"
+  else
+    bad "/opt/f250/share/data incomplete: the gateway can't load its registry (make deploy)"
+  fi
+  for u in "${F250_UNITS[@]}"; do
+    case "$(unit_state "$u")" in
+      enabled) ok "$u enabled" ;;
+      *) bad "$u not enabled" ;;
+    esac
+  done
+  case "$(unit_state "$DEMO_HOMESCREEN")" in
+    enabled) warn "$DEMO_HOMESCREEN is still enabled: two homescreens would compete" ;;
+    *) ok "$DEMO_HOMESCREEN disabled" ;;
+  esac
+
+  echo
+  if ((FAILURES)); then
+    printf '%s%d failed, %d warnings%s\n' "$R" "$FAILURES" "$WARNINGS" "$N"; return 1
+  fi
+  printf '%sall checks passed%s (%d warnings)\n' "$G" "$N" "$WARNINGS"
+}
+
+# ---------------------------------------------------------------- apply ----
+
+install_file() {  # install_file <src> <dest> <mode>: say whether it changed
+  local src="$1" dest="$2" mode="$3"
+  if cmp -s "$src" "$dest"; then return 1; fi
+  mkdir -p "$(dirname "$dest")"
+  cp "$src" "$dest.f250-new"
+  chmod "$mode" "$dest.f250-new"
+  mv "$dest.f250-new" "$dest"
+  echo "  installed ${dest#"$ROOT"}"
+}
+
+apply() {
+  local u d cfg ver bundle engine f rel mode new
+  [[ -n "$ROOT" || "$(id -u)" == 0 ]] || die "Run as root (on AGL, ssh root@<pi>)"
+  [[ -n "$ROOT" || -f /etc/default/flutter ]] || die "/etc/default/flutter missing: this is not the AGL Flutter image"
+
+  say "1. Vehicle bus safety (ADR-0015)"
+  for u in "${CAN_UNITS[@]}"; do
+    if [[ "$(unit_state "$u")" != masked* ]]; then
+      sys systemctl mask --now "$u"
+      echo "  masked $u"
+    fi
+  done
+  if install_file "$HERE/rootfs/etc/systemd/network/60-canbus-can.network" \
+                  "$ROOT/etc/systemd/network/60-canbus-can.network" 0644; then
+    sys networkctl reload
+  fi
+  d="$(can_details)"
+  if grep -q 'vcan' <<<"$d"; then
+    sys ip link delete "$CAN_IF"
+    echo "  removed the virtual $CAN_IF that can-dev-helper made; replug the adapter"
+  elif [[ -n "$d" ]] && can_up <<<"$d" && ! grep -q LISTEN-ONLY <<<"$d"; then
+    sys ip link set "$CAN_IF" down
+    echo "  took $CAN_IF down: it was up in normal mode (use 'f250-can listen' or 'active')"
+  fi
+
+  say "2. Boot configuration"
+  cfg="$(boot_config)" || die "config.txt not found. Mount the boot partition, or set BOOT_CONFIG=/path/config.txt"
+  [[ -f "$cfg.agl-orig" ]] || cp "$cfg" "$cfg.agl-orig"
+  new="$(mktemp)"
+  # The image's lines without our block or trailing blank lines, one blank
+  # line, then our block: the same result however often this runs.
+  sed "/^$BEGIN/,/^$END/d" "$cfg" \
+    | awk '{ line[NR] = $0 } END { n = NR; while (n > 0 && line[n] == "") n--; for (i = 1; i <= n; i++) print line[i] }' >"$new"
+  echo >>"$new"
+  cat "$HERE/boot/config-f250.txt" >>"$new"
+  if cmp -s "$new" "$cfg"; then
+    rm -f "$new"
+  else
+    cat "$new" >"$cfg"; rm -f "$new"
+    echo "  updated ${cfg#"$ROOT"} (original: config.txt.agl-orig). Reboot to apply"
+  fi
+
+  say "3. f250 user"
+  if ! grep -q '^f250:' "$ROOT/etc/group" 2>/dev/null; then
+    sys groupadd --system f250; echo "  added group f250"
+  fi
+  if ! grep -q '^f250:' "$ROOT/etc/passwd" 2>/dev/null; then
+    sys useradd --system -g f250 -d /var/lib/f250 -s /bin/false -c "F-250 head unit services" f250
+    echo "  added user f250"
+  fi
+  if ! grep -q '^f250:.*agl-driver' "$ROOT/etc/group" 2>/dev/null; then
+    sys usermod -aG f250 agl-driver; echo "  agl-driver joined group f250 (the gateway socket)"
+  fi
+
+  say "4. Files"
+  while IFS= read -r f; do
+    rel="${f#"$HERE/rootfs/"}"
+    case "$rel" in
+      etc/default/f250) [[ -f "$ROOT/etc/default/f250" ]] && continue ;;
+    esac
+    mode=0644
+    [[ "$rel" == opt/f250/libexec/* ]] && mode=0755
+    install_file "$f" "$ROOT/$rel" "$mode" || true
+  done < <(find "$HERE/rootfs" -type f | sort)
+  sys systemctl daemon-reload
+
+  say "5. Dashboard bundle"
+  ver="$(flutter_version)"
+  [[ -n "$ver" ]] || die "/etc/default/flutter has no FLUTTER_VERSION"
+  bundle="$ROOT/usr/share/flutter/$APP_ID/$ver/release"
+  engine="$ROOT/usr/share/flutter/$ver/release"
+  if [[ ! -f "$bundle/lib/libapp.so" ]]; then
+    warn "no bundle in ${bundle#"$ROOT"} (make deploy builds it for Flutter $ver)"
+  else
+    if [[ -f "$bundle/flutter-version" && "$(cat "$bundle/flutter-version")" != "$ver" ]]; then
+      die "the bundle was built with Flutter $(cat "$bundle/flutter-version"), the image's engine is $ver: rebuild with that version"
+    fi
+    install_file "$HERE/flutter/config.toml" "$bundle/config.toml" 0644 || true
+    ln -sfn "/usr/share/flutter/$ver/release/data/icudtl.dat" "$bundle/data/icudtl.dat"
+    ln -sfn "/usr/share/flutter/$ver/release/lib/libflutter_engine.so" "$bundle/lib/libflutter_engine.so"
+    [[ -n "$ROOT" || -f "$engine/lib/libflutter_engine.so" ]] \
+      || warn "the image has no release engine at /usr/share/flutter/$ver/release"
+  fi
+
+  say "6. Services"
+  if [[ "$(unit_state "$DEMO_HOMESCREEN")" == enabled ]]; then
+    sys systemctl disable --now "$DEMO_HOMESCREEN"; echo "  disabled $DEMO_HOMESCREEN"
+  fi
+  sys systemctl enable "${F250_UNITS[@]}"
+  sys systemctl restart "${F250_UNITS[@]}"
+  echo
+  echo "Done. Reboot if config.txt or logind changed, then: $0 --check"
+}
+
+restore() {
+  [[ -n "$ROOT" || "$(id -u)" == 0 ]] || die "Run as root"
+  say "Back to the AGL demo homescreen"
+  sys systemctl disable --now f250-dashboard.service
+  sys systemctl enable --now "$DEMO_HOMESCREEN"
+  echo "  The gateway and recorder keep running; the CAN safety settings stay."
+  echo "  To undo the boot changes: cp config.txt.agl-orig config.txt on the boot partition."
+}
+
+case "$MODE" in
+  apply) apply ;;
+  check) check ;;
+  restore) restore ;;
+esac

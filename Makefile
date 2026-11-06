@@ -2,8 +2,8 @@
 #
 # Test and lint targets cover only the components that exist. A component that
 # hasn't landed yet prints a "skip" line saying which phase adds it, and exits 0.
-# Run targets (ui, sim, deploy, logs) exit non-zero until their phase lands, so
-# they can never look like they ran.
+# Run targets exit non-zero until their phase lands, so they can never look
+# like they ran.
 
 SHELL := /bin/bash
 ROOT  := $(shell git rev-parse --show-toplevel)
@@ -45,8 +45,9 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
-        sim gateway console deploy logs docs-lint \
-        pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can
+        sim gateway console docs-lint \
+        pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can \
+        agl-test agl-image deploy deploy-build logs
 
 help: ## List targets
 	@grep -hE '^[a-z][a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -68,7 +69,7 @@ doctor: ## Print tool versions without installing anything
 
 # ---- aggregate --------------------------------------------------------------
 
-test: fw-test sim-test rust-test ui-test ## Run every test available in this environment
+test: fw-test sim-test rust-test ui-test agl-test ## Run every test available in this environment
 
 lint: docs-lint rust-lint proto-lint ui-lint ## Run every linter available
 
@@ -210,8 +211,19 @@ sim: ## Gateway (simulated) + the macOS app reading from it over gRPC
 console: ## obd-console against the gateway at $(GATEWAY)
 	cargo run -q -p obd-console -- --gateway $(GATEWAY)
 
-deploy: ## Copy services + UI bundle to a Pi: make deploy PI=<host> (Phase 5)
-	@echo "deploy: available from Phase 5"; exit 1
+# ---- AGL (Phase 5); docs/setup/agl.md ---------------------------------------
 
-logs: ## Collect service logs from a Pi: make logs PI=<host> (Phase 5)
-	@echo "logs: available from Phase 5"; exit 1
+agl-test: ## Tests for the AGL Stage 1 scripts (no Pi needed)
+	tools/dev/test-agl.sh
+
+agl-image: ## Download, verify and decompress the pinned AGL Pi 5 image into build/agl/
+	agl/scripts/fetch-image.sh
+
+deploy-build: ## Build the services and dashboard for the Pi 5 (aarch64, in Docker) into build/agl-arm64/
+	tools/dev/deploy.sh build
+
+deploy: ## Build, copy to the AGL Pi and set up: make deploy PI=<host> (SKIP_BUILD=1 to reuse the build)
+	PI="$(PI)" tools/dev/deploy.sh deploy
+
+logs: ## Collect logs and state from the AGL Pi into build/logs/: make logs PI=<host>
+	tools/dev/logs.sh "$(PI)"

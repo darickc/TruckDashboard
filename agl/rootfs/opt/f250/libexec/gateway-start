@@ -1,0 +1,59 @@
+#!/bin/bash
+# ExecStart of f250-gateway.service on AGL: build the vehicle-gateway command
+# line from /etc/default/f250, with the same rules as tools/pi/run.sh.
+#
+# Without TRANSMIT=1 the gateway runs PASSIVE_ONLY and never opens the
+# adapter (ADR-0007). With TRANSPORT=can TRANSMIT=1, can0 must already be in
+# active mode: the gateway can't change the interface (that needs root), and a
+# listen-only interface would leave every poll unanswered.
+#
+# Status: [SIM]. Not run on the AGL image yet.
+set -euo pipefail
+
+TRANSPORT="${TRANSPORT:-sim}"
+TRANSMIT="${TRANSMIT:-0}"
+ADAPTER="${ADAPTER:-rfcomm:00:04:3E:85:EA:FC}"
+CAN_IF="${CAN_IF:-can0}"
+SCENARIO="${SCENARIO:-drive_cycle}"
+START="${START:-0}"
+SOCK="${F250_SOCK:-/run/f250/vehicle.sock}"
+STATE="${STATE_DIRECTORY:-/var/lib/f250}"
+GATEWAY="${F250_GATEWAY_BIN:-/opt/f250/bin/vehicle-gateway}"
+# The registry, warning rules and scenarios make deploy copies from the repo
+# (the gateway's defaults are paths relative to a checkout).
+DATA="${F250_DATA:-/opt/f250/share/data}"
+
+args=(--listen "unix:$SOCK" --transport "$TRANSPORT"
+      --signals "$DATA/signals" --warnings "$DATA/warning_rules.json")
+case "$TRANSPORT" in
+  sim)
+    args+=(--scenario-dir "$DATA/scenarios" --scenario "$SCENARIO" --sim-start-s "$START") ;;
+  obdlink)
+    args+=(--adapter "$ADAPTER" --traffic-log "$STATE/traffic") ;;
+  can)
+    args+=(--can-if "$CAN_IF" --traffic-log "$STATE/traffic")
+    if [[ "$TRANSMIT" == 1 ]]; then
+      if [[ ! -e "/sys/class/net/$CAN_IF" ]]; then
+        echo "$CAN_IF does not exist: plug in the CAN adapter, then 'f250-can active'" >&2; exit 1
+      fi
+      if ip -details link show "$CAN_IF" | grep -q LISTEN-ONLY; then
+        echo "$CAN_IF is listen-only: polls would never reach the bus." >&2
+        echo "Switch it with 'f250-can active' (ADR-0012), or set TRANSMIT=0." >&2; exit 1
+      fi
+    fi ;;
+  *)
+    echo "TRANSPORT must be sim, obdlink or can, got '$TRANSPORT' (/etc/default/f250)" >&2; exit 1 ;;
+esac
+
+if [[ "$TRANSPORT" != sim ]]; then
+  if [[ "$TRANSMIT" == 1 ]]; then
+    args+=(--transmit)
+  else
+    echo "PASSIVE_ONLY: the adapter will not be opened. Opt in with TRANSMIT=1 (ADR-0007)." >&2
+  fi
+fi
+[[ -n "${ENABLE:-}" ]] && args+=(--enable "$ENABLE")
+[[ -n "${BUDGET_RPS:-}" ]] && args+=(--budget-rps "$BUDGET_RPS")
+
+echo "exec $GATEWAY ${args[*]}" >&2
+exec "$GATEWAY" "${args[@]}"

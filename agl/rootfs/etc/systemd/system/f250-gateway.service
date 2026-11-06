@@ -1,0 +1,46 @@
+# Vehicle gateway on AGL (Stage 1 sideload, ADR-0005). The only process that
+# talks to the vehicle adapter; everything else uses its gRPC API on
+# /run/f250/vehicle.sock (ADR-0002). Settings: /etc/default/f250.
+#
+# The socket is group f250, mode 0770 (UMask). agl-driver, which runs the
+# dashboard, is in that group (agl/scripts/stage1-setup.sh).
+#
+# Status: [SIM]. Not run on the AGL image yet. No WatchdogSec: the gateway
+# doesn't send sd_notify keep-alives yet (Phase 6.7, power-manager).
+[Unit]
+Description=F-250 vehicle gateway
+After=bluetooth.service
+
+[Service]
+Type=simple
+User=f250
+Group=f250
+EnvironmentFile=/etc/default/f250
+ExecStart=/opt/f250/libexec/gateway-start
+Restart=on-failure
+RestartSec=2
+UMask=0007
+RuntimeDirectory=f250
+RuntimeDirectoryMode=0750
+# The recorder and dashboard are still connected while this restarts.
+RuntimeDirectoryPreserve=yes
+StateDirectory=f250
+StateDirectoryMode=0750
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+# unix: gRPC; can: SocketCAN; bluetooth: the MX+ over RFCOMM; inet: tcp: adapters
+RestrictAddressFamilies=AF_UNIX AF_CAN AF_BLUETOOTH AF_INET AF_INET6 AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target
