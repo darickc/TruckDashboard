@@ -14,7 +14,8 @@ Status:
 - **Adapter:** arrived with the slcan firmware, which can't do listen-only
   (`[BENCH]` 2026-11-05, [bench-log](../hardware/bench-log.md)). Flashed
   with Candlelight 2.5 the same day: `can0`, `driver gs_usb` `[BENCH]`.
-  Listen-only, terminator, and the truck: not done.
+  Listen-only accepted at 500 kbit/s `[BENCH]`. Terminator and the truck:
+  not done.
 
 The order is the point of this page: bench first, then listen-only on the
 truck, and only then polling.

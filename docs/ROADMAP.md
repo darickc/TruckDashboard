@@ -133,8 +133,8 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
       Done `[SIM]`: `--transport can` (single-frame ISO-TP on a raw SocketCAN socket), `tools/pi/can.sh`
       (listen-only by default, `active` on request, capture), tests against an in-memory bus replaying
       the truck's captures; compiled and unit-tested on the Pi 5. Adapter arrived with slcan firmware,
-      which can't do listen-only; flashed with Candlelight 2.5, now `can0` under `gs_usb` `[BENCH]`. Still open:
-      listen-only and the terminator on the bench, [docs/setup/can.md](setup/can.md)
+      which can't do listen-only; flashed with Candlelight 2.5, now `can0` under `gs_usb`, listen-only accepted `[BENCH]`. Still open:
+      the terminator readings and breakout continuity on the bench, [docs/setup/can.md](setup/can.md)
 - [ ] 4.2 `tools/can-monitor`
 - [ ] 4.3 Stage A: passive census on the truck, plus the turn-signal/reverse event captures (H14)
 - [ ] 4.4 Stage B: corroborated broadcast decoders

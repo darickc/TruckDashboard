@@ -441,3 +441,28 @@ no daemon; 160 MHz CAN clock; FD timing ranges present. Not yet shown:
 listen-only (`can.sh listen`, needs sudo), the terminator readings, and any
 frame on a bus.
 Closes: flashing (roadmap 4.1).
+
+## 2026-11-05 — USB CAN adapter: listen-only accepted [BENCH]
+
+Same adapter (Candlelight 2.5 Multiboard), nothing on its terminals. The owner
+ran `tools/pi/can.sh listen`:
+
+    can0: <NOARP,UP,LOWER_UP,ECHO> ... state UP
+    can <LISTEN-ONLY> state ERROR-ACTIVE (berr-counter tx 0 rx 0) restart-ms 0
+    bitrate 500000 sample-point 0.875
+    tq 12 prop-seg 69 phase-seg1 70 phase-seg2 20 sjw 10 brp 2
+    clock 160000000
+    bus-errors 0, error-warn 0, error-pass 0, bus-off 0; RX 0 packets, TX 0 packets
+
+Verdict: pass for what a bench with no bus can show. The driver and firmware
+accept listen-only at 500 kbit/s and the interface comes up error-active with
+zero counters. Not shown: that the adapter really sends no ACKs. That needs a
+second CAN node transmitting with the adapter as the only receiver (its frames
+should then go unacknowledged); the firmware source maps listen-only to the
+FDCAN's bus-monitoring mode, which is the evidence for now. The 87.5 % sample
+point is the kernel's default for 500 kbit/s; the truck's own sample point is
+unknown, and the listen-only capture's error counters will show whether it
+matters.
+Closes: listen-only on the bench (roadmap 4.1), except the no-ACK proof.
+Open: the terminator readings and the breakout's continuity
+([wiring sign-off](../wiring/dlc-can-adapter.md#sign-off)).
