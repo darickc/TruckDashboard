@@ -1,5 +1,6 @@
 # Telemetry recorder on AGL (Stage 1 sideload). Reads the gateway's API and
-# writes /var/lib/f250/telemetry.sqlite, with its default retention.
+# writes telemetry.sqlite, with its default retention: in /var/lib/f250, or on
+# the data drive with DATA_DRIVE=1 (agl/rootfs/opt/f250/libexec/recorder-start).
 # Ordered after the gateway, so at shutdown it stops first and records the
 # gateway's last samples, as tools/pi/run.sh does.
 #
@@ -8,17 +9,23 @@
 Description=F-250 telemetry recorder
 Requires=f250-gateway.service
 After=f250-gateway.service
+# The data drive's mount (/etc/fstab, written by stage1-setup.sh when
+# DATA_DRIVE=1). Ordering only: without the drive, recorder-start refuses.
+After=var-lib-f250-storage.mount
 
 [Service]
 Type=simple
 User=f250
 Group=f250
-ExecStart=/opt/f250/bin/recorder run --gateway unix:/run/f250/vehicle.sock --db /var/lib/f250/telemetry.sqlite
+EnvironmentFile=/etc/default/f250
+ExecStart=/opt/f250/libexec/recorder-start
 Restart=on-failure
 RestartSec=2
 UMask=0027
 StateDirectory=f250
 StateDirectoryMode=0750
+# The data drive is mounted inside the state directory; '-': fine if absent.
+ReadWritePaths=-/var/lib/f250/storage
 
 NoNewPrivileges=yes
 ProtectSystem=strict

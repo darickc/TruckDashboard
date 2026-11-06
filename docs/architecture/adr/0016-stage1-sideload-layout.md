@@ -69,6 +69,26 @@ image (manifest and layer sources, 2026-11-06):
   links no D-Bus library), so the `f250` user needs no BlueZ D-Bus policy.
   Not tested on AGL.
 
+## Addendum 2026-11-06: the data drive
+
+An NVMe HAT (or a USB SSD) holds the data that would wear the SD card
+([agl.md](../../setup/agl.md#data-drive-nvme-hat-or-usb-ssd)):
+
+- **Opt-in:** `DATA_DRIVE=1` in `/etc/default/f250`. `stage1-setup.sh` then
+  writes one `/etc/fstab` entry, by filesystem label (`f250-data`), so no
+  per-drive UUID is kept anywhere, with `nofail` and a 10 s device wait.
+- **Mount point** `/var/lib/f250/storage`, inside the services' state
+  directory. A mount at `/var/lib/f250` itself would make every unit with
+  `StateDirectory=f250` require it (systemd's implicit `RequiresMountsFor=`),
+  and the gateway with it.
+- **Without the drive** the gateway runs (traffic logs fall back to the card,
+  logged) and the recorder refuses to start. It never writes into the empty
+  mount point, where the drive would hide the data later.
+- Formatting is a separate, explicit command (`f250-storage format`), never
+  part of setup or deploy.
+- Booting from NVMe is out of Stage 1: the image's `boot.scr` loads the kernel
+  from `mmc 0:1`.
+
 ## Revisit when
 
 - Phase 5.4 builds `meta-f250`: fold this layout into recipes or replace it.

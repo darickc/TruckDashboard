@@ -17,9 +17,12 @@
 #   3. The f250 system user; agl-driver joins its group for the gateway socket.
 #   4. Install agl/rootfs/ (units, logind drop-in, /etc/default/f250, helpers).
 #      /etc/default/f250 is installed only if missing: it holds your settings.
-#   5. Link the dashboard bundle to the image's Flutter engine, after checking
+#   5. The data drive (DATA_DRIVE in /etc/default/f250): with 1, an /etc/fstab
+#      entry mounts the ext4 drive labelled f250-data (f250-storage formats
+#      it) at /var/lib/f250/storage, with nofail; with 0, the entry is removed.
+#   6. Link the dashboard bundle to the image's Flutter engine, after checking
 #      the engine version matches the one the bundle was built with.
-#   6. Disable the demo homescreen; enable the gateway, recorder and dashboard.
+#   7. Disable the demo homescreen; enable the gateway, recorder and dashboard.
 #
 # A reboot applies config.txt and the logind change.
 #
@@ -47,6 +50,11 @@ DEMO_HOMESCREEN=flutter-ics-homescreen.service
 CAN_UNITS=(kuksa-can-provider.service can-dev-helper.service)
 F250_UNITS=(f250-gateway.service f250-recorder.service f250-dashboard.service)
 BEGIN='# >>> f250'
+STORAGE=/var/lib/f250/storage
+DRIVE_LABEL=f250-data
+FSTAB_MARK='# f250 data drive: managed by stage1-setup.sh (DATA_DRIVE in /etc/default/f250)'
+# nofail: boot and the gateway go on without the drive; the device wait is 10 s.
+FSTAB_LINE="LABEL=$DRIVE_LABEL $STORAGE ext4 noatime,nofail,x-systemd.device-timeout=10s 0 2"
 END='# <<< f250'
 
 if [[ -t 1 ]]; then B=$'\033[1m'; R=$'\033[31m'; Y=$'\033[33m'; G=$'\033[32m'; N=$'\033[0m'; else B='' R='' Y='' G='' N=''; fi
@@ -88,6 +96,15 @@ can_details() {  # `ip -details link show $CAN_IF`, or nothing if absent
   fi
 }
 
+storage_mounted() {
+  if [[ -n "${F250_SYS_LOG:-}" ]]; then [[ -e "$ROOT/.test/mounted-storage" ]]; return; fi
+  mountpoint -q "$STORAGE"
+}
+drive_present() {  # a filesystem labelled f250-data is attached
+  if [[ -n "${F250_SYS_LOG:-}" ]]; then [[ -e "$ROOT/.test/label-$DRIVE_LABEL" ]]; return; fi
+  blkid -L "$DRIVE_LABEL" >/dev/null 2>&1
+}
+
 can_up() {       # the interface flags (<...,UP,...>) of `ip link` output on stdin include UP
   sed -n 's/^[0-9]*: [^<]*<\([^>]*\)>.*/\1/p' | head -1 | tr ',' '\n' | grep -qx UP
 }
@@ -105,6 +122,13 @@ boot_config() {
     done
   fi
   return 1
+}
+
+setting() {      # a value from /etc/default/f250
+  sed -n "s/^$1=//p" "$ROOT/etc/default/f250" 2>/dev/null | tail -1
+}
+fstab_has_entry() {
+  awk -v mp="$STORAGE" '$1 !~ /^#/ && $2 == mp { found = 1 } END { exit !found }' "$ROOT/etc/fstab" 2>/dev/null
 }
 
 flutter_version() {
@@ -160,6 +184,25 @@ check() {
     warn "logind still handles the power key"
   fi
 
+  say "Data drive"
+  if [[ "$(setting DATA_DRIVE)" == 1 ]]; then
+    if fstab_has_entry; then ok "/etc/fstab mounts LABEL=$DRIVE_LABEL at $STORAGE"
+    else bad "DATA_DRIVE=1 but /etc/fstab has no entry: run this script"; fi
+    if drive_present; then ok "a drive labelled $DRIVE_LABEL is attached"
+    else bad "no drive labelled $DRIVE_LABEL (f250-storage status; f250-storage format <disk>)"; fi
+    if storage_mounted; then
+      ok "mounted at $STORAGE"
+      if [[ -z "$(find "$ROOT$STORAGE" -maxdepth 0 -user f250 2>/dev/null)" ]]; then
+        warn "$STORAGE is not owned by f250: run this script"
+      fi
+    else
+      bad "nothing mounted at $STORAGE: the recorder won't run"
+    fi
+  else
+    ok "DATA_DRIVE is off: telemetry is on the SD card"
+    if fstab_has_entry; then warn "/etc/fstab still mounts the data drive: run this script to remove it"; fi
+  fi
+
   say "Services"
   ver="$(flutter_version)"
   bundle="$ROOT/usr/share/flutter/$APP_ID/$ver/release"
@@ -170,7 +213,7 @@ check() {
   else
     bad "no dashboard bundle in $bundle (make deploy)"
   fi
-  for d in vehicle-gateway recorder obd-console f250-can; do
+  for d in vehicle-gateway recorder obd-console f250-can f250-storage; do
     [[ -x "$ROOT/opt/f250/bin/$d" ]] && ok "/opt/f250/bin/$d" || bad "/opt/f250/bin/$d missing (make deploy)"
   done
   if [[ -d "$ROOT/opt/f250/share/data/signals" && -f "$ROOT/opt/f250/share/data/warning_rules.json" ]]; then
@@ -274,7 +317,40 @@ apply() {
   done < <(find "$HERE/rootfs" -type f | sort)
   sys systemctl daemon-reload
 
-  say "5. Dashboard bundle"
+  say "5. Data drive"
+  local fstab="$ROOT/etc/fstab" on changed=0
+  on="$(setting DATA_DRIVE)"
+  new="$(mktemp)"
+  if [[ -f "$fstab" ]]; then
+    awk -v m="$FSTAB_MARK" -v mp="$STORAGE" '$0 != m && !($1 !~ /^#/ && $2 == mp)' "$fstab" >"$new"
+  fi
+  [[ "$on" == 1 ]] && printf '%s\n%s\n' "$FSTAB_MARK" "$FSTAB_LINE" >>"$new"
+  if [[ ! -f "$fstab" && "$on" != 1 ]] || cmp -s "$new" "$fstab"; then
+    rm -f "$new"
+  else
+    cat "$new" >"$fstab"; rm -f "$new"; changed=1
+    sys systemctl daemon-reload   # the fstab generator makes var-lib-f250-storage.mount
+  fi
+  if [[ "$on" == 1 ]]; then
+    ((changed)) && echo "  /etc/fstab: LABEL=$DRIVE_LABEL on $STORAGE"
+    if ! storage_mounted; then
+      mkdir -p "$ROOT$STORAGE"; chmod 0755 "$ROOT$STORAGE"   # the empty mount point: root's
+      if drive_present; then
+        sys systemctl start var-lib-f250-storage.mount || warn "the data drive didn't mount (journalctl -u var-lib-f250-storage.mount)"
+      else
+        warn "no drive labelled $DRIVE_LABEL: format one with 'f250-storage format <disk>'. Until then the recorder won't run"
+      fi
+    fi
+    if storage_mounted; then
+      sys chown f250:f250 "$STORAGE"
+      sys chmod 0750 "$STORAGE"
+    fi
+  else
+    ((changed)) && echo "  /etc/fstab: removed the data drive (DATA_DRIVE is off)"
+    if storage_mounted; then echo "  $STORAGE stays mounted until a reboot"; fi
+  fi
+
+  say "6. Dashboard bundle"
   ver="$(flutter_version)"
   [[ -n "$ver" ]] || die "/etc/default/flutter has no FLUTTER_VERSION"
   bundle="$ROOT/usr/share/flutter/$APP_ID/$ver/release"
@@ -292,7 +368,7 @@ apply() {
       || warn "the image has no release engine at /usr/share/flutter/$ver/release"
   fi
 
-  say "6. Services"
+  say "7. Services"
   if [[ "$(unit_state "$DEMO_HOMESCREEN")" == enabled ]]; then
     sys systemctl disable --now "$DEMO_HOMESCREEN"; echo "  disabled $DEMO_HOMESCREEN"
   fi

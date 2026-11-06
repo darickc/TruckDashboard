@@ -40,7 +40,7 @@ run system.txt timedatectl
 for ((b = BOOTS - 1; b >= 0; b--)); do
   journalctl -b "-$b" --no-pager >/dev/null 2>&1 || continue
   for u in f250-gateway f250-recorder f250-dashboard agl-compositor flutter-ics-homescreen \
-           kuksa-can-provider can-dev-helper systemd-networkd systemd-logind; do
+           kuksa-can-provider can-dev-helper systemd-networkd systemd-logind var-lib-f250-storage.mount; do
     run "journal-$u.txt" journalctl -b "-$b" --no-pager -o short-iso -u "$u"
   done
   run "kernel-boot-$b.txt" journalctl -b "-$b" --no-pager -k -o short-iso
@@ -54,6 +54,8 @@ run services.txt systemctl --no-pager --failed
 [[ -f /etc/default/f250 ]] && cp /etc/default/f250 "$DIR/etc-default-f250"
 [[ -d /var/lib/f250/traffic ]] && cp -r /var/lib/f250/traffic "$DIR/traffic"
 run recorder.txt ls -la /var/lib/f250
+run storage.txt /opt/f250/bin/f250-storage status
+run storage.txt grep -n f250 /etc/fstab
 
 tar -czf "$OUT/$NAME.tar.gz" -C "$OUT" "$NAME" && rm -rf "$DIR"
 echo "$OUT/$NAME.tar.gz"

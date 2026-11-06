@@ -49,6 +49,25 @@ Update a row whenever a source or a test changes it, and keep the citation.
 | A `flutter build linux` AOT bundle under the image's flutter-auto | Not tested ([H30](open-questions.md)) | U | — |
 | Pi 5 quickstart docs | The ready-made-images guide still covers only the Pi 4 | V | [docs](https://docs.automotivelinux.org/en/master/01_Getting_Started/01_Quickstart/01_Using_Ready_Made_Images/) |
 
+## NVMe on the Pi 5 (AGL 22.0.1)
+
+Checked in the 22.0.1 image files on 2026-11-06 (the kernel `Image`, the base
+device tree, `boot.scr`, `u-boot.bin`, the manifest). Nothing here has run on
+our Pi. The HAT and the drive aren't chosen yet: **TODO** (owner).
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| Kernel drivers | NVMe (`nvme`, `nvme_core`) and the Pi 5 PCIe controller (`pcie-brcmstb`, `brcm,bcm2712-pcie`) are built into the kernel, not modules | V (strings in `Image`) | [22.0.1 images](https://download.automotivelinux.org/AGL/release/vimba/22.0.1/raspberrypi5/deploy/images/raspberrypi5/) |
+| `config.txt` switch | `bcm2712-rpi-5-b.dtb` has the `pciex1`, `pciex1_gen` and `pciex1_no_l0s` parameters. We set `dtparam=pciex1` (`agl/boot/config-f250.txt`) | V (dtb) / U (link up on our Pi) | same |
+| Firmware turns PCIe on by itself for HAT+ boards | Reported for boards with a HAT+ ID EEPROM. Not checked here; our line makes it moot | U | — |
+| Does the firmware's DT reach the kernel? | `boot.scr` boots the kernel with `${fdt_addr}`, the device tree the firmware built from `config.txt`, so `dtparam`/`dtoverlay` lines apply | V (`boot.scr`) / U (on the Pi) | `boot.scr` |
+| Boot path | U-Boot 2026.01 (`RPI_USE_U_BOOT = "1"`, `meta-agl-bsp/conf/include/agl_raspberrypi.inc`). `boot.scr`: `fatload mmc 0:1 ${kernel_addr_r} Image`. `cmdline.txt`: `root=/dev/mmcblk0p2`. **So this image can't boot from NVMe** | V | `boot.scr`, `bootfiles/cmdline.txt` |
+| U-Boot on the Pi 5's PCIe | `u-boot.bin` has NVMe code and `brcm,bcm2711-pcie` (the Pi 4's), but no `bcm2712` PCIe string | U (string search only) | `u-boot.bin` |
+| Tools in the image | `fdisk`, `mkfs.ext4`, `lsblk`, `blkid`, `findmnt`, `mountpoint`, `fstrim`, `lspci` (pciutils), `smartctl` (smartmontools 7.5). No `sfdisk`, `wipefs`, `parted` or `nvme-cli` | V | manifest |
+| `f250-storage format` | GPT, one partition, ext4 labelled `f250-data`, with the image's `fdisk` (util-linux 2.41.5) | [SIM] (loop device, Debian trixie container, util-linux 2.41.5) | `agl/scripts/storage.sh` |
+| Drive temperature range, power-loss protection | From the chosen drive's datasheet. Consumer drives are commonly 0–70 °C and rely on a clean shutdown | TODO | — |
+| Stacking with the DAC8x, power | [H4](open-questions.md), [H25](open-questions.md) | U | — |
+
 ## Original Raspberry Pi 7" touchscreen (800×480, DSI) on the Pi 5
 
 | Item | Finding | Status | Source |

@@ -10,6 +10,9 @@
 [Unit]
 Description=F-250 vehicle gateway
 After=bluetooth.service
+# Traffic logs go on the data drive when DATA_DRIVE=1 (gateway-start). Ordering
+# only: the gateway runs without the drive. The mount gives up after 10 s.
+After=var-lib-f250-storage.mount
 
 [Service]
 Type=simple
@@ -26,6 +29,7 @@ RuntimeDirectoryMode=0750
 RuntimeDirectoryPreserve=yes
 StateDirectory=f250
 StateDirectoryMode=0750
+ReadWritePaths=-/var/lib/f250/storage
 
 NoNewPrivileges=yes
 ProtectSystem=strict

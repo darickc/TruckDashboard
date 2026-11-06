@@ -22,6 +22,23 @@ GATEWAY="${F250_GATEWAY_BIN:-/opt/f250/bin/vehicle-gateway}"
 # The registry, warning rules and scenarios make deploy copies from the repo
 # (the gateway's defaults are paths relative to a checkout).
 DATA="${F250_DATA:-/opt/f250/share/data}"
+STORAGE="${F250_STORAGE:-/var/lib/f250/storage}"
+
+# DATA_DRIVE=1: traffic logs go on the data drive. Without the drive the
+# gateway still runs (the dashboard needs it) and logs to the SD card instead,
+# never into the empty mount point, where the drive would later hide them.
+mounted() {
+  if [[ -n "${F250_TEST_MOUNTED:-}" ]]; then [[ "$F250_TEST_MOUNTED" == 1 ]]; return; fi
+  mountpoint -q "$1"
+}
+TRAFFIC="$STATE/traffic"
+if [[ "${DATA_DRIVE:-0}" == 1 ]]; then
+  if mounted "$STORAGE"; then
+    TRAFFIC="$STORAGE/traffic"
+  else
+    echo "DATA_DRIVE=1 but no drive is mounted at $STORAGE: traffic logs go to $TRAFFIC (f250-storage status)" >&2
+  fi
+fi
 
 args=(--listen "unix:$SOCK" --transport "$TRANSPORT"
       --signals "$DATA/signals" --warnings "$DATA/warning_rules.json")
@@ -29,9 +46,9 @@ case "$TRANSPORT" in
   sim)
     args+=(--scenario-dir "$DATA/scenarios" --scenario "$SCENARIO" --sim-start-s "$START") ;;
   obdlink)
-    args+=(--adapter "$ADAPTER" --traffic-log "$STATE/traffic") ;;
+    args+=(--adapter "$ADAPTER" --traffic-log "$TRAFFIC") ;;
   can)
-    args+=(--can-if "$CAN_IF" --traffic-log "$STATE/traffic")
+    args+=(--can-if "$CAN_IF" --traffic-log "$TRAFFIC")
     if [[ "$TRANSMIT" == 1 ]]; then
       if [[ ! -e "/sys/class/net/$CAN_IF" ]]; then
         echo "$CAN_IF does not exist: plug in the CAN adapter, then 'f250-can active'" >&2; exit 1

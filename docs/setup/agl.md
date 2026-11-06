@@ -122,6 +122,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 | 8 | CAN, listen-only | Plug in the adapter, then `f250-can status` (still down), `f250-can listen`, `ip -details link show can0` shows `LISTEN-ONLY`. With a second node on a bench bus: no ACKs | H7 on the AGL kernel |
 | 9 | RTC | `ls /sys/class/rtc/`, `cat /sys/class/rtc/rtc0/charging_voltage` (3000000 with our block), `hwclock -r` | H20 on AGL |
 | 10 | Audio (once the DAC8x is fitted) | Uncomment `dtoverlay=hifiberry-dac8x` in `agl/boot/config-f250.txt`, deploy, reboot; `aplay -l` lists it; `pw-cli ls Node` shows its sink | ADR-0014 on AGL |
+| 11 | NVMe (once the HAT is fitted) | `lspci` lists the drive's controller; `f250-storage status` shows `nvme0n1` and its health. Then [the data drive](#data-drive-nvme-hat-or-usb-ssd) | H31 |
 
 If something fails, collect the evidence before changing anything:
 
@@ -138,7 +139,7 @@ copy it with `scp`.
 
 `/etc/default/f250` has the same options as `make pi-run`:
 `TRANSPORT=sim|obdlink|can`, `TRANSMIT=0|1`, `ADAPTER`, `CAN_IF`, `ENABLE`,
-`BUDGET_RPS`. Edit it on the Pi, then `systemctl restart f250-gateway`. The
+`BUDGET_RPS`, plus `DATA_DRIVE` ([below](#data-drive-nvme-hat-or-usb-ssd)). Edit it on the Pi, then `systemctl restart f250-gateway`. The
 same rules as on Raspberry Pi OS apply: without `TRANSMIT=1` the gateway never
 opens the adapter (ADR-0007), and `TRANSPORT=can TRANSMIT=1` needs
 `f250-can active` first ([can.md](can.md)).
@@ -146,6 +147,65 @@ opens the adapter (ADR-0007), and `TRANSPORT=can TRANSMIT=1` needs
 `f250-can` is `tools/pi/can.sh`; everything in [can.md](can.md) applies, run
 as root on the Pi (no `sudo` on AGL). The firmware `flash` command needs
 `dfu-util`, which the image doesn't have: flash from Raspberry Pi OS.
+
+### Data drive (NVMe HAT or USB SSD)
+
+The SD card still boots. The drive holds the telemetry database and the
+gateway's traffic logs (later the maps and camera recordings), which would
+otherwise wear the card. Status: `[SIM]`. The setup and services are tested
+in `make agl-test`, and `f250-storage format` on a loop device in a Linux
+container. Not run on the Pi or with an NVMe drive yet.
+
+The boot block already has `dtparam=pciex1`, which turns on the Pi 5's
+external PCIe connector for an NVMe HAT. The 22.0.1 kernel has the NVMe and
+PCIe drivers built in. A USB SSD needs neither.
+
+1. Fit the HAT (and see [H4](../hardware/open-questions.md): stacking with the
+   DAC8x), deploy, reboot, then check that the drive is there:
+
+   ```bash
+   f250-storage status          # lsblk, lspci, the f250-data filesystem, smartctl health
+   ```
+
+2. Format it, once. This **erases the disk**; it asks you to type its name:
+
+   ```bash
+   f250-storage format /dev/nvme0n1
+   ```
+
+   One GPT partition, ext4, label `f250-data`. It refuses a partition, a disk
+   with anything mounted, the disk the system runs from, and a second
+   `f250-data` drive.
+3. Turn it on: set `DATA_DRIVE=1` in `/etc/default/f250` (add the line if your
+   file predates it), then:
+
+   ```bash
+   /opt/f250/share/agl/scripts/stage1-setup.sh
+   ```
+
+   It adds an `/etc/fstab` entry (`LABEL=f250-data`, `nofail`, a 10 s device
+   wait) that mounts the drive at `/var/lib/f250/storage`, mounts it, and
+   gives it to the `f250` user. `--check` then reports it.
+
+What happens without the drive while `DATA_DRIVE=1`:
+
+- **Boot and the dashboard carry on.** `nofail` keeps the drive out of the
+  boot path, and the gateway runs without it. Its traffic logs go to
+  `/var/lib/f250/traffic` on the card, with a line in its journal.
+- **The recorder stops instead of writing to the card.** A second database
+  there would be split from the first, and the drive would hide it once
+  mounted. `systemctl status f250-recorder` and `--check` show it.
+
+The database already on the card (`/var/lib/f250/telemetry.sqlite`) stays
+there; it isn't moved. `DATA_DRIVE=0` and the setup script remove the fstab
+entry again (the drive stays mounted until a reboot).
+
+**Booting from NVMe isn't possible with this image.** It boots through U-Boot,
+and its boot script loads the kernel from the SD card's first partition
+(`fatload mmc 0:1`). `cmdline.txt` also names the card (`root=/dev/mmcblk0p2`).
+It would need our own image (5.4) and a U-Boot that drives the Pi 5's PCIe,
+which is unconfirmed
+([matrix](../hardware/compatibility-matrix.md#nvme-on-the-pi-5-agl-2201)).
 
 ## 6. Fallback: is it the hardware or AGL?
 
@@ -184,5 +244,6 @@ known-good reference: the panel, touch and dashboard worked on it on
   [linux-build-host.md](linux-build-host.md)).
 - Watchdogs: the units have none, because the gateway doesn't send systemd
   keep-alives yet (power-manager, Phase 6.7).
+- Booting from NVMe: see [the data drive](#data-drive-nvme-hat-or-usb-ssd).
 - The power key does nothing on AGL (logind ignores it, as planned for the
   DCDC-USB); shut down with the dashboard's *Power* button or `systemctl poweroff`.

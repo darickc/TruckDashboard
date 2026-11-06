@@ -17,3 +17,9 @@ BUDGET_RPS=
 # Simulator only
 SCENARIO=drive_cycle
 START=0
+# DATA_DRIVE 0 | 1. 1: an ext4 drive labelled f250-data (an NVMe HAT, or a
+#            USB SSD) mounts at /var/lib/f250/storage and holds the telemetry
+#            database and traffic logs. Format it once with f250-storage, then
+#            rerun /opt/f250/share/agl/scripts/stage1-setup.sh. With 1 and no
+#            drive, the recorder stops rather than write to the SD card.
+DATA_DRIVE=0

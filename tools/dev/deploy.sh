@@ -12,7 +12,7 @@
 # the AGL image has no toolchain.
 #
 # What lands on the Pi:
-#   /opt/f250/bin/              vehicle-gateway, recorder, obd-console, f250-can
+#   /opt/f250/bin/              vehicle-gateway, recorder, obd-console, f250-can, f250-storage
 #   /opt/f250/share/agl/        this repo's agl/ (scripts, rootfs, boot config)
 #   /opt/f250/share/data/       signal registry, warning rules, scenarios
 #   /usr/share/flutter/f250_infotainment/<flutter>/release/
@@ -103,6 +103,7 @@ deploy() {
   ssh "$PI" "mkdir -p /opt/f250/bin /opt/f250/share/agl /opt/f250/share/data /usr/share/flutter/$APP_ID/$ver/release"
   rsync -a "$OUT/bin/" "$PI:/opt/f250/bin/"
   rsync -a tools/pi/can.sh "$PI:/opt/f250/bin/f250-can"
+  rsync -a agl/scripts/storage.sh "$PI:/opt/f250/bin/f250-storage"
   # The gateway's runtime data (agl/rootfs/opt/f250/libexec/gateway-start).
   rsync -a --delete shared/signals/ "$PI:/opt/f250/share/data/signals/"
   rsync -a --delete simulator/powerstroke/scenarios/ "$PI:/opt/f250/share/data/scenarios/"

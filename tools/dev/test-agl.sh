@@ -19,6 +19,9 @@ count() { grep -cF -- "$2" "$1" || true; }
 SETUP=agl/scripts/stage1-setup.sh
 GW=agl/rootfs/opt/f250/libexec/gateway-start
 STOPPED=agl/rootfs/opt/f250/libexec/dashboard-stopped
+REC=agl/rootfs/opt/f250/libexec/recorder-start
+STORAGE_TOOL=agl/scripts/storage.sh
+FSTAB_LINE='LABEL=f250-data /var/lib/f250/storage ext4 noatime,nofail,x-systemd.device-timeout=10s 0 2'
 
 echo "syntax"
 for f in agl/scripts/*.sh agl/rootfs/opt/f250/libexec/* agl/rootfs/etc/profile.d/f250.sh tools/dev/deploy.sh tools/dev/logs.sh tools/pi/*.sh; do
@@ -39,6 +42,7 @@ make_root() {
   printf '# Enable VC4 Graphics\ndtoverlay=vc4-kms-v3d-pi5,cma-256\n\n# Seeed CAN FD HATs\n#dtoverlay=seeed-can-fd-hat-v2\n\n' >"$r/boot/config.txt"
   printf 'root:x:0:0:root:/home/root:/bin/sh\nagl-driver:x:1001:1001::/home/agl-driver:/bin/sh\n' >"$r/etc/passwd"
   printf 'root:x:0:\nagl-driver:x:1001:\n' >"$r/etc/group"
+  printf '/dev/root            /                    auto       defaults              1  1\nproc                 /proc                proc       defaults              0  0\n' >"$r/etc/fstab"
   echo elf >"$r/usr/share/flutter/f250_infotainment/3.38.3/release/lib/libapp.so"
   echo 3.38.3 >"$r/usr/share/flutter/f250_infotainment/3.38.3/release/flutter-version"
   for u in kuksa-can-provider can-dev-helper flutter-ics-homescreen; do
@@ -76,6 +80,11 @@ check "default settings installed"     "cmp -s agl/rootfs/etc/default/f250 '$R/e
 check "default transport is sim"       "has_line '$R/etc/default/f250' 'TRANSPORT=sim'"
 check "default transmit is off"        "has_line '$R/etc/default/f250' 'TRANSMIT=0'"
 check "helpers are executable"         "[[ -x '$R/opt/f250/libexec/gateway-start' && -x '$R/opt/f250/libexec/dashboard-stopped' ]]"
+check "config.txt enables external PCIe" "has_line '$R/boot/config.txt' 'dtparam=pciex1'"
+check "DATA_DRIVE off by default"      "has_line '$R/etc/default/f250' 'DATA_DRIVE=0'"
+check "fstab untouched when off"       "! grep -q f250 '$R/etc/fstab'"
+check "no mount when off"              "! grep -q 'var-lib-f250-storage' '$L'"
+check "recorder-start installed"       "[[ -x '$R/opt/f250/libexec/recorder-start' ]]"
 check "units installed"                "[[ -f '$R/etc/systemd/system/f250-gateway.service' && -f '$R/etc/systemd/system/f250-dashboard.service' ]]"
 check "logind drop-in installed"       "[[ -f '$R/etc/systemd/logind.conf.d/50-f250-power-key.conf' ]]"
 B="$R/usr/share/flutter/f250_infotainment/3.38.3/release"
@@ -130,7 +139,7 @@ if setup "$R6" --check >"$T/check-before.out" 2>&1; then fail "--check passed be
 check "--check flags the CAN provider" "grep -q 'kuksa-can-provider.service is not masked' '$T/check-before.out'"
 check "--check flags normal-mode can0" "grep -q 'NORMAL mode' '$T/check-before.out'"
 check "--check changes nothing"        "[[ ! -s '$R6/.test/sys.log' && ! -e '$R6/etc/systemd/network/60-canbus-can.network' ]]"
-for b in vehicle-gateway recorder obd-console f250-can; do printf '#!/bin/sh\n' >"$R/opt/f250/bin/$b"; chmod +x "$R/opt/f250/bin/$b"; done
+for b in vehicle-gateway recorder obd-console f250-can f250-storage; do printf '#!/bin/sh\n' >"$R/opt/f250/bin/$b"; chmod +x "$R/opt/f250/bin/$b"; done
 for u in f250-gateway f250-recorder f250-dashboard; do echo enabled >"$R/.test/unit-$u.service"; done
 mkdir -p "$R/opt/f250/share/data/signals"; echo '{}' >"$R/opt/f250/share/data/warning_rules.json"
 if setup "$R" --check >"$T/check-after.out" 2>&1; then ok; else fail "--check after setup: $(grep FAIL "$T/check-after.out")"; fi
@@ -140,6 +149,43 @@ echo "stage1-setup: --restore-demo"
 setup "$R" --restore-demo >/dev/null 2>&1 || fail "--restore-demo exited non-zero"
 check "restores the demo homescreen"   "has_line '$L' 'systemctl enable --now flutter-ics-homescreen.service'"
 check "stops our dashboard"            "has_line '$L' 'systemctl disable --now f250-dashboard.service'"
+
+echo "stage1-setup: data drive"
+R7="$T/root7"; make_root "$R7"
+cp "$R7/etc/fstab" "$T/fstab.orig"
+setup "$R7" >/dev/null 2>&1 || fail "apply (data drive, first) exited non-zero"
+echo DATA_DRIVE=1 >>"$R7/etc/default/f250"
+: >"$R7/.test/sys.log"
+setup "$R7" >"$T/drive-none.out" 2>&1 || fail "apply (DATA_DRIVE=1, no drive) exited non-zero"
+check "fstab entry added"              "has_line '$R7/etc/fstab' '$FSTAB_LINE'"
+check "fstab keeps the image's lines"  "grep -q '^/dev/root ' '$R7/etc/fstab' && grep -q '^proc ' '$R7/etc/fstab'"
+check "fstab change reloads systemd"   "grep -q 'systemctl daemon-reload' '$R7/.test/sys.log'"
+check "mount point created"            "[[ -d '$R7/var/lib/f250/storage' ]]"
+check "no drive: warned, not mounted"  "grep -q 'no drive labelled f250-data' '$T/drive-none.out' && ! grep -q 'systemctl start var-lib' '$R7/.test/sys.log'"
+touch "$R7/.test/label-f250-data"
+: >"$R7/.test/sys.log"
+cp "$R7/etc/fstab" "$T/fstab.on"
+setup "$R7" >/dev/null 2>&1 || fail "apply (DATA_DRIVE=1, drive attached) exited non-zero"
+check "drive attached: mounts it"      "has_line '$R7/.test/sys.log' 'systemctl start var-lib-f250-storage.mount'"
+check "fstab entry not duplicated"     "cmp -s '$T/fstab.on' '$R7/etc/fstab'"
+touch "$R7/.test/mounted-storage"
+: >"$R7/.test/sys.log"
+setup "$R7" >/dev/null 2>&1 || fail "apply (DATA_DRIVE=1, mounted) exited non-zero"
+check "mounted: owned by f250"         "has_line '$R7/.test/sys.log' 'chown f250:f250 /var/lib/f250/storage' && has_line '$R7/.test/sys.log' 'chmod 0750 /var/lib/f250/storage'"
+check "mounted: no second mount"       "! grep -q 'systemctl start var-lib' '$R7/.test/sys.log'"
+for b in vehicle-gateway recorder obd-console f250-can f250-storage; do printf '#!/bin/sh\n' >"$R7/opt/f250/bin/$b"; chmod +x "$R7/opt/f250/bin/$b"; done
+for u in kuksa-can-provider can-dev-helper; do echo masked >"$R7/.test/unit-$u.service"; done
+for u in f250-gateway f250-recorder f250-dashboard; do echo enabled >"$R7/.test/unit-$u.service"; done
+echo disabled >"$R7/.test/unit-flutter-ics-homescreen.service"; rm -f "$R7/.test/ip-can0"
+mkdir -p "$R7/opt/f250/share/data/signals"; echo '{}' >"$R7/opt/f250/share/data/warning_rules.json"
+if setup "$R7" --check >"$T/check-drive.out" 2>&1; then ok; else fail "--check with the drive mounted: $(grep FAIL "$T/check-drive.out")"; fi
+check "--check sees the mount"         "grep -q 'mounted at /var/lib/f250/storage' '$T/check-drive.out'"
+rm "$R7/.test/mounted-storage"
+if setup "$R7" --check >"$T/check-nodrive.out" 2>&1; then fail "--check passed with DATA_DRIVE=1 and nothing mounted"; else ok; fi
+check "--check says the recorder stops" "grep -q \"the recorder won't run\" '$T/check-nodrive.out'"
+sed -i.bak 's/^DATA_DRIVE=1$/DATA_DRIVE=0/' "$R7/etc/default/f250"
+setup "$R7" >/dev/null 2>&1 || fail "apply (DATA_DRIVE back to 0) exited non-zero"
+check "off again: fstab as before"     "cmp -s '$T/fstab.orig' '$R7/etc/fstab'"
 
 echo "gateway-start"
 STUB="$T/vehicle-gateway"
@@ -153,6 +199,24 @@ check "TRANSMIT=0 never transmits" "[[ \"\$(gw TRANSPORT=can TRANSMIT=0)\" != *-
 check "can transmit refused without the interface" "! gw TRANSPORT=can TRANSMIT=1 CAN_IF=f250-test-none >/dev/null"
 check "enable and budget"   "[[ \"\$(gw TRANSPORT=sim ENABLE=rpm,trans_temp BUDGET_RPS=8)\" == *'--enable rpm,trans_temp --budget-rps 8' ]]"
 check "unknown transport refused" "! gw TRANSPORT=bogus >/dev/null"
+check "traffic on the data drive"  "[[ \"\$(gw TRANSPORT=can DATA_DRIVE=1 F250_TEST_MOUNTED=1)\" == *'--traffic-log /var/lib/f250/storage/traffic' ]]"
+check "no drive: traffic on the SD, gateway runs" "[[ \"\$(gw TRANSPORT=can DATA_DRIVE=1 F250_TEST_MOUNTED=0)\" == *'--traffic-log /var/lib/f250/traffic' ]]"
+
+echo "recorder-start"
+RSTUB="$T/recorder"
+printf '#!/bin/sh\necho "$@"\n' >"$RSTUB"; chmod +x "$RSTUB"
+rec() { env -i PATH="$PATH" F250_RECORDER_BIN="$RSTUB" STATE_DIRECTORY=/var/lib/f250 "$@" bash "$REC" 2>/dev/null; }
+check "SD card by default"   "[[ \"\$(rec)\" == 'run --gateway unix:/run/f250/vehicle.sock --db /var/lib/f250/telemetry.sqlite' ]]"
+check "data drive"           "[[ \"\$(rec DATA_DRIVE=1 F250_TEST_MOUNTED=1)\" == 'run --gateway unix:/run/f250/vehicle.sock --db /var/lib/f250/storage/telemetry.sqlite' ]]"
+check "no drive: refuses, never the SD" "! rec DATA_DRIVE=1 F250_TEST_MOUNTED=0 >'$T/rec.out' && [[ ! -s '$T/rec.out' ]]"
+
+echo "f250-storage"
+check "unknown command refused" "! bash '$STORAGE_TOOL' bogus 2>/dev/null"
+check "format needs a disk"     "! bash '$STORAGE_TOOL' format 2>/dev/null"
+if [[ "$(id -u)" != 0 ]]; then
+  bash "$STORAGE_TOOL" format /dev/null >"$T/storage.out" 2>&1 || true
+  check "format needs root"     "grep -q 'run as root' '$T/storage.out'"
+fi
 
 echo "dashboard-stopped"
 SB="$T/sbin"; mkdir -p "$SB"
@@ -166,7 +230,11 @@ check "power off on exit 42"  "has_line '$T/poweroff.log' 'systemctl poweroff --
 echo "units"
 check "dashboard treats 42 as success" "grep -qx 'SuccessExitStatus=42' agl/rootfs/etc/systemd/system/f250-dashboard.service"
 check "power-off code matches the app" "grep -q 'const powerOffExitCode = 42;' apps/infotainment/lib/core/power.dart"
-check "socket path matches the build"  "grep -q 'SOCK=/run/f250/vehicle.sock' tools/dev/deploy.sh && grep -q 'unix:/run/f250/vehicle.sock' agl/rootfs/etc/systemd/system/f250-recorder.service"
+check "socket path matches the build"  "grep -q 'SOCK=/run/f250/vehicle.sock' tools/dev/deploy.sh && grep -q 'F250_SOCK:-/run/f250/vehicle.sock' '$REC' && grep -q 'F250_SOCK:-/run/f250/vehicle.sock' '$GW'"
+check "recorder starts via its wrapper" "grep -qx 'ExecStart=/opt/f250/libexec/recorder-start' agl/rootfs/etc/systemd/system/f250-recorder.service"
+check "services ordered after the drive" "grep -qx 'After=var-lib-f250-storage.mount' agl/rootfs/etc/systemd/system/f250-recorder.service && grep -qx 'After=var-lib-f250-storage.mount' agl/rootfs/etc/systemd/system/f250-gateway.service"
+check "mount point agrees everywhere" "grep -q '^STORAGE=/var/lib/f250/storage$' '$SETUP' && grep -q 'F250_STORAGE:-/var/lib/f250/storage' '$GW' && grep -q 'F250_STORAGE:-/var/lib/f250/storage' '$REC' && grep -q '^STORAGE=/var/lib/f250/storage$' '$STORAGE_TOOL'"
+check "drive label agrees"     "grep -q '^DRIVE_LABEL=f250-data$' '$SETUP' && grep -q '^LABEL=f250-data$' '$STORAGE_TOOL'"
 check "config block is marked"         "[[ \"\$(head -1 agl/boot/config-f250.txt)\" == '# >>> f250'* && \"\$(tail -1 agl/boot/config-f250.txt)\" == '# <<< f250' ]]"
 check "engine pin matches .fvmrc"      "grep -q \"AGL_FLUTTER_VERSION=\$(sed -n 's/.*\"flutter\": *\"\\([^\"]*\\)\".*/\\1/p' .fvmrc)\" agl/configurations/vimba.env"
 

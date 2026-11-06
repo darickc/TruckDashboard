@@ -15,6 +15,7 @@ has run on the AGL image yet.
 | `flutter/config.toml` | flutter-auto window settings for the dashboard bundle | `stage1-setup.sh` |
 | `scripts/stage1-setup.sh` | Runs on the Pi: apply, `--check`, `--restore-demo` | `make deploy` |
 | `scripts/diagnose-display.sh` | Runs on the Pi (AGL or Raspberry Pi OS): display, touch, backlight evidence | by hand |
+| `scripts/storage.sh` | Runs on the Pi as `f250-storage`: the data drive's `status`, and `format` (erases; asks first) | by hand ([agl.md](../docs/setup/agl.md#data-drive-nvme-hat-or-usb-ssd)) |
 | `scripts/collect-logs.sh` | Runs on the Pi: journals, CAN state, setup check | `make logs` |
 | `scripts/fetch-image.sh` | Runs on the Mac: download, verify and decompress the image | `make agl-image` |
 

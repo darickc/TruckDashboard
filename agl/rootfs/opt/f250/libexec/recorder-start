@@ -1,0 +1,38 @@
+#!/bin/bash
+# ExecStart of f250-recorder.service on AGL: pick the database location from
+# DATA_DRIVE in /etc/default/f250.
+#
+#   DATA_DRIVE=0 (default)  /var/lib/f250/telemetry.sqlite, on the SD card
+#   DATA_DRIVE=1            /var/lib/f250/storage/telemetry.sqlite, on the
+#                           drive labelled f250-data (f250-storage)
+#
+# With DATA_DRIVE=1 and no drive mounted, it exits with an error instead of
+# writing to the SD card: a second database there would be split from the
+# first, and the drive would hide it once mounted over it. The unit then
+# fails, which `stage1-setup.sh --check` and `systemctl status` show.
+#
+# Status: [SIM]. Not run on the AGL image yet.
+set -euo pipefail
+
+SOCK="${F250_SOCK:-/run/f250/vehicle.sock}"
+STATE="${STATE_DIRECTORY:-/var/lib/f250}"
+STORAGE="${F250_STORAGE:-/var/lib/f250/storage}"
+RECORDER="${F250_RECORDER_BIN:-/opt/f250/bin/recorder}"
+
+mounted() {
+  if [[ -n "${F250_TEST_MOUNTED:-}" ]]; then [[ "$F250_TEST_MOUNTED" == 1 ]]; return; fi
+  mountpoint -q "$1"
+}
+
+DB="$STATE/telemetry.sqlite"
+if [[ "${DATA_DRIVE:-0}" == 1 ]]; then
+  if ! mounted "$STORAGE"; then
+    echo "DATA_DRIVE=1 but no drive is mounted at $STORAGE: not recording." >&2
+    echo "Check the drive (f250-storage status), or set DATA_DRIVE=0 in /etc/default/f250." >&2
+    exit 1
+  fi
+  DB="$STORAGE/telemetry.sqlite"
+fi
+
+echo "exec $RECORDER run --gateway unix:$SOCK --db $DB" >&2
+exec "$RECORDER" run --gateway "unix:$SOCK" --db "$DB"
