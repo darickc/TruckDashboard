@@ -80,7 +80,7 @@ check "default settings installed"     "cmp -s agl/rootfs/etc/default/f250 '$R/e
 check "default transport is sim"       "has_line '$R/etc/default/f250' 'TRANSPORT=sim'"
 check "default transmit is off"        "has_line '$R/etc/default/f250' 'TRANSMIT=0'"
 check "helpers are executable"         "[[ -x '$R/opt/f250/libexec/gateway-start' && -x '$R/opt/f250/libexec/dashboard-stopped' ]]"
-check "config.txt enables external PCIe" "has_line '$R/boot/config.txt' 'dtparam=pciex1'"
+check "PCIe line stays commented"      "has_line '$R/boot/config.txt' '#dtparam=pciex1' && ! has_line '$R/boot/config.txt' 'dtparam=pciex1'"
 check "DATA_DRIVE off by default"      "has_line '$R/etc/default/f250' 'DATA_DRIVE=0'"
 check "fstab untouched when off"       "! grep -q f250 '$R/etc/fstab'"
 check "no mount when off"              "! grep -q 'var-lib-f250-storage' '$L'"

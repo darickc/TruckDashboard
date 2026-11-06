@@ -122,7 +122,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 | 8 | CAN, listen-only | Plug in the adapter, then `f250-can status` (still down), `f250-can listen`, `ip -details link show can0` shows `LISTEN-ONLY`. With a second node on a bench bus: no ACKs | H7 on the AGL kernel |
 | 9 | RTC | `ls /sys/class/rtc/`, `cat /sys/class/rtc/rtc0/charging_voltage` (3000000 with our block), `hwclock -r` | H20 on AGL |
 | 10 | Audio (once the DAC8x is fitted) | Uncomment `dtoverlay=hifiberry-dac8x` in `agl/boot/config-f250.txt`, deploy, reboot; `aplay -l` lists it; `pw-cli ls Node` shows its sink | ADR-0014 on AGL |
-| 11 | NVMe (once the HAT is fitted) | `lspci` lists the drive's controller; `f250-storage status` shows `nvme0n1` and its health. Then [the data drive](#data-drive-nvme-hat-or-usb-ssd) | H31 |
+| 11 | NVMe (once the HAT is fitted) | Uncomment `dtparam=pciex1`, deploy, reboot; `lspci` lists the drive's controller; `f250-storage status` shows `nvme0n1` and its health. Then [the data drive](#data-drive-nvme-hat-or-usb-ssd) | H31 |
 
 If something fails, collect the evidence before changing anything:
 
@@ -156,12 +156,14 @@ otherwise wear the card. Status: `[SIM]`. The setup and services are tested
 in `make agl-test`, and `f250-storage format` on a loop device in a Linux
 container. Not run on the Pi or with an NVMe drive yet.
 
-The boot block already has `dtparam=pciex1`, which turns on the Pi 5's
-external PCIe connector for an NVMe HAT. The 22.0.1 kernel has the NVMe and
-PCIe drivers built in. A USB SSD needs neither.
+An NVMe HAT needs the Pi 5's external PCIe connector turned on:
+`#dtparam=pciex1` in `agl/boot/config-f250.txt`, commented until the HAT is
+fitted. The 22.0.1 kernel has the NVMe and PCIe drivers built in. **A USB SSD
+needs neither**, so it works with no HAT and no boot change.
 
-1. Fit the HAT (and see [H4](../hardware/open-questions.md): stacking with the
-   DAC8x), deploy, reboot, then check that the drive is there:
+1. NVMe: fit the HAT (see [H4](../hardware/open-questions.md): stacking with
+   the DAC8x), uncomment `dtparam=pciex1`, deploy and reboot. USB SSD: plug it
+   in. Then check that the drive is there:
 
    ```bash
    f250-storage status          # lsblk, lspci, the f250-data filesystem, smartctl health

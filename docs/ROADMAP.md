@@ -151,8 +151,8 @@ image yet.
 - [~] 5.1 Release confirmed: **Vimba 22.0.1** (2026-11-02), pinned with its SHA-256 in
       `agl/configurations/vimba.env`, `make agl-image` fetches and checks it ([ADR-0001](architecture/adr/0001-agl-release.md)).
       Still open: **the build host** (ADR-0004), needed for 5.4 only
-- [~] 5.2 Done `[SIM]`: `agl/boot/config-f250.txt` (DSI panel, RTC charging, external PCIe for
-      an NVMe HAT, DAC8x commented until fitted; no CAN overlay: the adapter is USB), the logind
+- [~] 5.2 Done `[SIM]`: `agl/boot/config-f250.txt` (DSI panel, RTC charging; NVMe PCIe and
+      DAC8x lines commented until those HATs are fitted; no CAN overlay: the adapter is USB), the logind
       power-key drop-in, and `agl/scripts/stage1-setup.sh` (apply, `--check`, `--restore-demo`;
       114 tests in `make agl-test`). Optional data drive (`DATA_DRIVE=1`, `f250-storage`): the
       telemetry database and traffic logs on an NVMe HAT or USB SSD; no NVMe boot on this image.
