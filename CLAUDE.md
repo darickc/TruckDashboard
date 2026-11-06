@@ -72,7 +72,7 @@ crates/              Rust libraries: elm (MX+ client), telemetry, powerstroke-si
 services/            Rust daemons: vehicle-gateway, recorder (power/camera/audio in Phase 6)
 apps/infotainment/   Flutter UI, 800×480 (simulated data source today)
 simulator/           Power Stroke scenarios (f250.scenario.v1) + Dart engine; Rust transport in Phase 3
-agl/                 meta-f250 Yocto layer, build configs, target scripts            [Phase 5]
+agl/                 AGL Stage 1: release pin, boot config, rootfs files, target scripts; meta-f250 in 5.4
 tools/               pid-importer, can-monitor, diagnostics, dev/ helpers
 docs/                architecture/ (ADRs), hardware/, wiring/, setup/, safety/, diagnostics/, esp32/
 ```
@@ -100,12 +100,14 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make ui` / `make ui-macos-build` | Dashboard as a macOS window / just build it (needs Xcode; the Makefile sets `DEVELOPER_DIR` if `xcode-select` points at the Command Line Tools) |
 
 Also: `make proto` (regenerate the Dart gRPC client) and `make linux-test` (Rust
-in Docker, including the RFCOMM build). Still to come: `make deploy PI=<host>` (Phase 5).
+in Docker, including the RFCOMM build). AGL: `make agl-image`, `make deploy PI=<host>`
+(`deploy-build` to build only), `make logs PI=<host>`, `make agl-test`; see
+[docs/setup/agl.md](docs/setup/agl.md).
 How to run the gateway, the MX+ flags and the recorder: [docs/setup/gateway.md](docs/setup/gateway.md).
 
 Test and lint targets for components that don't exist yet print `skip:` and exit 0.
-Run targets (`ui`, `sim`, `deploy`, `logs`) exit non-zero until their phase
-lands. No target pretends to have run.
+Run targets exit non-zero until their phase lands, or when their inputs are
+missing (`deploy` and `logs` without `PI=`). No target pretends to have run.
 
 ## Toolchain pins
 

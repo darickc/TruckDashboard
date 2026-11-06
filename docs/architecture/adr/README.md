@@ -9,7 +9,7 @@ consequences, and what would make it worth revisiting. Statuses:
 
 | ADR | Title | Status |
 |---|---|---|
-| [0001](0001-agl-release.md) | Target AGL Vibrant Vimba 22.0.x | Accepted (revisit before Phase 5) |
+| [0001](0001-agl-release.md) | Target AGL Vibrant Vimba 22.0.x (pinned: 22.0.1) | Accepted (rechecked 2026-11-06) |
 | [0002](0002-rust-flutter-grpc-uds.md) | Rust services, Flutter UI, gRPC over Unix sockets | Accepted |
 | [0003](0003-own-vehicle-api.md) | Own versioned vehicle API; KUKSA bridge optional | Accepted |
 | [0004](0004-linux-build-host.md) | Yocto builds on a Linux x86_64 host | Accepted |
@@ -23,5 +23,7 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0012](0012-direct-can-usb-adapter.md) | Direct CAN through a USB CANable adapter, with our own single-frame ISO-TP | Accepted |
 | [0013](0013-dcdc-usb-power-supply.md) | Power from a mini-box DCDC-USB; the CarPiHAT is dropped | Proposed (pending bench measurement) |
 | [0014](0014-multichannel-dac8x.md) | Multichannel DAC (HiFiBerry DAC8x), a new 4-channel amp, the R150-2 kept | Proposed (pending bench measurement) |
+| [0015](0015-agl-can-defaults.md) | Override the AGL demo image's CAN defaults (networkd, KUKSA provider) | Accepted |
+| [0016](0016-stage1-sideload-layout.md) | Stage 1 sideload: layout, users, the dashboard as the background surface | Proposed (not run on the image) |
 
 New ADRs use the next number and the same headings.

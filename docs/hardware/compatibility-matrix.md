@@ -19,27 +19,34 @@ Update a row whenever a source or a test changes it, and keep the citation.
 
 | Combination | Verdict |
 |---|---|
-| Pi 5 + AGL Vimba 22.0.0 | **Supported.** Official prebuilt images (V) |
+| Pi 5 + AGL Vimba 22.0.1 (pinned) | **Supported.** Official prebuilt images (V). Its demo CAN defaults must be overridden before the adapter meets the truck ([ADR-0015](../architecture/adr/0015-agl-can-defaults.md)) |
 | Pi 5 + original 7" DSI display under AGL | **Expected to work with configuration.** The driver and overlay ship, but the display isn't turned on by default (V). Not tested |
 | Pi 5 + mini-box DCDC-USB (automotive mode, PSW → J2) | **Plausible.** It can be set to 5 V, and J2 takes a normally-open momentary closure (V). Whether PSW is such a closure, the pulse timing, and the current at 5 V are not documented (U) |
-| Pi 5 + HiFiBerry DAC8x | **Supported on Raspberry Pi OS** (overlay in the Raspberry Pi kernel tree; V). Not checked on the AGL kernel; mute at boot undocumented (U) |
+| Pi 5 + HiFiBerry DAC8x | **Supported on Raspberry Pi OS** (overlay in the Raspberry Pi kernel tree; V). The overlay and codec modules are in the AGL 22.0.1 image (V); not tested there; mute at boot undocumented (U) |
 | Pi 5 + CarPiHAT PRO 5 | **Not used** ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md)). Kept below as a research record |
 
 ## AGL / OS
 
 | Item | Finding | Status | Source |
 |---|---|---|---|
-| Latest stable | Vibrant Vimba 22.0.0, Yocto 6.0 "Wrynose". The release directory is dated 2026-09-18 | V | [announcement](https://www.automotivelinux.org/blog/automotive-grade-linux-announces-vibrant-vimba-v22-0-0/), [downloads](https://download.automotivelinux.org/AGL/release/vimba/) |
+| Latest stable | Vibrant Vimba **22.0.1** (directory 2026-11-02, images 2026-10-28), after 22.0.0 (2026-09-18). Yocto 6.0 "Wrynose". Pinned in `agl/configurations/vimba.env` (2026-11-06) | V | [announcement](https://www.automotivelinux.org/blog/automotive-grade-linux-announces-vibrant-vimba-v22-0-0/), [downloads](https://download.automotivelinux.org/AGL/release/vimba/) |
 | Previous / LTS | Ultimate Unagi 21.0.x (21.0.4). Reportedly LTS on Scarthgap, to 2028 | V / C | [unagi](https://download.automotivelinux.org/AGL/release/unagi/), [AMM Tokyo slides](https://hosted-files.sched.co/aglammjapan2026/23/AGL%20Update%20AMM%20Tokyo%20Miner.pdf) |
 | Pi 5 machine and images | `raspberrypi5`. Flutter and Qt demo `.wic.zst` images. Kernel 6.18.33. U-Boot 2026.01 | V | [images](https://download.automotivelinux.org/AGL/release/vimba/22.0.0/raspberrypi5/deploy/images/raspberrypi5/), [local.conf](https://download.automotivelinux.org/AGL/release/vimba/22.0.0/raspberrypi5/local.conf) |
 | Flutter | 3.38.3, flutter-auto 2.0, applaunchd app template | V | [manifest](https://download.automotivelinux.org/AGL/release/vimba/22.0.0/raspberrypi5/deploy/images/raspberrypi5/agl-ivi-demo-flutter-raspberrypi5.manifest) |
 | Compositor | agl-compositor 0.0.24 (libweston, agl-shell) | V | [docs](https://docs.automotivelinux.org/en/unagi/06_Component_Documentation/01_Graphics_Service/01_agl_compositor/) |
 | Audio and Bluetooth | PipeWire 1.6.6, WirePlumber 0.5.14, BlueZ 5.86, bluez5 SPA, ofono 2.19 | V | manifest |
 | A2DP sink working | Not documented | U | [AGL audio docs](https://docs.automotivelinux.org/en/unagi/06_Component_Documentation/02_Sound_Service/01_pipewire_wireplumber/) |
-| CAN | can-utils 2025.01. Modules: can-raw, can-isotp, can-j1939, mcp251x, mcp251xfd, gs-usb, peak-usb. kuksa-databroker 0.7.1 | V | manifest |
+| CAN | can-utils 2025.01. Modules: can-raw, can-isotp, can-j1939, mcp251x, mcp251xfd, gs-usb, peak-usb, slcan. kuksa-databroker 0.7.1. Confirmed in the 22.0.1 manifest | V | manifest |
 | Video | GStreamer 1.28.2 with the V4L2 plugin, libcamera 0.6.0 | V | manifest |
 | meta-raspberrypi switches | `ENABLE_SPI_BUS`, `ENABLE_CAN`, `ENABLE_DUAL_CAN`, `RPI_EXTRA_CONFIG` | V | [extra-build-config](https://raw.githubusercontent.com/agherzan/meta-raspberrypi/master/docs/extra-build-config.md) |
 | Build host | Native Linux. At least 300 GB for Flutter images. Yocto 6.0: 32 GB RAM example. No macOS. aarch64 not documented | V / U | [AGL](https://docs.automotivelinux.org/en/master/01_Getting_Started/02_Building_AGL_Image/02_Preparing_Your_Build_Host/), [Yocto](https://docs.yoctoproject.org/6.0/ref-manual/system-requirements.html) |
+| 22.0.1 Pi 5 image contents (2026-11-06) | Same kernel 6.18.33, Flutter 3.38.3, flutter-auto 2.0, agl-compositor 0.0.24 as 22.0.0. glibc 2.43, systemd 259, OpenSSH 10.3, rsync, bash 5.3, sqlite 3.51.3, gpsd 3.27.5, avahi, alsa-utils, pipewire-tools. No `sudo`, no `i2c-tools`, no `dfu-util` | V | [manifest](https://download.automotivelinux.org/AGL/release/vimba/22.0.1/raspberrypi5/deploy/images/raspberrypi5/agl-ivi-demo-flutter-raspberrypi5.manifest) |
+| Login and security | `agl-devel` features: root login, empty root password, SSH. SELinux `targeted`, **permissive** by default | V | `meta-agl-core/conf/include/agl-devel.inc`, `agl-selinux.inc` (branch `vimba`) |
+| Network managers | connman manages IP; systemd-networkd is also installed and configures CAN (`60-canbus-can.network`: every `can*` at 500k, normal mode) | V (source) / U (on the image) | `meta-agl-core/recipes-core/systemd/systemd-conf-canbus`, [ADR-0015](../architecture/adr/0015-agl-can-defaults.md) |
+| Demo CAN services | `kuksa-can-provider` (reads `can0` with the AGL demo DBC) and `can-dev-helper` (creates a virtual `can0` when none exists), both enabled. We mask them | V (source) | `meta-agl-demo/recipes-connectivity/kuksa-val/`, ADR-0015 |
+| Flutter app layout | Bundle in `/usr/share/flutter/<app>/<version>/release/` (`data/flutter_assets`, `lib/libapp.so`, engine links); started by `flutter-auto -b <bundle>`; `config.toml` in the bundle sets the window (the demo homescreen: `window_type = "BG"`). `/etc/default/flutter` gives the version and runtime | V (source) | meta-flutter `conf/include/flutter-app.inc`; `meta-agl-demo/recipes-demo/flutter-ics-homescreen` |
+| Our arm64 build on this glibc | Gateway, recorder and `obd-console` (Debian bookworm build) need glibc ≤ 2.34 symbols and only libc, libm, libgcc_s. Ran against each other in an arm64 container | V (readelf) / [SIM] | `make deploy-build`, 2026-11-06 |
+| A `flutter build linux` AOT bundle under the image's flutter-auto | Not tested ([H30](open-questions.md)) | U | — |
 | Pi 5 quickstart docs | The ready-made-images guide still covers only the Pi 4 | V | [docs](https://docs.automotivelinux.org/en/master/01_Getting_Started/01_Quickstart/01_Using_Ready_Made_Images/) |
 
 ## Original Raspberry Pi 7" touchscreen (800×480, DSI) on the Pi 5
@@ -50,7 +57,8 @@ Update a row whenever a source or a test changes it, and keep the citation.
 | Overlay | `dtoverlay=vc4-kms-dsi-7inch`. Defaults to DSI1; add `,dsi0` for port 0. Includes the edt-ft5406 touch driver. Parameters: `sizex`, `sizey`, `invx`, `invy`, `swapxy`, `disable_touch`. Needs `vc4-kms-v3d` | V | [overlays README](https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.12.y/arch/arm/boot/dts/overlays/README) |
 | Pi 5 port mapping | DSI0/DSI1 correspond to the CAM/DISP 0 and CAM/DISP 1 connectors | inferred | — |
 | Backlight | Regulator-based (`raspberrypi,7inch-touchscreen-panel-regulator`, I2C 0x45). The Pi 5 uses i2c-4/i2c-6 for the display ports | V | [overlay dts](https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.12.y/arch/arm/boot/dts/overlays/vc4-kms-dsi-7inch-overlay.dts), linux#5813 |
-| In the AGL image | The `vc4-kms-dsi-7inch.dtbo` overlay and the edt-ft5x06, tc358762, rpi-panel-attiny-regulator and rpi-backlight modules | V | manifest |
+| In the AGL image | The `vc4-kms-dsi-7inch.dtbo` overlay and the edt-ft5x06, tc358762, rpi-panel-attiny-regulator, rpi-backlight, panel-simple and drm-rp1-dsi modules. Rechecked in 22.0.1 | V | manifest |
+| Turned on by us | `dtoverlay=vc4-kms-dsi-7inch` in `agl/boot/config-f250.txt`, appended by `stage1-setup.sh`. Not tested | U | [agl.md](../setup/agl.md) |
 | Enabled in AGL `config.txt` | **No.** Only `vc4-kms-v3d-pi5,cma-256`. No `display_auto_detect`. `rpi-ft5406` is commented out | V | [AGL config.txt](https://download.automotivelinux.org/AGL/release/vimba/22.0.0/raspberrypi5/deploy/images/raspberrypi5/bootfiles/config.txt) |
 | On Raspberry Pi OS Lite (trixie, kernel 6.18) | **Works with no `config.txt` change** on DSI1: picture, backlight, touch (edt_ft5x06 at I2C 10-0038), and the app fullscreen under `cage` | T | [bench-log](bench-log.md), 2026-11-02 |
 | Legacy `rpi-ft5406` needed | It shouldn't be with the KMS overlay | U | — |
@@ -70,7 +78,7 @@ separate RTC is needed. Researched 2026-11-03. Source for the `V` rows:
 | Retention | Single-digit µA when powered down, so months | V | RPi docs |
 | Wake alarm | `POWER_OFF_ON_HALT=1` and `WAKE_ON_GPIO=0` in the EEPROM config, then write `/sys/class/rtc/rtc0/wakealarm`. About 3 mA while waiting | V | RPi docs |
 | Without a battery | Time is presumably lost whenever the power supply cuts 5 V. The docs imply this but don't say it | inferred | — |
-| In the AGL image | Whether the AGL kernel enables the Pi 5 RTC driver and honours `rtc_bbat_vchg` is not checked. Verify on the image: `ls /sys/class/rtc/`, `cat /sys/class/rtc/rtc0/charging_voltage`, `hwclock -r` | U | — |
+| In the AGL image | `util-linux-hwclock` is in the 22.0.1 image; the Pi 5 RTC driver isn't a separate module package, so whether it is built in and honours `rtc_bbat_vchg` is not known. Our boot block sets the charging; check on the image: `ls /sys/class/rtc/`, `cat /sys/class/rtc/rtc0/charging_voltage`, `hwclock -r` ([agl.md](../setup/agl.md#5-bring-up-checks-phase-52)) | U | manifest |
 | Holds time across a parked night | Not tested ([H20](open-questions.md)) | U | — |
 
 ## mini-box DCDC-USB
@@ -193,7 +201,7 @@ Chosen 2026-11-04, not bought yet
 | Header pass-through | Not documented (H27) | U | — |
 | Mute at boot, pop behaviour | Not documented (H6) | U | — |
 | Jack-to-channel mapping | Not documented | U | — find with a test tone |
-| AGL kernel support | Not checked: whether the Vimba kernel ships this overlay | U | — Phase 5 |
+| AGL kernel support | The Vimba 22.0.1 image ships `hifiberry-dac8x.dtbo` and the modules the overlay uses (`snd-soc-rpi-simple-soundcard`, `snd-soc-pcm5102a`), plus `snd-soc-hifiberry-studio-dac8x`. Not tested; which driver binds is checked on the image with `aplay -l` | V (manifest) / U (works) | [22.0.1 manifest](https://download.automotivelinux.org/AGL/release/vimba/22.0.1/raspberrypi5/deploy/images/raspberrypi5/agl-ivi-demo-flutter-raspberrypi5.manifest), 2026-11-06 |
 
 ## 2007 F-250 6.0L diagnostic network
 

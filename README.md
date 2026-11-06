@@ -40,7 +40,9 @@ or (untested on hardware) the MX+. See [docs/setup/gateway.md](docs/setup/gatewa
 | Power Stroke simulator (`simulator/powerstroke`) | 6 scenarios, including the EOT/ECT freeze. 27 tests `[SIM]` |
 | Rust vehicle gateway (`services/vehicle-gateway`) | Runs with the simulator, the MX+ (serial/TCP/RFCOMM) or direct CAN on SocketCAN (ADR-0012). gRPC API, recovery logic, recorder, `obd-console`. Tested against a fake adapter and an in-memory CAN bus replaying the truck's captures `[SIM]`. The CAN transport has not run against the adapter yet |
 | MX+ truck trial | Phase 3.5. Not started. Needs only owned hardware |
-| CAN hardware, AGL image, infotainment | Phases 4–7. A USB CAN adapter (Jhoinrch RH-02 Pro) was bought 2026-11-03; bench and truck steps in [docs/setup/can.md](docs/setup/can.md). The rest of the purchases are decided by the MX+ trial |
+| CAN hardware | Phase 4. A USB CAN adapter (Jhoinrch RH-02 Pro), flashed to Candlelight and listen-only on the bench; not on the truck yet. Steps in [docs/setup/can.md](docs/setup/can.md) |
+| AGL image (`agl/`) | Phase 5, Stage 1 written and tested in simulation: the pinned Vimba 22.0.1 image, `make deploy PI=` (arm64 build in Docker), the setup and diagnostic scripts, and the override of the image's CAN defaults (ADR-0015). Not run on the image yet. See [docs/setup/agl.md](docs/setup/agl.md) |
+| Infotainment | Phases 6–7 |
 
 **Next: Phase 3.5, an MX+ truck trial**: the Pi 5 and display on Raspberry Pi OS,
 talking to the OBDLink MX+ over Bluetooth. It needs no new hardware, and its
@@ -113,7 +115,9 @@ make fw-build   # build for the ESP32-WROOM-32
 On the Pi 5 with Raspberry Pi OS (the Phase 3.5 MX+ trial), use `make pi-setup`,
 `make pi-build` and `make pi-run`. See [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md).
 
-AGL images build on a Linux x86_64 host, not on the Mac. See
+On AGL (Phase 5 Stage 1): `make agl-image`, flash, then `make deploy PI=<host>`
+and `make logs PI=<host>`. See [docs/setup/agl.md](docs/setup/agl.md). Custom AGL
+images build on a Linux x86_64 host, not on the Mac. See
 [docs/setup/linux-build-host.md](docs/setup/linux-build-host.md).
 
 ## Repository layout
@@ -131,7 +135,8 @@ AGL images build on a Linux x86_64 host, not on the Mac. See
 | `services/` | `vehicle-gateway`, `recorder` |
 | `tools/obd-console/` | Diagnostics console for the gateway |
 | [`shared/proto/`](shared/proto/f250/vehicle/v1/vehicle.proto) | Versioned gRPC API |
-| `agl/`, `tests/` | Not created yet ([roadmap](docs/ROADMAP.md)) |
+| [`agl/`](agl/README.md) | AGL Stage 1: release pin, boot config, files and scripts installed on the Pi. `meta-f250` comes in Phase 5.4 |
+| `tests/` | Not created yet ([roadmap](docs/ROADMAP.md)) |
 
 ## License
 

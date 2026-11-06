@@ -20,6 +20,11 @@ Status:
 The order is the point of this page: bench first, then listen-only on the
 truck, and only then polling.
 
+**On AGL** the script is installed as `f250-can` and runs as root (no `sudo`).
+The stock AGL image puts the adapter in normal mode by itself. Don't plug the
+adapter in under AGL until `make deploy` has run and
+`stage1-setup.sh --check` passes ([agl.md](agl.md), [ADR-0015](../architecture/adr/0015-agl-can-defaults.md)).
+
 ## 0. Once: tools
 
 ```bash

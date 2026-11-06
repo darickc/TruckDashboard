@@ -510,7 +510,9 @@ that decision chose.
 1. **5.1** Confirm the build host (ADR-004) and the release (ADR-001).
 2. **5.2** First flash the **prebuilt Vimba Pi 5 Flutter image** and enable:
    - `vc4-kms-dsi-7inch`
-   - the CAN overlay
+   - ~~the CAN overlay~~: none needed, the CAN adapter is USB (ADR-0012). Instead,
+     override the image's own CAN defaults before the adapter meets the truck
+     ([ADR-0015](architecture/adr/0015-agl-can-defaults.md))
    - the DAC HAT's overlay
    - `HandlePowerKey=ignore` for logind (power-manager handles the key; ADR-0013)
    - RTC battery charging on the Pi 5's onboard RTC (`dtparam=rtc_bbat_vchg=3000000`; [H20](hardware/open-questions.md))
@@ -550,7 +552,7 @@ that decision chose.
    - the DAC stays muted until the pipeline is up, and is muted before shutdown
    - record what the speakers do when the Pi panics or the watchdog resets it with the amps on [HW] (H5)
 3. **6.3** **Physical volume knob** on the ESP32 (encoder) or on Pi GPIO.
-4. **6.4** **GPS**: a USB GNSS receiver through gpsd. Check that gpsd is in meta-oe; otherwise write a minimal NMEA reader.
+4. **6.4** **GPS**: a USB GNSS receiver through gpsd. gpsd 3.27.5 is in the Vimba 22.0.1 Pi 5 image (manifest, 2026-11-06).
 5. **6.5** **Navigation**, in order:
    1. offline map display and current position
    2. Valhalla routing and turn-by-turn

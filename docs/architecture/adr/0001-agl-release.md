@@ -1,6 +1,7 @@
 # ADR 0001 — Target AGL Vibrant Vimba 22.0.x
 
-- **Status:** Accepted. Revisit before Phase 5 locks the image.
+- **Status:** Accepted. Rechecked for Phase 5 on 2026-11-06: pinned to
+  **22.0.1** ([below](#recheck-2026-11-06-phase-5)).
 - **Date:** 2026-11-01
 
 ## Context
@@ -34,9 +35,29 @@ Target **Vimba 22.0.x** and pin the exact point release and layer revisions in
 - Vimba is not confirmed as LTS. Long-term maintenance means following
   22.0.x point releases, or moving to an LTS line later.
 
+## Recheck 2026-11-06 (Phase 5)
+
+| Question | Finding | Status |
+|---|---|---|
+| A Vimba point release? | **22.0.1**, directory dated 2026-11-02; the Pi 5 images are dated 2026-10-28. Same kernel (6.18.33), Flutter engine (3.38.3), flutter-auto (2.0) and agl-compositor (0.0.24) as 22.0.0. glibc 2.43, systemd 259. [22.0.1 images][i1] · [manifest][m1] | V |
+| Unagi on the Pi 5? | 21.0.4 (2026-09-25) has a `raspberrypi5` build | V |
+| Unagi LTS? | Still no official statement found beyond the AMM slides | C |
+
+**Pinned:** Vimba 22.0.1, `agl-ivi-demo-flutter-raspberrypi5.wic.zst`, SHA-256
+`7ee71bfc…0209`, in [`agl/configurations/vimba.env`](../../../agl/configurations/vimba.env).
+`make agl-image` downloads and checks it.
+
+The image's CAN defaults turned out to matter for safety:
+[ADR-0015](0015-agl-can-defaults.md).
+
+[i1]: https://download.automotivelinux.org/AGL/release/vimba/22.0.1/raspberrypi5/deploy/images/raspberrypi5/
+[m1]: https://download.automotivelinux.org/AGL/release/vimba/22.0.1/raspberrypi5/deploy/images/raspberrypi5/agl-ivi-demo-flutter-raspberrypi5.manifest
+
 ## Revisit when
 
-- Before Phase 5:
+- On each Vimba point release: bump `agl/configurations/vimba.env`, recheck
+  the engine version against `.fvmrc`, and recheck ADR-0015's recipes.
+- Before Phase 5 (done 2026-11-06):
   - check whether Unagi 21.0.x has Pi 5 images and an official LTS statement
   - check whether a Vimba point release exists
 - If 22.0.x breaks something we rely on: the DSI display, CAN, A2DP or

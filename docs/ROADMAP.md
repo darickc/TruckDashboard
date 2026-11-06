@@ -145,11 +145,27 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
 
 ## Phase 5 — AGL deployment [HW]
 
-- [ ] 5.1 Confirm the build host and the release
-- [ ] 5.2 Prebuilt Vimba image plus the overlays. `diagnose-display.sh`
-- [ ] 5.3 HDMI / Raspberry Pi OS fallback procedure
-- [ ] 5.4 `agl/meta-f250`
-- [ ] 5.5 `make deploy`, flashing docs, log collection
+Guide: [setup/agl.md](setup/agl.md). Nothing in this phase has run on the AGL
+image yet.
+
+- [~] 5.1 Release confirmed: **Vimba 22.0.1** (2026-11-02), pinned with its SHA-256 in
+      `agl/configurations/vimba.env`, `make agl-image` fetches and checks it ([ADR-0001](architecture/adr/0001-agl-release.md)).
+      Still open: **the build host** (ADR-0004), needed for 5.4 only
+- [~] 5.2 Done `[SIM]`: `agl/boot/config-f250.txt` (DSI panel, RTC charging, DAC8x commented
+      until fitted; no CAN overlay: the adapter is USB), the logind power-key drop-in, and
+      `agl/scripts/stage1-setup.sh` (apply, `--check`, `--restore-demo`; 79 tests in `make agl-test`).
+      `agl/scripts/diagnose-display.sh` collects DRM connectors, dmesg, the I2C devices, input,
+      backlight sysfs and the compositor's logs. Found in the image's sources: its networkd
+      config would put the CAN adapter in normal mode, and a KUKSA provider reads `can0`; both are
+      overridden first ([ADR-0015](architecture/adr/0015-agl-can-defaults.md)).
+      Still open: flash, boot and the ten checks in [agl.md](setup/agl.md#5-bring-up-checks-phase-52) **[HW]**
+- [~] 5.3 Fallback procedure written ([agl.md §6](setup/agl.md#6-fallback-is-it-the-hardware-or-agl)): the same
+      diagnose script on both cards, a fault table, HDMI0, `--restore-demo`. Not exercised
+- [ ] 5.4 `agl/meta-f250`: waits for the build host. The Stage 1 files in `agl/rootfs/` are written to be reused by it
+- [~] 5.5 `make deploy PI=` (arm64 Docker build, engine-version check, copy, setup), `make deploy-build`,
+      `make logs PI=`, `make agl-image`, flashing docs. The arm64 build works on the Mac; the gateway,
+      recorder and `obd-console` ran against each other in an arm64 container `[SIM]`
+      ([ADR-0016](architecture/adr/0016-stage1-sideload-layout.md)). Not run against the Pi
 
 ## Phase 6 — Infotainment
 
