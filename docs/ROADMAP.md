@@ -160,7 +160,9 @@ image yet.
       backlight sysfs and the compositor's logs. Found in the image's sources: its networkd
       config would put the CAN adapter in normal mode, and a KUKSA provider reads `can0`; both are
       overridden first ([ADR-0015](architecture/adr/0015-agl-can-defaults.md)).
-      Still open: flash, boot and the ten checks in [agl.md](setup/agl.md#5-bring-up-checks-phase-52) **[HW]**
+      **On the Pi [BENCH] (2026-11-06):** 22.0.1 boots, `make deploy` and `--check` pass, and the dashboard
+      runs fullscreen on the 7" panel with touch (checks 1, 2, 3, 5; the overlay needed `,dsi0`).
+      Still open: checks 4 and 6–9, then 10–11 once those HATs arrive ([agl.md](setup/agl.md#5-bring-up-checks-phase-52))
 - [~] 5.3 Fallback procedure written ([agl.md §6](setup/agl.md#6-fallback-is-it-the-hardware-or-agl)): the same
       diagnose script on both cards, a fault table, HDMI0, `--restore-demo`. Not exercised
 - [ ] 5.4 `agl/meta-f250`: waits for the build host. The Stage 1 files in `agl/rootfs/` are written to be reused by it

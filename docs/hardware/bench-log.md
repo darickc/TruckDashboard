@@ -550,6 +550,12 @@ installed with `stage1-setup.sh`, reboot. After:
     card1-DSI-1 connected; agl-compositor, f250-dashboard, -gateway and
     -recorder active; agl-screenshooter of DSI-1 shows the Home screen
 
-Verdict: partial. The software side works end to end on DSI0. Not yet
-confirmed: that the owner sees the picture on the panel, and that taps work.
-Closes: nothing yet (bench check: display).
+Owner, after the fix: the dashboard shows on the panel and taps work.
+
+Verdict: works. Under AGL 22.0.1 with Stage 1, the 7" panel on DSI0 shows
+the dashboard fullscreen at 800x480 (flutter-auto, the compositor's
+background surface, simulated data with the SIMULATED badge), and touch
+works. Not shown: backlight dimming (check 4), the ribbon with a HAT fitted
+(H3).
+Closes: agl.md bring-up checks 1 (CAN safety, `--check`), 2 (display),
+3 (touch), 5 (dashboard); H30.
