@@ -83,6 +83,9 @@ check "disables the demo homescreen"   "has_line '$L' 'systemctl disable flutter
 check "stops the demo homescreen"      "has_line '$L' 'systemctl stop flutter-ics-homescreen.service'"
 check "swaps clients around a compositor restart" "in_order '$L' 'systemctl stop f250-dashboard.service' 'systemctl restart agl-compositor.service' 'systemctl start f250-dashboard.service'"
 check "never restarts the dashboard alone" "! grep -q '^systemctl restart.*f250-dashboard' '$L'"
+check "journald drop-in installed"     "cmp -s agl/rootfs/etc/systemd/journald.conf.d/50-f250.conf '$R/etc/systemd/journald.conf.d/50-f250.conf'"
+check "journal directory created"      "[[ -d '$R/var/lib/journal' && -g '$R/var/lib/journal' ]]"
+check "journal mount enabled, then started" "in_order '$L' 'systemctl enable var-volatile-log-journal.mount' 'systemctl start var-volatile-log-journal.mount' 'systemctl restart systemd-journald.service' 'journalctl --flush'"
 check "compositor drop-in installed"   "cmp -s agl/rootfs/etc/systemd/system/agl-compositor.service.d/50-f250.conf '$R/etc/systemd/system/agl-compositor.service.d/50-f250.conf'"
 check "enables our services"           "has_line '$L' 'systemctl enable f250-gateway.service f250-recorder.service f250-dashboard.service'"
 check "config.txt keeps the original"  "cmp -s '$T/config.orig' '$R/boot/config.txt.agl-orig'"
@@ -155,6 +158,7 @@ check "--check flags normal-mode can0" "grep -q 'NORMAL mode' '$T/check-before.o
 check "--check changes nothing"        "[[ ! -s '$R6/.test/sys.log' && ! -e '$R6/etc/systemd/network/60-canbus-can.network' ]]"
 for b in vehicle-gateway recorder obd-console f250-can f250-storage; do printf '#!/bin/sh\n' >"$R/opt/f250/bin/$b"; chmod +x "$R/opt/f250/bin/$b"; done
 for u in f250-gateway f250-recorder f250-dashboard; do echo enabled >"$R/.test/unit-$u.service"; done
+echo enabled >"$R/.test/unit-var-volatile-log-journal.mount"; : >"$R/.test/mounted-journal"
 mkdir -p "$R/opt/f250/share/data/signals"; echo '{}' >"$R/opt/f250/share/data/warning_rules.json"
 if setup "$R" --check >"$T/check-after.out" 2>&1; then ok; else fail "--check after setup: $(grep FAIL "$T/check-after.out")"; fi
 
@@ -191,6 +195,7 @@ check "mounted: no second mount"       "! grep -q 'systemctl start var-lib' '$R7
 for b in vehicle-gateway recorder obd-console f250-can f250-storage; do printf '#!/bin/sh\n' >"$R7/opt/f250/bin/$b"; chmod +x "$R7/opt/f250/bin/$b"; done
 for u in kuksa-can-provider can-dev-helper; do echo masked >"$R7/.test/unit-$u.service"; done
 for u in f250-gateway f250-recorder f250-dashboard; do echo enabled >"$R7/.test/unit-$u.service"; done
+echo enabled >"$R7/.test/unit-var-volatile-log-journal.mount"; : >"$R7/.test/mounted-journal"
 echo disabled >"$R7/.test/unit-flutter-ics-homescreen.service"; rm -f "$R7/.test/ip-can0"
 mkdir -p "$R7/opt/f250/share/data/signals"; echo '{}' >"$R7/opt/f250/share/data/warning_rules.json"
 if setup "$R7" --check >"$T/check-drive.out" 2>&1; then ok; else fail "--check with the drive mounted: $(grep FAIL "$T/check-drive.out")"; fi
@@ -249,6 +254,9 @@ check "dashboard starts with the compositor" "grep -qx 'WantedBy=graphical.targe
 check "dashboard never restarts alone" "! grep -q '^Restart=' agl/rootfs/etc/systemd/system/f250-dashboard.service"
 check "dashboard failure restarts the compositor" "grep -qx 'OnFailure=f250-dashboard-recover.service' agl/rootfs/etc/systemd/system/f250-dashboard.service && grep -qx 'ExecStart=/usr/bin/systemctl restart agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard-recover.service"
 check "compositor restarts after a crash" "grep -qx 'Restart=on-failure' agl/rootfs/etc/systemd/system/agl-compositor.service.d/50-f250.conf"
+check "journal mount: SD card to the journal's place" "grep -qx 'What=/var/lib/journal' agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount && grep -qx 'Where=/var/volatile/log/journal' agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount && grep -qx 'Before=systemd-journal-flush.service' agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount"
+check "journal mount unit name matches Where=" "[[ \"\$(basename agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount)\" == var-volatile-log-journal.mount ]] && grep -q '^JOURNAL_WHERE=/var/volatile/log/journal$' '$SETUP'"
+check "journal is persistent and capped" "grep -qx 'Storage=persistent' agl/rootfs/etc/systemd/journald.conf.d/50-f250.conf && grep -qx 'SystemMaxUse=50M' agl/rootfs/etc/systemd/journald.conf.d/50-f250.conf"
 check "power-off code matches the app" "grep -q 'const powerOffExitCode = 42;' apps/infotainment/lib/core/power.dart"
 check "socket path matches the build"  "grep -q 'SOCK=/run/f250/vehicle.sock' tools/dev/deploy.sh && grep -q 'F250_SOCK:-/run/f250/vehicle.sock' '$REC' && grep -q 'F250_SOCK:-/run/f250/vehicle.sock' '$GW'"
 check "recorder starts via its wrapper" "grep -qx 'ExecStart=/opt/f250/libexec/recorder-start' agl/rootfs/etc/systemd/system/f250-recorder.service"

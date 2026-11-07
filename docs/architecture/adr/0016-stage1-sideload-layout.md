@@ -108,6 +108,18 @@ text console. The units now treat the compositor and the dashboard as a pair:
 Tested on the Pi: a deploy, `kill -ABRT` of the compositor and `kill -KILL`
 of the dashboard each end with both running again in about 2 s.
 
+## Addendum 2026-11-06: a persistent journal
+
+The image keeps the journal in RAM (`/var/log` is a link into the
+`/var/volatile` tmpfs), so nothing from before a reboot or a power-off can be
+read. `stage1-setup.sh` now installs `journald.conf.d/50-f250.conf`
+(`Storage=persistent`, `SystemMaxUse=50M`) and enables
+`var-volatile-log-journal.mount`, which bind-mounts `/var/lib/journal` on the
+SD card's root filesystem at `/var/volatile/log/journal` before
+`systemd-journal-flush.service`. Cost: journald writes to the card (synced
+every 5 minutes by default; at most 50 MB). If the mount fails, the journal
+stays in RAM, as before. `--check` reports all three parts.
+
 ## Revisit when
 
 - Phase 5.4 builds `meta-f250`: fold this layout into recipes or replace it.

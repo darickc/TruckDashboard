@@ -1,0 +1,19 @@
+# Installed and enabled by agl/scripts/stage1-setup.sh. On the AGL image
+# /var/log is a link to /var/volatile/log, a tmpfs, so a persistent journal
+# would still vanish at shutdown. This bind-mounts /var/lib/journal (on the SD
+# card's root filesystem) at the journal's place before journald moves its
+# logs from /run to /var (systemd-journal-flush.service). If the mount fails,
+# the journal stays in RAM, as it was.
+[Unit]
+Description=Persistent journal on the root filesystem
+After=systemd-remount-fs.service
+Before=systemd-journal-flush.service
+
+[Mount]
+What=/var/lib/journal
+Where=/var/volatile/log/journal
+Type=none
+Options=bind
+
+[Install]
+WantedBy=local-fs.target

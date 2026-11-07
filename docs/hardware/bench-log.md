@@ -622,3 +622,31 @@ no-ACK proof still needs a second node. 9: the RTC and the charging
 parameter work on AGL; holding time (H20) needs the cell. The charging line
 is now commented until the rechargeable cell is fitted.
 Closes: agl.md checks 7, 8 and 9 (H20 stays open).
+
+## 2026-11-06 — Persistent journal on the AGL image [BENCH]
+
+Hardware and image as in the previous entry.
+
+Before: `journalctl -b -1` → "no persistent journal was found". `/var/log`
+is a link to `volatile/log` on the `/var/volatile` tmpfs; journald has only
+`RuntimeMaxUse=64M`. SELinux: disabled (`sestatus`).
+
+Setup: `make deploy` with the journald drop-in (`Storage=persistent`,
+`SystemMaxUse=50M`) and `var-volatile-log-journal.mount` (bind
+`/var/lib/journal` → `/var/volatile/log/journal`, before
+systemd-journal-flush). A `logger -t f250-test` marker, then a reboot.
+
+Result:
+    before reboot  findmnt: /dev/mmcblk0p2[/var/lib/journal] on
+                   /var/volatile/log/journal; journal files under it;
+                   --check: journal drop-in, mount enabled, mounted: ok
+    after reboot   journalctl --list-boots: two boots; journalctl -b -1 shows
+                   the marker and the shutdown through "Journal stopped";
+                   the mount is back; compositor, dashboard, gateway and
+                   recorder active
+    unrelated      bthelper@hci0.service failed on this boot (Raspberry Pi
+                   Bluetooth helper); not looked at yet
+
+Verdict: works. Logs from before a reboot or a power-off can now be read.
+Note the previous boot's first entry is dated 2026-10-27 (the image's build
+time): no RTC cell, so early boot timestamps are wrong until network time.

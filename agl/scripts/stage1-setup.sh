@@ -17,6 +17,7 @@
 #   3. The f250 system user; agl-driver joins its group for the gateway socket.
 #   4. Install agl/rootfs/ (units, logind drop-in, /etc/default/f250, helpers).
 #      /etc/default/f250 is installed only if missing: it holds your settings.
+#      Turn on the persistent journal (/var/lib/journal, at most 50 MB).
 #   5. The data drive (DATA_DRIVE in /etc/default/f250): with 1, an /etc/fstab
 #      entry mounts the ext4 drive labelled f250-data (f250-storage formats
 #      it) at /var/lib/f250/storage, with nofail; with 0, the entry is removed.
@@ -53,6 +54,9 @@ CAN_UNITS=(kuksa-can-provider.service can-dev-helper.service)
 F250_UNITS=(f250-gateway.service f250-recorder.service f250-dashboard.service)
 COMPOSITOR=agl-compositor.service
 COMPOSITOR_DROPIN=etc/systemd/system/agl-compositor.service.d/50-f250.conf
+JOURNAL_DIR=/var/lib/journal
+JOURNAL_MOUNT=var-volatile-log-journal.mount
+JOURNAL_WHERE=/var/volatile/log/journal
 BEGIN='# >>> f250'
 STORAGE=/var/lib/f250/storage
 DRIVE_LABEL=f250-data
@@ -111,6 +115,10 @@ drive_present() {  # a filesystem labelled f250-data is attached
 
 can_up() {       # the interface flags (<...,UP,...>) of `ip link` output on stdin include UP
   sed -n 's/^[0-9]*: [^<]*<\([^>]*\)>.*/\1/p' | head -1 | tr ',' '\n' | grep -qx UP
+}
+
+journal_mounted() {  # the persistent journal is in place (test: $ROOT/.test/mounted-journal)
+  if [[ -n "${F250_SYS_LOG:-}" ]]; then [[ -e "$ROOT/.test/mounted-journal" ]]; else mountpoint -q "$JOURNAL_WHERE"; fi
 }
 
 boot_config() {
@@ -186,6 +194,22 @@ check() {
     ok "logind ignores the power key (after a reboot)"
   else
     warn "logind still handles the power key"
+  fi
+
+  say "Journal"
+  if cmp -s "$HERE/rootfs/etc/systemd/journald.conf.d/50-f250.conf" "$ROOT/etc/systemd/journald.conf.d/50-f250.conf"; then
+    ok "journald keeps the journal (Storage=persistent, 50 MB)"
+  else
+    bad "journald drop-in missing or old: logs vanish at shutdown (run this script)"
+  fi
+  case "$(unit_state "$JOURNAL_MOUNT")" in
+    enabled) ok "$JOURNAL_MOUNT enabled" ;;
+    *) bad "$JOURNAL_MOUNT not enabled: the journal would stay on tmpfs" ;;
+  esac
+  if journal_mounted; then
+    ok "$JOURNAL_DIR mounted at $JOURNAL_WHERE"
+  else
+    bad "$JOURNAL_WHERE is not mounted: the journal is in RAM (systemctl start $JOURNAL_MOUNT)"
   fi
 
   say "Data drive"
@@ -332,6 +356,23 @@ apply() {
     install_file "$f" "$ROOT/$rel" "$mode" || true
   done < <(find "$HERE/rootfs" -type f | sort)
   sys systemctl daemon-reload
+
+  # Persistent journal: /var/log is tmpfs, so the journal lives in
+  # $JOURNAL_DIR, bind-mounted at its place ($JOURNAL_MOUNT).
+  if [[ ! -d "$ROOT$JOURNAL_DIR" ]]; then
+    mkdir -p "$ROOT$JOURNAL_DIR"; chmod 2755 "$ROOT$JOURNAL_DIR"
+    sys chgrp systemd-journal "$JOURNAL_DIR"
+    echo "  created $JOURNAL_DIR"
+  fi
+  if [[ "$(unit_state "$JOURNAL_MOUNT")" != enabled ]]; then
+    sys systemctl enable "$JOURNAL_MOUNT"; echo "  enabled $JOURNAL_MOUNT"
+  fi
+  if ! journal_mounted; then
+    sys systemctl start "$JOURNAL_MOUNT"
+    sys systemctl restart systemd-journald.service
+    sys journalctl --flush
+    echo "  journal now kept on the SD card ($JOURNAL_DIR)"
+  fi
 
   say "5. Data drive"
   local fstab="$ROOT/etc/fstab" on changed=0

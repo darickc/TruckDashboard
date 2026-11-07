@@ -154,7 +154,7 @@ image yet.
 - [~] 5.2 Done `[SIM]`: `agl/boot/config-f250.txt` (DSI panel; RTC charging, NVMe PCIe and
       DAC8x lines commented until the cell and those HATs are fitted; no CAN overlay: the adapter is USB), the logind
       power-key drop-in, and `agl/scripts/stage1-setup.sh` (apply, `--check`, `--restore-demo`;
-      124 tests in `make agl-test`). Optional data drive (`DATA_DRIVE=1`, `f250-storage`): the
+      130 tests in `make agl-test`). Optional data drive (`DATA_DRIVE=1`, `f250-storage`): the
       telemetry database and traffic logs on an NVMe HAT or USB SSD; no NVMe boot on this image.
       `agl/scripts/diagnose-display.sh` collects DRM connectors, dmesg, the I2C devices, input,
       backlight sysfs and the compositor's logs. Found in the image's sources: its networkd
@@ -164,6 +164,7 @@ image yet.
       runs fullscreen on the 7" panel with touch (checks 1, 2, 3, 5; the overlay needed `,dsi0`). The dashboard
       and agl-compositor restart as a pair: the compositor aborts on a second homescreen client (ADR-0016 addendum).
       Also passed: 7 (Power button), 8 (CAN listen-only with the adapter), 9 (RTC, no cell yet).
+      The journal is now kept on the SD card (50 MB cap), so `journalctl -b -1` works after a reboot.
       Still open: checks 4 and 6, then 10–11 once those HATs arrive ([agl.md](setup/agl.md#5-bring-up-checks-phase-52))
 - [~] 5.3 Fallback procedure written ([agl.md §6](setup/agl.md#6-fallback-is-it-the-hardware-or-agl)): the same
       diagnose script on both cards, a fault table, HDMI0, `--restore-demo`. Not exercised
