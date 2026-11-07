@@ -94,7 +94,7 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make ui-web` | Dashboard in a browser at http://127.0.0.1:8250. Add `SCENARIO=<id> START=<s>` to jump into a scenario |
 | `make sim` | Rust gateway (simulated) + macOS app over gRPC. `make gateway` / `make console` run the gateway or `obd-console` alone |
 | `make rust-test` / `make rust-lint` | Cargo workspace tests / fmt + clippy (needs `protoc`) |
-| `make pi-setup` / `pi-build` / `pi-run` | On the Pi (Raspberry Pi OS, Phase 3.5): install the tools, release-build, run gateway + recorder + app. `pi-run` uses the simulator unless `TRANSPORT=obdlink` or `TRANSPORT=can`, and polls only with `TRANSMIT=1`. See [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md) |
+| `make pi-setup` / `pi-build` / `pi-run` | On the Pi (Raspberry Pi OS, Phase 3.5): install the tools, release-build, run gateway + recorder + app. `pi-run` uses the simulator unless `TRANSPORT=obdlink` or `TRANSPORT=can`, and polls only with `TRANSMIT=1`. `CAPTURE=1` also candumps `can0` into the session. See [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md) |
 | `make pi-start` / `pi-stop` / `pi-status` | On the Pi, over SSH: `pi-run` as a transient systemd service on tty7 (an SSH login has no seat, so `cage` can't take the screen from it) |
 | `make pi-can CMD=status\|listen\|active\|down\|capture\|flash` | On the Pi: the USB CAN adapter (`tools/pi/can.sh`; listen-only unless `active`). Then `TRANSPORT=can` for `pi-run`/`pi-start`. See [docs/setup/can.md](docs/setup/can.md) |
 | `cargo run --release -p can-monitor -- census\|pids\|correlate LOG` | Analyse a `candump` log offline: census, PID answers decoded with the registry, broadcast-vs-PID fits. See [docs/setup/can.md](docs/setup/can.md#analysing-a-capture) |

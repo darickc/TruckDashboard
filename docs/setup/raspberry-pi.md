@@ -98,6 +98,7 @@ stop it from SSH with `pkill -TERM -f '^bash tools/pi/run.sh'`.
 | `make pi-run` | Simulator. For the bench: display, touch and the whole stack. Transmits nothing |
 | `make pi-run TRANSPORT=obdlink` | MX+ in **PASSIVE_ONLY** mode. The adapter is never opened |
 | `make pi-run TRANSPORT=obdlink TRANSMIT=1` | MX+ polling. Only read-only services (ADR-0007). This is the explicit opt-in |
+| `… CAPTURE=1` | Also captures the USB CAN adapter (`can0`, already up: `tools/pi/can.sh listen`) into the session's `candump/` folder, e.g. beside the MX+ on a Y-splitter ([can.md](can.md#analysing-a-capture)) |
 | `… UI=0` | Gateway and recorder only, no app. Useful for a logged drive |
 | `… UI=headless` | The app runs under `cage` on a virtual display. Tests the whole stack without a screen |
 

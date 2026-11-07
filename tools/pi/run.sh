@@ -8,6 +8,11 @@
 #   make pi-run TRANSPORT=can                     # direct CAN (can0), PASSIVE_ONLY: never opened
 #   make pi-run TRANSPORT=can TRANSMIT=1          # direct CAN polling; can0 must be up in active
 #                                                 # mode first (tools/pi/can.sh active, ADR-0012)
+#   make pi-run TRANSPORT=obdlink TRANSMIT=1 CAPTURE=1
+#                                                 # also candump can0 into the session (candump/):
+#                                                 # the MX+'s requests and answers next to the
+#                                                 # broadcasts, for can-monitor correlate. can0
+#                                                 # must be up first (tools/pi/can.sh listen)
 #   make pi-run ... UI=0                          # gateway + recorder only, no app
 #   make pi-run ... UI=headless                   # app under cage on a virtual display (no screen needed)
 #
@@ -26,6 +31,7 @@ TRANSPORT="${TRANSPORT:-sim}"
 ADAPTER="${ADAPTER:-rfcomm:00:04:3E:85:EA:FC}"
 CAN_IF="${CAN_IF:-can0}"
 TRANSMIT="${TRANSMIT:-0}"
+CAPTURE="${CAPTURE:-0}"
 ENABLE="${ENABLE:-}"
 BUDGET_RPS="${BUDGET_RPS:-}"
 SCENARIO="${SCENARIO:-drive_cycle}"
@@ -82,6 +88,21 @@ case "$TRANSPORT" in
   *)
     echo "TRANSPORT must be sim, obdlink or can, got '$TRANSPORT'"; exit 1 ;;
 esac
+case "$CAPTURE" in
+  0) ;;
+  1)
+    # Bringing the interface up needs root, and pi-start can't ask for a
+    # password, so it must already be up: listen-only for a capture beside the
+    # MX+, or active for TRANSPORT=can TRANSMIT=1.
+    if [[ ! -e "/sys/class/net/$CAN_IF" ]]; then
+      echo "CAPTURE=1: $CAN_IF does not exist. Plug in the CAN adapter, then: tools/pi/can.sh listen"; exit 1
+    fi
+    if [[ "$(cat "/sys/class/net/$CAN_IF/operstate")" == down ]]; then
+      echo "CAPTURE=1: $CAN_IF is down. Bring it up first: tools/pi/can.sh listen"; exit 1
+    fi ;;
+  *)
+    echo "CAPTURE must be 0 or 1, got '$CAPTURE'"; exit 1 ;;
+esac
 [[ -n "$ENABLE" ]] && gw_args+=(--enable "$ENABLE")
 [[ -n "$BUDGET_RPS" ]] && gw_args+=(--budget-rps "$BUDGET_RPS")
 
@@ -134,6 +155,7 @@ mkdir -p "$SESSION"
   echo "host:      $(hostname) $(uname -srm)"
   echo "transport: $TRANSPORT"
   echo "transmit:  $([[ "$TRANSPORT" != sim && "$TRANSMIT" == 1 ]] && echo enabled || echo off)"
+  echo "capture:   $([[ "$CAPTURE" == 1 ]] && echo "$CAN_IF -> $SESSION/candump" || echo off)"
   echo "gateway:   $GW_BIN ${gw_args[*]}"
   if [[ "$TRANSPORT" == can ]]; then
     echo "interface:"
@@ -155,9 +177,15 @@ can_power_off() {
 }
 
 PIDS=()
+CAP_PID=
 cleanup() {
   # Stop the recorder before the gateway so it records the shutdown cleanly.
   for ((i=${#PIDS[@]}-1; i>=0; i--)); do kill "${PIDS[i]}" 2>/dev/null || true; done
+  # The capture stops last, so it holds the gateway's final requests.
+  if [[ -n "$CAP_PID" ]]; then
+    wait "${PIDS[@]}" 2>/dev/null || true
+    kill "$CAP_PID" 2>/dev/null || true
+  fi
   wait 2>/dev/null || true
   if [[ "$TRANSPORT" == can ]]; then
     { echo "interface at stop:"; ip -details -statistics link show "$CAN_IF" 2>&1 | sed 's/^/  /'; } \
@@ -168,6 +196,12 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
+
+if [[ "$CAPTURE" == 1 ]]; then
+  # Before the gateway, so its first requests are in the capture.
+  CAN_IF="$CAN_IF" CAPTURE_DIR="$SESSION/candump" tools/pi/can.sh capture >"$SESSION/capture.log" 2>&1 &
+  CAP_PID=$!
+fi
 
 "$GW_BIN" "${gw_args[@]}" >"$SESSION/gateway.log" 2>&1 &
 PIDS+=($!)

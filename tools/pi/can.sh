@@ -12,7 +12,9 @@
 #
 # Options: CAN_IF (default can0), BITRATE (default 500000, the truck's HS-CAN:
 # ATDPN 6, VERIFICATION_LOG 2026-08-09), DATA_DIR (default ~/f250-data),
-# BOARD (flash only: multiboard, the default, or jhoinrch).
+# CAPTURE_DIR (capture only: write there instead of a new dated folder; how
+# `make pi-run CAPTURE=1` puts the capture inside its session), BOARD (flash
+# only: multiboard, the default, or jhoinrch).
 #
 # Listen-only is the default and the first step on the truck (ADR-0007): in
 # that mode the controller sends no ACKs and no error frames, so a wrong
@@ -30,7 +32,8 @@
 #
 # Status: status, flash, listen [BENCH 2026-11-05]; listen and capture on the
 # truck [TRUCK 2026-11-06/07]; active not yet run. capture's kernel.log,
-# counters.log and gap report: tested piecewise on the Pi, not yet in a capture.
+# counters.log, gap report, CAPTURE_DIR and stopping on TERM: tested on the Pi
+# with a stand-in candump on `lo` [BENCH 2026-11-07], not yet on the truck.
 set -euo pipefail
 
 CAN_IF="${CAN_IF:-can0}"
@@ -150,7 +153,7 @@ case "${1:-status}" in
     command -v candump >/dev/null || die "candump not found: run 'make pi-setup' (can-utils)"
     [[ "$(cat "/sys/class/net/$CAN_IF/operstate")" == down ]] && die "$CAN_IF is down: run 'tools/pi/can.sh listen' first"
     secs="${2:-0}"
-    dir="$DATA_DIR/$(date +%Y%m%d-%H%M%S)-candump"
+    dir="${CAPTURE_DIR:-$DATA_DIR/$(date +%Y%m%d-%H%M%S)-candump}"
     mkdir -p "$dir"
     {
       echo "started:   $(date -Iseconds)"
@@ -195,11 +198,20 @@ case "${1:-status}" in
     }
     trap finish EXIT
     cd "$dir"
+    # candump runs in the background so that a TERM (run.sh stopping a
+    # CAPTURE=1 session) is handled at once: bash runs a trap only after a
+    # foreground command returns, and `wait` returns as soon as a signal
+    # arrives. The trap stops candump, which closes its log; `finish` then
+    # records the counters. Ctrl-C in a terminal reaches candump directly.
     if [[ "$secs" -gt 0 ]]; then
-      timeout --foreground "$secs" candump -l "$CAN_IF,0:0,#FFFFFFFF" || true
+      timeout "$secs" candump -l "$CAN_IF,0:0,#FFFFFFFF" &
     else
-      candump -l "$CAN_IF,0:0,#FFFFFFFF" || true
+      candump -l "$CAN_IF,0:0,#FFFFFFFF" &
     fi
+    dpid=$!
+    trap 'kill -TERM "$dpid" 2>/dev/null || true' INT TERM
+    wait "$dpid" || true
+    wait "$dpid" 2>/dev/null || true
     ;;
   flash)
     case "$BOARD" in

@@ -167,7 +167,7 @@ How to read them:
 `census` on each and compare.
 
 **With the MX+ on a Y-splitter and the gateway polling through it** (`make
-pi-start TRANSPORT=obdlink TRANSMIT=1 ENABLE=eot`), the same capture also
+pi-start TRANSPORT=obdlink TRANSMIT=1 ENABLE=eot CAPTURE=1`), the capture also
 records the MX+'s requests and every module's answers on the wire. That is
 the dropout experiment (Phase 4.7). For each EOT window the MX+ cut short,
 the capture says whether the PCM's answer was on the bus. It also shows what
@@ -201,9 +201,17 @@ Correlation needs PID answers **in the same log**. Record them with the MX+
 on the Y-splitter, polling, while the CAN adapter listens:
 
 ```bash
-make pi-start TRANSPORT=obdlink TRANSMIT=1    # the MX+ polls (read-only services)
-tools/pi/can.sh capture                       # listen-only; Ctrl-C after the drive
+tools/pi/can.sh listen                                  # once per boot; needs sudo
+make pi-start TRANSPORT=obdlink TRANSMIT=1 CAPTURE=1    # MX+ polls; can0 is captured
+make pi-stop                                            # after the drive
 ```
+
+`CAPTURE=1` runs `can.sh capture` alongside the gateway, starting before it
+and stopping after it, into the session's own folder:
+`~/f250-data/<date>-obdlink/candump/` holds the `candump` log, `kernel.log`,
+`counters.log` and the gap report, next to the gateway's traffic log and the
+recorder database. It refuses to start unless `can0` is already up, because
+bringing it up needs `sudo`, which `pi-start` can't ask for.
 
 Drive with stops, idling and several gears: RPM and road speed are nearly
 proportional within one gear, so a steady cruise can't tell them apart. A
