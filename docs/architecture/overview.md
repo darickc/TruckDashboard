@@ -180,5 +180,5 @@ disabled by default, restricted to read services, and rate-budgeted. See
 |---|---|
 | Mac | Flutter app (macOS desktop, 800×480 window) + Rust services with the simulated transport + firmware host tests |
 | Linux CI / Docker | Same, plus Linux-only code (SocketCAN against `vcan`) |
-| Linux x86_64 build host | Yocto / AGL image builds (ADR-004) |
+| Linux build host | Yocto / AGL image builds (ADR-004): a Lima VM on the Mac with its disk on an external drive, or an x86_64 PC |
 | Pi 5 | Stage 1: the prebuilt AGL Vimba image with sideloaded binaries. Stage 2: the `meta-f250` image (ADR-005) |

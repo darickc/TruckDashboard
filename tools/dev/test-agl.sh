@@ -32,7 +32,7 @@ STORAGE_TOOL=agl/scripts/storage.sh
 FSTAB_LINE='LABEL=f250-data /var/lib/f250/storage ext4 noatime,nofail,x-systemd.device-timeout=10s 0 2'
 
 echo "syntax"
-for f in agl/scripts/*.sh agl/rootfs/opt/f250/libexec/* agl/rootfs/etc/profile.d/f250.sh tools/dev/deploy.sh tools/dev/logs.sh tools/pi/*.sh; do
+for f in agl/scripts/*.sh agl/rootfs/opt/f250/libexec/* agl/rootfs/etc/profile.d/f250.sh tools/dev/deploy.sh tools/dev/logs.sh tools/dev/build-vm.sh tools/pi/*.sh; do
   check "bash -n $f" "bash -n '$f'"
 done
 for f in agl/scripts/*.sh agl/rootfs/opt/f250/libexec/*; do
@@ -265,6 +265,14 @@ check "mount point agrees everywhere" "grep -q '^STORAGE=/var/lib/f250/storage$'
 check "drive label agrees"     "grep -q '^DRIVE_LABEL=f250-data$' '$SETUP' && grep -q '^LABEL=f250-data$' '$STORAGE_TOOL'"
 check "config block is marked"         "[[ \"\$(head -1 agl/boot/config-f250.txt)\" == '# >>> f250'* && \"\$(tail -1 agl/boot/config-f250.txt)\" == '# <<< f250' ]]"
 check "engine pin matches .fvmrc"      "grep -q \"AGL_FLUTTER_VERSION=\$(sed -n 's/.*\"flutter\": *\"\\([^\"]*\\)\".*/\\1/p' .fvmrc)\" agl/configurations/vimba.env"
+
+# Build host (Phase 5.4): the build scripts only run on Linux, and the
+# manifest they ask repo for is named from the release pin.
+if [[ "$(uname -s)" != Linux ]]; then
+  check "agl-build.sh refuses to run off Linux"   "! agl/scripts/agl-build.sh fetch >/dev/null 2>&1"
+  check "setup-build-host.sh refuses off Linux"   "! agl/scripts/setup-build-host.sh >/dev/null 2>&1"
+fi
+check "build uses the release's pinned manifest" "grep -q -- '-m \"\${AGL_BRANCH}_\${AGL_RELEASE}.xml\"' agl/scripts/agl-build.sh && grep -q -- '-b \"refs/tags/\$AGL_BRANCH/\$AGL_RELEASE\"' agl/scripts/agl-build.sh"
 
 echo
 echo "agl-test: $PASS passed, $FAIL failed"

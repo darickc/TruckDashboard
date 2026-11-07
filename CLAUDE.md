@@ -102,7 +102,9 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 Also: `make proto` (regenerate the Dart gRPC client) and `make linux-test` (Rust
 in Docker, including the RFCOMM build). AGL: `make agl-image`, `make deploy PI=<host>`
 (`deploy-build` to build only), `make logs PI=<host>`, `make agl-test`; see
-[docs/setup/agl.md](docs/setup/agl.md).
+[docs/setup/agl.md](docs/setup/agl.md). Yocto builds: `make build-vm` (a Lima VM
+whose disk is on the external drive `/Volumes/External`) and `make agl-build`;
+see [docs/setup/linux-build-host.md](docs/setup/linux-build-host.md).
 How to run the gateway, the MX+ flags and the recorder: [docs/setup/gateway.md](docs/setup/gateway.md).
 
 Test and lint targets for components that don't exist yet print `skip:` and exit 0.

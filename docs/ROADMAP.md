@@ -146,11 +146,14 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
 ## Phase 5 — AGL deployment [HW]
 
 Guide: [setup/agl.md](setup/agl.md). Stage 1 runs on the Pi with AGL 22.0.1
-**[BENCH]** (2026-11-06); the custom image (5.4) waits for the build host.
+**[BENCH]** (2026-11-06). The build host is being tried as a VM on the Mac with an
+external drive (ADR-0004 amendment); the custom image (5.4) waits on its first build.
 
 - [~] 5.1 Release confirmed: **Vimba 22.0.1** (2026-11-02), pinned with its SHA-256 in
       `agl/configurations/vimba.env`, `make agl-image` fetches and checks it ([ADR-0001](architecture/adr/0001-agl-release.md)).
-      Still open: **the build host** (ADR-0004), needed for 5.4 only
+      Build host (ADR-0004, needed for 5.4 only): `make build-vm` makes an aarch64 Ubuntu VM on the Mac with its disk
+      on the external drive; `make agl-build` fetches the pinned 22.0.1 layers and runs BitBake. Parsing and the host
+      sanity checks pass; the first full build is running ([linux-build-host.md](setup/linux-build-host.md))
 - [~] 5.2 Done `[SIM]`: `agl/boot/config-f250.txt` (DSI panel; RTC charging, NVMe PCIe and
       DAC8x lines commented until the cell and those HATs are fitted; no CAN overlay: the adapter is USB), the logind
       power-key drop-in, and `agl/scripts/stage1-setup.sh` (apply, `--check`, `--restore-demo`;
@@ -169,7 +172,7 @@ Guide: [setup/agl.md](setup/agl.md). Stage 1 runs on the Pi with AGL 22.0.1
       ([agl.md](setup/agl.md#5-bring-up-checks-phase-52))
 - [~] 5.3 Fallback procedure written ([agl.md §6](setup/agl.md#6-fallback-is-it-the-hardware-or-agl)): the same
       diagnose script on both cards, a fault table, HDMI0, `--restore-demo`. Not exercised
-- [ ] 5.4 `agl/meta-f250`: waits for the build host. The Stage 1 files in `agl/rootfs/` are written to be reused by it.
+- [ ] 5.4 `agl/meta-f250`: waits for a first full build on the build host. The Stage 1 files in `agl/rootfs/` are written to be reused by it.
       Done ahead of it: the service watchdogs. `crates/sd-notify` (systemd's notify protocol, no `unsafe`); the
       gateway and recorder are `Type=notify` with `WatchdogSec=60` / `30`, and send keep-alives only while their loops
       make progress ([diagnostic-recovery.md](architecture/diagnostic-recovery.md)). The recorder's waits on the gateway

@@ -1,8 +1,52 @@
 # Linux build host for AGL / Yocto
 
-Status: **requirements only.** Nothing has been built yet. The layer and build
-configuration arrive in Phase 5 ([ADR-0004](../architecture/adr/0004-linux-build-host.md),
+Status: **build host scripted; first build in progress.** `make build-vm` makes
+an Ubuntu 24.04 VM on the Mac with its disk on an external drive, and
+`make agl-build` builds the pinned AGL release in it. That arrangement is still
+outside what AGL documents (aarch64 host), so results are recorded in
+[bench-log.md](../hardware/bench-log.md) as they come
+([ADR-0004](../architecture/adr/0004-linux-build-host.md),
 [ADR-0005](../architecture/adr/0005-staged-agl-bringup.md)).
+
+## Quick start (the Mac + an external drive)
+
+The drive must be APFS (exFAT has no sparse files, symlinks or case-sensitive
+names) and mounted at `/Volumes/External` (or set `BUILD_VOLUME`).
+
+```bash
+brew install lima
+```
+
+```bash
+make build-vm
+```
+
+```bash
+make agl-build
+```
+
+| Command | What it does |
+|---|---|
+| `make build-vm` | Create (once) and start the `agl-build` VM: Ubuntu 24.04 aarch64, 12 CPUs, 32 GiB RAM, a 420 GiB sparse disk. Everything Lima keeps lives in `/Volumes/External/lima`. Then runs `agl/scripts/setup-build-host.sh` in it |
+| `make agl-build` | Runs `agl/scripts/agl-build.sh` in the VM: `repo` fetches AGL-repo's `vimba_<release>.xml` at the release tag, `aglsetup.sh -m raspberrypi5 agl-demo agl-devel`, then `bitbake agl-ivi-demo-flutter`. Log in `~/agl/logs/` in the VM |
+| `make build-vm CMD=shell` | A shell in the VM. The repo is mounted read-only at the same path |
+| `make build-vm CMD=status` | VM state, disk and memory |
+| `make build-vm CMD=stop` | Stop the VM and free its RAM. Its disk stays on the drive |
+| `make build-vm CMD=delete` | Delete the VM and everything built in it |
+
+`VM_CPUS`, `VM_MEMORY` and `VM_DISK` size the VM when it is created.
+`agl-build.sh` takes `FEATURES`, `TARGET`, `THREADS`, `JOBS` and `KEEP_WORK=1`
+(see the script header). On a Linux PC, run the two `agl/scripts/` scripts
+directly.
+
+Settings the build adds (`conf/site.conf` in the build directory):
+
+- `DL_DIR` and `SSTATE_DIR` outside the release tree (`~/agl/downloads`,
+  `~/agl/sstate-cache`), so a later release or meta-f250 reuses them.
+- `INHERIT += "rm_work"`, which deletes each recipe's work directory once it is
+  built. This is the main disk saving.
+- `PREMIRRORS` pointing at AGL's source mirror, as AGL's own release builds do
+  (their `local.conf` is published next to each image).
 
 ## Why not the Mac
 
@@ -29,9 +73,10 @@ Options:
 2. **An on-demand cloud VM**, for example 16 vCPU, 64 GB, a 500 GB SSD. Start
    it for a build, keep `sstate-cache` and `downloads` on a persistent volume,
    and stop it afterwards.
-3. *(Experiment)* An aarch64 Ubuntu VM on the Mac (Lima, UTM or OrbStack), with
-   the build directory on an external SSD. Unsupported. Record the results if
-   you try it.
+3. **An aarch64 Ubuntu VM on the Mac** with its disk on an external SSD: the
+   quick start above. AGL doesn't document aarch64 hosts, and AGL's sstate
+   mirror is built on x86_64, so a first build compiles everything. Being tried
+   (ADR-0004 amendment).
 
 ## What runs where
 
@@ -40,12 +85,14 @@ Options:
 | Flutter UI development and tests | ✓ | | |
 | Rust services (simulated) and tests | ✓ | ✓ | |
 | Cross-compiling Rust for the Pi (aarch64) | ✓ (cargo-zigbuild or cross) | ✓ | |
-| AGL / Yocto image build | | ✓ | |
+| AGL / Yocto image build | (in the build VM) | ✓ | |
 | Stage-1 sideload onto the prebuilt AGL image | ✓ (`make deploy`) | ✓ | target |
 
-## Host preparation (to be confirmed against AGL docs in Phase 5)
+## Host preparation
 
-Follow AGL's "Preparing Your Build Host" page for the exact package list for
-the release being built. The Phase 5 deliverable is `agl/scripts/setup-build-host.sh`,
-which installs those packages so the steps are repeatable instead of copied by
-hand from this page.
+`agl/scripts/setup-build-host.sh` installs the Yocto 6.0 package list for
+Ubuntu ([Yocto 6.0](https://docs.yoctoproject.org/6.0/ref-manual/system-requirements.html)),
+plus `curl` and the `repo` tool (AGL), sets the `en_US.UTF-8` locale, adds a
+16 GB swap file, and lifts Ubuntu 24.04's AppArmor block on unprivileged user
+namespaces, which BitBake uses. Neither AGL's nor Yocto's page mentions that last
+step; check it against the first build.

@@ -33,6 +33,27 @@ on-demand cloud VM.
 Daily development stays on macOS. An aarch64 Ubuntu VM on the Mac (Lima, UTM or
 OrbStack) with an external SSD is an **unsupported experiment** only.
 
+## Amendment (2026-11-06): a VM on the Mac with an external drive
+
+The owner added a 500 GB external SSD ("External", reformatted APFS). The build
+host is now tried as an **aarch64 Ubuntu 24.04 VM on the Mac** (Lima, Apple's
+Virtualization framework) whose disk lives on that drive: 12 CPUs, 32 GiB RAM,
+a 420 GiB sparse disk, a 16 GB swap file. `make build-vm` creates it and
+`make agl-build` builds the pinned release in it
+([linux-build-host.md](../../setup/linux-build-host.md)).
+
+| Check | Result |
+|---|---|
+| VM created, host packages installed | Ran on the Mac |
+| AGL 22.0.1 layers fetched from `vimba_22.0.1.xml` at tag `vimba/22.0.1` | Ran on the Mac. `code.qt.io` was unreachable, so `meta-qt6` came from a GitHub mirror at the same pinned commit |
+| BitBake parses and passes its host sanity checks with `BUILD_SYS = aarch64-linux` | Ran on the Mac (3,659 recipes, 0 errors) |
+| A full `agl-ivi-demo-flutter` build completes and the image boots | **Not yet**. See [bench-log.md](../../hardware/bench-log.md) |
+
+aarch64 build hosts are still not documented by AGL, and AGL's public sstate
+mirror holds x86_64-host objects that this host can't reuse, so every build
+from scratch compiles everything. If the build fails for a reason specific to
+aarch64 hosts, the original decision (an x86_64 PC or cloud VM) stands.
+
 ## Consequences
 
 - An extra machine or a cloud bill during Phase 5.

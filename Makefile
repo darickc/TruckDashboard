@@ -47,7 +47,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
         sim gateway console docs-lint \
         pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can \
-        agl-test agl-image deploy deploy-build logs
+        agl-test agl-image deploy deploy-build logs build-vm agl-build
 
 help: ## List targets
 	@grep -hE '^[a-z][a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -218,6 +218,12 @@ agl-test: ## Tests for the AGL Stage 1 scripts (no Pi needed)
 
 agl-image: ## Download, verify and decompress the pinned AGL Pi 5 image into build/agl/
 	agl/scripts/fetch-image.sh
+
+build-vm: ## AGL build host: Lima VM on the external drive (CMD=up|shell|stop|status|log|delete)
+	tools/dev/build-vm.sh $(or $(CMD),up)
+
+agl-build: ## Build the pinned AGL release from source in the build VM (hours; AGL_BUILD_ARGS=fetch|setup)
+	tools/dev/build-vm.sh build
 
 deploy-build: ## Build the services and dashboard for the Pi 5 (aarch64, in Docker) into build/agl-arm64/
 	tools/dev/deploy.sh build
