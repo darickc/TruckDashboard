@@ -138,6 +138,26 @@ the PIDs in the same session (Stage B):
 | `230` byte 0 | `F0` | `F0` / `10` | `01`…`06` | Gear position (see capture 2) |
 | `105` bytes 0–1, `225` bytes 2–3 | | | | Also track the drive. Unidentified |
 
+### Against the MX+ sessions (different days: supporting only)
+
+The MX+ drive on 2026-11-03 (`20261103-154423-obdlink`) can't be lined up
+with these captures frame by frame, but its ranges can be compared:
+
+| | MX+ PID (2026-11-03) | CAN candidate (2026-11-07) |
+|---|---|---|
+| Idle RPM, cold (MX+: ECT < 20 °C, speed 0) | avg 787, 755–927 | `201` idle: median 786, 743–857 |
+| Idle RPM, warm (MX+: ECT ≥ 40 °C) | avg 689, 657–749 | not captured warm |
+| Drive RPM max | 2372 | `201`: 2327 |
+
+The cold-idle match supports `201` bytes 0–1 being RPM at 1 rpm per count.
+If `420` byte 0 is a temperature with the SAE offset of 40, the idle capture
+was at 7–18 °C, which is the MX+'s cold band. Both are consistent stories, not
+proof. Speed can't be compared this way: the drives were different.
+
+Rates: the MX+ refreshed RPM at 4.1 Hz, speed at 2.7 Hz and ECT at 1.3 Hz
+(11.7 requests/s in all, about 85 ms per answer). The broadcast candidates
+arrive at 125 Hz (`201`), 41.7 Hz (`215`) and 10 Hz (`420`).
+
 ## What captures 1–3 settle
 
 - **500 kbit/s is right** and the adapter, wiring and listen-only setup work
