@@ -675,3 +675,35 @@ dashboard sets at night comes back on the next start.
 Closes: agl.md checks 4 and 6. With 1, 2, 3, 5, 7, 8 and 9 earlier today,
 every bring-up check that needs no extra hardware passes; 10 (DAC8x) and
 11 (NVMe) wait for the HATs.
+
+## 2026-11-06 — systemd watchdog for the gateway and recorder on AGL [BENCH]
+
+Hardware and image as in the previous entry. Simulated data (TRANSPORT=sim).
+Setup: `make deploy` with `crates/sd-notify`: both units `Type=notify`,
+`WatchdogSec=60` (gateway) and `30` (recorder). Then, over SSH,
+`kill -STOP` on the gateway's main PID to freeze it, polling `systemctl show`
+every 5 s. Times are the Pi's journal (UTC).
+
+Result:
+    after deploy  both Type=notify, active; StatusText "listening on
+                  unix:/run/f250/vehicle.sock" and "session 9, recording from
+                  unix:/run/f250/vehicle.sock"; WatchdogUSec 1min / 30s;
+                  WatchdogTimestamp advancing; --check: all passed
+    02:53:32      kill -STOP 1283 (gateway)
+    02:53:41      recorder: "no snapshot from the gateway in 10 s; reconnecting"
+    02:53:48–54:23 recorder: "the gateway did not start the snapshot stream",
+                  every 7 s (5 s timeout + 2 s pause); still running
+    02:54:27      systemd: "f250-gateway.service: Watchdog timeout (limit 1min)!",
+                  SIGABRT, core dumped, "Failed with result 'watchdog'"
+    02:54:29      restart counter 1; new gateway 1626 READY; the recorder is
+                  stopped and started with it (Requires=), session 10
+    02:55:22      agl-screenshooter: Home screen, "Link up · 49 s", simulated
+                  values; the dashboard reconnected by itself
+
+Verdict: works. A frozen gateway is killed and restarted by systemd within
+WatchdogSec, and the dashboard and recorder recover without help. While the
+gateway was frozen the recorder kept looping on its bounded waits instead of
+hanging. What this does not show: the progress gate itself (a gateway whose
+watchdog task runs while its control loop is stuck); SIGSTOP freezes both.
+That logic is covered by tests `[SIM]` (`crates/sd-notify`). Each watchdog
+kill leaves a core dump (`coredumpctl list`); systemd-coredump's limits apply.

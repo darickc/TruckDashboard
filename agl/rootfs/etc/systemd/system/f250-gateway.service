@@ -5,8 +5,16 @@
 # The socket is group f250, mode 0770 (UMask). agl-driver, which runs the
 # dashboard, is in that group (agl/scripts/stage1-setup.sh).
 #
-# Status: [SIM]. Not run on the AGL image yet. No WatchdogSec: the gateway
-# doesn't send sd_notify keep-alives yet (Phase 6.7, power-manager).
+# Type=notify: READY once the socket is bound, so the recorder and dashboard
+# (After=) start against a socket that exists. The watchdog keep-alive goes
+# out every 30 s, and only if the control loop has made progress since the
+# last one (crates/sd-notify). A loop stuck for 60 s is killed (SIGABRT) and
+# Restart= brings it back. The longest legitimate stall is one adapter
+# request with the ELM recovery ladder behind it (≈ 20 s); a probe counts
+# each of its requests as progress.
+#
+# Status: [BENCH] on AGL 22.0.1, the watchdog included (bench-log
+# 2026-11-06).
 [Unit]
 Description=F-250 vehicle gateway
 After=bluetooth.service
@@ -15,7 +23,9 @@ After=bluetooth.service
 After=var-lib-f250-storage.mount
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=main
+WatchdogSec=60
 User=f250
 Group=f250
 EnvironmentFile=/etc/default/f250

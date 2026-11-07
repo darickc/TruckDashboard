@@ -17,6 +17,7 @@ path = "src/main.rs"
 
 [dependencies]
 f250-proto = { path = "../../crates/proto" }
+f250-sd-notify = { path = "../../crates/sd-notify", features = ["tokio"] }
 rusqlite = { version = "0.41", features = ["bundled"] }
 tonic = "0.14"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "signal"] }

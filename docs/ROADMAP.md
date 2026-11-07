@@ -145,8 +145,8 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
 
 ## Phase 5 — AGL deployment [HW]
 
-Guide: [setup/agl.md](setup/agl.md). Nothing in this phase has run on the AGL
-image yet.
+Guide: [setup/agl.md](setup/agl.md). Stage 1 runs on the Pi with AGL 22.0.1
+**[BENCH]** (2026-11-06); the custom image (5.4) waits for the build host.
 
 - [~] 5.1 Release confirmed: **Vimba 22.0.1** (2026-11-02), pinned with its SHA-256 in
       `agl/configurations/vimba.env`, `make agl-image` fetches and checks it ([ADR-0001](architecture/adr/0001-agl-release.md)).
@@ -169,11 +169,18 @@ image yet.
       ([agl.md](setup/agl.md#5-bring-up-checks-phase-52))
 - [~] 5.3 Fallback procedure written ([agl.md §6](setup/agl.md#6-fallback-is-it-the-hardware-or-agl)): the same
       diagnose script on both cards, a fault table, HDMI0, `--restore-demo`. Not exercised
-- [ ] 5.4 `agl/meta-f250`: waits for the build host. The Stage 1 files in `agl/rootfs/` are written to be reused by it
+- [ ] 5.4 `agl/meta-f250`: waits for the build host. The Stage 1 files in `agl/rootfs/` are written to be reused by it.
+      Done ahead of it: the service watchdogs. `crates/sd-notify` (systemd's notify protocol, no `unsafe`); the
+      gateway and recorder are `Type=notify` with `WatchdogSec=60` / `30`, and send keep-alives only while their loops
+      make progress ([diagnostic-recovery.md](architecture/diagnostic-recovery.md)). The recorder's waits on the gateway
+      are bounded, so a stuck gateway makes it reconnect instead of hang. On the Pi **[BENCH]** (2026-11-06): a frozen
+      gateway was killed and restarted by systemd in under a minute, and the dashboard and recorder recovered
+      ([bench-log](hardware/bench-log.md))
 - [~] 5.5 `make deploy PI=` (arm64 Docker build, engine-version check, copy, setup), `make deploy-build`,
       `make logs PI=`, `make agl-image`, flashing docs. The arm64 build works on the Mac; the gateway,
       recorder and `obd-console` ran against each other in an arm64 container `[SIM]`
-      ([ADR-0016](architecture/adr/0016-stage1-sideload-layout.md)). Not run against the Pi
+      ([ADR-0016](architecture/adr/0016-stage1-sideload-layout.md)). `make deploy` works against the Pi with AGL 22.0.1
+      **[BENCH]** (2026-11-06, several deploys). `make logs` not run against it yet
 
 ## Phase 6 — Infotainment
 

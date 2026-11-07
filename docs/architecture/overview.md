@@ -83,6 +83,7 @@ flowchart TB
 |---|---|---|---|
 | `crates/telemetry` | Rust | 3 | Signal model, units, registry loader, safe formula grammar, staleness, computed signals, warnings |
 | `crates/elm` | Rust | 3 | ELM327/STN client, a port of the tested C++ `ElmParser`/`ElmClient` |
+| `crates/sd-notify` | Rust | 5 | systemd notify protocol (`READY`, `STATUS`, `WATCHDOG`) and the progress-gated watchdog the daemons use |
 | `services/vehicle-gateway` | Rust | 3–4 | Transports (simulated, SocketCAN, OBDLink), scheduler, recovery, health, API |
 | `services/recorder` | Rust | 3 | Telemetry and event persistence, retention, export |
 | `services/power-manager` | Rust | 6 | Power state machine, GPIO ownership, backlight, day/night. Not the amplifier remote, which is on ACC (ADR-0014) |

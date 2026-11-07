@@ -8,6 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use f250_elm::{Addressing, ElmConfig, ObdCommand, ObdRequest, ServiceAllowList};
 use f250_proto::vehicle::v1 as pb;
+use f250_sd_notify::Heartbeat;
 use f250_telemetry::registry::format_bytes;
 use f250_telemetry::state::{EventLog, EventSeverity, StoreConfig, TelemetryEvent};
 use f250_telemetry::warnings::{AlertKind, Direction};
@@ -87,6 +88,9 @@ pub struct Core {
     adapter_voltage: Option<f64>,
     last_voltage_at: Duration,
     snapshot_tx: watch::Sender<Arc<pb::Snapshot>>,
+    /// Bumped by the control loop and after every adapter request, so the
+    /// systemd watchdog sees whether this loop is still making progress.
+    heartbeat: Heartbeat,
 }
 
 impl Core {
@@ -242,6 +246,7 @@ impl Core {
             adapter_voltage: None,
             last_voltage_at: Duration::ZERO,
             snapshot_tx,
+            heartbeat: Heartbeat::new(),
         };
         if !auto_enabled.is_empty() {
             core.log(
@@ -257,6 +262,13 @@ impl Core {
 
     fn now(&self) -> Duration {
         self.epoch.elapsed()
+    }
+
+    /// The control loop's progress counter, for the systemd watchdog
+    /// (`f250_sd_notify::run_watchdog`). It stops when the loop is stuck or
+    /// has ended.
+    pub fn heartbeat(&self) -> Heartbeat {
+        self.heartbeat.clone()
     }
 
     fn log(&mut self, severity: EventSeverity, message: impl Into<String>) {
@@ -297,6 +309,7 @@ impl Core {
         let mut next_snapshot = Duration::ZERO;
         let mut next_health = HEALTH_PERIOD;
         loop {
+            self.heartbeat.beat();
             let now = self.now();
             if let Some(a) = self.link.tick(now) {
                 self.log_link_changes();
@@ -829,6 +842,9 @@ impl Core {
         }
         let mut attempts = Vec::new();
         for _ in 0..count {
+            // Up to 20 requests in one command: each one counts as progress,
+            // so a long probe isn't mistaken for a stuck loop.
+            self.heartbeat.beat();
             let outcome = self.request(id).await;
             self.record(id, &outcome);
             let lookup = |sid: &str| self.store.value(sid);

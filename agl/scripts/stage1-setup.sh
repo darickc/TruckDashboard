@@ -33,7 +33,8 @@
 # records system commands (systemctl, ip, useradd, ...) instead of running
 # them (tools/dev/test-agl.sh).
 #
-# Status: [SIM] (tools/dev/test-agl.sh). Not run on the AGL image yet.
+# Status: [SIM] (tools/dev/test-agl.sh), and run on AGL 22.0.1 by `make
+# deploy` [BENCH] (bench-log 2026-11-06).
 set -euo pipefail
 
 MODE=apply

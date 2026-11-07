@@ -4,12 +4,12 @@ Phase 5.2–5.5, [ADR-0005](../architecture/adr/0005-staged-agl-bringup.md)
 Stage 1. Flash the pinned AGL image, then `make deploy` installs our gateway,
 recorder and dashboard on it. No Yocto build.
 
-> **Status (2026-11-06):** nothing on this page has run on the AGL image yet.
-> The scripts are tested in simulation (`make agl-test`), and the arm64
-> binaries ran in a container: the gateway, recorder and `obd-console` against
-> each other over `/run/f250/vehicle.sock`. Record each step that works on the
-> Pi in [bench-log.md](../hardware/bench-log.md), and turn the checks below
-> into ticks.
+> **Status (2026-11-06):** sections 2–5 work on the Pi with AGL 22.0.1
+> **[BENCH]**: flashing, `make deploy`, `--check`, and every bring-up check
+> that needs no extra hardware (1–9; [bench-log](../hardware/bench-log.md)).
+> Not run yet: checks 10–11 (they wait for the DAC8x and NVMe HATs), the data
+> drive, and the fallback procedure in section 6. Record each step that works
+> on the Pi in the bench log.
 
 > **⚠ Vehicle bus:** the stock AGL image puts any CAN interface in normal mode
 > at 500 kbit/s, so the adapter would ACK on the truck's bus, and it runs a
@@ -256,8 +256,10 @@ known-good reference: the panel, touch and dashboard worked on it on
 - `meta-f250`, the custom image (Phase 5.4). It needs the Linux build host
   ([ADR-0004](../architecture/adr/0004-linux-build-host.md),
   [linux-build-host.md](linux-build-host.md)).
-- Watchdogs: the units have none, because the gateway doesn't send systemd
-  keep-alives yet (power-manager, Phase 6.7).
+- The hardware watchdog (`RuntimeWatchdogSec`, Phase 6.7 with the
+  power-manager). The gateway and recorder already have systemd's service
+  watchdog: `Type=notify`, `WatchdogSec=60` and `30`, keep-alives only while
+  their loops make progress ([diagnostic-recovery.md](../architecture/diagnostic-recovery.md)).
 - Booting from NVMe: see [the data drive](#data-drive-nvme-hat-or-usb-ssd).
 - The power key does nothing on AGL (logind ignores it, as planned for the
   DCDC-USB); shut down with the dashboard's *Power* button or `systemctl poweroff`.

@@ -131,7 +131,7 @@ images build on a Linux x86_64 host, not on the Mac. See
 | [`tools/dev/`](tools/dev/) | Development scripts: macOS setup, link checker |
 | [`apps/infotainment/`](apps/infotainment/README.md) | Flutter touchscreen UI |
 | [`simulator/powerstroke/`](simulator/powerstroke/README.md) | Scenario simulator and scenario files |
-| `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto` |
+| `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto`, `sd-notify` (systemd readiness and watchdog) |
 | `services/` | `vehicle-gateway`, `recorder` |
 | `tools/obd-console/` | Diagnostics console for the gateway |
 | [`shared/proto/`](shared/proto/f250/vehicle/v1/vehicle.proto) | Versioned gRPC API |

@@ -4,7 +4,14 @@
 # Ordered after the gateway, so at shutdown it stops first and records the
 # gateway's last samples, as tools/pi/run.sh does.
 #
-# Status: [SIM]. Not run on the AGL image yet.
+# Type=notify: READY once the database is open; `systemctl status` shows
+# whether it is recording. The watchdog keep-alive goes out every 15 s, only
+# if a snapshot arrived or a reconnect was tried since the last one. Every
+# wait on the gateway has a timeout (10 s at most), so a stuck gateway makes
+# it reconnect, not hang; stuck for 30 s, systemd restarts it.
+#
+# Status: [BENCH] on AGL 22.0.1, the watchdog included (bench-log
+# 2026-11-06).
 [Unit]
 Description=F-250 telemetry recorder
 Requires=f250-gateway.service
@@ -14,7 +21,9 @@ After=f250-gateway.service
 After=var-lib-f250-storage.mount
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=main
+WatchdogSec=30
 User=f250
 Group=f250
 EnvironmentFile=/etc/default/f250

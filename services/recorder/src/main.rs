@@ -12,6 +12,7 @@ use clap::{Parser, Subcommand};
 use f250_proto::vehicle::v1::{
     ListEventsRequest, StreamSnapshotsRequest, vehicle_service_client::VehicleServiceClient,
 };
+use f250_sd_notify::{Heartbeat, Notifier, run_watchdog};
 use hyper_util::rt::TokioIo;
 use recorder::{Db, Retention};
 use tonic::transport::{Channel, Endpoint, Uri};
@@ -55,6 +56,12 @@ enum Cmd {
     },
 }
 
+/// The gateway sends a snapshot at least every 2 s; this long without one
+/// means it is stuck, so reconnect instead of waiting forever.
+const STREAM_SILENCE: Duration = Duration::from_secs(10);
+/// Connecting, and each unary call, on a local socket.
+const CALL_TIMEOUT: Duration = Duration::from_secs(5);
+
 fn wall_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -63,6 +70,17 @@ fn wall_ms() -> i64 {
 }
 
 async fn connect(endpoint: &str) -> Result<Channel, Box<dyn std::error::Error>> {
+    tokio::time::timeout(CALL_TIMEOUT, connect_inner(endpoint))
+        .await
+        .map_err(|_| {
+            format!(
+                "no connection to {endpoint} in {} s",
+                CALL_TIMEOUT.as_secs()
+            )
+        })?
+}
+
+async fn connect_inner(endpoint: &str) -> Result<Channel, Box<dyn std::error::Error>> {
     if let Some(path) = endpoint.strip_prefix("unix:") {
         let path = path.to_string();
         Ok(Endpoint::try_from("http://localhost")?
@@ -117,13 +135,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let interval = interval_ms.clamp(250, 60_000);
             eprintln!("[recorder] session {} → {gateway}", db.session());
+            let notifier = Notifier::from_env();
+            if let Some(problem) = notifier.problem() {
+                eprintln!("[recorder] {problem}");
+            }
+            // Keep-alives only while this loop makes progress (Type=notify,
+            // WatchdogSec= in f250-recorder.service). A no-op outside systemd.
+            let heartbeat = Heartbeat::new();
+            tokio::spawn(run_watchdog(
+                notifier.clone(),
+                heartbeat.clone(),
+                "recorder",
+            ));
+            if let Err(e) = notifier.ready(&format!(
+                "session {}, connecting to {gateway}",
+                db.session()
+            )) {
+                eprintln!("[recorder] systemd READY not sent: {e}");
+            }
             loop {
                 // Reconnect forever: the gateway may restart; nothing is lost
                 // but the gap, which shows up as missing rows.
-                match record(&gateway, &mut db, interval, retention).await {
-                    Ok(()) => eprintln!("[recorder] stream ended; reconnecting"),
-                    Err(e) => eprintln!("[recorder] {e}; reconnecting in 2 s"),
-                }
+                heartbeat.beat();
+                let session = db.session();
+                let result = record(
+                    &gateway, &mut db, interval, retention, &heartbeat, &notifier,
+                )
+                .await;
+                let why = match result {
+                    Ok(()) => "stream ended".to_string(),
+                    Err(e) => e.to_string(),
+                };
+                eprintln!("[recorder] {why}; reconnecting in 2 s");
+                let _ = notifier.status(&format!("session {session}, not recording: {why}"));
                 tokio::time::sleep(Duration::from_secs(2)).await;
             }
         }
@@ -136,18 +180,35 @@ async fn record(
     db: &mut Db,
     interval_ms: u32,
     retention: Retention,
+    heartbeat: &Heartbeat,
+    notifier: &Notifier,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut client = VehicleServiceClient::new(connect(gateway).await?);
-    let mut stream = client
-        .stream_snapshots(StreamSnapshotsRequest {
-            period_ms: interval_ms.min(2000),
-        })
-        .await?
+    let request = client.stream_snapshots(StreamSnapshotsRequest {
+        period_ms: interval_ms.min(2000),
+    });
+    let mut stream = tokio::time::timeout(CALL_TIMEOUT, request)
+        .await
+        .map_err(|_| "the gateway did not start the snapshot stream")??
         .into_inner();
+    let _ = notifier.status(&format!(
+        "session {}, recording from {gateway}",
+        db.session()
+    ));
     let mut next_record = 0i64;
     let mut next_events = 0i64;
     let mut next_prune = 0i64;
-    while let Some(msg) = stream.message().await? {
+    loop {
+        let msg = tokio::time::timeout(STREAM_SILENCE, stream.message())
+            .await
+            .map_err(|_| {
+                format!(
+                    "no snapshot from the gateway in {} s",
+                    STREAM_SILENCE.as_secs()
+                )
+            })??;
+        let Some(msg) = msg else { break };
+        heartbeat.beat();
         let now = wall_ms();
         if let Some(snap) = msg.snapshot
             && now >= next_record
@@ -157,10 +218,13 @@ async fn record(
         }
         if now >= next_events {
             next_events = now + 2_000;
-            let events = client
-                .list_events(ListEventsRequest { limit: 300 })
-                .await?
-                .into_inner();
+            let events = tokio::time::timeout(
+                CALL_TIMEOUT,
+                client.list_events(ListEventsRequest { limit: 300 }),
+            )
+            .await
+            .map_err(|_| "the gateway did not answer ListEvents")??
+            .into_inner();
             db.record_events(&events)?;
         }
         if now >= next_prune {

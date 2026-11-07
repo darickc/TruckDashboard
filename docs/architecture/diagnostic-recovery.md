@@ -106,6 +106,15 @@ A software watchdog in the gateway checks that the scheduler loop is still
 making progress. A stuck loop is reported, then systemd's `WatchdogSec`
 restarts the gateway process (only that process).
 
+Implemented in `crates/sd-notify`; a frozen gateway was restarted on the Pi
+**[BENCH]** (bench-log 2026-11-06). The progress gate itself is `[SIM]`: the control loop bumps a heartbeat
+on every pass and on every request of a probe. A keep-alive (`WATCHDOG=1`)
+goes out every half `WatchdogSec`, only if the heartbeat moved since the last
+one; the first withheld one is logged. `f250-gateway.service` uses
+`WatchdogSec=60`, well above the longest legitimate stall (one request with
+the ELM recovery ladder behind it, ≈ 20 s). The recorder does the same with
+`WatchdogSec=30`, and every wait it has on the gateway is bounded (10 s).
+
 ## Health and evidence
 
 These are exposed through `f250.vehicle.v1.Health` and recorded:

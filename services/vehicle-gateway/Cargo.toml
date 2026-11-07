@@ -23,6 +23,7 @@ rfcomm = ["dep:bluer"]
 f250-elm = { path = "../../crates/elm" }
 f250-telemetry = { path = "../../crates/telemetry" }
 f250-proto = { path = "../../crates/proto" }
+f250-sd-notify = { path = "../../crates/sd-notify", features = ["tokio"] }
 tonic = "0.14"
 tokio-stream = { version = "0.1", features = ["net", "sync"] }
 clap = { version = "4", features = ["derive"] }

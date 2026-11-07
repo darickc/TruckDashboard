@@ -7,7 +7,7 @@
 # active mode: the gateway can't change the interface (that needs root), and a
 # listen-only interface would leave every poll unanswered.
 #
-# Status: [SIM]. Not run on the AGL image yet.
+# Status: [BENCH] on AGL 22.0.1 (bench-log 2026-11-06, check 6).
 set -euo pipefail
 
 TRANSPORT="${TRANSPORT:-sim}"

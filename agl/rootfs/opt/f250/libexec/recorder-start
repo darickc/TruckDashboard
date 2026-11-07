@@ -11,7 +11,8 @@
 # first, and the drive would hide it once mounted over it. The unit then
 # fails, which `stage1-setup.sh --check` and `systemctl status` show.
 #
-# Status: [SIM]. Not run on the AGL image yet.
+# Status: [BENCH] on AGL 22.0.1 with DATA_DRIVE=0 (bench-log 2026-11-06,
+# check 6). DATA_DRIVE=1 is [SIM].
 set -euo pipefail
 
 SOCK="${F250_SOCK:-/run/f250/vehicle.sock}"
