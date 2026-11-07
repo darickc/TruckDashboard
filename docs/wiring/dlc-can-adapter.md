@@ -63,6 +63,6 @@ adapter at all.
 | Pinout of the breakout matches the table (continuity: plug pin → wire) | Confirmed: 6 → CAN H wire, 14 → CAN L, 5 → GND | Owner | 2026-11-05 |
 | Adapter terminator, switch up (expect not 120 Ω) | Confirmed (not ≈ 120 Ω; value not recorded) | Owner | 2026-11-05 |
 | Adapter terminator, switch down (expect ≈ 120 Ω) | Confirmed ≈ 120 Ω (value not recorded). Switch left **up** | Owner | 2026-11-05 |
-| DLC 6–14, ignition off, adapter disconnected (expect ≈ 60 Ω) | | | |
+| DLC 6–14, ignition off, adapter disconnected (expect ≈ 60 Ω) | ≈ 62 Ω | Owner | 2026-11-06 |
 | DLC 6–14, ignition off, adapter connected, switch up (expect ≈ 60 Ω) | | | |
 | 5V terminal unconnected | | | |

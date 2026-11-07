@@ -122,7 +122,8 @@ What it answers:
 - **Is 500 kbit/s right?** Frames and no climbing error counters say yes. A
   wrong bitrate shows as no frames and errors (listen-only can't disturb the
   bus while you find out).
-- **The broadcast census** (Phase 4.3): which IDs the modules send without
+- **The broadcast census** (Phase 4.3, results in
+  [CAN_CENSUS.md](../diagnostics/CAN_CENSUS.md)): which IDs the modules send without
   being asked, and how often.
 
 ### Event captures: turn signals and reverse

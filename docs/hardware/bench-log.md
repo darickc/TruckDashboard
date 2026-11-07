@@ -755,3 +755,23 @@ added load to an already saturated disk; the timing points to that, but it is
 not proven. Since then `setup-build-host.sh` turns off automatic apt updates.
 Still unknown: whether the remaining 27 % (the Flutter engine and image
 assembly among it) builds on aarch64, and whether the image boots.
+
+## 2026-11-06 — CAN adapter on the truck: DLC resistance and first listen-only capture [TRUCK]
+
+The owner measured DLC pins 6–14 with the ignition off and the adapter
+disconnected: **≈ 62 Ω**, the two HS-CAN terminators in parallel (expected
+≈ 60 Ω). Then connected the adapter through the DLC breakout (switch up, per
+the bench check) and ran `tools/pi/can.sh listen` and `tools/pi/can.sh capture
+120` (Pi still at `5ca173a`; session `20261106-090751-candump`).
+
+Result: 85 390 frames in 120 s (712/s), 14 IDs, all 11-bit; no error frames;
+error-active before and after with every error counter at 0; no gap over
+50 ms. Census and analysis: [CAN_CENSUS.md](../diagnostics/CAN_CENSUS.md).
+
+Verdict: pass. 500 kbit/s is right, and the adapter, breakout and listen-only
+setup work on the truck. The truck's state wasn't recorded; the data looks
+like key on, engine off.
+Closes: the DLC resistance check with the adapter disconnected.
+Open: the 6–14 reading with the adapter connected (a clean capture says the
+bus is healthy but doesn't prove the adapter's terminator is off); the 5V
+terminal check.

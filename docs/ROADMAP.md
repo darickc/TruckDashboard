@@ -134,9 +134,12 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
       (listen-only by default, `active` on request, capture), tests against an in-memory bus replaying
       the truck's captures; compiled and unit-tested on the Pi 5. Adapter arrived with slcan firmware,
       which can't do listen-only; flashed with Candlelight 2.5, now `can0` under `gs_usb`, listen-only accepted `[BENCH]`. Terminator and
-      breakout checked on the bench. Still open: the ≈ 60 Ω checks at the truck's DLC, [docs/setup/can.md](setup/can.md)
+      breakout checked on the bench; DLC 6–14 ≈ 62 Ω; first listen-only capture on the truck clean `[TRUCK]`.
+      Still open: the 6–14 reading with the adapter connected, [docs/setup/can.md](setup/can.md)
 - [ ] 4.2 `tools/can-monitor`
 - [ ] 4.3 Stage A: passive census on the truck, plus the turn-signal/reverse event captures (H14)
+      Capture 1 (key on, engine off by the data) `[TRUCK]`: 14 IDs, 712 frames/s, no errors; `4FF` carries
+      the VIN (check digit validates). Idle, drive and event captures still to do. [CAN_CENSUS.md](diagnostics/CAN_CENSUS.md)
 - [ ] 4.4 Stage B: corroborated broadcast decoders
 - [ ] 4.5 Stage C: ISO-TP diagnostics (opt-in). Our own single-frame ISO-TP instead of kernel `can-isotp` (ADR-0012)
 - [ ] 4.6 Stage D: transport switching and the no-simultaneous-transmit rule, MX+ and CAN both present
