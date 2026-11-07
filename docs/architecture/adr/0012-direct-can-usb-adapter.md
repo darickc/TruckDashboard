@@ -46,6 +46,14 @@ The plan said Phase 4.5 would use the kernel's ISO-TP sockets (`can-isotp`).
    capture 4), so 50 ms holds on this truck so far. Unpinned requests wait the whole
    window and keep every answer. Pinned requests (`rx_id`) return as soon as
    the owner answers. NRC 0x78 extends the wait to the request timeout.
+   *Seen on the truck (session B):* when a pinned request returns early, the
+   next functional request can reach a module that is still answering the
+   last one. After `22 16 74` (pinned to the TCM, answered in ~7 ms) the
+   PCM, which usually sends its refusal at ~24 ms, skipped the next request 2
+   times in 92 (one IAT, one RPM). Harmless so far (one `SUSPECT` reading in
+   97 s). If it matters: physical addressing for pinned requests (`7E1` for
+   the TCM, `7E0` for the PCM, so the other module never sees them; untested,
+   TRUCK_SESSION question 2), or a minimum gap between requests.
 4. **Requests are 8-byte frames padded with 0x00.** The MX+ pads with 0x00
    too (listen-only capture beside it, 2026-11-07).
 5. **Safety stays layered (ADR-0007):**
@@ -83,5 +91,6 @@ The plan said Phase 4.5 would use the kernel's ISO-TP sockets (`can-isotp`).
   port is no longer needed for diagnostics.
 - Tests: the ISO-TP logic and the driver are tested on any OS against an
   in-memory bus replaying the truck's captures (`tests/gateway_can.rs`,
-  `[SIM]`). The SocketCAN code is compiled and linted on the Pi 5. **Nothing
-  has run against the adapter or the truck yet.**
+  `[SIM]`). On the truck, 2026-11-07 `[TRUCK]`: listen-only captures, then
+  session B, the gateway polling over `can0` (97 s, 1672 requests, no transmit
+  or bus errors, EOT answered every time).

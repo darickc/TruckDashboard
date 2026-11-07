@@ -145,8 +145,8 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
       which can't do listen-only; flashed with Candlelight 2.5, now `can0` under `gs_usb`, listen-only accepted `[BENCH]`. Terminator and
       breakout checked on the bench; DLC 6–14 ≈ 62 Ω; 6–14 still ≈ 60 Ω with the adapter connected; listen-only captures on the truck `[TRUCK]`.
       The "dropouts" were the Pi's wall clock jumping forward after boot (no RTC battery), not lost frames;
-      capture now checks the wall clock against the monotonic one. Still open: the 5V-terminal check,
-      [docs/setup/can.md](setup/can.md)
+      capture now checks the wall clock against the monotonic one. Wiring signed off (5V terminal
+      unconnected, 2026-11-07). Still open: the loopback test, [docs/setup/can.md](setup/can.md)
 - [ ] 4.2 `tools/can-monitor`
       Capture side is `tools/pi/can.sh` (listen-only, bitrate, candump with error frames, counters, gap report).
       Analysis `[SIM]`: `tools/can-monitor census|pids|correlate` reads candump logs, decodes PID answers with
@@ -161,6 +161,10 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
       (`201`), ECT (`420`), load (`106`) and trans temp (`225`) match the PIDs with exact scalings. Needs a second
       drive and VERIFICATION_LOG entries before any decoder. [CAN_CENSUS.md](diagnostics/CAN_CENSUS.md)
 - [ ] 4.5 Stage C: ISO-TP diagnostics (opt-in). Our own single-frame ISO-TP instead of kernel `can-isotp` (ADR-0012)
+      First truck session `[TRUCK]` 2026-11-07: the gateway polled over `can0` alone, 97 s idle, 16.2 req/s
+      (MX+: 11.7), no transmit or bus errors, EOT 173 of 173. One IAT miss: the PCM skips a request sent while it
+      is still answering the previous one (after an early-returning pinned request; ADR-0012). Still open: a
+      drive, physical addressing (`7E0`/`7E1`), `obd-console raw` over CAN
 - [ ] 4.6 Stage D: transport switching and the no-simultaneous-transmit rule, MX+ and CAN both present
 - [x] 4.7 Dropout experiment (listen-only CAN capture while the MX+ polls) `[TRUCK]` 2026-11-07: the PCM's EOT answer
       was on the bus (+39.5 ms); the MX+ closed its window after the TCM's refusal (+6.4 ms). 1 of 104. Possible MX+

@@ -859,3 +859,26 @@ Verdict: works, for the build. An aarch64 Ubuntu VM on the Mac builds AGL
 22.0.1 for the Pi 5 from source, Flutter engine included. Not shown: that the
 image boots, or that it behaves like the prebuilt image. The next step is to
 flash it to a spare card and run the agl.md bring-up checks.
+
+## 2026-11-07 — CAN adapter in active mode on the truck (session B) [TRUCK]
+
+The owner confirmed the adapter's 5V terminal is unconnected (the last row of
+the [wiring sign-off](../wiring/dlc-can-adapter.md#sign-off)), unplugged the
+MX+, switched `can0` to normal mode (`can.sh active`) and ran the gateway over
+it (session `20261107-143822-can`, 97 s idle).
+
+Result: 1672 frames transmitted, TX errors 0, bus errors 0, error-active with
+both error counters at 0 from start to stop; 74 013 frames received (762/s,
+the broadcasts plus the answers), no silence, no clock jump. Signal results:
+[VERIFICATION_LOG](../diagnostics/VERIFICATION_LOG.md).
+
+Also in the capture's `kernel.log`: `hwmon hwmon2: Voltage normalised` at
+14:38:25, three seconds after the start: the Pi's supply had dipped below its
+undervoltage threshold just before. The Pi rebooted before it could be checked
+(`vcgencmd get_throttled` was 0 on the next boot). The temporary truck power
+(roadmap 3.5.3) needs watching; next time run `vcgencmd get_throttled` before
+powering off.
+
+Verdict: pass. The adapter transmits on the truck cleanly. The wiring
+sign-off is complete.
+Closes: the 5V terminal check; active mode on the truck.

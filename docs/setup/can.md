@@ -6,16 +6,16 @@ it on the truck instead of the MX+
 
 Status:
 
-- **Gateway transport** (`--transport can`): `[SIM]`. Tested against an
-  in-memory bus replaying this truck's captured replies
-  (`services/vehicle-gateway/tests/gateway_can.rs`). Compiled, linted and
-  unit-tested on the Pi 5 (Linux arm64). With no adapter plugged in, the
-  gateway reports `can0: No such device` and backs off (Pi, 2026-11-03).
+- **Gateway transport** (`--transport can`): **polled the truck** `[TRUCK]`
+  2026-11-07 (session B, idle, 97 s): EOT and every enabled signal, 16 requests
+  per second, no CAN errors ([VERIFICATION_LOG](../diagnostics/VERIFICATION_LOG.md)).
+  Also tested against an in-memory bus replaying this truck's captured replies
+  (`services/vehicle-gateway/tests/gateway_can.rs`, `[SIM]`).
 - **Adapter:** arrived with the slcan firmware, which can't do listen-only
   (`[BENCH]` 2026-11-05, [bench-log](../hardware/bench-log.md)). Flashed
   with Candlelight 2.5 the same day: `can0`, `driver gs_usb` `[BENCH]`.
-  Listen-only accepted at 500 kbit/s `[BENCH]`. Terminator and the truck:
-  not done.
+  Listen-only accepted at 500 kbit/s `[BENCH]`. Wiring signed off; listen-only
+  captures and active polling on the truck `[TRUCK]`.
 
 The order is the point of this page: bench first, then listen-only on the
 truck, and only then polling.

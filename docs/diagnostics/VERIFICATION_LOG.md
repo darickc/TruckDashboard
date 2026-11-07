@@ -367,6 +367,35 @@ USB CAN adapter captured the bus listen-only through a Y-splitter
 EOT stays `IMPORTED_UNVERIFIED`: this checks the transport and the responder,
 not the scaling.
 
+## 2026-11-07 — Direct CAN: the gateway polls the truck over the USB adapter [TRUCK]
+
+Idle in the driveway, warming up, 97 s. The MX+ unplugged. `can.sh active`,
+then `make pi-start TRANSPORT=can TRANSMIT=1 ENABLE=eot CAPTURE=1` (Pi at
+`162f109`, session `20261107-143822-can`). First time this project's own code
+transmits on the truck's bus.
+
+| | Result |
+|---|---|
+| Link | `SocketCAN can0` up in 1 s, polling to the end; no reconnects |
+| Requests | 1672 frames sent (`7DF`, padded `00`), all read-only (`01`, `22`); TX errors 0, bus errors 0, error-active throughout |
+| Rate | 16.2 requests/s average, 17.6 peak (the MX+ managed 11.7) |
+| EOT `22 13 10` | 173 requests, 173 PCM answers, 0 gateway failures; 44.9 → 48.3 °C while ECT went 42 → 46 °C. Returned in 23.6 ms on average (pinned: no need to wait out the window) |
+| Trans temp `22 16 74` | 173 of 173 from the TCM, 34.9 → 37.3 °C, 16.8 ms |
+| Unpinned SAE PIDs | RPM 5.9 Hz, speed 3.6 Hz, ECT/load 1.8 Hz: each waits the 50 ms window; no answer arrived later than 40.6 ms |
+| Misses | one: IAT (`01 0F`), `iat: ACTIVE → SUSPECT (NoResponse ×1)`, recovered at the next poll |
+
+The IAT miss, on the wire: the gateway sent it 7 ms after `22 16 74`, as soon
+as the TCM had answered that one (pinned to 7E9). The PCM, which usually sends
+its refusal to `22 16 74` at ~24 ms, sent neither the refusal nor the IAT
+answer. The same happened to one RPM request (covered by the TCM's answer).
+Two in 92 requests that followed an early-returning `22 16 74`; none in about
+1300 others. Noted in ADR-0012 with the possible fixes; not acted on.
+
+Verdict: the direct-CAN transport works on the truck, and EOT doesn't drop
+out over it. EOT stays `IMPORTED_UNVERIFIED` (this tests the transport, not
+the scaling). Still to do over CAN: a drive, physical addressing
+(`obd-console raw 7E0 010C` / `raw 7E1 010C`).
+
 ## Open questions for the next session
 
 1. ~~**Who is 7E9?**~~ **ANSWERED: the TCM.** It owns `22 1674` (transmission
