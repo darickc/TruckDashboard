@@ -23,15 +23,32 @@ use tonic::transport::{Channel, Endpoint, Uri};
 #[derive(Parser)]
 #[command(about = "Diagnostics console for the F-250 vehicle gateway")]
 struct Args {
-    /// Gateway endpoint: unix:/path/to.sock or tcp:host:port.
-    #[arg(long, default_value = "unix:/tmp/f250/vehicle.sock")]
-    gateway: String,
+    /// Gateway endpoint: unix:/path/to.sock or tcp:host:port. Default:
+    /// $F250_GATEWAY, else the AGL socket (/run/f250/vehicle.sock) if it
+    /// exists, else unix:/tmp/f250/vehicle.sock (Mac, Raspberry Pi OS).
+    #[arg(long)]
+    gateway: Option<String>,
     /// Directory for transcript files.
     #[arg(long, default_value = ".")]
     transcripts: PathBuf,
     /// Run one command and exit (e.g. --exec "raw ATRV").
     #[arg(long)]
     exec: Option<String>,
+}
+
+/// The gateway's socket under AGL (`f250-gateway.service`, ADR-0016).
+const AGL_SOCKET: &str = "/run/f250/vehicle.sock";
+/// The socket `make sim`, `make gateway` and `tools/pi/run.sh` use.
+const DEV_SOCKET: &str = "/tmp/f250/vehicle.sock";
+
+/// The endpoint when `--gateway` isn't given: `$F250_GATEWAY`, then the AGL
+/// socket if it exists, then the development one.
+fn default_gateway(env: Option<String>, agl_socket_exists: bool) -> String {
+    match env.filter(|e| !e.is_empty()) {
+        Some(e) => e,
+        None if agl_socket_exists => format!("unix:{AGL_SOCKET}"),
+        None => format!("unix:{DEV_SOCKET}"),
+    }
 }
 
 const HELP: &str = "\
@@ -231,7 +248,15 @@ impl Console {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let channel = connect(&args.gateway).await?;
+    let gateway = args.gateway.unwrap_or_else(|| {
+        default_gateway(
+            std::env::var("F250_GATEWAY").ok(),
+            std::path::Path::new(AGL_SOCKET).exists(),
+        )
+    });
+    let channel = connect(&gateway)
+        .await
+        .map_err(|e| format!("can't reach the gateway at {gateway}: {e}. Is it running?"))?;
     std::fs::create_dir_all(&args.transcripts)?;
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -253,7 +278,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     eprintln!(
         "connected to {} — transcript: {}\n{HELP}",
-        args.gateway,
+        gateway,
         path.display()
     );
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
@@ -270,4 +295,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::default_gateway;
+
+    #[test]
+    fn env_wins() {
+        assert_eq!(
+            default_gateway(Some("tcp:pi:50051".into()), true),
+            "tcp:pi:50051"
+        );
+    }
+
+    #[test]
+    fn agl_socket_when_present() {
+        assert_eq!(default_gateway(None, true), "unix:/run/f250/vehicle.sock");
+        assert_eq!(
+            default_gateway(Some(String::new()), true),
+            "unix:/run/f250/vehicle.sock"
+        );
+    }
+
+    #[test]
+    fn dev_socket_otherwise() {
+        assert_eq!(default_gateway(None, false), "unix:/tmp/f250/vehicle.sock");
+    }
 }

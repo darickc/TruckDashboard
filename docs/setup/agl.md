@@ -121,7 +121,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 | 3 | Touch | Tap the dashboard's nav bar | — |
 | 4 | Backlight | `cat /sys/class/backlight/*/max_brightness`; write a lower value to `brightness` and back | Phase 6.7 dimming |
 | 5 | Dashboard | Runs fullscreen at 800×480, shows the simulator's data with the SIMULATED badge. `journalctl -u f250-dashboard -b` | H30 |
-| 6 | Gateway and recorder | `systemctl status f250-gateway f250-recorder`; `obd-console` (an alias for the AGL socket) shows live values; `ls -l /var/lib/f250/` | — |
+| 6 | Gateway and recorder | `systemctl status f250-gateway f250-recorder`; `obd-console` (finds the AGL socket itself), then `pids`, shows live values; `ls -l /var/lib/f250/` | — |
 | 7 | Power button | Dashboard *Power* → the Pi powers off cleanly (`journalctl -b -1 -u f250-dashboard` after the next boot shows "power off: requested") | ADR-0016 |
 | 8 | CAN, listen-only | Plug in the adapter, then `f250-can status` (still down), `f250-can listen`, `ip -details link show can0` shows `LISTEN-ONLY`. With a second node on a bench bus: no ACKs | H7 on the AGL kernel |
 | 9 | RTC | `ls /sys/class/rtc/`, `cat /sys/class/rtc/rtc0/charging_voltage` (3000000 with our block), `hwclock -r` | H20 on AGL |
