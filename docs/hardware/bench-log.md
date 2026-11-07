@@ -480,3 +480,40 @@ Exact readings weren't recorded. Verdict: pass. Signed off in the
 [wiring sheet](../wiring/dlc-can-adapter.md#sign-off).
 Open (need the truck): DLC 6–14 ≈ 60 Ω with ignition off, adapter
 disconnected and then connected; the 5V terminal left unconnected.
+
+## 2026-11-06 — AGL 22.0.1 image as it comes, before deploy [BENCH]
+
+Hardware: Raspberry Pi 5 Model B Rev 1.0, 8 GB. Ethernet. CAN adapter
+unplugged. No HATs.
+Image: AGL Vimba 22.0.1 `agl-ivi-demo-flutter-raspberrypi5`, flashed to SD,
+first boot, nothing deployed.
+Setup: on the Pi over SSH as root (agl.md §3 step 4):
+`cat /etc/os-release; uname -r; cat /etc/default/flutter;
+systemctl is-enabled systemd-networkd kuksa-can-provider can-dev-helper`
+
+Result:
+    ID=agl
+    NAME="Automotive Grade Linux"
+    VERSION="22.0.1 (vimba)"
+    VERSION_ID=22.0.1
+    VERSION_CODENAME="vimba"
+    PRETTY_NAME="Automotive Grade Linux 22.0.1 (vimba)"
+    CPE_NAME="cpe:/o:openembedded:agl:22.0.1"
+    6.18.33-v8-16k
+    FLUTTER_VERSION=3.38.3
+    FLUTTER_RUNTIME=release
+    LIBCAMERA_LOG_LEVELS=*:ERROR
+    enabled          (systemd-networkd)
+    enabled          (kuksa-can-provider)
+    enabled          (can-dev-helper)
+
+Verdict: works. The Pi 5 boots the 22.0.1 image and takes a root SSH login
+over Ethernet. Release, kernel 6.18.33 and Flutter 3.38.3 match what the
+manifest and our pins say, so `make deploy`'s engine check should pass. Both
+KUKSA CAN units and systemd-networkd are enabled out of the box, as ADR-0015
+expected from the source: masking them is the first thing `stage1-setup.sh`
+does. The `-v8-16k` suffix is the kernel's local version (by its name, a
+16 KB page-size build; not checked further). Not recorded: which hostname
+reached the Pi, and what HDMI0 showed.
+Closes: the "(on the image)" half of the systemd-networkd and demo CAN rows
+in the compatibility matrix.
