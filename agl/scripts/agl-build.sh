@@ -51,6 +51,13 @@ fetch() {
     repo init -q -u https://gerrit.automotivelinux.org/gerrit/AGL/AGL-repo \
       -b "refs/tags/$AGL_BRANCH/$AGL_RELEASE" -m "${AGL_BRANCH}_${AGL_RELEASE}.xml"
   fi
+  # The manifest pins a release tag, so a checkout that is already there is
+  # already right. Syncing it again only risks swapping meta-qt6 between
+  # servers mid-tree, which repo refuses ("hooks is different").
+  if [[ "$MODE" != fetch && -f .repo/project.list && -d meta-agl && -d external/meta-qt6 ]]; then
+    say "Layers already fetched (agl-build.sh fetch to sync again)"
+    return
+  fi
   qt6_fallback
   say "repo sync"
   # --force-sync: replace a checkout whose source changed (the meta-qt6
@@ -124,10 +131,12 @@ build() {
   say "bitbake $TARGET (log: $log)"
   local start=$SECONDS rc=0
   bitbake "$TARGET" 2>&1 | tee "$log" || rc=$?
-  say "bitbake exit $rc after $(( (SECONDS - start) / 60 )) min"
-  df -h "$AGL_TOP" | tail -1
-  du -sh "$AGL_TOP/downloads" "$AGL_TOP/sstate-cache" "$BUILD/tmp" 2>/dev/null || true
-  ls -lh "$BUILD/tmp/deploy/images/$AGL_MACHINE/"*.wic* 2>/dev/null || true
+  # The result goes in the log too, so it survives the terminal or tmux.
+  {
+    say "bitbake exit $rc after $(( (SECONDS - start) / 60 )) min"
+    df -h "$AGL_TOP" | tail -1
+    ls -lh "$BUILD/tmp/deploy/images/$AGL_MACHINE/"*.wic* 2>/dev/null || true
+  } 2>&1 | tee -a "$log"
   return $rc
 }
 

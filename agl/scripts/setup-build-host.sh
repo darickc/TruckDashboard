@@ -56,6 +56,15 @@ if [[ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
   sudo sysctl -q -p /etc/sysctl.d/60-bitbake-userns.conf
 fi
 
+# Ubuntu's daily automatic upgrades ran at 07:00 during the first build, added
+# load to an already saturated disk, and the BitBake client gave up waiting for
+# its server (bench log, 2026-11-07). A build host is updated by hand between
+# builds, so turn them off.
+if systemctl list-unit-files apt-daily-upgrade.timer >/dev/null 2>&1; then
+  say "Turn off automatic apt updates (update by hand between builds)"
+  sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer unattended-upgrades.service >/dev/null 2>&1 || true
+fi
+
 # Big link steps (LLVM, Rust, the Flutter engine) can each take several GB.
 # A swap file stops a peak from killing the build on a 32 GB VM.
 if ! swapon --show=NAME --noheadings | grep -q .; then

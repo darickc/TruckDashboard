@@ -724,3 +724,34 @@ Result:
 
 Verdict: works. The collection script runs on the AGL image and the archive
 comes back with every section filled. Nothing on the Pi was changed.
+
+## 2026-11-07 — First AGL source build in the build VM stops at task 9,758 [BENCH]
+
+Hardware: the dev Mac (Apple Silicon); the `agl-build` Lima VM (Ubuntu 24.04
+aarch64, 12 CPUs, 32 GiB RAM) with its disk on the External drive, which is a
+Seagate ST9500325AS, a 5,400 rpm 500 GB laptop hard disk on USB.
+Image: AGL 22.0.1 `agl-ivi-demo-flutter`, `raspberrypi5`, from source, at commit 47b7a2f.
+Setup: `make agl-build`, started 2026-11-06 22:23.
+
+Result:
+    Sstate summary: Wanted 7098 ... Missed 7098 (from scratch)
+    07:01  "Timeout while waiting for a reply from the bitbake server (60s)"
+           at task 9,758 of 13,261. No ERROR lines; 4 warnings
+           (shared sstate, a hash-equivalence timeout in ncurses, two QA notes)
+    sar, 22:30–07:00: %iowait 20–80 % (about 52 % average after midnight);
+           vda 86–96 % busy at 80–110 operations/s, await 90–330 ms
+    06:56–07:13: Ubuntu's unattended-upgrades upgraded 14 packages in the VM
+    No out-of-memory kills, swap almost unused. Disk used: 116 GB
+    (downloads 41 GB, sstate-cache 9.8 GB)
+
+    Resumed 09:36 (same tree): "Sstate summary: Wanted 2391 Local 502
+    Missed 1889 Current 4707 (73% complete)"
+
+Verdict: partial. The aarch64 build host gets through three quarters of a
+from-scratch build with no build errors, so the host itself is not the
+problem so far. The disk is the bottleneck. The BitBake client gave up when
+its server stopped answering, and that happened while the automatic upgrades
+added load to an already saturated disk; the timing points to that, but it is
+not proven. Since then `setup-build-host.sh` turns off automatic apt updates.
+Still unknown: whether the remaining 27 % (the Flutter engine and image
+assembly among it) builds on aarch64, and whether the image boots.

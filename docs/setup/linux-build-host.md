@@ -48,6 +48,18 @@ Settings the build adds (`conf/site.conf` in the build directory):
 - `PREMIRRORS` pointing at AGL's source mirror, as AGL's own release builds do
   (their `local.conf` is published next to each image).
 
+Re-running `make agl-build` after a stop picks up where the build stopped:
+the finished tasks are reused from `sstate-cache`. Once the layers are fetched,
+it does not run `repo sync` again (`AGL_BUILD_ARGS=fetch` forces one).
+`setup-build-host.sh` turns off Ubuntu's automatic apt updates in the VM.
+
+**The drive's speed sets the build time.** On 2026-11-07 the External drive
+was a 5,400 rpm laptop hard disk (Seagate ST9500325AS). The VM's disk was
+86–96% busy at about 100 operations a second, and the CPUs spent about half
+their time waiting on it. In 11 hours the build got through 9,758 of 13,261
+tasks. An external SSD should be several times faster
+([bench log](../hardware/bench-log.md)).
+
 ## Why not the Mac
 
 | Constraint | Detail |
