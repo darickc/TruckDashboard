@@ -116,17 +116,15 @@ standstill, and again at +116.8 s. `201` byte 0 bit 7 changes within 0.1–0.2 s
 of it. Status: **candidate**; the owner didn't report pressing the brake, and
 the stoplamps weren't checked.
 
-### Turn signals: not seen
+### Turn signals: not on the bus
 
 No bit in any ID toggles at a flasher rate (about 1–2 Hz) anywhere in the
 capture. Before the first shift (+0 to +22 s), where the turn signals must
 have been if they were inside the capture, the only bits that change belong
 to values that drift all the time (`105`, `106`, `200`, `201`, `225`, `420`,
-`430`). This agrees with the GEM, which runs the turn signals, being on the
-K-line. Status: **not seen, one trial**. The actions weren't timestamped and
-the turn signals weren't held for a known time, so repeat it the way
-[the event captures](../setup/can.md#event-captures-turn-signals-and-reverse)
-describe (one capture per action) before settling H14.
+`430`). **Settled** by the owner (2026-11-07): the turn signals are an
+analogue circuit switched by a flasher relay under the dash, not by a module,
+so nothing on HS-CAN carries them. They need opto inputs (H14).
 
 ## Capture 3: driving [TRUCK]
 
@@ -256,7 +254,7 @@ fitted. That needs a warm-up drive.
 - The broadcast set: the same 14 IDs at key on, at idle and driving.
 - Reverse is on HS-CAN (candidates above), so the reversing camera can come
   from a broadcast once a decoder is corroborated (Stage B).
-- Turn signals: probably not on HS-CAN (one trial).
+- Turn signals: not on HS-CAN. They are an analogue flasher-relay circuit (owner); they need opto inputs.
 - The adapter path didn't drop out: both "silences" (captures 2 and 5) were
   the Pi's wall clock jumping forward after boot. No capture lost frames.
 - The MX+'s EOT misses are the ELM closing its window early; the PCM's answer
@@ -271,8 +269,7 @@ fitted. That needs a warm-up drive.
   so ECT and trans temp span more than 8–9 °C; then `VERIFICATION_LOG.md`
   entries for the fields above. Add `ENABLE=eot` and check EOT against the
   broadcasts too.
-- The [event captures](../setup/can.md#event-captures-turn-signals-and-reverse),
-  one action per capture, to settle the turn signals (H14) and confirm
-  reverse and brake.
+- The [event captures](../setup/can.md#event-captures-reverse-and-brake),
+  one action per capture, to confirm reverse and brake.
 - A warm-up drive with `ENABLE=eot`, to look for EOT among the broadcasts.
 - Record the truck state (key position, engine) with each capture.

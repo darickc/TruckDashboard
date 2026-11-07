@@ -133,7 +133,7 @@ the PRO 5.
 | ISO 9141 K-line | RCM and GEM, on pin 7. **The MCP2515 cannot reach these. The MX+ can** | F |
 | MS-CAN | Ford's 2008 manual lists it. 2006–07 owner scans found no MS-CAN modules | C |
 | FICM | Not a separate module in owner scans. Its voltages appear as PCM PIDs | F |
-| Turn-signal and reverse broadcasts | Unknown. The GEM (which handles the turn signals) is reportedly on K-line, so **turn signals are probably not on HS-CAN** | U |
+| Turn-signal and reverse broadcasts | **Turn signals are not on HS-CAN**: an analogue flasher-relay circuit (owner, 2026-11-07; none in the census). Reverse is broadcast (candidates, [CAN_CENSUS](diagnostics/CAN_CENSUS.md)) | owner / T |
 
 ### Consequences for the design
 
@@ -147,9 +147,9 @@ the PRO 5.
    any NVMe base.
 4. **Reverse comes from an opto-isolated input board on Pi GPIO**
    ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md); this replaced
-   the HAT's opto inputs). **Turn signals are checked on HS-CAN first** with a
-   listen-only event capture. If they aren't there, they use two more channels
-   on the same board. Never OBD polling.
+   the HAT's opto inputs). **Turn signals use two more channels on the same
+   board**: they are an analogue flasher-relay circuit, not on HS-CAN (owner,
+   2026-11-07). Never OBD polling.
 5. **The MX+ is still needed for K-line modules.** Its Bluetooth link shares the
    Pi's radio with A2DP. Mitigations:
    - use the transport for validation only
@@ -496,7 +496,7 @@ that decision chose.
 3. **4.3** **Stage A on the truck**, passive and listen-only only, after a [HUMAN] wiring checklist:
    - confirm 500 k
    - record the broadcast census at KOEO, idle and driving
-   - the **event captures**: turn signals, hazards and reverse, one capture each ([can.md](setup/can.md#event-captures-turn-signals-and-reverse)). They decide whether the turn signals need opto inputs (H14)
+   - the **event captures**: reverse and brake, one capture each ([can.md](setup/can.md#event-captures-reverse-and-brake)). The turn signals are settled: not on the bus, so opto inputs (H14)
 4. **4.4** **Stage B:** decoders only for broadcast signals that can be corroborated (for example against the RPM and speed PIDs). Each records its provenance and confidence. **No guessed definitions are shown as validated.**
 5. **4.5** **Stage C:** active diagnostics through kernel ISO-TP (`can-isotp`), PCM `7E0/7E8` and TCM `7E1/7E9`, first proven with a single request. It needs both the transmit opt-in and the checklist. Polling is conservative and has a kill switch.
 6. **4.6** **Stage D:** the OBDLink transport already ran on the truck in Phase 3.5. Here, confirm two things:
@@ -563,7 +563,7 @@ that decision chose.
    - the ADR-009 rendering spike
    - the policy state machine: reverse priority, turn-signal debounce and hold, hazard suppression, restore the previous screen
    - camera-loss warnings
-   - inputs only from the protected opto input board, never raw 12 V (turn signals from a corroborated CAN broadcast instead, if 4.3 finds one)
+   - inputs only from the protected opto input board, never raw 12 V (reverse and both turn signals)
    - camera hardware chosen by measured driver support and latency on the Pi 5 (UVC first)
 
    Tests: reverse priority, debounce, missing source, return to the previous screen, and hazard behaviour.
@@ -590,7 +590,7 @@ that decision chose.
    - ground scheme
    - DLC tap or Y-cable
    - amplifier signal, remote and separate fused power
-   - the reverse tap (and turn-signal taps, if needed) into the opto input board
+   - the reverse tap and both turn-signal taps into the opto input board
    - camera power
 
    Each diagram must be reviewed by a person before installation.

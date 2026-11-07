@@ -38,7 +38,7 @@ flowchart TB
     CAN[CAN controller<br/>USB gs_usb adapter]
     MX[OBDLink MX+<br/>Bluetooth SPP]
     PSU[mini-box DCDC-USB<br/>ignition · PSW → J2 · USB telemetry]
-    GPIO[opto input board → GPIO<br/>REV · turn signals if not on CAN]
+    GPIO[opto input board → GPIO<br/>REV · left/right turn]
     V4L[USB/UVC cameras]
     GNSS[USB GNSS]
     BT[Bluetooth radio]

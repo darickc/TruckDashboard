@@ -13,15 +13,15 @@ Pi 5.
 | Input | Source | Never |
 |---|---|---|
 | Reverse | Opto-isolated input board → Pi GPIO (proposed BCM6, a config value), via the power-manager ([wiring](../wiring/power-and-inputs.md)) | A raw 12 V line on GPIO |
-| Left / right turn | **To be decided by a CAN check.** If HS-CAN carries them, a corroborated broadcast decoder in the gateway (Stage B). Otherwise two more channels on the same opto board | Same. Never by polling a module |
+| Left / right turn | Two more channels on the same opto board (proposed BCM12 and BCM13). They are an analogue flasher-relay circuit, not on HS-CAN (owner, 2026-11-07) | Same. Never by polling a module |
 | Gear and speed | Gateway signals, used **only** to decide whether manual selection is allowed | — |
 
-Turn signals are expected **not** to be on HS-CAN: the GEM is reportedly on the
-K-line, and this is unverified. The listen-only
-[event captures](../setup/can.md#event-captures-turn-signals-and-reverse)
-settle it ([H14](../hardware/open-questions.md)). A broadcast found there is
-used only after Stage B corroborates it against the stalk. Reverse stays on its
-hardware input either way; a CAN reverse signal would only cross-check it.
+Turn signals are **not** on HS-CAN: they are an analogue circuit switched by a
+flasher relay under the dash (owner, 2026-11-07), and the listen-only census
+found no flasher-rate bit ([H14](../hardware/open-questions.md)). They come
+from the opto board, like reverse. Reverse stays on its hardware input; the
+CAN reverse candidates ([event captures](../setup/can.md#event-captures-reverse-and-brake))
+would only cross-check it after Stage B.
 
 The camera manager **never** asks the gateway to transmit anything.
 

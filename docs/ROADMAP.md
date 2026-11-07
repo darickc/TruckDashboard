@@ -152,10 +152,10 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
       Analysis `[SIM]`: `tools/can-monitor census|pids|correlate` reads candump logs, decodes PID answers with
       the signal registry and fits broadcast fields against them; tested on synthetic logs and run on the truck
       captures. Still open: bounded capture files, CSV export, a two-capture diff
-- [ ] 4.3 Stage A: passive census on the truck, plus the turn-signal/reverse event captures (H14)
+- [ ] 4.3 Stage A: passive census on the truck, plus the reverse/brake event captures (H14)
       Captures at key on, idle and driving `[TRUCK]`: the same 14 IDs, 712 frames/s, no errors; `4FF`
       carries the VIN (check digit validates). Candidates: reverse/gear (`230`, `420`), brake (`440`), RPM
-      (`201`), wheel speeds (`215`). Turn signals not seen in one trial. One action per capture still to do. [CAN_CENSUS.md](diagnostics/CAN_CENSUS.md)
+      (`201`), wheel speeds (`215`). Turn signals: not on the bus, an analogue flasher-relay circuit (owner): opto inputs. Reverse/brake captures still to do. [CAN_CENSUS.md](diagnostics/CAN_CENSUS.md)
 - [ ] 4.4 Stage B: corroborated broadcast decoders
       First corroboration drive `[TRUCK]` (MX+ beside a listen-only capture, 2026-11-07): RPM (`201`), speed
       (`201`), ECT (`420`), load (`106`) and trans temp (`225`) match the PIDs with exact scalings. Needs a second

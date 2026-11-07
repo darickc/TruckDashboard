@@ -238,7 +238,7 @@ Chosen 2026-11-04, not bought yet
 | MS-CAN (pins 3/11) | The 2008 manual lists it. 2006–07 scans show no MS-CAN modules | C | [Ford 418-00 copy](https://www.scribd.com/document/492204330), forum |
 | J1850 PWM | Not present in 2006/07 scans. 2004 trucks used it | F / U | forum |
 | FICM | Not a separate module. Its voltages appear as PCM PIDs | F | forum |
-| Turn signal / reverse on HS-CAN | Unknown. The GEM is on K-line, so turn signals are probably not on HS-CAN | U | — check with a listen-only [event capture](../setup/can.md#event-captures-turn-signals-and-reverse) |
+| Turn signal / reverse on HS-CAN | **Turn signals: not on HS-CAN**, an analogue flasher-relay circuit under the dash (owner, 2026-11-07); none seen in the census either. Reverse: broadcast candidates (`230`, `420`) | T (census) / owner | — check with a listen-only [event capture](../setup/can.md#event-captures-reverse-and-brake) |
 
 ## USB CAN adapter: Jhoinrch RH-02 Pro
 
@@ -278,5 +278,5 @@ Manual", model RH-02 Pro-1), unless noted.
 |---|---|
 | PSW is a driven voltage, not a contact ([H21](open-questions.md)) | Put a small reed relay or optocoupler between PSW and J2 |
 | The DCDC-USB can't hold 5 V at the Pi's load ([H25](open-questions.md)) | Run it at 12 V into a dedicated 5 V / 5 A converter, and keep it for the ignition logic and PSW |
-| The turn signals aren't on HS-CAN | Two more channels on the reverse input's opto board |
+| The turn signals aren't on HS-CAN (settled 2026-11-07: they aren't) | Two more channels on the reverse input's opto board |
 | A CAN HAT is wanted instead of USB | Waveshare 2-CH CAN HAT: isolated, jumper termination, 16 MHz, INT GPIO23/25 ([wiki](https://www.waveshare.com/wiki/2-CH_CAN_HAT)). Check its pins against the DAC HAT and the opto inputs |

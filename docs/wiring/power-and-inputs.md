@@ -51,7 +51,7 @@ flowchart LR
 | Pi **3.3 V** (pin 1 or 17) | Opto board **output VCC** | **Never 5 V.** The output must not pull a GPIO above 3.3 V |
 | Pi **GND** (for example pin 30) | Opto board **output GND** | |
 | Opto board **channel 1 out** | Pi **BCM6** (pin 31) | Proposed pin; it is a config value in power-manager. Moved from BCM5, which the DAC8x driver reads ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)). Expected active-low (the opto pulls the line down in reverse). Confirm on the bench ([H26](../hardware/open-questions.md)) |
-| Opto board channels 2–3 | Reserved: left and right turn (proposed BCM12, pin 32; BCM13, pin 33) | Only if the [CAN event captures](../setup/can.md#event-captures-turn-signals-and-reverse) find no turn signals |
+| Opto board channels 2–3 | Left and right turn (proposed BCM12, pin 32; BCM13, pin 33) | Needed: the turn signals are an analogue flasher-relay circuit, not on HS-CAN (owner, 2026-11-07). Inputs pulse at the flasher rate. Which wires to tap: **TODO** (H9), metered and verified by a person before installation |
 
 Pins taken by the DAC8x ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)):
 its overlay claims **BCM18–27** for I2S and reads **BCM5** (ADC add-on detect).
