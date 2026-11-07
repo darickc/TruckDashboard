@@ -1,0 +1,15 @@
+# OnFailure= of f250-dashboard.service: restart the compositor, which brings
+# up a fresh dashboard with it. Restarting the dashboard alone would make
+# agl-compositor 0.0.24 abort (a second homescreen client; bench-log
+# 2026-11-06). At most 5 tries a minute, so a dashboard that keeps crashing
+# doesn't keep the compositor restarting.
+#
+# Status: [BENCH] (a killed dashboard recovered, bench-log 2026-11-06).
+[Unit]
+Description=Restart the compositor and the F-250 dashboard after a dashboard failure
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart agl-compositor.service

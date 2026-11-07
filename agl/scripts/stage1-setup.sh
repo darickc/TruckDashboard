@@ -23,6 +23,8 @@
 #   6. Link the dashboard bundle to the image's Flutter engine, after checking
 #      the engine version matches the one the bundle was built with.
 #   7. Disable the demo homescreen; enable the gateway, recorder and dashboard.
+#      The homescreen app is swapped with the compositor restarted: a second
+#      homescreen client makes agl-compositor 0.0.24 abort.
 #
 # A reboot applies config.txt and the logind change.
 #
@@ -49,6 +51,8 @@ CAN_IF="${CAN_IF:-can0}"
 DEMO_HOMESCREEN=flutter-ics-homescreen.service
 CAN_UNITS=(kuksa-can-provider.service can-dev-helper.service)
 F250_UNITS=(f250-gateway.service f250-recorder.service f250-dashboard.service)
+COMPOSITOR=agl-compositor.service
+COMPOSITOR_DROPIN=etc/systemd/system/agl-compositor.service.d/50-f250.conf
 BEGIN='# >>> f250'
 STORAGE=/var/lib/f250/storage
 DRIVE_LABEL=f250-data
@@ -231,6 +235,18 @@ check() {
     enabled) warn "$DEMO_HOMESCREEN is still enabled: two homescreens would compete" ;;
     *) ok "$DEMO_HOMESCREEN disabled" ;;
   esac
+  if cmp -s "$HERE/rootfs/$COMPOSITOR_DROPIN" "$ROOT/$COMPOSITOR_DROPIN"; then
+    ok "the compositor restarts after a crash (/$COMPOSITOR_DROPIN)"
+  else
+    bad "/$COMPOSITOR_DROPIN missing or old: a compositor crash leaves the panel on the text console"
+  fi
+  if [[ -z "$ROOT" ]]; then
+    if systemctl is-active -q "$COMPOSITOR"; then
+      ok "$COMPOSITOR running"
+    else
+      bad "$COMPOSITOR not running: the panel shows the text console (systemctl restart $COMPOSITOR)"
+    fi
+  fi
 
   echo
   if ((FAILURES)); then
@@ -370,10 +386,19 @@ apply() {
 
   say "7. Services"
   if [[ "$(unit_state "$DEMO_HOMESCREEN")" == enabled ]]; then
-    sys systemctl disable --now "$DEMO_HOMESCREEN"; echo "  disabled $DEMO_HOMESCREEN"
+    sys systemctl disable "$DEMO_HOMESCREEN"; echo "  disabled $DEMO_HOMESCREEN"
   fi
   sys systemctl enable "${F250_UNITS[@]}"
-  sys systemctl restart "${F250_UNITS[@]}"
+  sys systemctl restart f250-gateway.service f250-recorder.service
+  # agl-compositor 0.0.24 takes one homescreen client per run: a second one
+  # (a restarted dashboard, or ours after the demo's) makes it abort. Stop
+  # the clients (the compositor survives that), then restart it, and the
+  # dashboard starts with it.
+  if [[ "$(unit_state "$DEMO_HOMESCREEN")" != absent ]]; then sys systemctl stop "$DEMO_HOMESCREEN"; fi
+  sys systemctl stop f250-dashboard.service
+  sys systemctl reset-failed "$COMPOSITOR" || true
+  sys systemctl restart "$COMPOSITOR"
+  sys systemctl start f250-dashboard.service
   echo
   echo "Done. Reboot if config.txt or logind changed, then: $0 --check"
 }
@@ -381,8 +406,13 @@ apply() {
 restore() {
   [[ -n "$ROOT" || "$(id -u)" == 0 ]] || die "Run as root"
   say "Back to the AGL demo homescreen"
-  sys systemctl disable --now f250-dashboard.service
-  sys systemctl enable --now "$DEMO_HOMESCREEN"
+  sys systemctl disable f250-dashboard.service
+  sys systemctl enable "$DEMO_HOMESCREEN"
+  # One homescreen client per compositor run (see apply, step 7).
+  sys systemctl stop f250-dashboard.service
+  sys systemctl reset-failed "$COMPOSITOR" || true
+  sys systemctl restart "$COMPOSITOR"
+  sys systemctl start "$DEMO_HOMESCREEN"
   echo "  The gateway and recorder keep running; the CAN safety settings stay."
   echo "  To undo the boot changes: cp config.txt.agl-orig config.txt on the boot partition."
 }

@@ -15,6 +15,14 @@ fail() { FAIL=$((FAIL + 1)); printf '  FAIL %s\n' "$*"; }
 check() { if eval "$2"; then ok; else fail "$1"; fi; }   # check <name> <shell test>
 has_line() { grep -qxF -- "$2" "$1"; }                     # exact line in file
 count() { grep -cF -- "$2" "$1" || true; }
+in_order() {   # in_order <file> <line>...: each exact line present, in this order
+  local f="$1" prev=0 n; shift
+  for l in "$@"; do
+    n="$(grep -nxF -- "$l" "$f" | head -1 | cut -d: -f1)"
+    [[ -n "$n" && "$n" -gt "$prev" ]] || return 1
+    prev="$n"
+  done
+}
 
 SETUP=agl/scripts/stage1-setup.sh
 GW=agl/rootfs/opt/f250/libexec/gateway-start
@@ -69,7 +77,13 @@ check "CAN safety runs first"          "[[ \"\$(head -1 '$L')\" == 'systemctl ma
 check "adds group f250"                "has_line '$L' 'groupadd --system f250'"
 check "adds user f250"                 "grep -q '^useradd --system -g f250 ' '$L'"
 check "agl-driver joins f250"          "has_line '$L' 'usermod -aG f250 agl-driver'"
-check "disables the demo homescreen"   "has_line '$L' 'systemctl disable --now flutter-ics-homescreen.service'"
+check "disables the demo homescreen"   "has_line '$L' 'systemctl disable flutter-ics-homescreen.service'"
+# agl-compositor aborts on a second homescreen client: stop the clients, then
+# restart the compositor, then start the dashboard (bench-log 2026-11-06).
+check "stops the demo homescreen"      "has_line '$L' 'systemctl stop flutter-ics-homescreen.service'"
+check "swaps clients around a compositor restart" "in_order '$L' 'systemctl stop f250-dashboard.service' 'systemctl restart agl-compositor.service' 'systemctl start f250-dashboard.service'"
+check "never restarts the dashboard alone" "! grep -q '^systemctl restart.*f250-dashboard' '$L'"
+check "compositor drop-in installed"   "cmp -s agl/rootfs/etc/systemd/system/agl-compositor.service.d/50-f250.conf '$R/etc/systemd/system/agl-compositor.service.d/50-f250.conf'"
 check "enables our services"           "has_line '$L' 'systemctl enable f250-gateway.service f250-recorder.service f250-dashboard.service'"
 check "config.txt keeps the original"  "cmp -s '$T/config.orig' '$R/boot/config.txt.agl-orig'"
 check "config.txt has one f250 block"  "[[ \$(count '$R/boot/config.txt' '# >>> f250') == 1 ]]"
@@ -147,8 +161,9 @@ if setup "$R" --check >"$T/check-after.out" 2>&1; then ok; else fail "--check af
 echo "stage1-setup: --restore-demo"
 : >"$L"
 setup "$R" --restore-demo >/dev/null 2>&1 || fail "--restore-demo exited non-zero"
-check "restores the demo homescreen"   "has_line '$L' 'systemctl enable --now flutter-ics-homescreen.service'"
-check "stops our dashboard"            "has_line '$L' 'systemctl disable --now f250-dashboard.service'"
+check "restores the demo homescreen"   "has_line '$L' 'systemctl enable flutter-ics-homescreen.service'"
+check "restore swaps around a compositor restart" "in_order '$L' 'systemctl stop f250-dashboard.service' 'systemctl restart agl-compositor.service' 'systemctl start flutter-ics-homescreen.service'"
+check "disables our dashboard"         "has_line '$L' 'systemctl disable f250-dashboard.service'"
 
 echo "stage1-setup: data drive"
 R7="$T/root7"; make_root "$R7"
@@ -229,6 +244,11 @@ check "power off on exit 42"  "has_line '$T/poweroff.log' 'systemctl poweroff --
 
 echo "units"
 check "dashboard treats 42 as success" "grep -qx 'SuccessExitStatus=42' agl/rootfs/etc/systemd/system/f250-dashboard.service"
+check "dashboard is bound to the compositor" "grep -qx 'BindsTo=agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard.service && grep -qx 'PartOf=agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard.service"
+check "dashboard starts with the compositor" "grep -qx 'WantedBy=graphical.target agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard.service"
+check "dashboard never restarts alone" "! grep -q '^Restart=' agl/rootfs/etc/systemd/system/f250-dashboard.service"
+check "dashboard failure restarts the compositor" "grep -qx 'OnFailure=f250-dashboard-recover.service' agl/rootfs/etc/systemd/system/f250-dashboard.service && grep -qx 'ExecStart=/usr/bin/systemctl restart agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard-recover.service"
+check "compositor restarts after a crash" "grep -qx 'Restart=on-failure' agl/rootfs/etc/systemd/system/agl-compositor.service.d/50-f250.conf"
 check "power-off code matches the app" "grep -q 'const powerOffExitCode = 42;' apps/infotainment/lib/core/power.dart"
 check "socket path matches the build"  "grep -q 'SOCK=/run/f250/vehicle.sock' tools/dev/deploy.sh && grep -q 'F250_SOCK:-/run/f250/vehicle.sock' '$REC' && grep -q 'F250_SOCK:-/run/f250/vehicle.sock' '$GW'"
 check "recorder starts via its wrapper" "grep -qx 'ExecStart=/opt/f250/libexec/recorder-start' agl/rootfs/etc/systemd/system/f250-recorder.service"

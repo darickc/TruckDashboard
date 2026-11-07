@@ -154,14 +154,15 @@ image yet.
 - [~] 5.2 Done `[SIM]`: `agl/boot/config-f250.txt` (DSI panel, RTC charging; NVMe PCIe and
       DAC8x lines commented until those HATs are fitted; no CAN overlay: the adapter is USB), the logind
       power-key drop-in, and `agl/scripts/stage1-setup.sh` (apply, `--check`, `--restore-demo`;
-      114 tests in `make agl-test`). Optional data drive (`DATA_DRIVE=1`, `f250-storage`): the
+      124 tests in `make agl-test`). Optional data drive (`DATA_DRIVE=1`, `f250-storage`): the
       telemetry database and traffic logs on an NVMe HAT or USB SSD; no NVMe boot on this image.
       `agl/scripts/diagnose-display.sh` collects DRM connectors, dmesg, the I2C devices, input,
       backlight sysfs and the compositor's logs. Found in the image's sources: its networkd
       config would put the CAN adapter in normal mode, and a KUKSA provider reads `can0`; both are
       overridden first ([ADR-0015](architecture/adr/0015-agl-can-defaults.md)).
       **On the Pi [BENCH] (2026-11-06):** 22.0.1 boots, `make deploy` and `--check` pass, and the dashboard
-      runs fullscreen on the 7" panel with touch (checks 1, 2, 3, 5; the overlay needed `,dsi0`).
+      runs fullscreen on the 7" panel with touch (checks 1, 2, 3, 5; the overlay needed `,dsi0`). The dashboard
+      and agl-compositor restart as a pair: the compositor aborts on a second homescreen client (ADR-0016 addendum).
       Still open: checks 4 and 6–9, then 10–11 once those HATs arrive ([agl.md](setup/agl.md#5-bring-up-checks-phase-52))
 - [~] 5.3 Fallback procedure written ([agl.md §6](setup/agl.md#6-fallback-is-it-the-hardware-or-agl)): the same
       diagnose script on both cards, a fault table, HDMI0, `--restore-demo`. Not exercised

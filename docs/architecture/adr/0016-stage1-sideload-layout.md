@@ -89,7 +89,27 @@ An NVMe HAT (or a USB SSD) holds the data that would wear the SD card
 - Booting from NVMe is out of Stage 1: the image's `boot.scr` loads the kernel
   from `mmc 0:1`.
 
+## Addendum 2026-11-06: one dashboard per compositor run
+
+On the Pi, `make deploy` restarted `f250-dashboard` while agl-compositor kept
+running, and the compositor aborted: it takes one homescreen client per run,
+and a second one connecting crashes it ([bench-log](../../hardware/bench-log.md),
+2026-11-06). The image's unit has no `Restart=`, so the panel stayed on the
+text console. The units now treat the compositor and the dashboard as a pair:
+
+- `f250-dashboard.service`: `BindsTo=` and `PartOf=` the compositor, no
+  `Restart=`, `WantedBy=agl-compositor.service` (every compositor start brings
+  it up), `OnFailure=f250-dashboard-recover.service` (restarts the compositor;
+  5 tries a minute).
+- `agl-compositor.service.d/50-f250.conf`: `Restart=on-failure`.
+- `stage1-setup.sh` and `--restore-demo` stop the old homescreen, restart the
+  compositor, then start the new one; nothing restarts the dashboard alone.
+
+Tested on the Pi: a deploy, `kill -ABRT` of the compositor and `kill -KILL`
+of the dashboard each end with both running again in about 2 s.
+
 ## Revisit when
 
 - Phase 5.4 builds `meta-f250`: fold this layout into recipes or replace it.
-- The first boot answers H30.
+- ~~The first boot answers H30.~~ Answered 2026-11-06: it works.
+- A newer agl-compositor accepts a reconnecting homescreen: the dashboard could then restart on its own.

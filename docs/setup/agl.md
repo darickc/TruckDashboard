@@ -139,6 +139,14 @@ ssh root@raspberrypi5.local /opt/f250/share/agl/scripts/diagnose-display.sh
 display, touch and backlight problems) prints the archive's path on the Pi;
 copy it with `scp`.
 
+**Panel on, black, with a blinking cursor at the top:** that's the text
+console, so the compositor isn't running. It restarts itself after a crash
+(our drop-in), so look at why: `systemctl status agl-compositor`,
+`coredumpctl list`. To bring the screen back:
+`systemctl restart agl-compositor` (the dashboard comes back with it). Never
+restart `f250-dashboard` on its own: agl-compositor 0.0.24 aborts when a
+second homescreen app connects to it.
+
 ### Settings
 
 `/etc/default/f250` has the same options as `make pi-run`:

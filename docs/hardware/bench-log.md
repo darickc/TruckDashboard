@@ -559,3 +559,38 @@ works. Not shown: backlight dimming (check 4), the ribbon with a HAT fitted
 (H3).
 Closes: agl.md bring-up checks 1 (CAN safety, `--check`), 2 (display),
 3 (touch), 5 (dashboard); H30.
+
+## 2026-11-06 — Compositor abort after a deploy; the dashboard and compositor restart as a pair [BENCH]
+
+Hardware and image as in the previous entry, Stage 1 deployed.
+
+Owner: after a second `make deploy` (the obd-console fix), the panel is on but
+black with a blinking cursor at the top (the text console).
+
+Result:
+    02:14:03  setup restarts f250-dashboard; the new flutter-auto logs
+              "Wayland Dispatch Error: Connection reset by peer";
+              agl-compositor: "code=dumped, status=6/ABRT"; no restart
+              (the image's unit has no Restart=), so tty7 shows the console
+    reproduced: `systemctl stop f250-dashboard` leaves the compositor running;
+              `systemctl start f250-dashboard` then aborts it (core dump
+              02:21:28). A second homescreen client per compositor run is
+              what crashes it. Which assertion: unknown, no debug symbols
+
+Fix (ADR-0016 addendum): the dashboard is BindsTo/PartOf/WantedBy the
+compositor with no Restart= of its own, OnFailure= restarts the compositor,
+the compositor gets Restart=on-failure (drop-in), and stage1-setup swaps
+homescreen apps around a compositor restart. After deploying it:
+
+    make deploy     setup restarts the pair; no new core dump; --check passes
+                    (the drop-in and "agl-compositor.service running" are checked)
+    kill -ABRT agl-compositor  02:23:39 dumped; 02:23:41 compositor and
+                    dashboard started again (restart counter 1)
+    kill -KILL flutter-auto    02:23:48 dashboard failed; OnFailure restarted
+                    the compositor; 02:23:49 both running
+    agl-screenshooter          the Home screen on DSI-1 afterwards
+
+Verdict: works. A crash of either one, or a deploy, no longer leaves the
+panel on the console. Not tested: a dashboard that crashes repeatedly (the
+recover unit allows 5 restarts a minute, then stops).
+Closes: nothing; check 7 (Power button) is still to do.
