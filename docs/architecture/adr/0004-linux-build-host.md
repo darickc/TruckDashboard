@@ -35,7 +35,9 @@ OrbStack) with an external SSD is an **unsupported experiment** only.
 
 ## Amendment (2026-11-06): a VM on the Mac with an external drive
 
-The owner added a 500 GB external SSD ("External", reformatted APFS). The build
+The owner added a 500 GB external drive ("External", reformatted APFS). It
+turned out to be a 5,400 rpm laptop hard disk (Seagate ST9500325AS), which sets
+the build time. The build
 host is now tried as an **aarch64 Ubuntu 24.04 VM on the Mac** (Lima, Apple's
 Virtualization framework) whose disk lives on that drive: 12 CPUs, 32 GiB RAM,
 a 420 GiB sparse disk, a 16 GB swap file. `make build-vm` creates it and
@@ -47,12 +49,14 @@ a 420 GiB sparse disk, a 16 GB swap file. `make build-vm` creates it and
 | VM created, host packages installed | Ran on the Mac |
 | AGL 22.0.1 layers fetched from `vimba_22.0.1.xml` at tag `vimba/22.0.1` | Ran on the Mac. `code.qt.io` was unreachable, so `meta-qt6` came from a GitHub mirror at the same pinned commit |
 | BitBake parses and passes its host sanity checks with `BUILD_SYS = aarch64-linux` | Ran on the Mac (3,659 recipes, 0 errors) |
-| A full `agl-ivi-demo-flutter` build completes and the image boots | **Not yet**. See [bench-log.md](../../hardware/bench-log.md) |
+| A full `agl-ivi-demo-flutter` build completes | **Yes**, 2026-11-07: all 13,261 tasks, about 12¾ hours of BitBake over two runs, no aarch64-specific failures. Kernel 6.18.33-v8-16k and Flutter 3.38.3, as in the prebuilt image ([bench-log.md](../../hardware/bench-log.md)) |
+| The built image boots on the Pi | **Not yet** |
 
 aarch64 build hosts are still not documented by AGL, and AGL's public sstate
 mirror holds x86_64-host objects that this host can't reuse, so every build
-from scratch compiles everything. If the build fails for a reason specific to
-aarch64 hosts, the original decision (an x86_64 PC or cloud VM) stands.
+from scratch compiles everything. The first build shows that the VM works as
+the build host; it stays the build host unless the image fails to boot for a
+reason tied to the host.
 
 ## Consequences
 

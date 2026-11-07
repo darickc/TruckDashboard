@@ -1,9 +1,10 @@
 # Linux build host for AGL / Yocto
 
-Status: **build host scripted; first build in progress.** `make build-vm` makes
-an Ubuntu 24.04 VM on the Mac with its disk on an external drive, and
-`make agl-build` builds the pinned AGL release in it. That arrangement is still
-outside what AGL documents (aarch64 host), so results are recorded in
+Status: **first full build done `[BENCH]` 2026-11-07; the image has not been
+booted yet.** `make build-vm` makes an Ubuntu 24.04 VM on the Mac with its disk
+on an external drive, and `make agl-build` builds the pinned AGL release in it.
+That arrangement is still outside what AGL documents (aarch64 host), so results
+are recorded in
 [bench-log.md](../hardware/bench-log.md) as they come
 ([ADR-0004](../architecture/adr/0004-linux-build-host.md),
 [ADR-0005](../architecture/adr/0005-staged-agl-bringup.md)).
@@ -56,8 +57,10 @@ it does not run `repo sync` again (`AGL_BUILD_ARGS=fetch` forces one).
 **The drive's speed sets the build time.** On 2026-11-07 the External drive
 was a 5,400 rpm laptop hard disk (Seagate ST9500325AS). The VM's disk was
 86–96% busy at about 100 operations a second, and the CPUs spent about half
-their time waiting on it. In 11 hours the build got through 9,758 of 13,261
-tasks. An external SSD should be several times faster
+their time waiting on it. The first build from scratch took about 12¾ hours of
+BitBake. At the end the VM's disk held 116 GB (downloads 49 GB, sstate 15 GB),
+and its image file on the drive was 103 GB; the peak during the build was not
+measured. An external SSD should be several times faster
 ([bench log](../hardware/bench-log.md)).
 
 ## Why not the Mac

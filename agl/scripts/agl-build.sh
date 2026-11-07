@@ -19,8 +19,8 @@
 # 2026-11-06 it pinned the same layers and revisions as the manifest AGL
 # published with the 22.0.1 Pi 5 image (raspberrypi5_repo_default.xml).
 #
-# Status: [SIM] untested until the first build is logged in
-# docs/hardware/bench-log.md.
+# Status: [BENCH] built agl-ivi-demo-flutter for raspberrypi5 in the build VM
+# on 2026-11-07 (docs/hardware/bench-log.md). The image has not been booted yet.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -105,6 +105,9 @@ setup() {
 # Written by agl/scripts/agl-build.sh. Edit the script, not this file.
 DL_DIR = "$AGL_TOP/downloads"
 SSTATE_DIR = "$AGL_TOP/sstate-cache"
+# The hash-equivalence database beside the shared sstate, as BitBake's own
+# warning recommends, so another build directory (meta-f250) can reuse it.
+BB_HASHSERVE_DB_DIR = "\${SSTATE_DIR}"
 BB_NUMBER_THREADS = "$THREADS"
 PARALLEL_MAKE = "-j $JOBS"
 # Fetch sources from AGL's mirror first, as AGL's own release builds do.

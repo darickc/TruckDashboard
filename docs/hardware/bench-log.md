@@ -829,3 +829,33 @@ labelled as one. Fix for the clock itself: the RTC battery and
 `dtparam=rtc_bbat_vchg=3000000` ([Clock](../setup/raspberry-pi.md#clock),
 H20).
 Closes: the "unexplained dropout" from the entry above.
+
+## 2026-11-07 — First AGL source build completes in the build VM [BENCH]
+
+Hardware: as in the previous entry (the `agl-build` VM on the 5,400 rpm External drive).
+Image: AGL 22.0.1 `agl-ivi-demo-flutter`, `raspberrypi5`, from source, at commit f0ca844.
+Setup: after the stop in the previous entry, `make agl-build` again. The
+Flutter engine's fetch had been cut off at 07:01 and its half-made checkout
+made the retry fail ("remote origin already exists"); deleting
+`tmp/work/aarch64-agl-linux/flutter-engine/3.38.3/sources/gn` let it fetch again.
+
+Result:
+    09:51  Sstate summary: Wanted 2130 Local 251 Missed 1879 Current 4968 (73% complete)
+    14:01  Tasks Summary: Attempted 13261 tasks of which 9790 didn't need to be
+           rerun and all succeeded. 1 warning (hash-equivalence database inside
+           the build directory; now set beside sstate)
+           bitbake exit 0 after 247 min
+    BitBake time over both runs: about 12 h 45 min (8 h 38 min + 4 h 7 min)
+    agl-ivi-demo-flutter-raspberrypi5.rootfs-20261107165116.wic.zst, 620 MB,
+      sha256 20733e4691a58963f120a9a1077b04785b47b19a2d1433ad8417677a3ce771ed,
+      with .wic.bmap and .manifest, copied to /Volumes/External/agl-images/
+    Manifest: kernel 6.18.33-v8-16k, flutter-engine 3.38.3, agl-compositor
+      0.0.24, flutter-ics-homescreen (the same kernel and Flutter as the
+      prebuilt image in the 2026-11-06 entry)
+    Disk at the end: VM 116 GB used (downloads 49 GB, sstate-cache 15 GB);
+      the VM's disk file on External 103 GB. Peak during the build not measured
+
+Verdict: works, for the build. An aarch64 Ubuntu VM on the Mac builds AGL
+22.0.1 for the Pi 5 from source, Flutter engine included. Not shown: that the
+image boots, or that it behaves like the prebuilt image. The next step is to
+flash it to a spare card and run the agl.md bring-up checks.
