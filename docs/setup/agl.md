@@ -124,7 +124,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 | 6 | Gateway and recorder | `systemctl status f250-gateway f250-recorder`; `obd-console` (finds the AGL socket itself), then `pids`, shows live values; `ls -l /var/lib/f250/` | — |
 | 7 | Power button | Dashboard *Power* → the Pi powers off cleanly (`journalctl -b -1 -u f250-dashboard` after the next boot shows "power off: requested") | ADR-0016 |
 | 8 | CAN, listen-only | Plug in the adapter, then `f250-can status` (still down), `f250-can listen`, `ip -details link show can0` shows `LISTEN-ONLY`. With a second node on a bench bus: no ACKs | H7 on the AGL kernel |
-| 9 | RTC | `ls /sys/class/rtc/`, `cat /sys/class/rtc/rtc0/charging_voltage` (3000000 with our block), `hwclock -r` | H20 on AGL |
+| 9 | RTC | `ls /sys/class/rtc/`, `hwclock -r`. Once the rechargeable cell is fitted: uncomment `dtparam=rtc_bbat_vchg` in `agl/boot/config-f250.txt`, deploy, reboot; `cat /sys/class/rtc/rtc0/charging_voltage` shows 3000000 | H20 on AGL |
 | 10 | Audio (once the DAC8x is fitted) | Uncomment `dtoverlay=hifiberry-dac8x` in `agl/boot/config-f250.txt`, deploy, reboot; `aplay -l` lists it; `pw-cli ls Node` shows its sink | ADR-0014 on AGL |
 | 11 | NVMe (once the HAT is fitted) | Uncomment `dtparam=pciex1`, deploy, reboot; `lspci` lists the drive's controller; `f250-storage status` shows `nvme0n1` and its health. Then [the data drive](#data-drive-nvme-hat-or-usb-ssd) | H31 |
 

@@ -594,3 +594,31 @@ Verdict: works. A crash of either one, or a deploy, no longer leaves the
 panel on the console. Not tested: a dashboard that crashes repeatedly (the
 recover unit allows 5 restarts a minute, then stops).
 Closes: nothing; check 7 (Power button) is still to do.
+
+## 2026-11-06 — AGL bring-up checks 7, 8 and 9: Power button, CAN listen-only, RTC [BENCH]
+
+Hardware and image as in the previous entry. USB CAN adapter (Candlelight
+2.5, gs_usb) plugged in after `--check` passed; no CAN bus attached. No RTC
+cell on J5.
+
+Result:
+    7 Power    The dashboard's Power button shut the Pi down (owner). The
+               "power off: requested" journal line couldn't be read: the
+               image's journal is volatile ("no persistent journal was found")
+    8 CAN      f250-can status: can0, driver gs_usb, DOWN (nothing brought it
+               up at boot). f250-can listen: <LISTEN-ONLY> ERROR-ACTIVE,
+               500000 bit/s, sample point 0.875, berr-counter tx 0 rx 0,
+               TX 0 packets
+    9 RTC      rtc0 = rpi-rtc; dmesg "trickle charging enabled at 3000000uV"
+               (our dtparam at the time); charging_voltage 3000000; at boot
+               "setting system clock to 1970-01-01T00:00:08" (no cell, power
+               was off); later hwclock -r and the system clock agree, synced
+               from the network
+
+Verdict: works, within what the bench shows. 7: the Power path powers off
+(exit 42 → dashboard-stopped). 8: the AGL kernel and our override leave the
+adapter down at boot and accept listen-only, as on Raspberry Pi OS; the
+no-ACK proof still needs a second node. 9: the RTC and the charging
+parameter work on AGL; holding time (H20) needs the cell. The charging line
+is now commented until the rechargeable cell is fitted.
+Closes: agl.md checks 7, 8 and 9 (H20 stays open).

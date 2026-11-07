@@ -151,8 +151,8 @@ image yet.
 - [~] 5.1 Release confirmed: **Vimba 22.0.1** (2026-11-02), pinned with its SHA-256 in
       `agl/configurations/vimba.env`, `make agl-image` fetches and checks it ([ADR-0001](architecture/adr/0001-agl-release.md)).
       Still open: **the build host** (ADR-0004), needed for 5.4 only
-- [~] 5.2 Done `[SIM]`: `agl/boot/config-f250.txt` (DSI panel, RTC charging; NVMe PCIe and
-      DAC8x lines commented until those HATs are fitted; no CAN overlay: the adapter is USB), the logind
+- [~] 5.2 Done `[SIM]`: `agl/boot/config-f250.txt` (DSI panel; RTC charging, NVMe PCIe and
+      DAC8x lines commented until the cell and those HATs are fitted; no CAN overlay: the adapter is USB), the logind
       power-key drop-in, and `agl/scripts/stage1-setup.sh` (apply, `--check`, `--restore-demo`;
       124 tests in `make agl-test`). Optional data drive (`DATA_DRIVE=1`, `f250-storage`): the
       telemetry database and traffic logs on an NVMe HAT or USB SSD; no NVMe boot on this image.
@@ -163,7 +163,8 @@ image yet.
       **On the Pi [BENCH] (2026-11-06):** 22.0.1 boots, `make deploy` and `--check` pass, and the dashboard
       runs fullscreen on the 7" panel with touch (checks 1, 2, 3, 5; the overlay needed `,dsi0`). The dashboard
       and agl-compositor restart as a pair: the compositor aborts on a second homescreen client (ADR-0016 addendum).
-      Still open: checks 4 and 6–9, then 10–11 once those HATs arrive ([agl.md](setup/agl.md#5-bring-up-checks-phase-52))
+      Also passed: 7 (Power button), 8 (CAN listen-only with the adapter), 9 (RTC, no cell yet).
+      Still open: checks 4 and 6, then 10–11 once those HATs arrive ([agl.md](setup/agl.md#5-bring-up-checks-phase-52))
 - [~] 5.3 Fallback procedure written ([agl.md §6](setup/agl.md#6-fallback-is-it-the-hardware-or-agl)): the same
       diagnose script on both cards, a fault table, HDMI0, `--restore-demo`. Not exercised
 - [ ] 5.4 `agl/meta-f250`: waits for the build host. The Stage 1 files in `agl/rootfs/` are written to be reused by it

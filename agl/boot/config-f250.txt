@@ -15,9 +15,11 @@
 # off, so this line is what turns the display on.
 dtoverlay=vc4-kms-dsi-7inch,dsi0
 
-# Pi 5 onboard RTC: charge the rechargeable cell on J5 (H20). Only with a
-# rechargeable cell fitted; never with a CR2032.
-dtparam=rtc_bbat_vchg=3000000
+# Pi 5 onboard RTC: charge the rechargeable cell on J5 (H20). Uncomment once
+# that cell is fitted: only a rechargeable one, never a CR2032. Applied and
+# read back as 3000000 on AGL 22.0.1 (bench-log 2026-11-06). Without a cell
+# the clock starts at 1970 on every cold boot until network time sets it.
+#dtparam=rtc_bbat_vchg=3000000
 
 # HiFiBerry DAC8x (ADR-0014). The overlay ships in the Vimba 22.0.1 image.
 # Uncomment once the HAT is fitted: the overlay claims BCM18-27.
