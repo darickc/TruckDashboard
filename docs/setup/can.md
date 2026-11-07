@@ -161,9 +161,10 @@ How to read them:
   `VERIFICATION_LOG.md`. It becomes a Stage B decoder (Phase 4.4) with its
   provenance. **Until then the camera doesn't use it.**
 
-A diff helper that lists the IDs and bytes that change between two captures
-belongs in `tools/can-monitor` (Phase 4.2). TODO; until then, compare the
-`candump` logs by hand or with a short script.
+`can-monitor census` lists, per ID, which bytes change in one capture (see
+[Analysing a capture](#analysing-a-capture)). Comparing two captures directly
+(a diff of the IDs and bytes that change) is still TODO; until then, run
+`census` on each and compare.
 
 **With the MX+ on a Y-splitter and the gateway polling through it** (`make
 pi-start TRANSPORT=obdlink TRANSMIT=1 ENABLE=eot`), the same capture also
@@ -171,6 +172,43 @@ records the MX+'s requests and every module's answers on the wire. That is
 the dropout experiment (Phase 4.7). For each EOT window the MX+ cut short,
 the capture says whether the PCM's answer was on the bus. It also shows what
 the MX+ pads its requests with.
+
+### Analysing a capture
+
+`tools/can-monitor` reads a `candump` log offline, on the Pi or on the Mac
+after copying the folder over. It decodes PID answers with the signal
+registry (`shared/signals`) and never touches a bus.
+
+```bash
+cargo build --release -p can-monitor          # make pi-build also builds it
+target/release/can-monitor census  ~/f250-data/<date>-candump/candump-*.log
+target/release/can-monitor pids    ~/f250-data/<date>-candump/candump-*.log
+target/release/can-monitor correlate ~/f250-data/<date>-candump/candump-*.log --signal rpm
+```
+
+- `census`: every ID's rate, period, jitter, length and which bytes change,
+  plus any silence over 1 s.
+- `pids`: the tester's requests (and what it pads them with) and every
+  module's answers, decoded with the registry, per responder, with each
+  definition's provenance. Negative responses and multi-frame answers are
+  counted, not decoded.
+- `correlate --signal ID`: tries every 8- and 16-bit field of every broadcast
+  ID against that PID and lists the best fits as `pid ≈ slope × raw +
+  intercept` with the correlation `r`. `--field 215:0:u16be` fits only the
+  fields you name; `--responder 7E8` picks one module when two answer.
+
+Correlation needs PID answers **in the same log**. Record them with the MX+
+on the Y-splitter, polling, while the CAN adapter listens:
+
+```bash
+make pi-start TRANSPORT=obdlink TRANSMIT=1    # the MX+ polls (read-only services)
+tools/pi/can.sh capture                       # listen-only; Ctrl-C after the drive
+```
+
+Drive with stops, idling and several gears: RPM and road speed are nearly
+proportional within one gear, so a steady cruise can't tell them apart. A
+good fit is a **candidate**: Stage B (Phase 4.4) and a
+`VERIFICATION_LOG.md` entry come before any decoder.
 
 ## 4. Truck, session B: the gateway polls over CAN
 

@@ -178,10 +178,10 @@ docs-lint: ## Check relative Markdown links
 pi-setup: ## On the Pi: install apt packages, Rust and Flutter (Phase 3.5.1)
 	tools/pi/setup-raspios.sh
 
-pi-build: ## On the Pi: release-build the gateway (RFCOMM), recorder, obd-console and the Linux app
+pi-build: ## On the Pi: release-build the gateway (RFCOMM), recorder, obd-console, can-monitor and the Linux app
 	@[ "$$(uname -s)" = Linux ] || { echo "pi-build runs on the Pi (Linux); see docs/setup/raspberry-pi.md"; exit 1; }
 	cargo build --release -p vehicle-gateway --features rfcomm
-	cargo build --release -p recorder -p obd-console
+	cargo build --release -p recorder -p obd-console -p can-monitor
 	cd $(APP_DIR) && $(FLUTTER) build linux --release \
 	  --dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:/tmp/f250/vehicle.sock
 

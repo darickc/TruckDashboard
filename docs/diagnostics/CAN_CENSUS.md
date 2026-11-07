@@ -171,9 +171,10 @@ arrive at 125 Hz (`201`), 41.7 Hz (`215`) and 10 Hz (`420`).
 
 ## Still to capture
 
-- Stage B corroboration: a drive with the gateway polling RPM, speed and ECT
-  (session B, or the MX+ beside the capture) so the candidates above can be
-  compared with the PIDs frame by frame.
+- Stage B corroboration: a drive with the MX+ polling RPM, speed and ECT on
+  the Y-splitter while the adapter listens, so the PID answers are in the
+  same log, then `can-monitor correlate` ([analysing a
+  capture](../setup/can.md#analysing-a-capture)).
 - The [event captures](../setup/can.md#event-captures-turn-signals-and-reverse),
   one action per capture, to settle the turn signals (H14) and confirm
   reverse and brake.

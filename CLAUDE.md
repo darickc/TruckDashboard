@@ -97,6 +97,7 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make pi-setup` / `pi-build` / `pi-run` | On the Pi (Raspberry Pi OS, Phase 3.5): install the tools, release-build, run gateway + recorder + app. `pi-run` uses the simulator unless `TRANSPORT=obdlink` or `TRANSPORT=can`, and polls only with `TRANSMIT=1`. See [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md) |
 | `make pi-start` / `pi-stop` / `pi-status` | On the Pi, over SSH: `pi-run` as a transient systemd service on tty7 (an SSH login has no seat, so `cage` can't take the screen from it) |
 | `make pi-can CMD=status\|listen\|active\|down\|capture\|flash` | On the Pi: the USB CAN adapter (`tools/pi/can.sh`; listen-only unless `active`). Then `TRANSPORT=can` for `pi-run`/`pi-start`. See [docs/setup/can.md](docs/setup/can.md) |
+| `cargo run --release -p can-monitor -- census\|pids\|correlate LOG` | Analyse a `candump` log offline: census, PID answers decoded with the registry, broadcast-vs-PID fits. See [docs/setup/can.md](docs/setup/can.md#analysing-a-capture) |
 | `make ui` / `make ui-macos-build` | Dashboard as a macOS window / just build it (needs Xcode; the Makefile sets `DEVELOPER_DIR` if `xcode-select` points at the Command Line Tools) |
 
 Also: `make proto` (regenerate the Dart gRPC client) and `make linux-test` (Rust

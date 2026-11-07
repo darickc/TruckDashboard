@@ -138,6 +138,10 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
       Still open: the 5V-terminal check; one unexplained 122 s dropout (capture now logs kernel messages and
       counters to catch the next), [docs/setup/can.md](setup/can.md)
 - [ ] 4.2 `tools/can-monitor`
+      Capture side is `tools/pi/can.sh` (listen-only, bitrate, candump with error frames, counters, gap report).
+      Analysis `[SIM]`: `tools/can-monitor census|pids|correlate` reads candump logs, decodes PID answers with
+      the signal registry and fits broadcast fields against them; tested on synthetic logs and run on the truck
+      captures. Still open: bounded capture files, CSV export, a two-capture diff
 - [ ] 4.3 Stage A: passive census on the truck, plus the turn-signal/reverse event captures (H14)
       Captures at key on, idle and driving `[TRUCK]`: the same 14 IDs, 712 frames/s, no errors; `4FF`
       carries the VIN (check digit validates). Candidates: reverse/gear (`230`, `420`), brake (`440`), RPM
