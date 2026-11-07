@@ -28,7 +28,9 @@
 # docs/hardware/bench-log.md). This script detects it and stops; `flash`
 # replaces it.
 #
-# Status: `status` run against the adapter [BENCH 2026-11-05]; the rest [SIM].
+# Status: status, flash, listen [BENCH 2026-11-05]; listen and capture on the
+# truck [TRUCK 2026-11-06/07]; active not yet run. capture's kernel.log,
+# counters.log and gap report: tested piecewise on the Pi, not yet in a capture.
 set -euo pipefail
 
 CAN_IF="${CAN_IF:-can0}"
@@ -159,8 +161,35 @@ case "${1:-status}" in
     say "Capturing $CAN_IF to $dir $([[ "$secs" -gt 0 ]] && echo "for $secs s" || echo "until Ctrl-C")"
     # 0:0 passes every data frame; #FFFFFFFF passes every error class.
     # candump -l writes candump-<date>.log (timestamps, ID#data) in the cwd.
+    # Alongside the frames: kernel messages, and the interface's counters every
+    # 5 s. A silence in the log (2026-11-07: 122 s with no frames while the
+    # engine idled) can then be told apart: USB or driver trouble shows in
+    # kernel.log; flat RX counts with no messages point at the adapter or the
+    # wiring. The Pi's journal is volatile, so this is the only copy.
+    journalctl -k -f -n 0 -o short-iso >"$dir/kernel.log" 2>&1 &
+    jpid=$!
+    (
+      sys="/sys/class/net/$CAN_IF/statistics"
+      while sleep 5; do
+        printf '%s rx_packets %s rx_dropped %s %s\n' "$(date +%T)" \
+          "$(cat "$sys/rx_packets" 2>/dev/null)" "$(cat "$sys/rx_dropped" 2>/dev/null)" \
+          "$(ip -details link show "$CAN_IF" 2>&1 | grep -o -E 'state (ERROR-[A-Z]+|BUS-OFF|STOPPED|SLEEPING)|berr-counter tx [0-9]+ rx [0-9]+' | paste -sd' ')"
+      done
+    ) >"$dir/counters.log" 2>&1 &
+    cpid=$!
     finish() {
-      { echo "--- after"; details; echo "stopped:   $(date -Iseconds)"; } >>"$dir/session.txt"
+      kill "$jpid" "$cpid" 2>/dev/null || true
+      wait "$jpid" "$cpid" 2>/dev/null || true
+      # Silences over 1 s in the frame log (candump: "(epoch.usec) can0 ID#DATA").
+      gaps="$(awk '{ t = substr($1, 2, length($1) - 2) + 0
+                     if (n++ && t - p > 1) printf "  %.1f s with no frames, from +%.1f s\n", t - p, p - t0
+                     if (n == 1) t0 = t; p = t }' "$dir"/candump-*.log 2>/dev/null)"
+      {
+        echo "--- after"; details
+        echo "gaps over 1 s:"; echo "${gaps:-  none}"
+        echo "stopped:   $(date -Iseconds)"
+      } >>"$dir/session.txt"
+      [[ -n "$gaps" ]] && warn "frames stopped during the capture:"$'\n'"$gaps"
       echo "Saved in $dir"
       ls -l "$dir"
     }

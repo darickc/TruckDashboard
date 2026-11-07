@@ -775,3 +775,27 @@ Closes: the DLC resistance check with the adapter disconnected.
 Open: the 6–14 reading with the adapter connected (a clean capture says the
 bus is healthy but doesn't prove the adapter's terminator is off); the 5V
 terminal check.
+
+## 2026-11-07 — CAN adapter on the truck: idle and drive captures, one dropout [TRUCK]
+
+The owner confirmed DLC 6–14 still reads ≈ 60 Ω with the adapter connected
+(switch up). Two listen-only captures: idle with turn signals and two P→R→P
+cycles (`20261107-113429-candump`, 242 s), then a drive
+(`20261107-113837-candump`, 120 s). Analysis:
+[CAN_CENSUS.md](../diagnostics/CAN_CENSUS.md).
+
+Result: no error frames and every error counter at 0 in both. The drive has
+no gap over 20 ms. **The idle capture has a 122 s silence** (+105.0 s to
++227.4 s): no frames in the log, and the kernel's RX count agrees. The bus
+values on both sides of it are the same steady idle, so the truck didn't go
+quiet; the interface wasn't reset and reported no error state. Cause unknown:
+adapter or USB stall, or a wiring contact. The Pi's journal is volatile and
+the Pi was powered off after the drive, so no kernel log survived.
+
+Verdict: the adapter path works on the truck, but it can drop out silently.
+`tools/pi/can.sh capture` now saves `kernel.log` (kernel messages during the
+capture), `counters.log` (RX counts and CAN state every 5 s) and a gap
+report in `session.txt`, and warns when frames stopped. Tested piecewise on
+the Pi; not yet in a real capture.
+Closes: the DLC 6–14 check with the adapter connected.
+Open: the cause of the dropout; the 5V terminal check.
