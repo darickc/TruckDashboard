@@ -123,6 +123,15 @@ Found along the way:
 - [ ] 3.5.6 Logged drives: Torque-style polling and the budgeted schedule, with `ATRV` voltage and STN chatter logged
 - [ ] 3.5.7 `docs/diagnostics/mx-plus-trial.md`: hypotheses eliminated, recovery results, throughput, **purchase decision**
 
+Parked (the MX+ isn't in the final build, which uses the USB CAN adapter; owner, 2026-11-07):
+
+- MX+ EOT misses, about 1 in 100 polls: the ELM closes its window after the TCM's early refusal, before the
+  PCM's answer (seen on the wire, [CAN_CENSUS](diagnostics/CAN_CENSUS.md) capture 6). Untried fix: send an
+  `ATCRA` receive filter (e.g. `ATCRA7E8`) for requests whose signal pins an `rx_id`, so the adapter ignores
+  other modules and waits for the owner. `crates/elm` already sends `ATSH`/`ATCRA` from a request's
+  `Addressing`; the gateway would set `rx_filter` from `rx_id`. Costs an extra AT command when the filter
+  changes. Needs a truck test. Until then the 7E8 pin makes each miss one `SUSPECT` reading
+
 ## Phase 4 — CAN hardware communication [HW] [HUMAN]
 
 Starts after the purchase decision in 3.5.7. The USB CAN adapter was bought

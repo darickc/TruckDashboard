@@ -224,11 +224,16 @@ good fit is a **candidate**: Stage B (Phase 4.4) and a
 
 ```bash
 tools/pi/can.sh active               # asks you to type 'active'
-make pi-start TRANSPORT=can TRANSMIT=1 ENABLE=eot
+make pi-start TRANSPORT=can TRANSMIT=1 ENABLE=eot CAPTURE=1
+make pi-stop                         # when done
+tools/pi/can.sh listen               # back to listen-only
 ```
 
 `active` switches the interface to normal mode. It now ACKs frames, and the
-gateway may transmit. `pi-start`/`pi-run` refuse `TRANSMIT=1` while the
+gateway may transmit. With `CAPTURE=1` the session's `candump/` folder holds
+the gateway's own requests (the kernel loops a socket's frames back to the
+other sockets on the Pi) and every answer, so `can-monitor pids` can check
+them against what the gateway recorded. `pi-start`/`pi-run` refuse `TRANSMIT=1` while the
 interface is still listen-only. The MX+ must be unplugged or idle: one
 transport polls at a time.
 
