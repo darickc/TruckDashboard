@@ -40,12 +40,14 @@ The plan said Phase 4.5 would use the kernel's ISO-TP sockets (`can-isotp`).
    Multi-frame answers (e.g. VIN) are reported as Invalid; flow control is
    never sent. TODO if a multi-frame read is ever needed.
 3. **Response window: 50 ms**, the commonly cited ISO 15765-4 P2CAN maximum,
-   configurable with `--can-window-ms`. UNVERIFIED for this truck; the
-   traffic log measures the real figure. Unpinned requests wait the whole
+   configurable with `--can-window-ms`. Measured 2026-11-07 beside the MX+:
+   the slowest of 4408 PCM answers came 40.7 ms after the request, the
+   slowest TCM answer 31.8 ms ([CAN_CENSUS](../../diagnostics/CAN_CENSUS.md),
+   capture 4), so 50 ms holds on this truck so far. Unpinned requests wait the whole
    window and keep every answer. Pinned requests (`rx_id`) return as soon as
    the owner answers. NRC 0x78 extends the wait to the request timeout.
-4. **Requests are 8-byte frames padded with 0x00.** The pad value is a choice.
-   What the MX+ pads with is unknown until a listen-only capture beside it.
+4. **Requests are 8-byte frames padded with 0x00.** The MX+ pads with 0x00
+   too (listen-only capture beside it, 2026-11-07).
 5. **Safety stays layered (ADR-0007):**
    - The interface is configured by `tools/pi/can.sh`, as root, and comes up
      **listen-only** by default. The first truck session is listen-only.

@@ -21,6 +21,7 @@ Rules for this page:
 | 1 | 2026-11-06 09:07 | Key on, engine off (owner) | 120 s | 85 390 (712/s) | 0 | `20261106-090751-candump` |
 | 2 | 2026-11-07 11:34 | Engine idling, parked. Right turn signal, left turn signal, then P→R→P twice (owner; actions not timestamped) | 242 s, of which **122 s had no frames** | 85 392 | 0 | `20261107-113429-candump` |
 | 3 | 2026-11-07 11:38 | Driving (owner) | 120 s | 85 390 (712/s) | 0 | `20261107-113837-candump` |
+| 4 | 2026-11-07 13:01 | Driving, the MX+ polling on a Y-splitter (`make pi-start TRANSPORT=obdlink TRANSMIT=1 CAPTURE=1`) | 345 s | 258 551 (749/s) | 0 | `20261107-130116-obdlink/candump` |
 
 ## Capture 1: key on, engine off [TRUCK]
 
@@ -158,7 +159,63 @@ Rates: the MX+ refreshed RPM at 4.1 Hz, speed at 2.7 Hz and ECT at 1.3 Hz
 (11.7 requests/s in all, about 85 ms per answer). The broadcast candidates
 arrive at 125 Hz (`201`), 41.7 Hz (`215`) and 10 Hz (`420`).
 
-## What captures 1–3 settle
+## Capture 4: driving beside the MX+, PID answers in the same log [TRUCK]
+
+The MX+ polled through a Y-splitter while the adapter listened, so the MX+'s
+requests (`7DF`) and the PCM's and TCM's answers (`7E8`, `7E9`) are frames in
+the same log as the broadcasts, timed by the same clock. The gateway polled
+from 13:01:24 to the end with no failure on any signal (after two connection
+attempts at start-up, while the MX+ woke up). No silence over 1 s, no error
+frames, kernel log quiet. The same 14 broadcast IDs, plus `7DF`, `7E8`, `7E9`.
+
+### Broadcast fields against the PIDs
+
+Analysed with `can-monitor` (`pids`, then `correlate` per signal). The PID
+side is decoded with the registry: SAE formulas, and `trans_temp`
+(VERIFIED_ON_TRUCK). Each row then checks an exact scaling against every PID
+answer (the latest broadcast frame at or before the answer):
+
+| Broadcast field | Scaling tested | PID | n | r (fit) | PID − broadcast | Status |
+|---|---|---|---|---|---|---|
+| `201` bytes 0–1, top bit masked | rpm = raw | `0C` RPM (652–2223) | 1608 | 1.0000 (slope 0.9998, +0.6) | median \|d\| 0.75 rpm, p95 5.8, max 21.8 while revving | **corroborated, one drive** |
+| `201` bytes 4–5 | km/h = raw / 100 | `0D` speed (0–43) | 1033 | 0.9996 | mean −0.52, p95 \|d\| 1.2: the PID is whole km/h, the broadcast hundredths | **corroborated, one drive** |
+| `420` byte 0 | °C = raw − 40 | `05` ECT (46–54) | 524 | 0.9955 (slope 0.995, −39.5) | 93 % exact, never more than 1 | **corroborated, one drive** (8 °C span only) |
+| `106` byte 7 | % = raw × 100/255 | `04` load (7–73 %) | 514 | 0.9996 (slope 0.394) | 79 % exact, median 0 | **corroborated, one drive** |
+| `225` byte 7 | °C = raw − 40 | TCM `22 16 74` trans temp (37–46 °C) | 525 | 0.9946 (slope 0.97, −37.3) | mean +0.50, max 1.1: whole degrees against the PID's 1/8 °F | **corroborated, one drive** (9 °C span only) |
+| `215` bytes 0–1, 2–3, 4–5 | km/h ≈ (raw − 10106) / 100 | `0D` speed | 1033 | 0.9989–0.9994 (slope 0.0101) | mean +0.30, p95 \|d\| 1.0 | candidate: speed-like (three wheels?), scaling not settled |
+| `225` bytes 4–5 | — | `0D` speed | 1033 | 0.9992 (slope 0.0387) | — | candidate: another speed-like value, unit unknown |
+| IAT | no field fits (best \|r\| 0.90, a temperature drifting the other way) | `0F` IAT | 141 | — | — | not found |
+
+"Corroborated, one drive" is Stage B evidence, not a decoder: it needs a
+repeat on another day (a cold start, a longer drive, so the temperatures span
+more than 8–9 °C) and then a `VERIFICATION_LOG.md` entry, before the gateway
+may decode it (`BROADCAST_DECODED`). The broadcasts arrive far faster than the
+MX+ polls: RPM and speed at 125 Hz against 4.8 Hz and 3.1 Hz, load at 62 Hz,
+ECT at 10 Hz and trans temp at 125 Hz against about 1.5 Hz each.
+
+### Answer timing on the wire
+
+From each `7DF` request to the first frame of each answer, 4408 requests:
+
+| Responder | Median | p95 | Max |
+|---|---|---|---|
+| PCM `7E8` | 21 ms | 39 ms | 40.7 ms |
+| TCM `7E9` | 16 ms | 28 ms | 31.8 ms |
+
+Either module may answer first: on `01 0C` the TCM led 1037 times and the PCM
+570. On `22 16 74` (PCM refuses with NRC 31, TCM answers) the TCM led 325
+times and the PCM 200. Three answers were missing (of about 8800), around the
+end of the capture. So the CAN transport's 50 ms window
+([ADR-0012](../architecture/adr/0012-direct-can-usb-adapter.md)) covers
+every answer seen, with about 9 ms to spare.
+
+The MX+ pads its requests with `00`, like the gateway's CAN transport.
+
+EOT wasn't polled (no `ENABLE=eot`), so the EOT dropout experiment (Phase
+4.7) is still to do; this drive had no dropouts on `trans_temp`, the other
+signal that two modules answer and that is pinned to one of them.
+
+## What captures 1–4 settle
 
 - **500 kbit/s is right** and the adapter, wiring and listen-only setup work
   on the truck: 85 390 frames, no errors, counters at 0.
@@ -167,16 +224,19 @@ arrive at 125 Hz (`201`), 41.7 Hz (`215`) and 10 Hz (`420`).
   from a broadcast once a decoder is corroborated (Stage B).
 - Turn signals: probably not on HS-CAN (one trial).
 - The adapter path can drop out silently (capture 2). Each capture now carries
-  the evidence needed to say why next time.
+  the evidence needed to say why next time. Capture 4 (345 s) had no silence.
+- RPM, speed, ECT, load and trans temp are broadcast, and their scaling agrees
+  with the PIDs on one drive (capture 4).
+- Every module answered within 41 ms: the 50 ms CAN window is enough.
 
 ## Still to capture
 
-- Stage B corroboration: a drive with the MX+ polling RPM, speed and ECT on
-  the Y-splitter while the adapter listens, so the PID answers are in the
-  same log, then `can-monitor correlate` ([analysing a
-  capture](../setup/can.md#analysing-a-capture)).
+- A second corroboration drive on another day, from a cold start and longer,
+  so ECT and trans temp span more than 8–9 °C; then `VERIFICATION_LOG.md`
+  entries for the fields above. Add `ENABLE=eot` and check EOT against the
+  broadcasts too.
 - The [event captures](../setup/can.md#event-captures-turn-signals-and-reverse),
   one action per capture, to settle the turn signals (H14) and confirm
   reverse and brake.
-- The dropout experiment beside the MX+ (Phase 4.7).
+- The EOT dropout experiment beside the MX+ (Phase 4.7): the same capture with `ENABLE=eot`.
 - Record the truck state (key position, engine) with each capture.
