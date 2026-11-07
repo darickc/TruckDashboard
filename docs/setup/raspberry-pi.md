@@ -11,7 +11,7 @@ Status:
   - `make pi-setup` and `make pi-build` work on Raspberry Pi OS Lite (trixie).
   - The whole stack runs with `UI=headless`, and with `UI=0`.
   - The MX+ transport stays PASSIVE_ONLY without `TRANSMIT=1`.
-- **On the original 7" display** `[BENCH]`, 2026-11-02: DSI1, stock
+- **On the original 7" display** `[BENCH]`, 2026-11-02: DSI0 (CAM/DISP 0), stock
   `config.txt` (no overlay), HAT not fitted. `make pi-run` started on the Pi
   fills the screen under `cage`, and touch works.
 - **Over SSH** `[BENCH]`, 2026-11-02: `make pi-start` / `make pi-stop` start

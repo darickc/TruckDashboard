@@ -229,7 +229,7 @@ known-good reference: the panel, touch and dashboard worked on it on
 
    | Raspberry Pi OS | AGL | Then |
    |---|---|---|
-   | Works | Fails | **AGL side.** Compare the two archives: is the overlay applied (`drm-connectors.txt` has a DSI connector), are the modules loaded (`modules.txt`: `tc358762`, `edt_ft5x06`, `rpi_panel_attiny_regulator`), is the right I2C bus there (`i2c.txt`)? Check our block is in `config.txt` (`boot-config.txt`). Try the port: `dtoverlay=vc4-kms-dsi-7inch,dsi0` with the ribbon on DISP 0. Record the result in the [compatibility matrix](../hardware/compatibility-matrix.md) |
+   | Works | Fails | **AGL side.** Compare the two archives: is the overlay applied (`drm-connectors.txt` has a DSI connector), are the modules loaded (`modules.txt`: `tc358762`, `edt_ft5x06`, `rpi_panel_attiny_regulator`), is the right I2C bus there (`i2c.txt`)? Check our block is in `config.txt` (`boot-config.txt`). Is the overlay on the ribbon's port? Our line is `dtoverlay=vc4-kms-dsi-7inch,dsi0` (CAM/DISP 0); drop `,dsi0` for CAM/DISP 1. `edt_ft5x06 … error -121` in `dmesg` means nothing answered on that port's I2C: the wrong port, or no panel power. The backlight driver doesn't check the panel is there, so `/sys/class/backlight` reading 255 proves nothing. Record the result in the [compatibility matrix](../hardware/compatibility-matrix.md) |
    | Fails | Fails | **Hardware or cabling.** Reseat the ribbon at both ends (contacts facing the right way), try the other DISP port, check the panel's 5 V. HDMI0 with a monitor tells whether the Pi itself boots and draws |
    | Works | Works | The fault was transient: note what changed (cables, power) in the bench log |
 

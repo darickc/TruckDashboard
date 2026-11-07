@@ -111,7 +111,7 @@ Found along the way:
 - [x] 3.5.1 Raspberry Pi OS on the Pi 5. Display, touch and ribbon confirmed. `tools/pi/setup-raspios.sh`, `make pi-run`.
       The scripts and `make pi-setup` / `pi-build` / `pi-run` exist ([setup/raspberry-pi.md](setup/raspberry-pi.md)).
       On the Pi (Raspberry Pi OS Lite, no display yet): setup, build and the whole stack under `cage` on a virtual display
-      work **[BENCH]** ([bench-log](hardware/bench-log.md)). The original 7" display shows the console on DSI1 with stock
+      work **[BENCH]** ([bench-log](hardware/bench-log.md)). The original 7" display shows the console on DSI0 with stock
       `config.txt`, no HAT fitted; touch works and `make pi-run` fills the screen under `cage` **[BENCH]** (2026-11-02).
       The ribbon fit with the DAC HAT (H3) is left to its arrival
 - [ ] 3.5.2 MX+ paired (`00:04:3E:85:EA:FC`, Secure Simple Pairing: confirm the shown passkey, no PIN). Phone and ESP32 disconnected. Opt-in recorded in `bench-log.md`

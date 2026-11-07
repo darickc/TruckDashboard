@@ -6,12 +6,14 @@
 # lines has run on the AGL image yet (UNVERIFIED); docs/setup/agl.md says how
 # to check each one.
 
-# Original 7" touchscreen on the DISP 1 connector (the port that worked on
-# Raspberry Pi OS, bench-log 2026-11-02). Includes the edt-ft5406 touch
-# driver. Add ",dsi0" if the ribbon has to move to DISP 0 (H3).
+# Original 7" touchscreen on DSI0 (CAM/DISP 0): the port Raspberry Pi OS
+# found it on (rp1 dsi 1f00118000, touch on I2C bus 10; bench-log 2026-11-02
+# and 2026-11-06). Without ",dsi0" the overlay drives DSI1, and the panel
+# stays dark. Includes the edt-ft5406 touch driver. Drop ",dsi0" only if the
+# ribbon moves to CAM/DISP 1 (H3).
 # AGL's own config.txt only loads vc4-kms-v3d-pi5,cma-256 and leaves the panel
 # off, so this line is what turns the display on.
-dtoverlay=vc4-kms-dsi-7inch
+dtoverlay=vc4-kms-dsi-7inch,dsi0
 
 # Pi 5 onboard RTC: charge the rechargeable cell on J5 (H20). Only with a
 # rechargeable cell fitted; never with a CR2032.

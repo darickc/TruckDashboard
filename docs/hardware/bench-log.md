@@ -75,7 +75,10 @@ Closes: H17 (Flutter 3.38.3 builds and runs the Linux desktop app on the Pi 5).
 
 Hardware: the Pi 5 from the 2026-11-01 entry, Raspberry Pi OS Lite (trixie).
 Original Raspberry Pi 7" touchscreen on **DSI1** (the connector next to the
-USB ports) with the 22-way to 15-way display cable. **No CarPiHAT fitted.**
+USB ports) with the 22-way to 15-way display cable. *Correction 2026-11-06:*
+the `dmesg` below shows the RP1's DSI0 (`1f00118000.dsi`) and touch on I2C
+bus 10 (`rp1/i2c@88000`, the DSI0 port's bus), so the panel is on DSI0
+(CAM/DISP 0). See the 2026-11-06 AGL display entry. **No CarPiHAT fitted.**
 `/boot/firmware/config.txt` unchanged (stock auto-detect, no overlay added).
 Picture reported by the owner; `dmesg` below, no photo.
 
@@ -103,7 +106,7 @@ compatibility matrix lists for the display ports. **UNVERIFIED** why (bus
 numbering or a mux on this kernel); check with `i2cdetect -l` if it matters
 for AGL. The dummy `iovcc` regulator warning did not stop the driver probing.
 
-Verdict: partial. The panel, cable and DSI1 work with stock Raspberry Pi OS
+Verdict: partial. The panel, cable and DSI0 (corrected, see above) work with stock Raspberry Pi OS
 configuration, and the touch controller probes [BENCH]. This does **not** show
 touch input, the dashboard under `cage` on the physical screen, or the ribbon clearing the HAT (H3).
 Closes: nothing. 3.5.1 stays open (touch, app on screen, HAT fit).
@@ -117,7 +120,7 @@ make pi-run                                        # app fullscreen under cage; 
 
 ## 2026-11-02 — Dashboard and touch on the 7" display [BENCH]
 
-Hardware and image as in the previous entry: original 7" display on DSI1,
+Hardware and image as in the previous entry: original 7" display on DSI0 (corrected),
 22-way to 15-way display cable, no CarPiHAT, stock `config.txt`. No MX+, no
 vehicle. Reported by the owner; no photo or screenshot.
 Run: `make pi-run` (simulator, transmits nothing), started on the Pi itself
@@ -517,3 +520,36 @@ does. The `-v8-16k` suffix is the kernel's local version (by its name, a
 reached the Pi, and what HDMI0 showed.
 Closes: the "(on the image)" half of the systemd-networkd and demo CAN rows
 in the compatibility matrix.
+
+## 2026-11-06 — 7" panel dark under AGL: the overlay was on the wrong DSI port [BENCH]
+
+Hardware: as in the previous entry, plus the original 7" display and the
+22-way to 15-way cable, as on Raspberry Pi OS. CAN adapter unplugged.
+Image: AGL 22.0.1 with Stage 1 deployed (`make deploy`, `--check` all ok),
+`dtoverlay=vc4-kms-dsi-7inch` (no port parameter, so DSI1).
+Read over SSH from the dev Mac.
+
+Result, before the fix (owner: the panel stays dark after the reboot):
+    card1 drm-rp1-dsi 1f00130000.dsi (DSI1), DSI-2 "connected", CRTC active
+    with agl-compositor's 800x480 XR24 framebuffer; the dashboard renders
+    (agl-screenshooter of DSI-2 shows the Home screen, simulated data)
+    backlight 11-0045: brightness 255, bl_power 0
+    edt_ft5x06 11-0038: touchscreen probe failed ... error -121
+    I2C bus 11 = rp1/i2c@80000; bus 10 = rp1/i2c@88000 (DT aliases)
+
+The backlight number proves nothing: the rpi-panel-attiny-regulator probe
+(rpi-6.18.y) only writes registers and never reads one back, so it binds
+with no panel on the bus. The touch controller's -121 (no ACK) shows nothing
+is on DSI1's I2C. The Raspberry Pi OS entry's `dmesg` (2026-11-02) has
+`1f00118000.dsi` and `edt_ft5x06 10-0038`: DSI0 and its bus.
+
+Fix: `dtoverlay=vc4-kms-dsi-7inch,dsi0` in `agl/boot/config-f250.txt`,
+installed with `stage1-setup.sh`, reboot. After:
+    drm-rp1-dsi 1f00118000.dsi: Attach DSI device name=tc358762 ... lanes=1
+    edt_ft5x06 10-0038 probes, no -121; input "10-0038 generic ft5x06 (79)"
+    card1-DSI-1 connected; agl-compositor, f250-dashboard, -gateway and
+    -recorder active; agl-screenshooter of DSI-1 shows the Home screen
+
+Verdict: partial. The software side works end to end on DSI0. Not yet
+confirmed: that the owner sees the picture on the panel, and that taps work.
+Closes: nothing yet (bench check: display).

@@ -75,12 +75,12 @@ our Pi. The HAT and the drive aren't chosen yet: **TODO** (owner).
 |---|---|---|---|
 | Cable | A **22-way to 15-way** FFC, the display type. A camera-type cable ties the I2C clock low and leaves the screen dark | V | [RPi display docs](https://www.raspberrypi.com/documentation/accessories/display.html), [linux#5813](https://github.com/raspberrypi/linux/issues/5813) |
 | Overlay | `dtoverlay=vc4-kms-dsi-7inch`. Defaults to DSI1; add `,dsi0` for port 0. Includes the edt-ft5406 touch driver. Parameters: `sizex`, `sizey`, `invx`, `invy`, `swapxy`, `disable_touch`. Needs `vc4-kms-v3d` | V | [overlays README](https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.12.y/arch/arm/boot/dts/overlays/README) |
-| Pi 5 port mapping | DSI0/DSI1 correspond to the CAM/DISP 0 and CAM/DISP 1 connectors | inferred | — |
+| Pi 5 port mapping | DSI0 is the RP1's `dsi@110000` (registers `1f00118000`) with I2C bus 10 (`rp1/i2c@88000`, i2c6); DSI1 is `dsi@128000` (`1f00130000`) with I2C bus 11 (`rp1/i2c@80000`, i2c4). That these are the CAM/DISP 0 and 1 connectors is inferred from the names | V (rp1.dtsi, the Pi's `/sys`) / inferred | [rp1.dtsi](https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.18.y/arch/arm64/boot/dts/broadcom/rp1.dtsi), [bench-log](bench-log.md) 2026-11-06 |
 | Backlight | Regulator-based (`raspberrypi,7inch-touchscreen-panel-regulator`, I2C 0x45). The Pi 5 uses i2c-4/i2c-6 for the display ports | V | [overlay dts](https://raw.githubusercontent.com/raspberrypi/linux/rpi-6.12.y/arch/arm/boot/dts/overlays/vc4-kms-dsi-7inch-overlay.dts), linux#5813 |
 | In the AGL image | The `vc4-kms-dsi-7inch.dtbo` overlay and the edt-ft5x06, tc358762, rpi-panel-attiny-regulator, rpi-backlight, panel-simple and drm-rp1-dsi modules. Rechecked in 22.0.1 | V | manifest |
 | Turned on by us | `dtoverlay=vc4-kms-dsi-7inch` in `agl/boot/config-f250.txt`, appended by `stage1-setup.sh`. Not tested | U | [agl.md](../setup/agl.md) |
 | Enabled in AGL `config.txt` | **No.** Only `vc4-kms-v3d-pi5,cma-256`. No `display_auto_detect`. `rpi-ft5406` is commented out | V | [AGL config.txt](https://download.automotivelinux.org/AGL/release/vimba/22.0.0/raspberrypi5/deploy/images/raspberrypi5/bootfiles/config.txt) |
-| On Raspberry Pi OS Lite (trixie, kernel 6.18) | **Works with no `config.txt` change** on DSI1: picture, backlight, touch (edt_ft5x06 at I2C 10-0038), and the app fullscreen under `cage` | T | [bench-log](bench-log.md), 2026-11-02 |
+| On Raspberry Pi OS Lite (trixie, kernel 6.18) | **Works with no `config.txt` change** on DSI0 (the 2026-11-02 entry said DSI1; its `dmesg` shows DSI0): picture, backlight, touch (edt_ft5x06 at I2C 10-0038), and the app fullscreen under `cage` | T | [bench-log](bench-log.md), 2026-11-02 |
 | Legacy `rpi-ft5406` needed | It shouldn't be with the KMS overlay | U | — |
 
 ## Raspberry Pi 5 onboard RTC

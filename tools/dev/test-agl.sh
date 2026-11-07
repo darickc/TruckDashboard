@@ -73,7 +73,7 @@ check "disables the demo homescreen"   "has_line '$L' 'systemctl disable --now f
 check "enables our services"           "has_line '$L' 'systemctl enable f250-gateway.service f250-recorder.service f250-dashboard.service'"
 check "config.txt keeps the original"  "cmp -s '$T/config.orig' '$R/boot/config.txt.agl-orig'"
 check "config.txt has one f250 block"  "[[ \$(count '$R/boot/config.txt' '# >>> f250') == 1 ]]"
-check "config.txt enables the DSI panel" "has_line '$R/boot/config.txt' 'dtoverlay=vc4-kms-dsi-7inch'"
+check "config.txt enables the DSI panel" "has_line '$R/boot/config.txt' 'dtoverlay=vc4-kms-dsi-7inch,dsi0'"
 check "config.txt keeps the image's lines" "has_line '$R/boot/config.txt' 'dtoverlay=vc4-kms-v3d-pi5,cma-256'"
 check "DAC8x overlay stays commented"  "! grep -qx 'dtoverlay=hifiberry-dac8x' '$R/boot/config.txt'"
 check "default settings installed"     "cmp -s agl/rootfs/etc/default/f250 '$R/etc/default/f250'"
@@ -109,7 +109,7 @@ check "no networkd reload"             "! grep -q 'networkctl' '$L'"
 check "no can0 change when absent"     "! grep -q '^ip ' '$L'"
 
 echo "stage1-setup: an older f250 block is replaced"
-sed -i.bak 's/^dtoverlay=vc4-kms-dsi-7inch$/dtoverlay=vc4-kms-dsi-7inch,dsi0/' "$R/boot/config.txt"
+sed -i.bak 's/^dtoverlay=vc4-kms-dsi-7inch,dsi0$/dtoverlay=vc4-kms-dsi-7inch/' "$R/boot/config.txt"
 setup "$R" >/dev/null 2>&1 || fail "apply over an old block exited non-zero"
 check "old block replaced"             "cmp -s '$T/config.after1' '$R/boot/config.txt'"
 
