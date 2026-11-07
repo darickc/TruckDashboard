@@ -650,3 +650,28 @@ Result:
 Verdict: works. Logs from before a reboot or a power-off can now be read.
 Note the previous boot's first entry is dated 2026-10-27 (the image's build
 time): no RTC cell, so early boot timestamps are wrong until network time.
+
+## 2026-11-06 — AGL bring-up checks 4 and 6: backlight, gateway and recorder [BENCH]
+
+Hardware and image as in the previous entry. Simulated data (TRANSPORT=sim).
+
+Result:
+    4 Backlight  The owner ran `echo 60 > /sys/class/backlight/10-0045/brightness`
+                 and back to 255; no problem reported. Afterwards brightness,
+                 actual_brightness 255, bl_power 0. systemd-backlight@backlight:10-0045
+                 saves and restores the level across boots
+    6 Gateway    f250-gateway and f250-recorder active. obd-console (no
+                 options, finds /run/f250/vehicle.sock) lists the signals
+                 with live simulated values (seen earlier the same day).
+                 /var/lib/f250/: telemetry.sqlite 7.7 MB, -wal 4.3 MB,
+                 f250:f250 0640, updated 02:40 (the recorder writes).
+                 No sqlite3 on the image to count rows
+
+Verdict: works. Check 6: the gateway serves the API on the AGL socket and
+the recorder writes to the SD card. Check 4: the sysfs path takes writes; the
+dimming itself was reported by the owner, not measured. Note for Phase 6.7
+dimming: systemd-backlight restores the last level at boot, so a level the
+dashboard sets at night comes back on the next start.
+Closes: agl.md checks 4 and 6. With 1, 2, 3, 5, 7, 8 and 9 earlier today,
+every bring-up check that needs no extra hardware passes; 10 (DAC8x) and
+11 (NVMe) wait for the HATs.

@@ -165,7 +165,8 @@ image yet.
       and agl-compositor restart as a pair: the compositor aborts on a second homescreen client (ADR-0016 addendum).
       Also passed: 7 (Power button), 8 (CAN listen-only with the adapter), 9 (RTC, no cell yet).
       The journal is now kept on the SD card (50 MB cap), so `journalctl -b -1` works after a reboot.
-      Still open: checks 4 and 6, then 10–11 once those HATs arrive ([agl.md](setup/agl.md#5-bring-up-checks-phase-52))
+      Checks 4 (backlight) and 6 (gateway, recorder) pass too. Still open: 10–11 once those HATs arrive
+      ([agl.md](setup/agl.md#5-bring-up-checks-phase-52))
 - [~] 5.3 Fallback procedure written ([agl.md §6](setup/agl.md#6-fallback-is-it-the-hardware-or-agl)): the same
       diagnose script on both cards, a fault table, HDMI0, `--restore-demo`. Not exercised
 - [ ] 5.4 `agl/meta-f250`: waits for the build host. The Stage 1 files in `agl/rootfs/` are written to be reused by it
