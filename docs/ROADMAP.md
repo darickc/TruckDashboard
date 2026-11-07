@@ -180,7 +180,7 @@ Guide: [setup/agl.md](setup/agl.md). Stage 1 runs on the Pi with AGL 22.0.1
       `make logs PI=`, `make agl-image`, flashing docs. The arm64 build works on the Mac; the gateway,
       recorder and `obd-console` ran against each other in an arm64 container `[SIM]`
       ([ADR-0016](architecture/adr/0016-stage1-sideload-layout.md)). `make deploy` works against the Pi with AGL 22.0.1
-      **[BENCH]** (2026-11-06, several deploys). `make logs` not run against it yet
+      **[BENCH]** (2026-11-06, several deploys), and so does `make logs`
 
 ## Phase 6 — Infotainment
 

@@ -12,7 +12,7 @@
 # recorder database's size (not the database: copy it with scp when needed);
 # the kernel log.
 #
-# Status: [SIM]. Not run on the AGL image yet.
+# Status: [BENCH] on AGL 22.0.1 through `make logs` (bench-log 2026-11-06).
 set -uo pipefail
 
 OUT="${OUT:-/var/tmp}"

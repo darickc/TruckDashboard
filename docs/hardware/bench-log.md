@@ -707,3 +707,20 @@ hanging. What this does not show: the progress gate itself (a gateway whose
 watchdog task runs while its control loop is stuck); SIGSTOP freezes both.
 That logic is covered by tests `[SIM]` (`crates/sd-notify`). Each watchdog
 kill leaves a core dump (`coredumpctl list`); systemd-coredump's limits apply.
+
+## 2026-11-06 — `make logs` against the AGL Pi [BENCH]
+
+Hardware and image as in the previous entry, right after the watchdog test.
+Setup: `make logs PI=raspberrypi5.local` from the dev Mac.
+
+Result:
+    build/logs/f250-logs-raspberrypi5-20261107-025718.tar.gz, 34 KB:
+    journals (f250-gateway, -recorder, -dashboard, agl-compositor, the masked
+    KUKSA units, networkd, logind; two boots), kernel logs of both boots,
+    setup-check.txt (--check, all ok), services.txt (systemctl status),
+    can.txt (can0 DOWN, gs_usb, STOPPED), recorder.txt (telemetry.sqlite
+    9.3 MB, f250:f250), storage.txt, system.txt, /etc/default/f250.
+    journal-f250-gateway.txt has the watchdog kill from the previous entry
+
+Verdict: works. The collection script runs on the AGL image and the archive
+comes back with every section filled. Nothing on the Pi was changed.
