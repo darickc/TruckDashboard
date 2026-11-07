@@ -135,8 +135,9 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
       the truck's captures; compiled and unit-tested on the Pi 5. Adapter arrived with slcan firmware,
       which can't do listen-only; flashed with Candlelight 2.5, now `can0` under `gs_usb`, listen-only accepted `[BENCH]`. Terminator and
       breakout checked on the bench; DLC 6–14 ≈ 62 Ω; 6–14 still ≈ 60 Ω with the adapter connected; listen-only captures on the truck `[TRUCK]`.
-      Still open: the 5V-terminal check; one unexplained 122 s dropout (capture now logs kernel messages and
-      counters to catch the next), [docs/setup/can.md](setup/can.md)
+      The "dropouts" were the Pi's wall clock jumping forward after boot (no RTC battery), not lost frames;
+      capture now checks the wall clock against the monotonic one. Still open: the 5V-terminal check,
+      [docs/setup/can.md](setup/can.md)
 - [ ] 4.2 `tools/can-monitor`
       Capture side is `tools/pi/can.sh` (listen-only, bitrate, candump with error frames, counters, gap report).
       Analysis `[SIM]`: `tools/can-monitor census|pids|correlate` reads candump logs, decodes PID answers with
@@ -152,7 +153,9 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
       drive and VERIFICATION_LOG entries before any decoder. [CAN_CENSUS.md](diagnostics/CAN_CENSUS.md)
 - [ ] 4.5 Stage C: ISO-TP diagnostics (opt-in). Our own single-frame ISO-TP instead of kernel `can-isotp` (ADR-0012)
 - [ ] 4.6 Stage D: transport switching and the no-simultaneous-transmit rule, MX+ and CAN both present
-- [ ] 4.7 Dropout experiment (listen-only CAN capture while the MX+ polls)
+- [x] 4.7 Dropout experiment (listen-only CAN capture while the MX+ polls) `[TRUCK]` 2026-11-07: the PCM's EOT answer
+      was on the bus (+39.5 ms); the MX+ closed its window after the TCM's refusal (+6.4 ms). 1 of 104. Possible MX+
+      fix (`ATCRA` for pinned requests) untested. [CAN_CENSUS.md](diagnostics/CAN_CENSUS.md)
 - [ ] 4.8 Finish whatever 3.5 left open in `TRUCK_SESSION.md`, over direct CAN
 
 ## Phase 5 — AGL deployment [HW]

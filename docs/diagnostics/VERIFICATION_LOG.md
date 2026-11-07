@@ -349,6 +349,24 @@ from this session are in `crates/elm/tests/captures.rs`
 (`eot_capture_pinned_to_pcm`, `eot_capture_tcm_negative_only`). `[SIM]` only:
 not yet re-run on the truck.
 
+## 2026-11-07 — EOT dropout seen on the wire; the pin works [TRUCK]
+
+Idle in the driveway, warm, 74 s. The MX+ polled with EOT enabled while the
+USB CAN adapter captured the bus listen-only through a Y-splitter
+([CAN_CENSUS](CAN_CENSUS.md), capture 6). Pi at `eebd9fd`.
+
+- All 104 EOT requests were answered by the PCM on the wire (`7E8 05 62 13 10
+  …`), each after the TCM's refusal (`7E9 03 7F 22 12`).
+- The MX+ relayed one of them without the PCM's line: TCM refusal at +6.4 ms
+  on the wire, PCM answer at +39.5 ms, but the adapter had already printed
+  its prompt. **The answer was on the bus; the ELM's window closed early.**
+  This confirms the explanation above.
+- The pin worked: the gateway logged `eot: ACTIVE → SUSPECT (NoResponse ×1)`,
+  one ordinary miss, no quarantine. EOT read 53.71–53.83 °C, ECT 52 °C.
+
+EOT stays `IMPORTED_UNVERIFIED`: this checks the transport and the responder,
+not the scaling.
+
 ## Open questions for the next session
 
 1. ~~**Who is 7E9?**~~ **ANSWERED: the TCM.** It owns `22 1674` (transmission

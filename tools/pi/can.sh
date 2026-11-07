@@ -165,16 +165,23 @@ case "${1:-status}" in
     # 0:0 passes every data frame; #FFFFFFFF passes every error class.
     # candump -l writes candump-<date>.log (timestamps, ID#data) in the cwd.
     # Alongside the frames: kernel messages, and the interface's counters every
-    # 5 s. A silence in the log (2026-11-07: 122 s with no frames while the
-    # engine idled) can then be told apart: USB or driver trouble shows in
-    # kernel.log; flat RX counts with no messages point at the adapter or the
-    # wiring. The Pi's journal is volatile, so this is the only copy.
+    # 5 s with the uptime (the monotonic clock). A silence in the frame times
+    # can then be told apart:
+    #   - the wall clock jumped: candump stamps frames with the wall clock, and
+    #     without the RTC battery the Pi boots at its last shutdown time and
+    #     jumps forward when NTP answers (2026-11-07: both "silences" were
+    #     this; RX counts and uptime kept pace, no frame was lost)
+    #   - USB or driver trouble: messages in kernel.log
+    #   - the adapter or the wiring: RX counts flat, no messages
+    # The Pi's journal is volatile, so this is the only copy.
+    up() { cut -d' ' -f1 /proc/uptime; }
+    up0="$(up)"; wall0="$(date +%s.%N)"
     journalctl -k -f -n 0 -o short-iso >"$dir/kernel.log" 2>&1 &
     jpid=$!
     (
       sys="/sys/class/net/$CAN_IF/statistics"
       while sleep 5; do
-        printf '%s rx_packets %s rx_dropped %s %s\n' "$(date +%T)" \
+        printf '%s uptime %s rx_packets %s rx_dropped %s %s\n' "$(date +%T)" "$(up)" \
           "$(cat "$sys/rx_packets" 2>/dev/null)" "$(cat "$sys/rx_dropped" 2>/dev/null)" \
           "$(ip -details link show "$CAN_IF" 2>&1 | grep -o -E 'state (ERROR-[A-Z]+|BUS-OFF|STOPPED|SLEEPING)|berr-counter tx [0-9]+ rx [0-9]+' | paste -sd' ')"
       done
@@ -187,12 +194,24 @@ case "${1:-status}" in
       gaps="$(awk '{ t = substr($1, 2, length($1) - 2) + 0
                      if (n++ && t - p > 1) printf "  %.1f s with no frames, from +%.1f s\n", t - p, p - t0
                      if (n == 1) t0 = t; p = t }' "$dir"/candump-*.log 2>/dev/null)"
+      # Wall clock against the monotonic clock over the whole capture.
+      jump="$(awk -v w0="$wall0" -v w1="$(date +%s.%N)" -v u0="$up0" -v u1="$(up)" \
+        'BEGIN { j = (w1 - w0) - (u1 - u0); if (j > 2 || j < -2) printf "%+.1f", j }')"
       {
         echo "--- after"; details
-        echo "gaps over 1 s:"; echo "${gaps:-  none}"
+        echo "gaps over 1 s (wall-clock frame times):"; echo "${gaps:-  none}"
+        if [[ -n "$jump" ]]; then
+          echo "clock:     the wall clock moved $jump s more than the monotonic clock (set by NTP?); a gap of about that size is a clock jump, not lost frames"
+        else
+          echo "clock:     no wall-clock jump"
+        fi
         echo "stopped:   $(date -Iseconds)"
       } >>"$dir/session.txt"
-      [[ -n "$gaps" ]] && warn "frames stopped during the capture:"$'\n'"$gaps"
+      if [[ -n "$jump" ]]; then
+        warn "the wall clock jumped $jump s during the capture: frame times have a gap that size (no frames lost)"
+      elif [[ -n "$gaps" ]]; then
+        warn "frames stopped during the capture:"$'\n'"$gaps"
+      fi
       echo "Saved in $dir"
       ls -l "$dir"
     }

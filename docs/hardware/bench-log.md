@@ -799,3 +799,33 @@ report in `session.txt`, and warns when frames stopped. Tested piecewise on
 the Pi; not yet in a real capture.
 Closes: the DLC 6–14 check with the adapter connected.
 Open: the cause of the dropout; the 5V terminal check.
+
+## 2026-11-07 — Correction: the CAN "dropouts" were wall-clock jumps [TRUCK]
+
+The 122 s "silence" in the idle capture (entry above) was not a dropout.
+Session `20261107-131852-obdlink` (MX+ polling, `CAPTURE=1`) showed the same
+thing, a 391.6 s gap in the frame times, while the capture's `counters.log`
+jumped from 13:19:02 straight to 13:25:39 with only about 5 s of frames
+counted in between. Nothing stopped: the Pi's wall clock jumped forward, and
+candump stamps frames with the wall clock. The idle capture likewise holds
+exactly 120 s of frames, the length `capture 120` records.
+
+Why the clock jumps, from this boot's journal:
+
+    rpi-rtc: setting system clock to 1970-01-01T00:00:09 UTC (9)
+    systemd: System time advanced to timestamp on /var/lib/systemd/timesync/clock: 13:28:41
+    systemd-timesyncd: Initial clock synchronization to 13:32:09
+
+`/sys/class/rtc/rtc0/battery_voltage` reads 0 and `charging_voltage` 0: no
+working RTC battery, charging not enabled. So each boot starts at the last
+shutdown time, and the clock jumps forward by however long the Pi was off
+when NTP answers (here, on home Wi-Fi in the driveway). Away from Wi-Fi the
+clock stays behind for the whole drive.
+
+Verdict: the adapter, USB and wiring path have not lost frames in any
+capture. `can.sh capture` now records the uptime in `counters.log` and
+compares the wall clock with the monotonic clock at the end, so a jump is
+labelled as one. Fix for the clock itself: the RTC battery and
+`dtparam=rtc_bbat_vchg=3000000` ([Clock](../setup/raspberry-pi.md#clock),
+H20).
+Closes: the "unexplained dropout" from the entry above.

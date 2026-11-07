@@ -19,9 +19,11 @@ Rules for this page:
 | # | When | Truck state | Length | Frames | Errors | Log |
 |---|---|---|---|---|---|---|
 | 1 | 2026-11-06 09:07 | Key on, engine off (owner) | 120 s | 85 390 (712/s) | 0 | `20261106-090751-candump` |
-| 2 | 2026-11-07 11:34 | Engine idling, parked. Right turn signal, left turn signal, then P→R→P twice (owner; actions not timestamped) | 242 s, of which **122 s had no frames** | 85 392 | 0 | `20261107-113429-candump` |
+| 2 | 2026-11-07 11:34 | Engine idling, parked. Right turn signal, left turn signal, then P→R→P twice (owner; actions not timestamped) | 120 s (wall clock: 242 s, a 122 s clock jump) | 85 392 | 0 | `20261107-113429-candump` |
 | 3 | 2026-11-07 11:38 | Driving (owner) | 120 s | 85 390 (712/s) | 0 | `20261107-113837-candump` |
 | 4 | 2026-11-07 13:01 | Driving, the MX+ polling on a Y-splitter (`make pi-start TRANSPORT=obdlink TRANSMIT=1 CAPTURE=1`) | 345 s | 258 551 (749/s) | 0 | `20261107-130116-obdlink/candump` |
+| 5 | 2026-11-07 13:18 | Idle, MX+ polling, no EOT | 32 s (wall clock: 424 s, a 391.6 s clock jump) | 23 994 | 0 | `20261107-131852-obdlink/candump` |
+| 6 | 2026-11-07 13:27 | Idle in the driveway, MX+ polling with EOT (`… CAPTURE=1 ENABLE=eot`) | 74 s | 55 488 (749/s) | 0 | `20261107-132726-obdlink/candump` |
 
 ## Capture 1: key on, engine off [TRUCK]
 
@@ -74,18 +76,19 @@ check it against the full value in the raw log).
 Same 14 IDs at the same rates; error-active before and after, counters at 0,
 no error frames.
 
-**A 122 s silence.** From +105.0 s to +227.4 s the log has no frames at all,
-and the kernel's RX count agrees (85 403 frames in the whole 242 s), so frames
-stopped reaching the Pi; candump didn't miss them. The truck didn't go quiet:
-the values just before and just after the silence are the same steady idle
-(e.g. `201` bytes 0–1 ≈ 780 both sides), with no wake-up pattern. The
-interface wasn't reset (its counters continue) and reported no error state.
-Cause **unknown**: an adapter or USB stall, or a wiring contact, are the
-candidates. The Pi's journal is volatile and the Pi was powered off after the
-drive, so its kernel log is gone. `tools/pi/can.sh capture` now records
-`kernel.log`, `counters.log` (every 5 s) and a gap report with each capture.
-Captures 1 and 3 had no gap over 20 ms. All the actions happened before the
-silence.
+**A 122 s jump in the frame times, not a dropout.** From +105.0 s to
++227.4 s the log has no frames, but none were lost: the capture holds exactly
+120 s of frames (85 392 at 712/s, the length `capture 120` records), and the
+values either side of the jump are the same steady idle. The Pi's **wall
+clock jumped forward** 122 s while candump ran, and candump stamps frames with
+the wall clock. Shown on 2026-11-07 13:18 (capture 5): the same kind of
+"silence", 391.6 s, while `counters.log` (5 s samples) jumped from 13:19:02
+straight to 13:25:39 with only about 5 s of frames counted in between. The
+Pi's RTC has no working battery (it boots at 1970, systemd sets the last
+shutdown time, and NTP then jumps the clock forward by however long the Pi
+was off: [bench-log](../hardware/bench-log.md), H20). `can.sh capture` now
+records the uptime in `counters.log` and compares the wall clock with the
+monotonic clock at the end. All the actions happened before the jump.
 
 ### Reverse: found (event-matched candidates)
 
@@ -215,7 +218,38 @@ EOT wasn't polled (no `ENABLE=eot`), so the EOT dropout experiment (Phase
 4.7) is still to do; this drive had no dropouts on `trans_temp`, the other
 signal that two modules answer and that is pinned to one of them.
 
-## What captures 1–4 settle
+## Capture 6: the EOT dropout, seen on the wire [TRUCK]
+
+Idle, warm (ECT 52 °C, EOT 53.7–53.8 °C, trans 44.9 °C), the MX+ polling
+everything including EOT (`22 13 10`). 970 requests, all matched one for one
+between the gateway's traffic log and the wire. On the wire **every one of the
+104 EOT requests got the PCM's answer** (`7E8 62 13 10 …`), and the TCM's
+refusal (`7E9 7F 22 12`). The gateway logged one miss (`eot: ACTIVE → SUSPECT
+(NoResponse ×1)`). That request, #189:
+
+```
+MX+ (gateway clock, includes Bluetooth)      wire (candump)
+  18677 TX 221310                              +0.0 ms  7DF 03 22 13 10 …
+  +12 ms RX 7E9037F2212                        +6.4 ms  7E9 03 7F 22 12 …
+  +42 ms RX >      (window closed)             +39.5 ms 7E8 05 62 13 10 24 A0 …
+```
+
+The PCM answered at +39.5 ms, within its usual time (capture 4: up to
+40.7 ms), but the MX+ had already closed its window after the TCM's early
+refusal (adaptive timing, `ATAT1`). So the 2026-11-03 explanation
+(VERIFICATION_LOG) is confirmed on the wire: the answer was on the bus, the
+ELM cut it off. One miss in 104, the same rate as on 11-03. Since EOT is
+pinned to 7E8 it costs one reading (`SUSPECT`), not a 60 s quarantine.
+
+Not fixed on the MX+: an ELM receive filter (`ATCRA 7E8`) for pinned
+requests should make the adapter ignore the TCM's refusal and wait for the
+PCM. UNVERIFIED until tried on the truck. The CAN transport doesn't have the
+problem: it waits its own 50 ms window.
+
+EOT against the broadcasts: idle at a steady temperature, so no field can be
+fitted. That needs a warm-up drive.
+
+## What captures 1–6 settle
 
 - **500 kbit/s is right** and the adapter, wiring and listen-only setup work
   on the truck: 85 390 frames, no errors, counters at 0.
@@ -223,8 +257,10 @@ signal that two modules answer and that is pinned to one of them.
 - Reverse is on HS-CAN (candidates above), so the reversing camera can come
   from a broadcast once a decoder is corroborated (Stage B).
 - Turn signals: probably not on HS-CAN (one trial).
-- The adapter path can drop out silently (capture 2). Each capture now carries
-  the evidence needed to say why next time. Capture 4 (345 s) had no silence.
+- The adapter path didn't drop out: both "silences" (captures 2 and 5) were
+  the Pi's wall clock jumping forward after boot. No capture lost frames.
+- The MX+'s EOT misses are the ELM closing its window early; the PCM's answer
+  was on the bus (capture 6).
 - RPM, speed, ECT, load and trans temp are broadcast, and their scaling agrees
   with the PIDs on one drive (capture 4).
 - Every module answered within 41 ms: the 50 ms CAN window is enough.
@@ -238,5 +274,5 @@ signal that two modules answer and that is pinned to one of them.
 - The [event captures](../setup/can.md#event-captures-turn-signals-and-reverse),
   one action per capture, to settle the turn signals (H14) and confirm
   reverse and brake.
-- The EOT dropout experiment beside the MX+ (Phase 4.7): the same capture with `ENABLE=eot`.
+- A warm-up drive with `ENABLE=eot`, to look for EOT among the broadcasts.
 - Record the truck state (key position, engine) with each capture.
