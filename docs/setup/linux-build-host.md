@@ -28,14 +28,14 @@ make agl-build
 | Command | What it does |
 |---|---|
 | `make build-vm` | Create (once) and start the `agl-build` VM: Ubuntu 24.04 aarch64, 12 CPUs, 32 GiB RAM, a 420 GiB sparse disk. Everything Lima keeps lives in `/Volumes/External/lima`. Then runs `agl/scripts/setup-build-host.sh` in it |
-| `make agl-build` | Runs `agl/scripts/agl-build.sh` in the VM: `repo` fetches AGL-repo's `vimba_<release>.xml` at the release tag, `aglsetup.sh -m raspberrypi5 agl-demo agl-devel`, then `bitbake agl-ivi-demo-flutter`. Log in `~/agl/logs/` in the VM |
+| `make agl-build` | Runs `agl/scripts/agl-build.sh` in the VM: `repo` fetches AGL-repo's `vimba_<release>.xml` at the release tag, `aglsetup.sh -m raspberrypi5 agl-demo agl-devel`, adds [`agl/meta-f250`](../../agl/meta-f250/README.md) at this checkout's HEAD commit, then `bitbake agl-f250`. It stops if the checkout has uncommitted changes. Log in `~/agl/logs/` in the VM |
 | `make build-vm CMD=shell` | A shell in the VM. The repo is mounted read-only at the same path |
 | `make build-vm CMD=status` | VM state, disk and memory |
 | `make build-vm CMD=stop` | Stop the VM and free its RAM. Its disk stays on the drive |
 | `make build-vm CMD=delete` | Delete the VM and everything built in it |
 
 `VM_CPUS`, `VM_MEMORY` and `VM_DISK` size the VM when it is created.
-`agl-build.sh` takes `FEATURES`, `TARGET`, `THREADS`, `JOBS` and `KEEP_WORK=1`
+`agl-build.sh` takes `FEATURES`, `TARGET` (`agl-f250`; `agl-ivi-demo-flutter` is AGL's own image), `F250_LAYER=0`, `F250_ALLOW_DIRTY=1`, `THREADS`, `JOBS` and `KEEP_WORK=1`
 (see the script header). On a Linux PC, run the two `agl/scripts/` scripts
 directly.
 

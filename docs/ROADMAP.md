@@ -205,7 +205,12 @@ Guide: [setup/agl.md](setup/agl.md). Stage 1 runs on the Pi with AGL 22.0.1
       ([agl.md](setup/agl.md#5-bring-up-checks-phase-52))
 - [~] 5.3 Fallback procedure written ([agl.md §6](setup/agl.md#6-fallback-is-it-the-hardware-or-agl)): the same
       diagnose script on both cards, a fault table, HDMI0, `--restore-demo`. Not exercised
-- [ ] 5.4 `agl/meta-f250`: the build host works and its image boots (5.1); next, start the layer. The Stage 1 files in `agl/rootfs/` are written to be reused by it.
+- [~] 5.4 `agl/meta-f250` ([ADR-0017](architecture/adr/0017-meta-f250-layer.md)): image `agl-f250` = the Flutter demo
+      image without its homescreen, plus `f250-system` (Stage 1's steps as files: units, CAN masks, user, journal,
+      `config.txt` block), `f250-services` (Rust 1.96.1 from the AGL tree; crate list from `Cargo.lock`) and
+      `f250-dashboard` (meta-flutter's `flutter-app`). Same paths as Stage 1, built from a commit. Parses in the build
+      VM (2026-11-07); not built or booted yet. Still to do: build and boot it, then trim the demo apps, drop
+      `agl-devel`, udev rules and unit hardening.
       Done ahead of it: the service watchdogs. `crates/sd-notify` (systemd's notify protocol, no `unsafe`); the
       gateway and recorder are `Type=notify` with `WatchdogSec=60` / `30`, and send keep-alives only while their loops
       make progress ([diagnostic-recovery.md](architecture/diagnostic-recovery.md)). The recorder's waits on the gateway

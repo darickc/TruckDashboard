@@ -274,6 +274,45 @@ if [[ "$(uname -s)" != Linux ]]; then
 fi
 check "build uses the release's pinned manifest" "grep -q -- '-m \"\${AGL_BRANCH}_\${AGL_RELEASE}.xml\"' agl/scripts/agl-build.sh && grep -q -- '-b \"refs/tags/\$AGL_BRANCH/\$AGL_RELEASE\"' agl/scripts/agl-build.sh"
 
+# meta-f250 (Phase 5.4): the layer must give the image what stage1-setup.sh
+# gives the prebuilt one, so --check means the same on both.
+echo "meta-f250"
+M=agl/meta-f250
+SYSBB=$M/recipes-f250/f250-system/f250-system.bb
+check "crate list matches Cargo.lock"  "python3 tools/dev/gen-crates-inc.py --check"
+# The bbappend's config.txt step, run on the fake image's config.txt, writes
+# what stage1-setup.sh's apply wrote ($R from the first apply above).
+mkdir -p "$T/deploy/bootfiles" "$T/unpack"
+cp "$T/config.orig" "$T/deploy/bootfiles/config.txt"
+cp agl/boot/config-f250.txt "$T/unpack/"
+sed -n '/^f250_config_txt() {/,/^}/p' $M/recipes-bsp/bootfiles/rpi-config_git.bbappend >"$T/cfgfn.sh"
+( DEPLOYDIR="$T/deploy" BOOTFILES_DIR_NAME=bootfiles UNPACKDIR="$T/unpack"
+  . "$T/cfgfn.sh"; f250_config_txt; f250_config_txt ) 2>/dev/null
+check "config.txt: same as stage1-setup.sh" "cmp -s '$T/deploy/bootfiles/config.txt' '$R/boot/config.txt'"
+for u in kuksa-can-provider.service can-dev-helper.service; do
+  check "image masks $u" "grep -q 'for u in kuksa-can-provider.service can-dev-helper.service' '$SYSBB' && grep -q '$u' '$SETUP'"
+done
+# Every [Install] WantedBy= of every unit in agl/rootfs is an f250_wants line.
+for unit in agl/rootfs/etc/systemd/system/*.service agl/rootfs/etc/systemd/system/*.mount; do
+  [[ -f "$unit" ]] || continue
+  name="$(basename "$unit")"
+  for tgt in $(sed -n 's/^WantedBy=//p' "$unit"); do
+    check "image enables $name for $tgt" "grep -qx '    f250_wants $tgt $name' '$SYSBB'"
+  done
+done
+check "units stage1 enables have [Install]" "for u in f250-gateway f250-recorder f250-dashboard; do grep -q '^WantedBy=' agl/rootfs/etc/systemd/system/\$u.service || exit 1; done"
+check "static IDs for f250"            "grep -qx 'f250::950:950:F-250 head unit services:/var/lib/f250:/bin/false' $M/files/f250-passwd && grep -qx 'f250::950:' $M/files/f250-group"
+check "agl-driver joins f250"          "grep -qx 'GROUPMEMS_PARAM:\${PN} = \"-a agl-driver -g f250\"' $M/recipes-config/agl-users/agl-users_%.bbappend"
+check "image drops the demo homescreen" "grep -qx 'AGL_APPS_INSTALL:remove = \"flutter-ics-homescreen\"' $M/recipes-platform/images/agl-f250.bb"
+for p in f250-system f250-services f250-dashboard; do
+  check "image installs $p" "grep -qx '    $p \\\\' $M/recipes-platform/images/agl-f250.bb"
+done
+check "services: the binaries deploy.sh builds" "grep -q -- '-p vehicle-gateway -p recorder -p obd-console --features vehicle-gateway/rfcomm' $M/recipes-f250/f250-services/f250-services.bb && grep -q -- '-p vehicle-gateway --features rfcomm' tools/dev/deploy.sh"
+check "dashboard: deploy.sh's defines"  "grep -q -- '-DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock' $M/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -q -- '--dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:\$SOCK' tools/dev/deploy.sh"
+check "dashboard: bundle name is the app's" "grep -qx 'PUBSPEC_APPNAME = \"f250_infotainment\"' $M/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -qx 'name: f250_infotainment' apps/infotainment/pubspec.yaml && grep -q '^APP_ID=f250_infotainment$' '$SETUP'"
+check "layer builds a commit, not the tree" "grep -q 'F250_ALLOW_DIRTY' agl/scripts/agl-build.sh && grep -q 'F250_SRCREV = \"\$rev\"' agl/scripts/agl-build.sh"
+check "recipes fail without the commit pin" "grep -q 'SkipRecipe' $M/conf/include/f250-source.inc"
+
 echo
 echo "agl-test: $PASS passed, $FAIL failed"
 [[ "$FAIL" == 0 ]]

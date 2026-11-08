@@ -16,7 +16,11 @@ members = [
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.99"
+# The oldest Rust the workspace must build with: the AGL 22.0.1 tree's Rust
+# (meta-lts-mixins_rust, 1.96.1), which builds the services into the image
+# (agl/meta-f250). Development uses rust-toolchain.toml; clippy's
+# incompatible_msrv lint keeps newer std APIs out.
+rust-version = "1.96"
 license = "UNLICENSED"
 publish = false
 

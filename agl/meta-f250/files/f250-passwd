@@ -1,0 +1,3 @@
+# Static IDs for meta-f250 (AGL builds with USERADD_ERROR_DYNAMIC = "error").
+# 950 is free in meta-agl-core/files/passwd and group (AGL 22.0.1).
+f250::950:950:F-250 head unit services:/var/lib/f250:/bin/false

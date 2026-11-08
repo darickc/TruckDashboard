@@ -4,8 +4,9 @@ Phase 5. Stage 1 of the bring-up ([ADR-0005](../docs/architecture/adr/0005-stage
 the prebuilt AGL Vimba Pi 5 Flutter image, plus our services and dashboard
 copied onto it by `make deploy`. How to use it: [docs/setup/agl.md](../docs/setup/agl.md).
 
-**Status:** written and tested in simulation (`make agl-test`); nothing here
-has run on the AGL image yet.
+**Status:** Stage 1 runs on the Pi with AGL 22.0.1, the prebuilt image and
+the one built from source **[BENCH]** (bench log, 2026-11-06 and 2026-11-07).
+`make agl-test` covers the scripts and the layer in simulation.
 
 | Path | What | Used by |
 |---|---|---|
@@ -18,12 +19,15 @@ has run on the AGL image yet.
 | `scripts/storage.sh` | Runs on the Pi as `f250-storage`: the data drive's `status`, and `format` (erases; asks first) | by hand ([agl.md](../docs/setup/agl.md#data-drive-nvme-hat-or-usb-ssd)) |
 | `scripts/collect-logs.sh` | Runs on the Pi: journals, CAN state, setup check | `make logs` |
 | `scripts/fetch-image.sh` | Runs on the Mac: download, verify and decompress the image | `make agl-image` |
+| `scripts/setup-build-host.sh`, `scripts/agl-build.sh` | Run on the Linux build host: prepare it, then build `agl-f250` with `meta-f250` | `make build-vm`, `make agl-build` |
+| `meta-f250/` | The Yocto layer (below) | `agl-build.sh` |
 
 The layout on the Pi, and why: [ADR-0016](../docs/architecture/adr/0016-stage1-sideload-layout.md).
 
-## Not here yet
+## meta-f250
 
-- `meta-f250/`, the Yocto layer for our own image (Phase 5.4). It needs the
-  Linux build host ([ADR-0004](../docs/architecture/adr/0004-linux-build-host.md)).
-  It should install the files in `rootfs/` and `boot/` rather than copy them,
-  and leave `kuksa-can-provider` and `can-dev-helper` out of the image.
+[`meta-f250/`](meta-f250/README.md) is the Yocto layer for our own image
+(Phase 5.4, [ADR-0017](../docs/architecture/adr/0017-meta-f250-layer.md)).
+It builds `rootfs/`, `boot/` and `flutter/` into the image at the same paths,
+so the same `stage1-setup.sh --check` applies. `make agl-build` builds it in
+the build VM ([ADR-0004](../docs/architecture/adr/0004-linux-build-host.md)).

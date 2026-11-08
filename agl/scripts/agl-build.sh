@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Build the pinned AGL release from source on the build host (Phase 5.4).
+# Build the head unit image from source on the build host (Phase 5.4): the
+# pinned AGL release plus this repository's layer, agl/meta-f250.
 # Runs on the Linux build host (the Lima VM from `make build-vm`, or a PC);
 # prepare it first with agl/scripts/setup-build-host.sh.
 #
@@ -10,9 +11,16 @@
 # Environment:
 #   AGL_TOP     where the layers, downloads, sstate and build live ($HOME/agl)
 #   FEATURES    aglsetup.sh features ("agl-demo agl-devel")
-#   TARGET      bitbake target (agl-ivi-demo-flutter, the image the bench Pi runs)
+#   TARGET      bitbake target (agl-f250; agl-ivi-demo-flutter is AGL's own)
+#   F250_LAYER=0  leave meta-f250 out (only AGL's images build then)
+#   F250_ALLOW_DIRTY=1  build although the checkout has uncommitted changes
 #   THREADS     BitBake tasks at once (8); JOBS make -j per task (nproc)
 #   KEEP_WORK=1 keep each recipe's work directory (no rm_work; much more disk)
+#
+# meta-f250 builds the head unit's software from this checkout's HEAD commit
+# (F250_REPO, F250_SRCREV in site.conf), while BitBake reads the layer's
+# recipes from the working tree. Uncommitted changes would mix the two, so
+# the build stops unless F250_ALLOW_DIRTY=1.
 #
 # The release, branch and machine come from agl/configurations/vimba.env.
 # The manifest is AGL-repo's vimba_<release>.xml at the release tag; on
@@ -30,7 +38,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE="${1:-build}"
 AGL_TOP="${AGL_TOP:-$HOME/agl}"
 FEATURES="${FEATURES:-agl-demo agl-devel}"
-TARGET="${TARGET:-agl-ivi-demo-flutter}"
+TARGET="${TARGET:-agl-f250}"
+F250_LAYER="${F250_LAYER:-1}"
+F250_REPO="$(cd "$HERE/../.." && pwd)"
 THREADS="${THREADS:-8}"
 JOBS="${JOBS:-$(nproc)}"
 SRC="$AGL_TOP/$AGL_BRANCH-$AGL_RELEASE"
@@ -118,6 +128,9 @@ http://.*/.*  https://download.automotivelinux.org/AGL/mirror/ \\
 https://.*/.* https://download.automotivelinux.org/AGL/mirror/ \\
 "
 EOF
+  if [[ "$F250_LAYER" == 1 ]]; then
+    f250_layer
+  fi
   if [[ "${KEEP_WORK:-0}" != 1 ]]; then
     # Delete each recipe's work directory once it is built: the main saving
     # in disk (docs/setup/linux-build-host.md).
@@ -125,6 +138,32 @@ EOF
   fi
   say "Configured $BUILD"
   grep -E '^(MACHINE|DISTRO|require)' conf/local.conf || true
+}
+
+# meta-f250 and the commit it builds. The repository is the build host's
+# checkout (in the VM, the Mac's, mounted read-only at the same path).
+f250_layer() {
+  local rev dirty
+  command -v git >/dev/null || die "git not found"
+  rev="$(git -C "$F250_REPO" rev-parse HEAD)" || die "$F250_REPO is not a git checkout"
+  dirty="$(git -C "$F250_REPO" status --porcelain)"
+  if [[ -n "$dirty" ]]; then
+    if [[ "${F250_ALLOW_DIRTY:-0}" == 1 ]]; then
+      say "WARNING: uncommitted changes; the software is built from $rev, the recipes from the working tree"
+    else
+      printf '%s\n' "$dirty" >&2
+      die "uncommitted changes in $F250_REPO: commit them (the image is built from HEAD), or F250_ALLOW_DIRTY=1"
+    fi
+  fi
+  cat >> conf/site.conf <<EOF
+# The head unit's software: agl/meta-f250, built from this commit.
+F250_REPO = "$F250_REPO"
+F250_SRCREV = "$rev"
+EOF
+  if ! grep -q "$F250_REPO/agl/meta-f250" conf/bblayers.conf; then
+    printf '\n# Added by agl/scripts/agl-build.sh\nBBLAYERS += "%s"\n' "$F250_REPO/agl/meta-f250" >> conf/bblayers.conf
+  fi
+  say "meta-f250 from $F250_REPO at ${rev:0:12}"
 }
 
 build() {
