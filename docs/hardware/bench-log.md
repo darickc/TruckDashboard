@@ -967,7 +967,7 @@ Observed: EOT − ECT read STALE in four of five samples, VALID 5.38 degC in one
 `stats`: 15.8 requests/s; EOT and ECT were each read 41 times in 128 s (about
 every 3 s, not their 500 ms), so the two inputs were often more than the
 delta's 2 s skew limit apart. The scheduler stretching low priorities is the
-known issue in [gateway.md](../setup/gateway.md#known-issue-the-poll-intervals-ask-too-much-of-the-mx);
+known issue in [gateway.md](../setup/gateway.md#poll-intervals-and-the-throughput-budget);
 nothing about the image.
 
 Verdict: works. The image built from the layer gives the same head unit as

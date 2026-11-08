@@ -107,29 +107,35 @@ cargo run -p vehicle-gateway --release -- \
 Status: `[SIM]` (in-memory bus replaying the truck's captures), compiled and
 unit-tested on the Pi 5. Not run against the adapter or the truck yet.
 
-## Known issue: the poll intervals ask too much of the MX+
+## Poll intervals and the throughput budget
 
-The registry's poll intervals came from the ESP32 table (MAP and ICP every
-100 ms, and so on). With every signal enabled, they ask for more requests per
-second than the link delivers. The MX+ measured about 10 per second on `7DF`
-with two responders. The simulator budget is 15 per second.
+One request is in flight at a time, so the link's throughput is the budget:
+10 requests/s for the MX+ (measured 10–11.7), 16/s for the CAN adapter
+(measured 15.8–16.8), 15/s for the simulator. `--budget-rps` overrides it.
+The registry's intervals are sized so the default enabled set asks for under
+80 % of it ([ADR-0019](../architecture/adr/0019-poll-intervals-budgeted.md)):
+every signal the simulator polls (all 14) asks 11.7/s; the truck's set
+(registry defaults plus `--enable eot`) asks 6.5/s. RPM and MAP are read
+every 500 ms, speed, ICP, IPR and load every 1 s, the temperatures and FICM
+every 1.5 s. No interval is longer than half its `stale_after_ms`.
 
-The scheduler stretches the low priorities and reports this in
-`LinkStatus.detail`. As a result, slow signals like engine load can flicker
-between VALID and STALE. That is the honest behaviour: a gauge must not claim
-a rate the link can't deliver. The fix is to retune the intervals from the
-throughput measured in Phase 3.5.4 (MX+ 10–11.7 requests/s, CAN about 16/s,
-[VERIFICATION_LOG.md](../diagnostics/VERIFICATION_LOG.md)); not done yet.
+The ESP32-era intervals (RPM, MAP and ICP every 100 ms) asked about 54/s of
+the simulator and 24/s of the truck's links, so most signals ran on the
+scheduler's starvation guard: EOT and ECT were read about every 3 s against
+their 4 s `stale_after_ms`, and load flickered `STALE` [SIM]. The retune
+fixes that: over the 600 s `drive_cycle` every signal stays `VALID` and is
+read at its interval plus a round trip (`tests/gateway_sim.rs`,
+`tests/poll_budget.rs`) [SIM]. EOT − ECT's inputs are also read back to back
+([ADR-0018](../architecture/adr/0018-computed-inputs-read-together.md)), so the
+delta's 2 s skew limit holds even when the link is oversubscribed. Not yet run
+on the truck.
 
-Its sharpest effect is fixed. EOT − ECT needs both inputs read within 2 s of
-each other (`max_input_skew_ms`). On the simulator, EOT and ECT (priority 3,
-every 500 ms) were each read only about every 3 s, at independent times, so
-the delta was STALE in most samples while both inputs were VALID (bench log,
-2026-11-08). The scheduler now reads a computed signal's inputs back to back
-and publishes no snapshot between them
-([ADR-0018](../architecture/adr/0018-computed-inputs-read-together.md)): the
-delta stayed VALID in every snapshot of the 600 s `drive_cycle` scenario
-(`tests/gateway_sim.rs`) and in 119 of 119 `obd-console pids` samples on
-`make gateway` [SIM]. EOT and ECT are still read only about every 3 s, inside
-their 4 s `stale_after_ms`, so a slower link or more enabled signals can still
-make them, and the delta, STALE. Not yet seen on the truck.
+Still true:
+
+- Enabling more than the link carries is reported in `LinkStatus.detail`
+  ("polling asks … of a … req/s link"), and low priorities stretch. Every
+  signal at once fits the CAN adapter but asks 117 % of the MX+.
+- Over CAN with the truck's set, these intervals leave about 60 % of the link
+  idle, and RPM is slower than the oversubscribed schedule delivered
+  (predicted ~1.8 Hz against 5.9 Hz measured on 2026-11-07). Spending spare
+  budget is a scheduler change, not yet made.

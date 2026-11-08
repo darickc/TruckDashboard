@@ -273,8 +273,10 @@ tools/pi/can.sh listen               # or: tools/pi/can.sh down
 - `~/f250-data/<date>-can/traffic/adapter-traffic.1.log`: every frame sent
   and received, with millisecond times. `ER` lines are CAN error frames.
 - `session.txt`: the interface's error counters at start and at stop.
-- `stats`: requests per second. The CAN budget starts at 20/s (unmeasured;
-  `BUDGET_RPS=` overrides it).
+- `stats`: requests per second. The CAN budget defaults to 16/s, measured on
+  the truck on 2026-11-07 (`BUDGET_RPS=` overrides it); the registry's
+  intervals ask under 80 % of it
+  ([ADR-0019](../architecture/adr/0019-poll-intervals-budgeted.md)).
 - EOT should never go `QUARANTINED` here: the gateway waits its own 50 ms
   window, so the PCM's answer can't be cut off the way the MX+ cut it. Up to
   `162f109` it could: a late refusal meant for trans temp was read as the

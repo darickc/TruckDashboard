@@ -27,5 +27,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0016](0016-stage1-sideload-layout.md) | Stage 1 sideload: layout, users, the dashboard as the background surface | Proposed (not run on the image) |
 | [0017](0017-meta-f250-layer.md) | meta-f250: the Stage 1 layout, built into the image | Accepted (built and booted 2026-11-08) |
 | [0018](0018-computed-inputs-read-together.md) | Read a computed signal's inputs back to back | Accepted ([SIM] only) |
+| [0019](0019-poll-intervals-budgeted.md) | Poll intervals budgeted from the measured link throughput | Accepted ([SIM] only) |
 
 New ADRs use the next number and the same headings.

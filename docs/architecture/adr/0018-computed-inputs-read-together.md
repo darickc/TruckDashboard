@@ -63,7 +63,8 @@ data being old.
   transport, and doesn't by itself keep two inputs together — any later
   oversubscription (an unverified PID enabled, a slow adapter) would bring the
   skew back. It stays the open half of the
-  [known issue](../../setup/gateway.md#known-issue-the-poll-intervals-ask-too-much-of-the-mx).
+  [known issue](../../setup/gateway.md#poll-intervals-and-the-throughput-budget); done in
+  [ADR-0019](0019-poll-intervals-budgeted.md).
 - **Raise `max_input_skew_ms`.** Hides the problem, and would let a 3 s old
   input stand next to a fresh one.
 
@@ -87,7 +88,8 @@ data being old.
 ## Revisit when
 
 - Interval retuning lands: check that the groups still read back to back and
-  that nothing else depends on the old order.
+  that nothing else depends on the old order. Done in ADR-0019 [SIM]: EOT and
+  ECT now share a 1.5 s interval, and this ADR's test still passes.
 - The truck shows the delta `STALE` with both inputs `VALID` [TRUCK]: the
   grouping isn't holding on a real transport (for example, a member that
   times out between the reads).

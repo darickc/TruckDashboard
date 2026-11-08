@@ -32,7 +32,11 @@ This is a port of the tested ESP32 `PidScheduler`, with additions.
 - **Throughput budget.** The budget comes from measured requests per second for
   the active transport.
   - About 10 requests/s is measured for the MX+ on `7DF` with two responders.
-  - The SocketCAN figure is to be measured.
+  - About 16 requests/s is measured for the USB CAN adapter (SocketCAN, 50 ms
+    window).
+  - The registry's poll intervals are budgeted so the default enabled set asks
+    for under 80 % of it, and no interval is longer than half its
+    `stale_after_ms` ([ADR-0019](adr/0019-poll-intervals-budgeted.md)).
   - When the enabled set oversubscribes the budget, lower priorities stretch
     first, and the stretch is reported as a health event. A gauge that promises
     10 Hz and delivers 2 Hz is a lie told to the driver.
