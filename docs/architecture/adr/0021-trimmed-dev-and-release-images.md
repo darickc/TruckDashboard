@@ -115,7 +115,8 @@ on 2026-11-08:
   RFCOMM needs it on, and has never run on AGL. The CAN adapter
   (ADR-0012) doesn't need it.
 - The gateway's sandbox has run with the simulator and with the `can`
-  transport on vcan0 (bench-log 2026-11-08). The `obdlink` transports
+  transport on vcan0 (bench-log 2026-11-08) and on the truck's bus
+  (VERIFICATION_LOG 2026-11-08). The `obdlink` transports
   (serial, RFCOMM, TCP) may need a call or device the filter refuses. Each
   gets checked the first time it runs on AGL.
 - A Phase 6 feature that needs a device or the network (cameras, audio,

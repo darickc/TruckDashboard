@@ -304,17 +304,22 @@ The capture takes about 120 MB an hour at the truck's ~730 frames/s, and the
 release image has about 250 MB free (its root filesystem isn't expanded yet).
 Keep the drive under 45 minutes, or check `df -h /` now and then.
 
-When you're done: Ctrl-C the capture, `f250-can listen`, then from the Mac:
+When you're done: Ctrl-C the capture, `f250-can listen`, then from the Mac
+(at the desk is fine: everything is on the card):
 
 ```bash
 make logs PI=raspberrypi5.local      # journals, state, the gateway's traffic logs
 scp -r root@raspberrypi5.local:f250-data build/logs/
 ```
 
-`make logs` doesn't include the candump capture, so copy it separately.
+`make logs` doesn't include the candump capture, so copy it separately. It
+takes the journal of the last 2 boots; collect before booting the Pi a second
+time. The gateway's traffic log restarts at every gateway start, so a later
+boot overwrites the drive's (the capture has every frame anyway).
 Then delete it on the Pi (`rm -r /root/f250-data/*`) to free the space.
 
-**The pinned-request test (ADR-0012 §3, fix ddb96b1, `[SIM]` so far).** On
+**The pinned-request test (ADR-0012 §3, fix ddb96b1; passed `[TRUCK]`
+2026-11-08, a 9-minute drive).** On
 the 2026-11-07 drives, EOT was quarantined 6 times and trans temp 3 times,
 each `ACTIVE → QUARANTINED (Unsupported ×1)` after a late refusal from the
 other module. Pass: a drive about as long, with no `QUARANTINED` line for

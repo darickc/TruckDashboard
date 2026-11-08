@@ -460,6 +460,48 @@ the test fails exactly as the truck did: `Negative { nrc: 0x31 }` at 23 ms.
 The fix is not yet tested on the truck. Physical addressing (`7E0`/`7E1`)
 would avoid the refusals altogether and is still untested.
 
+## 2026-11-08 — Drive on AGL: the pinned-request fix holds [TRUCK]
+
+The owner drove with the USB CAN adapter alone on the AGL release image
+`e82719f` (contains the fix `ddb96b1`), cold start. `/etc/default/f250`:
+`TRANSPORT=can TRANSMIT=1 ENABLE=eot`; `f250-can active`, then
+`systemctl restart f250-gateway` (can.md, On the AGL image). This is also
+the first run of the gateway's systemd sandbox on a real `can0`.
+Logs: `build/logs/f250-logs-raspberrypi5-20261108-233128.tar.gz` and the
+capture `20261108-212651-candump` (not in git).
+
+- Gateway on CAN 21:25:40–21:34:39 (539 s), no restarts. **Not one state
+  transition** in its journal for any PID: no SUSPECT, BACKOFF or
+  QUARANTINED. At 21:34:39 `can0` went down (`f250-can listen` after the
+  capture); everything after that is the gateway polling an interface that
+  can't send, as expected.
+- Capture 21:26:51–21:33:40 (409 s), ~736 frames/s, gs_usb, normal mode
+  (not listen-only). ERROR-ACTIVE throughout, berr-counter tx 0 rx 0, bus
+  errors 0, no gaps over 1 s, no wall-clock jump. `rx_dropped` 9239 at the
+  start and at the stop: none dropped during the capture.
+- `can-monitor pids`: 3339 requests, 8.2/s. Speed 0–41 km/h, rpm 652–2194,
+  ECT 17 → 46 °C, IAT 10–17 °C. EOT (7E8, `IMPORTED_UNVERIFIED`) 11.7 →
+  45.7 °C, trans temp (7E9, verified) 10.8 → 31.0 °C.
+
+| DID | requests | answered | other module's refusal | refusals after the next request went out |
+|---|---|---|---|---|
+| `22 13 10` EOT, pinned 7E8 | 266 | 266, median 27 ms (max 41) | 7E9 NRC 12, median 19 ms (max 32) | 0 |
+| `22 16 74` trans temp, pinned 7E9 | 267 | 267, median 19 ms (max 31) | 7E8 NRC 31, median 27 ms (max 40) | 0 |
+
+The 2026-11-07 drives lost EOT 6 times and trans temp 3 times in 454 s and
+515 s sessions, each to one late refusal. Here every pinned request drew
+the other module's refusal (533), the next request went out only after it
+(EOT's next request: median 29 ms), and nothing was quarantined.
+
+Verdict: the fix works on the truck. Shorter and slower than 2026-11-07
+(9 min, up to 41 km/h, cold); a longer warm drive would add margin. Still
+open: physical addressing (`7E0`/`7E1`), which would avoid the refusals.
+
+Lost: the gateway's own traffic log for this drive. The gateway truncates
+`adapter-traffic.1.log` at every start, and on AGL the folder is fixed
+(`/var/lib/f250/traffic`), so the next boot at the desk overwrote it. The
+candump has every frame.
+
 ## Open questions for the next session
 
 1. ~~**Who is 7E9?**~~ **ANSWERED: the TCM.** It owns `22 1674` (transmission

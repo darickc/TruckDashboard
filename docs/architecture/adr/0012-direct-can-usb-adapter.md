@@ -101,4 +101,7 @@ The plan said Phase 4.5 would use the kernel's ISO-TP sockets (`can-isotp`).
   in-memory bus replaying the truck's captures (`tests/gateway_can.rs`,
   `[SIM]`). On the truck, 2026-11-07 `[TRUCK]`: listen-only captures, then
   session B, the gateway polling over `can0` (97 s, 1672 requests, no transmit
-  or bus errors, EOT answered every time).
+  or bus errors, EOT answered every time). The first drives quarantined EOT
+  and trans temp on late refusals; with the fix (`ddb96b1`), 2026-11-08
+  `[TRUCK]` on AGL: 533 refusals, none late, no quarantines
+  ([VERIFICATION_LOG](../../diagnostics/VERIFICATION_LOG.md)).
