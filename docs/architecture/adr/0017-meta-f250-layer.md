@@ -1,6 +1,7 @@
 # ADR 0017 — meta-f250: the Stage 1 layout, built into the image
 
-- **Status:** Proposed (the layer parses in the build VM; not built or booted yet)
+- **Status:** Accepted (2026-11-08: `agl-f250` built from f16fc60 boots on the
+  bench Pi and passes `stage1-setup.sh --check` with no sideload; bench log)
 - **Date:** 2026-11-07
 - **Refines:** [ADR-0005](0005-staged-agl-bringup.md) Stage 2, [ADR-0016](0016-stage1-sideload-layout.md)
 

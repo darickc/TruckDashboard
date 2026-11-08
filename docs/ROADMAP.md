@@ -208,9 +208,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
 - [~] 5.4 `agl/meta-f250` ([ADR-0017](architecture/adr/0017-meta-f250-layer.md)): image `agl-f250` = the Flutter demo
       image without its homescreen, plus `f250-system` (Stage 1's steps as files: units, CAN masks, user, journal,
       `config.txt` block), `f250-services` (Rust 1.96.1 from the AGL tree; crate list from `Cargo.lock`) and
-      `f250-dashboard` (meta-flutter's `flutter-app`). Same paths as Stage 1, built from a commit. Parses in the build
-      VM (2026-11-07); not built or booted yet. Still to do: build and boot it, then trim the demo apps, drop
-      `agl-devel`, udev rules and unit hardening.
+      `f250-dashboard` (meta-flutter's `flutter-app`). Same paths as Stage 1, built from a commit. `[BENCH]` 2026-11-08: built
+      from f16fc60, boots, `--check` passes with nothing sideloaded ([bench log](hardware/bench-log.md)). Still to do:
+      trim the demo apps, drop `agl-devel`, udev rules and unit hardening.
       Done ahead of it: the service watchdogs. `crates/sd-notify` (systemd's notify protocol, no `unsafe`); the
       gateway and recorder are `Type=notify` with `WatchdogSec=60` / `30`, and send keep-alives only while their loops
       make progress ([diagnostic-recovery.md](architecture/diagnostic-recovery.md)). The recorder's waits on the gateway

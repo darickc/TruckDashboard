@@ -116,6 +116,10 @@ with two responders. The simulator budget is 15 per second.
 
 The scheduler stretches the low priorities and reports this in
 `LinkStatus.detail`. As a result, slow signals like engine load can flicker
-between VALID and STALE. That is the honest behaviour: a gauge must not claim
+between VALID and STALE. Computed signals show it first: EOT − ECT needs both
+inputs read within 2 s of each other (`max_input_skew_ms`), and on the
+simulator EOT and ECT (priority 3, every 500 ms) were each read only about
+every 3 s, so the delta was STALE in most samples (bench log, 2026-11-08).
+That is the honest behaviour: a gauge must not claim
 a rate the link can't deliver. The fix is to retune the intervals from the
 throughput measured in Phase 3.5.4.

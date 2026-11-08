@@ -4,7 +4,8 @@ The F-250 head unit as a Yocto layer on AGL 22.0.1 (Vimba), for
 `MACHINE = "raspberrypi5"`. It builds the image `agl-f250`: AGL's Flutter demo
 image with the head unit's software in place of the demo homescreen.
 
-Status: written 2026-11-07; see [ROADMAP 5.4](../../docs/ROADMAP.md) and the
+Status: `[BENCH]` 2026-11-08, `agl-f250` built from f16fc60 boots on the bench
+Pi and passes `stage1-setup.sh --check` with nothing sideloaded; see [ROADMAP 5.4](../../docs/ROADMAP.md) and the
 [bench log](../../docs/hardware/bench-log.md) for what has been built and
 booted. Design: [ADR-0017](../../docs/architecture/adr/0017-meta-f250-layer.md).
 

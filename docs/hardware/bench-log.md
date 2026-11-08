@@ -920,3 +920,57 @@ Result:
 Verdict: works. The image built in the aarch64 VM boots and behaves like the
 prebuilt 22.0.1 image for Stage 1. The VM stays the build host (ADR-0004).
 Still to do on this card: check 8 (CAN listen-only), when the adapter is back.
+
+## 2026-11-08 — The agl-f250 image (meta-f250) boots and passes Stage 1's check [BENCH]
+
+Hardware: the bench Pi 5 and 7" DSI panel; the USB CAN adapter (gs_usb,
+`1d50:606f`) was plugged in, not connected to any bus.
+Image: `agl-f250-22.0.1-f16fc60.wic`, built in the build VM (now in
+`~/agl-build-vm` on the Mac's SSD) from commit f16fc60 with `make agl-build`,
+2,901,618,688 bytes, sha256 `486c3990…14ce90`. Before flashing, the image was
+mounted read-only in the VM: `/etc/f250-release`, the five tools in
+`/opt/f250/bin`, the `config.txt` block, the dashboard bundle, IDs 950, the
+masks, the `00-f250.preset`, the wants links and `libsqlite3.so.0` all present.
+Setup: flashed from the Mac; key installed by hand; **no `make deploy`**:
+everything checked below came from the image.
+
+Build fixes on the way (all [SIM] in `make agl-test`, then this build):
+`CLEANBROKEN` (the repo's Makefile has no `clean`), `DEPENDS += "sqlite3"` (the
+cargo class unbundles rusqlite), and the disable preset (`preset-all` fails on
+a masked unit that a package presets enabled).
+
+Result:
+    first boot     raspberrypi5.local; os-release "Automotive Grade Linux 22.0.1
+                   (vimba)"; kernel 6.18.33-v8-16k; /etc/f250-release
+                   F250_SRCREV=f16fc60…; rpm: f250-system, f250-services and
+                   f250-dashboard 0.1+git0+f16fc60bd0-r0
+    boot time      systemd-analyze: 0.82 s kernel + 11.1 s userspace
+    --check        /opt/f250/share/agl/scripts/stage1-setup.sh --check: all
+                   checks passed (0 warnings)
+    check 1        both KUKSA CAN units masked (is-enabled: masked), networkd
+                   override present; can0 (the adapter) present, STOPPED, down
+    check 2        card1-DSI-1 connected; agl-compositor active; the dashboard
+                   loaded its AOT at 800 x 480 fullscreen (owner's look: see below)
+    check 3        ft5x06 touch input present (owner's tap: see below)
+    check 6        gateway (sim, drive_cycle), recorder and dashboard active;
+                   /run/f250/vehicle.sock f250:f250 0770; agl-driver in group
+                   f250 (950); recorder session 1 writing telemetry.sqlite
+                   (linked against the image's libsqlite3 3.51.3);
+                   obd-console pids: eot 93.86 degC, ect 88.43 degC, trans_temp
+                   61.03 degC, boost 32.98 kPa
+    failed units   none (bthelper@hci0 active this time; it failed on RF-kill
+                   on the 2026-11-07 card)
+    clock          journal times read Oct 27 until NTP synced (the image's
+                   build-time clock floor); NTPSynchronized=yes by 05:50 UTC
+
+Observed: EOT − ECT read STALE in four of five samples, VALID 5.38 degC in one.
+`stats`: 15.8 requests/s; EOT and ECT were each read 41 times in 128 s (about
+every 3 s, not their 500 ms), so the two inputs were often more than the
+delta's 2 s skew limit apart. The scheduler stretching low priorities is the
+known issue in [gateway.md](../setup/gateway.md#known-issue-the-poll-intervals-ask-too-much-of-the-mx);
+nothing about the image.
+
+Verdict: works. The image built from the layer gives the same head unit as
+the prebuilt image plus Stage 1, with no sideload.
+Still to do on this card: check 7 (dashboard Power) and check 8 (CAN
+listen-only with the adapter on a bus).
