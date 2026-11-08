@@ -1175,3 +1175,17 @@ Verdict: the connman patch works.
                    dashboard active.
 
 The Pi is ready for the truck session (can.md, On the AGL image).
+
+## 2026-11-08 — Gateway traffic log carries its rotation across starts [BENCH]
+
+The gateway built from the working tree (arm64, `--features rfcomm`) run by
+hand on the e82719f card, three times for 4 s each on vcan0, with
+`--traffic-log /root/traffic-test`. Nothing on a bus; the installed gateway
+untouched.
+
+    start 1        current=1, adapter-traffic.1.log (23 lines)
+    start 2        current=2, file 1 kept, adapter-traffic.2.log written
+    start 3        current=3, files 1 and 2 kept, adapter-traffic.3.log
+
+Verdict: works. The image still has the old gateway, which truncates file 1
+at every start, until the next image build.

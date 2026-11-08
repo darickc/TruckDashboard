@@ -500,7 +500,8 @@ open: physical addressing (`7E0`/`7E1`), which would avoid the refusals.
 Lost: the gateway's own traffic log for this drive. The gateway truncates
 `adapter-traffic.1.log` at every start, and on AGL the folder is fixed
 (`/var/lib/f250/traffic`), so the next boot at the desk overwrote it. The
-candump has every frame.
+candump has every frame. Fixed: each start now opens the next file
+(`services/vehicle-gateway/src/transport/traffic.rs`).
 
 ## Open questions for the next session
 

@@ -314,8 +314,8 @@ scp -r root@raspberrypi5.local:f250-data build/logs/
 
 `make logs` doesn't include the candump capture, so copy it separately. It
 takes the journal of the last 2 boots; collect before booting the Pi a second
-time. The gateway's traffic log restarts at every gateway start, so a later
-boot overwrites the drive's (the capture has every frame anyway).
+time. In the traffic logs, each gateway start opens the next file (the newest
+is named in `traffic/current`), so the drive's stays there for 9 more starts.
 Then delete it on the Pi (`rm -r /root/f250-data/*`) to free the space.
 
 **The pinned-request test (ADR-0012 §3, fix ddb96b1; passed `[TRUCK]`

@@ -82,8 +82,10 @@ There are three kinds of output:
   poll state, responder, latency and counters at 1 Hz. It also keeps the link
   state (including `ATRV` adapter voltage) and every gateway event. Retention
   is bounded at 30 days or 2 M sample rows.
-- `--traffic-log` keeps every adapter line with millisecond timestamps, in 5
-  rotating files of 10 MB each.
+- `--traffic-log` keeps every adapter line with millisecond timestamps, in 10
+  rotating files of 5 MB each. The rotation carries on across starts: each
+  start opens the file after the last one used (named in `current`), so a
+  restart never overwrites the session before it.
 - Together these are the evidence for the dropout analysis
   ([PROJECT_PLAN](../PROJECT_PLAN.md#what-the-mx-trial-phase-35-can-already-show)).
 
