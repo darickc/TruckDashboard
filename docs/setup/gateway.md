@@ -135,7 +135,23 @@ Still true:
 - Enabling more than the link carries is reported in `LinkStatus.detail`
   ("polling asks … of a … req/s link"), and low priorities stretch. Every
   signal at once fits the CAN adapter but asks 117 % of the MX+.
-- Over CAN with the truck's set, these intervals leave about 60 % of the link
-  idle, and RPM is slower than the oversubscribed schedule delivered
-  (predicted ~1.8 Hz against 5.9 Hz measured on 2026-11-07). Spending spare
-  budget is a scheduler change, not yet made.
+- The intervals alone would leave about 60 % of the CAN link idle with the
+  truck's set, and RPM at ~1.8 Hz (against 5.9 Hz from the oversubscribed
+  schedule on 2026-11-07). The scheduler now spends that room on priority 0
+  ([ADR-0020](../architecture/adr/0020-spare-budget-to-priority-0.md)):
+  while nothing else is due, RPM and MAP are read early, as long as the plan
+  stays within 80 % of the budget and no read comes sooner than 250 ms (the
+  snapshot period) after the last one. Only healthy (`ACTIVE`) priority-0
+  signals get it; with nothing to spare, nothing changes. The registry
+  intervals, `stale_after_ms` and `max_input_skew_ms` are unchanged, and
+  EOT and ECT are still read back to back.
+
+  | Set | Budget | Asks | Spare | RPM read every |
+  |---|---|---|---|---|
+  | Truck set, CAN | 16/s | 6.5/s | 2.0/s | 250 ms (the floor) |
+  | Truck set, MX+ | 10/s | 6.5/s | 1.5/s | 288 ms |
+  | All 14, simulator | 15/s | 11.7/s | 0.3/s | ~470 ms (RPM and MAP) |
+
+  In virtual time with the truck's set at 16/s, RPM is read at 3.45 Hz
+  instead of 1.77, the link carries 7.7 requests/s (48 %), and every other
+  signal keeps its rate [SIM]. Not yet run on the truck.

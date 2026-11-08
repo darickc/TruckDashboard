@@ -120,7 +120,8 @@ depended on the order of the starvation, not on any rate anyone chose.
   leave about 60 % of the CAN link idle with the truck's current set. The
   intervals are sized for the full set on the slowest default budget; using
   spare capacity when fewer signals are enabled is a scheduler change, not a
-  registry one (see Revisit).
+  registry one (see Revisit; done in
+  [ADR-0020](0020-spare-budget-to-priority-0.md)).
 - The MX+ cannot carry every signal: all 14 ask 117 % of its 10/s
   (`tests/poll_budget.rs`, `every_signal_oversubscribes_the_mx_plus`).
   Enabling them there is reported as oversubscribed, and fuel, baro, IAT,
@@ -131,9 +132,13 @@ depended on the order of the starvation, not on any rate anyone chose.
 
 - The truck runs these intervals [TRUCK]: compare `stats` per signal with the
   "Delivered" column, and check no signal flickers `STALE` on a drive.
-- The scheduler can spend spare budget (for example, priority 0 runs faster
+- ~~The scheduler can spend spare budget (for example, priority 0 runs faster
   while the link has room): RPM and MAP could return to several Hz on the
-  CAN adapter with the truck's set.
+  CAN adapter with the truck's set.~~ Done in
+  [ADR-0020](0020-spare-budget-to-priority-0.md): while nothing else is due,
+  priority 0 is read early from the room under 80 %, no faster than the
+  250 ms snapshot period. Predicted RPM over CAN with the truck's set:
+  ~3.5 Hz [SIM]. The intervals above are unchanged.
 - Multi-DID batching (`raw 2213101446`,
   [TRUCK_SESSION.md](../../diagnostics/TRUCK_SESSION.md)) or physical
   addressing changes what a request costs: re-measure and retune.
