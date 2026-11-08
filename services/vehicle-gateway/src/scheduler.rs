@@ -1,7 +1,9 @@
 //! Chooses the next request. One request is in flight per transport at a
 //! time, so the transport's real throughput is the budget. This is about
-//! 10 requests/s for the MX+ on `7DF` with two responders (measured on the
-//! truck); SocketCAN is to be measured.
+//! 10 requests/s for the MX+ on `7DF` with two responders and about 16/s for
+//! the USB CAN adapter (both measured on the truck). The registry's intervals
+//! are budgeted so the default enabled set asks for under 80 % of it
+//! (ADR-0019).
 //!
 //! Rules, in order:
 //! 0. Follow-ups from a group (below) go first.

@@ -80,10 +80,11 @@ impl Config {
     pub fn budget(&self) -> f64 {
         self.budget_rps.unwrap_or(match self.transport {
             TransportKind::Sim => 15.0,
+            // Measured 10–11.7/s on 7DF with two responders.
             TransportKind::Obdlink => 10.0,
-            // Not measured: one unpinned request waits the whole window, so
-            // 20/s is the ceiling at 50 ms. Retune from `stats` on the truck.
-            TransportKind::Can => 20.0,
+            // Measured 15.8–16.8/s on the truck (2026-11-07, VERIFICATION_LOG):
+            // an unpinned request waits the whole 50 ms window.
+            TransportKind::Can => 16.0,
         })
     }
 }

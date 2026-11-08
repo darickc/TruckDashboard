@@ -96,3 +96,79 @@ async fn eot_ect_delta_stays_valid_under_the_default_enabled_set() {
         &not_valid[..not_valid.len().min(5)]
     );
 }
+
+/// ADR-0019: the registry's intervals fit the simulator's budget, so nothing
+/// runs on the starvation guard. Over the whole scenario every signal is
+/// read at (close to) its interval, no signal flickers out of VALID once it
+/// has been read, and the link never reports oversubscription. The skew and
+/// staleness limits are the registry's own, unchanged.
+#[tokio::test(start_paused = true)]
+async fn every_signal_gets_its_interval_under_the_default_enabled_set() {
+    let registry = f250_telemetry::registry::Registry::load_dir(repo("shared/signals")).unwrap();
+    let (core, driver, mut snaps) = Core::new(sim_config()).unwrap();
+    let (_cmd_tx, cmd_rx) = mpsc::channel(4);
+    let run = tokio::spawn(core.run(cmd_rx, driver));
+
+    let start = Instant::now();
+    let secs = 600u64;
+    let mut seen_valid: Vec<String> = Vec::new();
+    let mut not_valid: Vec<(Duration, String, pb::Validity)> = Vec::new();
+    let mut last = std::sync::Arc::new(pb::Snapshot::default());
+    while start.elapsed() < Duration::from_secs(secs) {
+        snaps.changed().await.unwrap();
+        let snap = snaps.borrow_and_update().clone();
+        let at = start.elapsed();
+        assert_eq!(
+            snap.link.as_ref().map(|l| l.detail.as_str()),
+            Some(""),
+            "oversubscribed at {at:?}"
+        );
+        for s in &snap.samples {
+            let v = pb::Validity::try_from(s.validity).unwrap_or(pb::Validity::Unspecified);
+            if seen_valid.contains(&s.signal_id) {
+                if v != pb::Validity::Valid {
+                    not_valid.push((at, s.signal_id.clone(), v));
+                }
+            } else if v == pb::Validity::Valid {
+                seen_valid.push(s.signal_id.clone());
+            }
+        }
+        last = snap;
+    }
+    run.abort();
+
+    assert!(
+        not_valid.is_empty(),
+        "{} samples not VALID after their first reading; first: {:?}",
+        not_valid.len(),
+        &not_valid[..not_valid.len().min(8)]
+    );
+    let mut polled = 0;
+    for d in registry.iter() {
+        let Some(p) = &d.poll else { continue };
+        polled += 1;
+        let s = last
+            .samples
+            .iter()
+            .find(|s| s.signal_id == d.id)
+            .unwrap_or_else(|| panic!("{} missing from the snapshot", d.id));
+        // The next request is due an interval after the previous answer, so
+        // each period is the interval plus the round trip (40–80 ms here)
+        // plus any wait behind the request in flight or higher priorities
+        // due at the same time (up to ~160 ms seen). Living on the starvation
+        // guard, as before ADR-0019, is several intervals.
+        let target = (secs * 1000) as f64 / (p.interval_ms + 200) as f64;
+        assert!(
+            s.successes as f64 >= target,
+            "{}: read {} times in {secs} s, wanted {target:.0} (every {} ms)",
+            d.id,
+            s.successes,
+            p.interval_ms
+        );
+        assert_eq!(s.failures, 0, "{}", d.id);
+    }
+    assert_eq!(
+        polled, 14,
+        "the drive_cycle scenario models 14 polled signals"
+    );
+}

@@ -1,8 +1,9 @@
 # Generic SAE J1979 Mode 01 signals. Formulas are the published J1979 ones,
 # as listed in docs/diagnostics/FORD_6_0_PIDS.md ("Generic SAE Mode 01").
 # Ranges and stale times mirror apps/infotainment/lib/model/signal_catalog.dart.
-# Poll interval/priority/timeout come from the ESP32 table
-# (firmware/esp32/lib/ObdCore/src/PidDefs.cpp) where it has the row.
+# Priority and timeout come from the ESP32 table
+# (firmware/esp32/lib/ObdCore/src/PidDefs.cpp) where it has the row; poll
+# intervals are budgeted from the measured link throughput (ADR-0019).
 # Format: shared/signals/README.md.
 
 - id: rpm
@@ -15,7 +16,7 @@
   response: {expect: "41 0C", length: 2}
   decode: {formula: "((A*256)+B)/4", unit: rpm}
   range: {min: 0, max: 5000}
-  poll: {priority: 0, interval_ms: 100, timeout_ms: 500}
+  poll: {priority: 0, interval_ms: 500, timeout_ms: 500}
   stale_after_ms: 1500
   provenance: SAE
   enabled: true
@@ -33,7 +34,7 @@
   response: {expect: "41 0D", length: 1}
   decode: {formula: "A", unit: km/h}
   range: {min: 0, max: 255}
-  poll: {priority: 1, interval_ms: 200, timeout_ms: 500}
+  poll: {priority: 1, interval_ms: 1000, timeout_ms: 500}
   stale_after_ms: 2000
   provenance: SAE
   enabled: true
@@ -52,7 +53,7 @@
   response: {expect: "41 05", length: 1}
   decode: {formula: "A-40", unit: degC}
   range: {min: -40, max: 150}
-  poll: {priority: 3, interval_ms: 500, timeout_ms: 500}
+  poll: {priority: 3, interval_ms: 1500, timeout_ms: 500}
   stale_after_ms: 4000
   provenance: SAE
   enabled: true
@@ -83,13 +84,13 @@
   response: {expect: "41 0F", length: 1}
   decode: {formula: "A-40", unit: degC}
   range: {min: -40, max: 120}
-  poll: {priority: 5, interval_ms: 2000, timeout_ms: 500}
+  poll: {priority: 5, interval_ms: 3000, timeout_ms: 500}
   stale_after_ms: 8000
   provenance: SAE
   enabled: true
   notes: >-
-    Standard J1979 formula. Not in the ESP32 table, so the poll values are a
-    software choice (2 s target), not a measured requirement.
+    Standard J1979 formula. Not in the ESP32 table, so the priority is a
+    software choice; the interval is budgeted (ADR-0019).
 
 - id: load
   name: Engine load
@@ -101,7 +102,7 @@
   response: {expect: "41 04", length: 1}
   decode: {formula: "A*100/255", unit: "%"}
   range: {min: 0, max: 100}
-  poll: {priority: 4, interval_ms: 500, timeout_ms: 500}
+  poll: {priority: 4, interval_ms: 1000, timeout_ms: 500}
   stale_after_ms: 2000
   provenance: SAE
   enabled: true

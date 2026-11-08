@@ -25,7 +25,7 @@ use crate::link::{
     Action, Event as LinkEvent, LinkMachine, LinkPolicy, MachineState, RecoveryStep,
 };
 use crate::poll::{Miss, PollPolicy, nrc_means_unsupported};
-use crate::scheduler::Scheduler;
+use crate::scheduler::{Load, Scheduler};
 use crate::transport::can::{CanLink, CanTiming, Opener};
 use crate::transport::obdlink::{DriverEvent, LinkSpec, ObdLink, RawOutcome};
 use crate::transport::simulated::SimulatedTransport;
@@ -276,6 +276,12 @@ impl Core {
     /// has ended.
     pub fn heartbeat(&self) -> Heartbeat {
         self.heartbeat.clone()
+    }
+
+    /// Requests/s the enabled signals ask for against the transport's budget
+    /// (the same figure behind `LinkStatus.detail`).
+    pub fn load(&self) -> Load {
+        self.sched.load()
     }
 
     fn log(&mut self, severity: EventSeverity, message: impl Into<String>) {
