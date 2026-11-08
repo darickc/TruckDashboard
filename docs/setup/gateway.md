@@ -116,10 +116,20 @@ with two responders. The simulator budget is 15 per second.
 
 The scheduler stretches the low priorities and reports this in
 `LinkStatus.detail`. As a result, slow signals like engine load can flicker
-between VALID and STALE. Computed signals show it first: EOT − ECT needs both
-inputs read within 2 s of each other (`max_input_skew_ms`), and on the
-simulator EOT and ECT (priority 3, every 500 ms) were each read only about
-every 3 s, so the delta was STALE in most samples (bench log, 2026-11-08).
-That is the honest behaviour: a gauge must not claim
+between VALID and STALE. That is the honest behaviour: a gauge must not claim
 a rate the link can't deliver. The fix is to retune the intervals from the
-throughput measured in Phase 3.5.4.
+throughput measured in Phase 3.5.4 (MX+ 10–11.7 requests/s, CAN about 16/s,
+[VERIFICATION_LOG.md](../diagnostics/VERIFICATION_LOG.md)); not done yet.
+
+Its sharpest effect is fixed. EOT − ECT needs both inputs read within 2 s of
+each other (`max_input_skew_ms`). On the simulator, EOT and ECT (priority 3,
+every 500 ms) were each read only about every 3 s, at independent times, so
+the delta was STALE in most samples while both inputs were VALID (bench log,
+2026-11-08). The scheduler now reads a computed signal's inputs back to back
+and publishes no snapshot between them
+([ADR-0018](../architecture/adr/0018-computed-inputs-read-together.md)): the
+delta stayed VALID in every snapshot of the 600 s `drive_cycle` scenario
+(`tests/gateway_sim.rs`) and in 119 of 119 `obd-console pids` samples on
+`make gateway` [SIM]. EOT and ECT are still read only about every 3 s, inside
+their 4 s `stale_after_ms`, so a slower link or more enabled signals can still
+make them, and the delta, STALE. Not yet seen on the truck.

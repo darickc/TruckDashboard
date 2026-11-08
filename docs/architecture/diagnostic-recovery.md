@@ -38,6 +38,11 @@ This is a port of the tested ESP32 `PidScheduler`, with additions.
     10 Hz and delivers 2 Hz is a lie told to the driver.
 - **One request in flight per transport.** This is the ELM's half-duplex rule,
   and the same discipline applies to ISO-TP.
+- **Computed inputs are read together.** The inputs of a computed signal
+  (EOT and ECT for EOT − ECT) are read back to back, and no snapshot goes out
+  between them, so a stretched schedule can't put them more than
+  `max_input_skew_ms` apart. Following never makes a slow input fast
+  ([ADR-0018](adr/0018-computed-inputs-read-together.md)).
 - **Adaptive intervals.** Stable, slowly changing signals may back off to their
   `max_interval_ms`. They return to the target interval on change.
 - **Jittered retries.** A retry is bounded per request: one retry, then the
