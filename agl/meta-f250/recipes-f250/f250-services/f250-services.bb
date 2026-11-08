@@ -7,10 +7,16 @@ simulator scenarios."
 require conf/include/f250-source.inc
 require f250-services-crates.inc
 
-inherit cargo
+inherit cargo pkgconfig
 
 # crates/proto runs protoc (tonic-prost-build).
 DEPENDS += "protobuf-native"
+
+# The recorder's rusqlite asks for its bundled SQLite, but the cargo class
+# exports LIBSQLITE3_SYS_USE_PKG_CONFIG=1 so crates link the image's
+# libsqlite3 instead (Yocto policy: no vendored C libraries). The runtime
+# dependency on libsqlite3 follows from the binary's shared libraries.
+DEPENDS += "sqlite3"
 
 # The workspace also holds can-monitor, an offline analysis tool for the Mac;
 # build only what the head unit runs. The gateway gets the MX+ over RFCOMM

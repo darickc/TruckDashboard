@@ -313,6 +313,7 @@ check "dashboard: bundle name is the app's" "grep -qx 'PUBSPEC_APPNAME = \"f250_
 check "layer builds a commit, not the tree" "grep -q 'F250_ALLOW_DIRTY' agl/scripts/agl-build.sh && grep -q 'F250_SRCREV = \"\$rev\"' agl/scripts/agl-build.sh"
 check "recipes fail without the commit pin" "grep -q 'SkipRecipe' $M/conf/include/f250-source.inc"
 check "recipes never run the repository's Makefile clean" "grep -q '^CLEANBROKEN = \"1\"' $M/conf/include/f250-source.inc"
+check "f250-services links the image's SQLite (the cargo class unbundles rusqlite)" "grep -q '^DEPENDS += \"sqlite3\"' $M/recipes-f250/f250-services/f250-services.bb"
 check "f250-system skips configure and compile" "grep -q '^do_compile\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb && grep -q '^do_configure\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb"
 
 echo
