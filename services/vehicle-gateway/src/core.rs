@@ -172,7 +172,9 @@ impl Core {
             },
             Duration::ZERO,
         );
-        let mut sched = Scheduler::new(cfg.budget(), PollPolicy::default());
+        // Spare reads no faster than snapshots are published (ADR-0020).
+        let mut sched =
+            Scheduler::new(cfg.budget(), PollPolicy::default()).with_spare_floor(SNAPSHOT_PERIOD);
         for d in registry.iter().filter(|d| !d.is_computed()) {
             if let Some(p) = &d.poll {
                 sched.add(

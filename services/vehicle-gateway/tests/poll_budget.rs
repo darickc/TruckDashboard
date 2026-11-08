@@ -125,3 +125,33 @@ async fn every_signal_oversubscribes_the_mx_plus() {
     assert!(l.oversubscribed(), "{l:?}");
     assert!(l.demand_rps < l.budget_rps * 1.25, "{l:?}");
 }
+
+/// ADR-0020: priority 0 (RPM, MAP) spends the room left under 80 %, and the
+/// plan, spare reads included, never goes over it. [SIM]
+#[tokio::test]
+async fn spare_reads_stay_within_80_percent() {
+    let within = |what: &str, l: Load| {
+        assert!(
+            l.planned_rps() <= 0.8 * l.budget_rps + 1e-9,
+            "{what}: plans {:.2} req/s of {:.1} ({l:?})",
+            l.planned_rps(),
+            l.budget_rps
+        );
+    };
+    // The truck's set over CAN: RPM is the only priority 0 enabled, and it is
+    // capped by the 250 ms snapshot period: 2/s registry + 2/s spare.
+    let l = load(CAN, &["--enable", "eot"]);
+    within("CAN, --enable eot", l);
+    assert!((l.spare_rps - 2.0).abs() < 1e-6, "{l:?}");
+    // On the MX+ the same set leaves 1.47/s, all of it to RPM.
+    let l = load(MXPLUS, &["--enable", "eot"]);
+    within("MX+, --enable eot", l);
+    assert!((l.spare_rps - (8.0 - l.demand_rps)).abs() < 1e-3, "{l:?}");
+    // The simulator's full set is near 80 % already: a little room.
+    let l = load(SIM, &[]);
+    within("simulator", l);
+    assert!(l.spare_rps > 0.0 && l.spare_rps < 0.3, "{l:?}");
+    // Oversubscribed: nothing spare.
+    let l = load(MXPLUS, &["--enable", &every_disabled_signal()]);
+    assert_eq!(l.spare_rps, 0.0, "{l:?}");
+}
