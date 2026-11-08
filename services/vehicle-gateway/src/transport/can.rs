@@ -19,6 +19,7 @@
 //! The bus is behind [`CanBus`] so the driver can be tested without Linux:
 //! [`socket`] is the real SocketCAN implementation (Linux only).
 
+use std::collections::BTreeSet;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
@@ -105,6 +106,7 @@ impl CanLink {
             traffic,
             last_error_note: None,
             errors_since_note: 0,
+            responders: BTreeSet::new(),
         };
         tokio::spawn(driver.run());
         (
@@ -173,6 +175,10 @@ struct Driver {
     traffic: Option<TrafficLog>,
     last_error_note: Option<Instant>,
     errors_since_note: u32,
+    /// Diagnostic response IDs heard since the socket opened: the modules
+    /// that answer functional requests. A pinned functional request waits
+    /// for the others' answers too ([`Exchange::wait_for`]).
+    responders: BTreeSet<u16>,
 }
 
 /// Reads the next bus event, or waits forever while closed.
@@ -210,7 +216,7 @@ impl Driver {
                 ev = next_event(&mut self.bus) => match ev {
                     // Between requests: a late answer, or another tester's
                     // traffic (filtered to 7E8–7EF by the socket). Logged only.
-                    Ok(BusEvent::Data(f)) => self.log("RX", &f.display()),
+                    Ok(BusEvent::Data(f)) => self.on_late(&f),
                     Ok(BusEvent::Error { class, data }) => self.bus_error(class, &data).await,
                     Err(e) => self.lost(&format!("read failed: {e}")).await,
                 },
@@ -248,6 +254,7 @@ impl Driver {
             match (self.opener)().await {
                 Ok(bus) => {
                     self.bus = Some(bus);
+                    self.responders.clear();
                     self.log("--", &format!("opened {}", self.interface));
                 }
                 Err(e) => {
@@ -266,6 +273,19 @@ impl Driver {
             adapter_id: Some(format!("SocketCAN {}", self.interface)),
         })
         .await;
+    }
+
+    /// A frame that arrived outside any exchange: logged, and its sender
+    /// remembered.
+    fn on_late(&mut self, f: &Frame) {
+        self.log("RX", &f.display());
+        self.heard(f.id);
+    }
+
+    fn heard(&mut self, id: u16) {
+        if isotp::RESPONSE_IDS.contains(&id) {
+            self.responders.insert(id);
+        }
     }
 
     async fn lost(&mut self, why: &str) {
@@ -310,6 +330,22 @@ impl Driver {
         if self.bus.is_none() {
             return Err(Outcome::LinkDown);
         }
+        // Whatever is already queued answers an earlier request: read it
+        // now, so it can't be taken for an answer to this one.
+        loop {
+            let Some(bus) = self.bus.as_mut() else {
+                return Err(Outcome::LinkDown);
+            };
+            match tokio::time::timeout(Duration::ZERO, bus.recv()).await {
+                Err(_) => break,
+                Ok(Ok(BusEvent::Data(f))) => self.on_late(&f),
+                Ok(Ok(BusEvent::Error { class, data })) => self.bus_error(class, &data).await,
+                Ok(Err(e)) => {
+                    self.lost(&format!("read failed: {e}")).await;
+                    return Err(Outcome::LinkDown);
+                }
+            }
+        }
         self.log("TX", &frame.display());
         let start = Instant::now();
         let sent = match self.bus.as_mut() {
@@ -333,6 +369,7 @@ impl Driver {
                 Err(_) => {} // re-check done()
                 Ok(Ok(BusEvent::Data(f))) => {
                     self.log("RX", &f.display());
+                    self.heard(f.id);
                     ex.on_frame(&f);
                     if let Some(s) = seen.as_deref_mut() {
                         s.push((start.elapsed(), f));
@@ -358,6 +395,9 @@ impl Driver {
             Err(reason) => return Outcome::Refused { reason },
         };
         let mut ex = Exchange::new(&req, self.timing.window);
+        if frame.id == isotp::FUNCTIONAL_ID {
+            ex = ex.wait_for(self.responders.iter().copied());
+        }
         match self.exchange(&frame, &mut ex, None).await {
             Ok(at) => ex.finish(at),
             Err(o) => o,

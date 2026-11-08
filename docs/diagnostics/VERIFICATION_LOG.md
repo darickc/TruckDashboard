@@ -396,6 +396,70 @@ out over it. EOT stays `IMPORTED_UNVERIFIED` (this tests the transport, not
 the scaling). Still to do over CAN: a drive, physical addressing
 (`obd-console raw 7E0 010C` / `raw 7E1 010C`).
 
+## 2026-11-07 — First drives over direct CAN: EOT and trans temp drop out [TRUCK]
+
+The owner drove with the USB CAN adapter alone (MX+ unplugged), `make pi-start
+TRANSPORT=can TRANSMIT=1 ENABLE=eot CAPTURE=1`, Pi at `162f109`. Three
+sessions: `20261107-151859-can` (74 s, parked), `-152131-can` (454 s) and
+`-153625-can` (515 s), up to 79 km/h. 16.8 and 15.8 requests/s; TX errors 0,
+bus errors 0, error-active throughout. EOT 44 → 66 °C, trans temp 34 → 61 °C
+over the drives. The owner saw EOT and trans temp drop out several times.
+
+| Session | EOT quarantined | Trans temp quarantined |
+|---|---|---|
+| 151859 | 1 (at 25 s; not probed again before the stop at 74 s) | 0 |
+| 152131 | 0 | 2 |
+| 153625 | 5 (gone ~250 of 515 s) | 1 |
+
+Each one is `ACTIVE → QUARANTINED (Unsupported ×1)` in `gateway.log`, then
+60 s without a request (the quarantine probe interval). On the wire, each is
+the same thing (9 of 9):
+
+1. The gateway sends trans temp (`7DF 22 16 74`, pinned to 7E9). The TCM
+   answers in a few ms and the exchange ends there.
+2. The gateway sends the next request 1–7 ms later: EOT (`22 13 10`, pinned
+   to 7E8).
+3. The PCM's refusal of trans temp (`7E8 7F 22 31`) arrives 12–26 ms into the
+   EOT exchange, before the PCM's EOT answer. A refusal carries only the
+   service byte, so it reads as the PCM refusing EOT: NRC 0x31,
+   "unsupported", quarantine.
+
+Trans temp is the mirror image: the TCM's late `7E9 7F 22 12` (refusing EOT)
+lands in the next trans temp exchange. In 4 of the 6 EOT cases the PCM also
+never answered the EOT request, as in session B: a module that is still
+answering skips a request.
+
+Refusals are later while driving than idle: the TCM's to EOT 12 ms median
+(max 32), the PCM's to trans temp 27–32 ms median (max 49), against ~24 ms
+idle in session B. Per session, 13–29 % of the TCM's refusals of EOT and
+19–51 % of the PCM's refusals of trans temp arrived after their own exchange
+had ended. Most landed harmlessly (in an unpinned exchange, or after the owner's
+answer). These 9 did not.
+
+Not a dropout: the 9–15 s of no answers at the start of sessions 151859 and
+153625 (`link POLLING → DEGRADED`). The candump shows only our own requests
+for the first ~8 s (0–17 frames/s, then ~730/s): the modules were not on the
+bus yet.
+
+Also seen, not acted on: two PCM speed answers of `0xCC` (204 km/h) about
+15 s after the engine started in 153625, while the TCM answered 0. A start-up
+artifact to watch for; the speed decoder is not changed.
+
+Fix `[SIM]` (gateway, same day):
+- A pinned functional request also waits, up to the 50 ms window, for the
+  final answer of every other module heard on the bus, so each refusal lands
+  in its own exchange. Trans temp now takes ~30 ms instead of ~7 ms.
+- A PID that has answered this session is never quarantined by one
+  "unsupported" refusal. It counts as an ordinary miss and backs off the
+  usual way.
+- Frames still queued when a request is about to go out are read first.
+
+Tests replay the drive's timing (`gateway_can.rs`,
+`a_late_refusal_is_never_read_as_the_next_requests_answer`). Without the fix
+the test fails exactly as the truck did: `Negative { nrc: 0x31 }` at 23 ms.
+The fix is not yet tested on the truck. Physical addressing (`7E0`/`7E1`)
+would avoid the refusals altogether and is still untested.
+
 ## Open questions for the next session
 
 1. ~~**Who is 7E9?**~~ **ANSWERED: the TCM.** It owns `22 1674` (transmission

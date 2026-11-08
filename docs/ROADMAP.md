@@ -163,8 +163,12 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
 - [ ] 4.5 Stage C: ISO-TP diagnostics (opt-in). Our own single-frame ISO-TP instead of kernel `can-isotp` (ADR-0012)
       First truck session `[TRUCK]` 2026-11-07: the gateway polled over `can0` alone, 97 s idle, 16.2 req/s
       (MX+: 11.7), no transmit or bus errors, EOT 173 of 173. One IAT miss: the PCM skips a request sent while it
-      is still answering the previous one (after an early-returning pinned request; ADR-0012). Still open: a
-      drive, physical addressing (`7E0`/`7E1`), `obd-console raw` over CAN
+      is still answering the previous one (after an early-returning pinned request; ADR-0012).
+      First drives `[TRUCK]` 2026-11-07 (2 × ~8 min, up to 79 km/h): no bus errors, but EOT and trans temp were
+      quarantined 9 times for 60 s each. A late refusal meant for one pinned request was read as the next one's
+      answer. Fixed `[SIM]`: pinned requests wait for every module's answer, and one stray refusal no longer
+      quarantines a PID that has answered. Still open: a drive with the fix, physical addressing
+      (`7E0`/`7E1`), `obd-console raw` over CAN
 - [ ] 4.6 Stage D: transport switching and the no-simultaneous-transmit rule, MX+ and CAN both present
 - [x] 4.7 Dropout experiment (listen-only CAN capture while the MX+ polls) `[TRUCK]` 2026-11-07: the PCM's EOT answer
       was on the bus (+39.5 ms); the MX+ closed its window after the TCM's refusal (+6.4 ms). 1 of 104. Possible MX+

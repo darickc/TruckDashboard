@@ -276,4 +276,9 @@ tools/pi/can.sh listen               # or: tools/pi/can.sh down
 - `stats`: requests per second. The CAN budget starts at 20/s (unmeasured;
   `BUDGET_RPS=` overrides it).
 - EOT should never go `QUARANTINED` here: the gateway waits its own 50 ms
-  window, so the PCM's answer can't be cut off the way the MX+ cut it.
+  window, so the PCM's answer can't be cut off the way the MX+ cut it. Up to
+  `162f109` it could: a late refusal meant for trans temp was read as the
+  PCM refusing EOT (2026-11-07 drives,
+  [VERIFICATION_LOG](../diagnostics/VERIFICATION_LOG.md)). If it happens
+  again, find `7F 22` frames in the traffic log just after the
+  `QUARANTINED` line's request.

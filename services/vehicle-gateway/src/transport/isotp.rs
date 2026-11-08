@@ -162,7 +162,14 @@ pub fn pci(data: &[u8]) -> Pci<'_> {
 ///
 /// - **Pinned** (`expected_responder`): other modules' frames are dropped
 ///   before parsing, exactly like the ELM client. Done as soon as the owner
-///   gives a final answer, or when the window passes without one.
+///   gives a final answer, or when the window passes without one; but with
+///   [`Exchange::wait_for`], not before the listed other modules have
+///   answered too (or the window has passed). On the functional ID every
+///   module hears the request, and a refusal names only the service, not
+///   the DID: a refusal still on its way when the next request goes out is
+///   read as that request's answer (2026-11-07 drive: the PCM's `7F 22 31`
+///   to trans temp, ~30 ms late, taken as the PCM refusing EOT), and the
+///   module may skip a request that reaches it while it is still answering.
 /// - **Unpinned**: every module that answers within `window` is recorded;
 ///   done when the window ends. This is what removes the 2026-11-03 dropout:
 ///   the window is ours, not the adapter's adaptive timing.
@@ -177,6 +184,8 @@ pub struct Exchange {
     negatives: Vec<(u16, u8)>,
     pending: BTreeSet<u16>,
     owner_final: bool,
+    /// Other modules a pinned exchange still waits to hear from.
+    others: BTreeSet<u16>,
     multi_frame: Option<u16>,
     /// Frames from responders other than the pinned one (dropped).
     pub ignored: u32,
@@ -216,11 +225,25 @@ impl Exchange {
             negatives: Vec::new(),
             pending: BTreeSet::new(),
             owner_final: false,
+            others: BTreeSet::new(),
             multi_frame: None,
             ignored: 0,
             unmatched: 0,
             malformed: 0,
         }
+    }
+
+    /// A pinned exchange also waits (up to the window) for these modules'
+    /// final answers, so none of them is still answering when the next
+    /// request goes out. The owner is never in the set. No effect unpinned.
+    pub fn wait_for(mut self, modules: impl IntoIterator<Item = u16>) -> Self {
+        if let Some(owner) = self.expected {
+            self.others = modules
+                .into_iter()
+                .filter(|&id| id != owner && RESPONSE_IDS.contains(&id))
+                .collect();
+        }
+        self
     }
 
     /// Feed one received frame.
@@ -230,6 +253,9 @@ impl Exchange {
         }
         if self.expected.is_some_and(|e| e != frame.id) {
             self.ignored += 1;
+            if self.others.contains(&frame.id) && self.is_final_answer(&frame.data) {
+                self.others.remove(&frame.id);
+            }
             return;
         }
         let payload = match pci(&frame.data) {
@@ -279,10 +305,30 @@ impl Exchange {
         }
     }
 
+    /// A single frame that ends a module's part in this exchange: a positive
+    /// answer to this command, or a refusal of this service other than
+    /// "response pending".
+    fn is_final_answer(&self, data: &[u8]) -> bool {
+        let Pci::Single(payload) = pci(data) else {
+            return false;
+        };
+        let Some(c) = self.command else {
+            return true;
+        };
+        if payload[0] == 0x7F {
+            payload.len() >= 3 && payload[1] == c.service() && payload[2] != NRC_RESPONSE_PENDING
+        } else {
+            c.matches_positive(payload)
+        }
+    }
+
     /// Whether the exchange is complete at `at` (time since the request).
     pub fn done(&self, at: Duration) -> bool {
-        if at >= self.timeout || self.owner_final {
+        if at >= self.timeout {
             return true;
+        }
+        if self.owner_final {
+            return self.others.is_empty() || at >= self.window;
         }
         at >= self.window && self.pending.is_empty()
     }
@@ -445,6 +491,55 @@ mod tests {
             ex.finish(ms(18)),
             Outcome::Payload { latency_ms: 18, .. }
         ));
+    }
+
+    fn trans_temp() -> ObdRequest {
+        ObdRequest::new(ObdCommand::did(0x1674)).with_expected_responder(0x7E9)
+    }
+
+    /// 2026-11-07 drive: the TCM answers trans temp in ~7 ms, the PCM's
+    /// refusal follows ~30 ms after the request. Waiting for it keeps it out
+    /// of the next request's exchange.
+    #[test]
+    fn pinned_waits_for_the_other_modules_refusal() {
+        let mut ex = Exchange::new(&trans_temp(), W).wait_for([0x7E8, 0x7E9]);
+        ex.on_frame(&f(0x7E9, "0562167404130000"));
+        assert!(!ex.done(ms(7)), "the PCM hasn't answered yet");
+        assert_eq!(ex.next_check(ms(7)), W);
+        ex.on_frame(&f(0x7E8, "037F227800000000"));
+        assert!(!ex.done(ms(20)), "response pending isn't an answer");
+        ex.on_frame(&f(0x7E8, "037F223100000000"));
+        assert!(ex.done(ms(30)), "everyone has answered");
+        match ex.finish(ms(30)) {
+            Outcome::Payload { responders, .. } => {
+                assert_eq!(responders.len(), 1);
+                assert_eq!(responders[0].can_id, "7E9");
+            }
+            o => panic!("{o:?}"),
+        }
+    }
+
+    #[test]
+    fn pinned_wait_for_others_ends_at_the_window() {
+        let mut ex = Exchange::new(&trans_temp(), W).wait_for([0x7E8]);
+        ex.on_frame(&f(0x7E9, "0562167404130000"));
+        // An answer to some other request doesn't count as the PCM's.
+        ex.on_frame(&f(0x7E8, "04410C0AC2000000"));
+        ex.on_frame(&f(0x7E8, "037F010000000000"));
+        assert!(!ex.done(ms(49)));
+        assert!(ex.done(W), "a silent module costs one window, no more");
+        assert!(matches!(ex.finish(W), Outcome::Payload { .. }));
+    }
+
+    #[test]
+    fn wait_for_only_applies_to_pinned_exchanges() {
+        let mut unpinned = Exchange::new(&eot(), W).wait_for([0x7E8, 0x7E9]);
+        unpinned.on_frame(&f(0x7E8, "0562131026910000"));
+        assert!(!unpinned.done(ms(40)), "unpinned still waits its window");
+        assert!(unpinned.done(W));
+        let mut pinned = Exchange::new(&eot().with_expected_responder(0x7E8), W).wait_for([0x7E8]);
+        pinned.on_frame(&f(0x7E8, "0562131026910000"));
+        assert!(pinned.done(ms(40)), "the owner is never waited for twice");
     }
 
     #[test]

@@ -90,6 +90,8 @@ pub struct PidPoll {
     consecutive_misses: u32,
     backoff_rounds: u32,
     backoff: Duration,
+    /// The PID has answered at least once since it was enabled.
+    answered: bool,
 }
 
 impl PidPoll {
@@ -105,6 +107,7 @@ impl PidPoll {
             consecutive_misses: 0,
             backoff_rounds: 0,
             backoff: interval,
+            answered: false,
         }
     }
 
@@ -154,6 +157,7 @@ impl PidPoll {
 
     pub fn on_success(&mut self, now: Duration) -> Option<Transition> {
         let from = self.state;
+        self.answered = true;
         self.consecutive_misses = 0;
         self.backoff_rounds = 0;
         self.backoff = self.interval;
@@ -182,8 +186,14 @@ impl PidPoll {
         self.consecutive_misses = self.consecutive_misses.saturating_add(1);
         let reason = format!("{miss:?} ×{}", self.consecutive_misses);
 
-        let to = if miss == Miss::Unsupported {
+        let to = if miss == Miss::Unsupported && !self.answered {
             // The module said it will never answer: no point backing off.
+            // Not once it has answered: a refusal of a PID that answered
+            // this session is a fluke, and a refusal carries only the
+            // service byte, not the DID, so on a shared functional ID it can
+            // be another request's (2026-11-07 drive: a late `7E8 7F 22 31`
+            // for trans temp, read as the PCM refusing EOT). It then counts
+            // like any other miss and backs off the usual way.
             PollState::Quarantined
         } else {
             match from {
@@ -302,6 +312,43 @@ mod tests {
         let mut p = pid();
         let t = p
             .on_miss(Miss::Unsupported, S, &PollPolicy::default())
+            .expect("transition");
+        assert_eq!(t.to, PollState::Quarantined);
+    }
+
+    /// 2026-11-07 drive: EOT answered for minutes, then one stray `7F 22 31`
+    /// quarantined it for 60 s. A PID that has answered is only SUSPECT.
+    #[test]
+    fn unsupported_after_an_answer_is_an_ordinary_miss() {
+        let policy = PollPolicy::default();
+        let mut p = pid();
+        p.on_success(S);
+        let t = p
+            .on_miss(Miss::Unsupported, 2 * S, &policy)
+            .expect("transition");
+        assert_eq!(t.to, PollState::Suspect);
+        assert_eq!(p.next_due(), 3 * S, "polled again at its own interval");
+        assert_eq!(p.on_success(3 * S).map(|t| t.to), Some(PollState::Active));
+
+        // A module that really stopped supporting it still backs off, then
+        // quarantines, the usual way.
+        let mut now = 4 * S;
+        for _ in 0..policy.backoff_after {
+            p.on_miss(Miss::Unsupported, now, &policy);
+            now = p.next_due();
+        }
+        assert_eq!(p.state(), PollState::Backoff);
+        for _ in 0..policy.quarantine_after {
+            p.on_miss(Miss::Unsupported, now, &policy);
+            now = p.next_due();
+        }
+        assert_eq!(p.state(), PollState::Quarantined);
+
+        // Re-enabling starts fresh: no answer yet, so straight to quarantine.
+        p.set_enabled(false, now);
+        p.set_enabled(true, now);
+        let t = p
+            .on_miss(Miss::Unsupported, now, &policy)
             .expect("transition");
         assert_eq!(t.to, PollState::Quarantined);
     }

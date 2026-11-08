@@ -104,6 +104,100 @@ async fn eot_pinned_returns_as_soon_as_the_pcm_answers() {
     }
 }
 
+fn trans_temp() -> ObdRequest {
+    ObdRequest::new(ObdCommand::did(0x1674)).with_expected_responder(0x7E9)
+}
+
+fn rpm() -> ObdRequest {
+    ObdRequest::new(ObdCommand::mode01(0x0C))
+}
+
+fn value(out: &Outcome, from: &str) -> Vec<u8> {
+    match out {
+        Outcome::Payload { responders, .. } => {
+            assert_eq!(responders.len(), 1, "{out:?}");
+            assert_eq!(responders[0].can_id, from);
+            responders[0].payload.clone()
+        }
+        o => panic!("expected {from}'s value, got {o:?}"),
+    }
+}
+
+/// The 2026-11-07 drive: refusals ~30 ms after the request (the drive's
+/// medians were 12 ms for the TCM and 27–32 ms for the PCM, up to 49 ms).
+/// The owner answers first, so a pinned exchange that stopped there left the
+/// other module's refusal on its way, and the next pinned request took it
+/// for its own owner's answer ("unsupported") and was quarantined for 60 s.
+/// With the gateway waiting for every module it has heard, each refusal
+/// lands in its own exchange.
+#[tokio::test]
+async fn a_late_refusal_is_never_read_as_the_next_requests_answer() {
+    let bus = FakeBus::truck();
+    // Trans temp: the TCM answers at 7 ms, the PCM refuses at 30 ms.
+    bus.on(
+        "7DF 0322167400000000",
+        vec![
+            r(7, 0x7E9, "0562167404350000"),
+            r(30, 0x7E8, "037F223100000000"),
+        ],
+    );
+    // EOT, the slow-refusal case: the PCM answers at 40 ms, the TCM's
+    // refusal follows at 45 ms. Stopping at the owner's answer, each stray
+    // refusal arrives before the next request's real answer (23 ms vs 40 ms,
+    // 5 ms vs 7 ms), as on the drive.
+    bus.on(
+        "7DF 0322131000000000",
+        vec![
+            r(40, 0x7E8, "05621310289B0000"),
+            r(45, 0x7E9, "037F221200000000"),
+        ],
+    );
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    // A normal cycle starts with RPM, which both modules answer: that is
+    // how the gateway learns who is on the bus.
+    assert!(matches!(link.request(rpm()).await, Outcome::Payload { .. }));
+    for _ in 0..3 {
+        // Trans temp then EOT: the PCM's refusal of trans temp must not
+        // become "the PCM refuses EOT".
+        assert_eq!(
+            value(&link.request(trans_temp()).await, "7E9"),
+            [0x04, 0x35]
+        );
+        assert_eq!(
+            value(
+                &link.request(eot().with_expected_responder(0x7E8)).await,
+                "7E8"
+            ),
+            [0x28, 0x9B]
+        );
+        // And the next round's trans temp follows EOT: the TCM's refusal of
+        // EOT must not become "the TCM refuses trans temp".
+    }
+}
+
+#[tokio::test]
+async fn a_silent_module_costs_one_window_not_a_dropout() {
+    let bus = FakeBus::truck();
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    assert!(matches!(link.request(rpm()).await, Outcome::Payload { .. }));
+    // Now the PCM stops refusing trans temp: the exchange waits the window
+    // for it, then returns the TCM's value.
+    bus.on(
+        "7DF 0322167400000000",
+        vec![r(7, 0x7E9, "0562167404350000")],
+    );
+    match link.request(trans_temp()).await {
+        Outcome::Payload { latency_ms, .. } => {
+            assert!(latency_ms >= 50, "waited the window: {latency_ms} ms")
+        }
+        o => panic!("{o:?}"),
+    }
+}
+
 #[tokio::test]
 async fn pinned_owner_silent_is_no_response() {
     let bus = FakeBus::truck();

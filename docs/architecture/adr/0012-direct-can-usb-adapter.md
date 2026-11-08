@@ -44,16 +44,24 @@ The plan said Phase 4.5 would use the kernel's ISO-TP sockets (`can-isotp`).
    the slowest of 4408 PCM answers came 40.7 ms after the request, the
    slowest TCM answer 31.8 ms ([CAN_CENSUS](../../diagnostics/CAN_CENSUS.md),
    capture 4), so 50 ms holds on this truck so far. Unpinned requests wait the whole
-   window and keep every answer. Pinned requests (`rx_id`) return as soon as
-   the owner answers. NRC 0x78 extends the wait to the request timeout.
-   *Seen on the truck (session B):* when a pinned request returns early, the
-   next functional request can reach a module that is still answering the
-   last one. After `22 16 74` (pinned to the TCM, answered in ~7 ms) the
-   PCM, which usually sends its refusal at ~24 ms, skipped the next request 2
-   times in 92 (one IAT, one RPM). Harmless so far (one `SUSPECT` reading in
-   97 s). If it matters: physical addressing for pinned requests (`7E1` for
-   the TCM, `7E0` for the PCM, so the other module never sees them; untested,
-   TRUCK_SESSION question 2), or a minimum gap between requests.
+   window and keep every answer. Pinned requests (`rx_id`) return once the
+   owner has answered **and** every other module heard on the bus has
+   answered too, or when the window ends. NRC 0x78 extends the wait to the
+   request timeout.
+   *Why pinned requests wait for the others:* on `7DF` every module hears the
+   request and the non-owner refuses it, and a refusal names only the
+   service (`7F 22 31`), not the DID. Returning at the owner's answer left
+   that refusal on its way into the next request's exchange. In session B
+   (idle) the PCM skipped a request that reached it while it was still
+   refusing `22 16 74` (2 in 92). On the first drives (2026-11-07) refusals
+   came later (PCM up to 49 ms), and the next pinned request took a stray
+   refusal for its own owner's answer: EOT and trans temp were quarantined 9
+   times, 60 s each ([VERIFICATION_LOG](../../diagnostics/VERIFICATION_LOG.md)).
+   Waiting costs ~25 ms per trans temp request. Separately, one
+   "unsupported" refusal no longer quarantines a PID that has answered this
+   session. Physical addressing for pinned requests (`7E1` for the TCM,
+   `7E0` for the PCM, so the other module never sees them) would remove the
+   refusals altogether; untested (TRUCK_SESSION question 2).
 4. **Requests are 8-byte frames padded with 0x00.** The MX+ pads with 0x00
    too (listen-only capture beside it, 2026-11-07).
 5. **Safety stays layered (ADR-0007):**
