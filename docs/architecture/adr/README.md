@@ -30,5 +30,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0019](0019-poll-intervals-budgeted.md) | Poll intervals budgeted from the measured link throughput | Accepted ([SIM] only) |
 | [0020](0020-spare-budget-to-priority-0.md) | Priority 0 spends the spare link budget | Accepted ([SIM] only) |
 | [0021](0021-trimmed-dev-and-release-images.md) | Trimmed images: development (`agl-f250`) and release (`agl-f250-release`) | Accepted (both images [BENCH] 2026-11-08) |
+| [0022](0022-grow-root-on-first-boot.md) | Root fills the SD card on the first boot | Proposed ([SIM] only) |
 
 New ADRs use the next number and the same headings.

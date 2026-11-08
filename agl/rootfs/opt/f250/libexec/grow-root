@@ -1,0 +1,104 @@
+#!/bin/bash
+# ExecStart of f250-grow-root.service (ADR-0022): grow the root partition and
+# its ext4 filesystem into the free space after it, so the whole card is
+# usable. The wic image gives root only what the image needs (the release
+# image: 900 MB on a 7.3 GB card).
+#
+# Runs at every boot and changes something only when there is room:
+#   1. the root partition is the disk's last one, its table is MBR (dos, what
+#      the Pi wic image has), and at least 16 MiB follow it: sfdisk moves its
+#      end to the end of the disk (start unchanged), and partx gives the kernel
+#      the new size of that one partition (sfdisk's own re-read fails on a
+#      disk in use).
+#   2. systemd-growfs grows the mounted filesystem to the partition's size
+#      (online; a no-op once it fills the partition).
+# If the kernel still has the old size (step 1 failed to tell it), the next
+# boot reads the new table and step 2 grows the filesystem then.
+#
+# Never touches anything else: a root that isn't on a partition, a GPT disk,
+# or a partition with another after it is left alone and logged.
+#
+# Testing: F250_GROW_MOUNT (the mount point, default /), F250_SYSFS (sysfs
+# root, default /sys), F250_TEST_MAJMIN and F250_TEST_PTTYPE (answers instead
+# of findmnt and blkid), and F250_SYS_LOG=<file> records the commands that
+# change something instead of running them (tools/dev/test-agl.sh).
+# tools/dev/test-grow-root.sh grows a real ext4 filesystem on a loop device,
+# under the unit's sandbox.
+#
+# Status: [SIM] (test-agl.sh, and a mounted loop device in the Linux build
+# VM). Not run on the Pi yet.
+set -euo pipefail
+
+MNT="${F250_GROW_MOUNT:-/}"
+SYSFS="${F250_SYSFS:-/sys}"
+GROWFS="${F250_GROWFS:-/usr/lib/systemd/systemd-growfs}"
+MIN_FREE_SECTORS=32768   # 16 MiB in sysfs's 512-byte sectors: less isn't worth a table write
+
+log() { echo "grow-root: $*"; }
+
+sys() {   # commands that change the disk: run them, or only record them under test
+  if [[ -n "${F250_SYS_LOG:-}" ]]; then
+    echo "$*" >>"$F250_SYS_LOG"
+    return 0
+  fi
+  "$@"
+}
+
+majmin() {
+  if [[ -n "${F250_TEST_MAJMIN:-}" ]]; then echo "$F250_TEST_MAJMIN"; return; fi
+  findmnt -nvo MAJ:MIN --mountpoint "$MNT"
+}
+pttype() {
+  if [[ -n "${F250_TEST_PTTYPE:-}" ]]; then echo "$F250_TEST_PTTYPE"; return; fi
+  blkid -p -o value -s PTTYPE "$1" 2>/dev/null || true
+}
+
+grow_partition() {
+  local mm part diskdir disk nr start size disk_size end free other table
+  mm="$(majmin)" || { log "$MNT is not a mount point"; return 1; }
+  mm="${mm//[[:space:]]/}"   # findmnt pads the column ("259:2  ")
+  part="$SYSFS/dev/block/$mm"
+  if [[ ! -f "$part/partition" ]]; then
+    log "$MNT ($mm) is not on a disk partition: nothing to grow"
+    return 0
+  fi
+  part="$(cd -P "$part" && pwd)"
+  diskdir="$(dirname "$part")"
+  disk="/dev/$(basename "$diskdir")"
+  nr="$(cat "$part/partition")"
+  start="$(cat "$part/start")"
+  size="$(cat "$part/size")"
+  disk_size="$(cat "$diskdir/size")"
+  end=$((start + size))
+  free=$((disk_size - end))
+  log "$MNT is /dev/$(basename "$part"), partition $nr of $disk: $((size / 2048)) MiB, $((free / 2048)) MiB after it"
+
+  if ((free < MIN_FREE_SECTORS)); then
+    return 0
+  fi
+  for other in "$diskdir"/*/partition; do
+    [[ -f "$other" ]] || continue
+    other="$(dirname "$other")"
+    if (($(cat "$other/start") > start)); then
+      log "/dev/$(basename "$other") comes after it: not growing"
+      return 0
+    fi
+  done
+  table="$(pttype "$disk")"
+  if [[ "$table" != dos ]]; then
+    log "$disk has a '${table:-unknown}' partition table, not dos (MBR): not growing"
+    return 0
+  fi
+
+  log "growing partition $nr to the end of $disk"
+  # ",+": start unchanged, size as large as possible. --no-reread: the disk is
+  # in use (root is mounted from it), so sfdisk would refuse without it, and
+  # its re-read fails ("Device or resource busy"). partx -u resizes just this
+  # partition in the kernel (BLKPG), which works while it is mounted.
+  echo ',+' | sys sfdisk --no-reread -N "$nr" "$disk"
+  sys partx -u --nr "$nr" "$disk" || log "partx couldn't update the kernel's table: the filesystem grows at the next boot"
+}
+
+grow_partition
+log "growing the filesystem on $MNT"
+sys "$GROWFS" "$MNT"

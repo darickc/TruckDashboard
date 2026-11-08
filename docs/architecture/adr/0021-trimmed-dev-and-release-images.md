@@ -120,3 +120,6 @@ on 2026-11-08:
   gets checked the first time it runs on AGL.
 - A Phase 6 feature that needs a device or the network (cameras, audio,
   maps, the backlight) adds it to its unit's sandbox, with a new measurement.
+- Both images' root is only as large as the image (the release image: 851 MB
+  on a 7.3 GB card). [ADR-0022](0022-grow-root-on-first-boot.md) grows it to
+  fill the card on the first boot.

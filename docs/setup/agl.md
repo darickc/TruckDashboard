@@ -80,6 +80,9 @@ twice; `dd` overwrites whatever disk you name), then `diskutil unmountDisk
    `agl-f250-release`, is: root's password is locked and SSH takes only the
    key built into it ([ADR-0021](../architecture/adr/0021-trimmed-dev-and-release-images.md),
    [linux-build-host.md](linux-build-host.md)).
+   On their first boot, our images grow root to fill the card
+   ([ADR-0022](../architecture/adr/0022-grow-root-on-first-boot.md);
+   `systemctl status f250-grow-root`, `df -h /`). The stock image doesn't.
 4. Before deploying, look at the image as it comes (bench-log entry):
    `cat /etc/os-release`, `uname -r`, `cat /etc/default/flutter`,
    `systemctl is-enabled systemd-networkd kuksa-can-provider can-dev-helper`.
