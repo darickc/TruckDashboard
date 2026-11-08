@@ -29,6 +29,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0018](0018-computed-inputs-read-together.md) | Read a computed signal's inputs back to back | Accepted ([SIM] only) |
 | [0019](0019-poll-intervals-budgeted.md) | Poll intervals budgeted from the measured link throughput | Accepted ([SIM] only) |
 | [0020](0020-spare-budget-to-priority-0.md) | Priority 0 spends the spare link budget | Accepted ([SIM] only) |
-| [0021](0021-trimmed-dev-and-release-images.md) | Trimmed images: development (`agl-f250`) and release (`agl-f250-release`) | Proposed (parses; not built yet) |
+| [0021](0021-trimmed-dev-and-release-images.md) | Trimmed images: development (`agl-f250`) and release (`agl-f250-release`) | Proposed (development image [BENCH]; release not booted) |
 
 New ADRs use the next number and the same headings.

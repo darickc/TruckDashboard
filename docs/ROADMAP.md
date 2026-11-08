@@ -212,7 +212,11 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       from f16fc60, boots, `--check` passes with nothing sideloaded ([bench log](hardware/bench-log.md)). Then
       ([ADR-0021](architecture/adr/0021-trimmed-dev-and-release-images.md)): two trimmed images on AGL's compositor
       image, `agl-f250` (development) and `agl-f250-release` (root locked, SSH by key only), root's key built in,
-      `make build-vm CMD=image`. Parses `[SIM]`; not built yet. Still to do: build and bench both, unit hardening.
+      `make build-vm CMD=image`. Both built from 33d8324. `[BENCH]` 2026-11-08: the development image boots,
+      `--check` passes, gateway/recorder/dashboard/avahi run, oFono is off. Units sandboxed (ADR-0021 §10;
+      `systemd-analyze security` gateway 6.8 → 1.6, recorder 5.3 → 0.2, dashboard 9.2 → 0.6, sim transport).
+      Still to do: boot the release image (key-only SSH); the gateway's sandbox with the `obdlink` and `can`
+      transports; Bluetooth is off under connman (the MX+ needs it on).
       No kernel fragment or udev rules yet: each comes with its feature.
       Done ahead of it: the service watchdogs. `crates/sd-notify` (systemd's notify protocol, no `unsafe`); the
       gateway and recorder are `Type=notify` with `WatchdogSec=60` / `30`, and send keep-alives only while their loops

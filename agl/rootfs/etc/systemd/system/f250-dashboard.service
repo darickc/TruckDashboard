@@ -38,5 +38,42 @@ ExecStart=/usr/bin/flutter-auto -b /usr/share/flutter/f250_infotainment/${FLUTTE
 ExecStopPost=+/opt/f250/libexec/dashboard-stopped
 SuccessExitStatus=42
 
+# Sandbox (ADR-0021). `systemd-analyze security f250-dashboard`: 9.2 before,
+# 0.6 after [BENCH] (2026-11-08). The `+` on ExecStopPost runs the power-off
+# helper outside it.
+# - Devices: the GPU only (Vulkan on /dev/dri). Input comes from the compositor.
+# - Network: none. The gateway's socket and Wayland's are files under /run.
+# - Writes: Mesa's shader cache and flutter-auto's own directory in the
+#   home, which agl-driver shares with the compositor. No RemoveIPC= for
+#   the same reason.
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=-/home/agl-driver/.cache -/home/agl-driver/.flutter-auto
+PrivateTmp=yes
+PrivateNetwork=yes
+DevicePolicy=closed
+DeviceAllow=char-drm rw
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+
 [Install]
 WantedBy=graphical.target agl-compositor.service

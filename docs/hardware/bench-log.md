@@ -978,3 +978,58 @@ nothing about the image.
 Verdict: works. The image built from the layer gives the same head unit as
 the prebuilt image plus Stage 1, with no sideload.
 Still to do on this card: check 8 (CAN listen-only with the adapter on a bus).
+
+## 2026-11-08 — The trimmed agl-f250 development image passes the bench checks; units sandboxed [BENCH]
+
+Hardware: the bench Pi 5 and 7" DSI panel; the USB CAN adapter (gs_usb,
+`1d50:606f`) plugged in, not on any bus. Ethernet.
+Image: `agl-f250-22.0.1-33d8324.wic` (ADR-0021: AGL's compositor image plus
+the head unit, no demo), built in the build VM from commit 33d8324,
+1,718,406,144 bytes, sha256 `6a5b9b1b…4c01c0`. Flashed from the Mac; root's
+key came from the image (`F250_AUTHORIZED_KEYS`), nothing installed by hand,
+no `make deploy`.
+
+Result:
+    first boot     on the network about 55 s after power-on;
+                   `ssh root@raspberrypi5.local` with the built-in key;
+                   /etc/f250-release F250_SRCREV=33d8324…; rpm: f250-system,
+                   f250-services, f250-dashboard 0.1+git0+33d8324979-r0
+    boot time      systemd-analyze: 0.77 s kernel + 8.3 s userspace
+                   (11.1 s userspace on the demo-based f16fc60 image)
+    --check        all checks passed (0 warnings); flutter-ics-homescreen
+                   "not installed"
+    services       f250-gateway, f250-recorder, f250-dashboard,
+                   agl-compositor, avahi-daemon, connman, bluetooth active;
+                   ofono inactive and disabled; no failed units;
+                   graphical.target
+    CAN            gs_usb loaded; can-raw and can-isotp present as modules;
+                   can0 STOPPED, down
+    gateway        sim (drive_cycle); obd-console pids all Valid
+    disk           / 785 MB used of 1.4 GB
+    Bluetooth      hci0 present, but **Powered: no**: connman's settings have
+                   `[Bluetooth] Enable=false` and the controller is rfkill
+                   soft-blocked (bthelper: "Failed to set power on"). The MX+
+                   over RFCOMM would need it on; not fixed here (ADR-0021).
+
+Sandbox (ADR-0021 §10). Tried first as runtime drop-ins in
+`/run/systemd/system`, then the edited unit files copied over the image's in
+`/etc/systemd/system` (`systemd-analyze verify`: clean), all four services
+restarted. After 75 s: all active, NRestarts 0 (past both watchdogs), no
+errors in their journals, obd-console still reading live values.
+
+    systemd-analyze security    before   after
+    f250-gateway                 6.8      1.6
+    f250-recorder                5.3      0.2
+    f250-dashboard               9.2      0.6
+
+With the sandbox on, the owner confirms: the gauges move on the panel, touch
+works, and the dashboard's Power button turned the Pi off (it then stopped
+answering on the network).
+
+Not covered: the gateway's sandbox with the `obdlink` (serial, RFCOMM, TCP)
+and `can` transports; only the simulator ran.
+
+Verdict: works. The trimmed development image replaces the demo-based one on
+the bench. The sandboxed units go into the next build.
+Still to do: boot `agl-f250-release` (key-only SSH, password refused); CAN
+check 8.

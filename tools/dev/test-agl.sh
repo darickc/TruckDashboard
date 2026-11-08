@@ -267,6 +267,27 @@ check "recorder starts via its wrapper" "grep -qx 'ExecStart=/opt/f250/libexec/r
 check "services ordered after the drive" "grep -qx 'After=var-lib-f250-storage.mount' agl/rootfs/etc/systemd/system/f250-recorder.service && grep -qx 'After=var-lib-f250-storage.mount' agl/rootfs/etc/systemd/system/f250-gateway.service"
 check "mount point agrees everywhere" "grep -q '^STORAGE=/var/lib/f250/storage$' '$SETUP' && grep -q 'F250_STORAGE:-/var/lib/f250/storage' '$GW' && grep -q 'F250_STORAGE:-/var/lib/f250/storage' '$REC' && grep -q '^STORAGE=/var/lib/f250/storage$' '$STORAGE_TOOL'"
 check "drive label agrees"     "grep -q '^DRIVE_LABEL=f250-data$' '$SETUP' && grep -q '^LABEL=f250-data$' '$STORAGE_TOOL'"
+# Sandbox (ADR-0021): each service has the settings measured on the bench.
+U=agl/rootfs/etc/systemd/system
+for unit in f250-gateway f250-recorder f250-dashboard; do
+  for line in 'NoNewPrivileges=yes' 'CapabilityBoundingSet=' 'ProtectSystem=strict' 'PrivateTmp=yes' \
+              'ProtectKernelTunables=yes' 'ProtectKernelModules=yes' 'ProtectKernelLogs=yes' \
+              'ProtectControlGroups=yes' 'ProtectClock=yes' 'ProtectHostname=yes' 'ProtectProc=invisible' \
+              'RestrictNamespaces=yes' 'RestrictSUIDSGID=yes' 'RestrictRealtime=yes' 'LockPersonality=yes' \
+              'MemoryDenyWriteExecute=yes' 'SystemCallArchitectures=native' 'SystemCallFilter=@system-service' \
+              'SystemCallFilter=~@privileged @resources' 'IPAddressDeny=any'; do
+    check "$unit: $line" "grep -qxF '$line' $U/$unit.service"
+  done
+done
+check "gateway reaches only USB serial devices" "grep -qx 'DevicePolicy=closed' $U/f250-gateway.service && [[ \"\$(grep -c '^DeviceAllow=' $U/f250-gateway.service)\" == 1 ]] && grep -qx 'DeviceAllow=char-ttyUSB rw' $U/f250-gateway.service"
+check "gateway keeps its adapter families" "grep -qx 'RestrictAddressFamilies=AF_UNIX AF_CAN AF_BLUETOOTH AF_INET AF_INET6 AF_NETLINK' $U/f250-gateway.service"
+check "gateway reaches the local network only" "grep -qx 'IPAddressAllow=localhost link-local 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16' $U/f250-gateway.service"
+check "recorder has no network or devices" "grep -qx 'PrivateNetwork=yes' $U/f250-recorder.service && grep -qx 'PrivateDevices=yes' $U/f250-recorder.service && grep -qx 'RestrictAddressFamilies=AF_UNIX' $U/f250-recorder.service"
+check "dashboard reaches only the GPU" "grep -qx 'DevicePolicy=closed' $U/f250-dashboard.service && [[ \"\$(grep -c '^DeviceAllow=' $U/f250-dashboard.service)\" == 1 ]] && grep -qx 'DeviceAllow=char-drm rw' $U/f250-dashboard.service"
+check "dashboard has no network" "grep -qx 'PrivateNetwork=yes' $U/f250-dashboard.service && grep -qx 'RestrictAddressFamilies=AF_UNIX' $U/f250-dashboard.service"
+check "dashboard writes only its caches" "grep -qx 'ProtectHome=read-only' $U/f250-dashboard.service && grep -qx 'ReadWritePaths=-/home/agl-driver/.cache -/home/agl-driver/.flutter-auto' $U/f250-dashboard.service"
+check "dashboard leaves the compositor's IPC alone" "! grep -q '^RemoveIPC=' $U/f250-dashboard.service"
+check "power off runs outside the sandbox" "grep -qx 'ExecStopPost=+/opt/f250/libexec/dashboard-stopped' $U/f250-dashboard.service"
 check "config block is marked"         "[[ \"\$(head -1 agl/boot/config-f250.txt)\" == '# >>> f250'* && \"\$(tail -1 agl/boot/config-f250.txt)\" == '# <<< f250' ]]"
 check "engine pin matches .fvmrc"      "grep -q \"AGL_FLUTTER_VERSION=\$(sed -n 's/.*\"flutter\": *\"\\([^\"]*\\)\".*/\\1/p' .fvmrc)\" agl/configurations/vimba.env"
 

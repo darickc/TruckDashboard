@@ -1,6 +1,7 @@
 # ADR 0021 — Trimmed images: development and release
 
-- **Status:** Proposed (both images parse in the build VM; not built or booted yet)
+- **Status:** Proposed (both images built from 33d8324; the development image
+  passes the bench checks, [BENCH] 2026-11-08; the release image isn't booted yet)
 - **Date:** 2026-11-08
 - **Refines:** [ADR-0017](0017-meta-f250-layer.md)
 
@@ -79,6 +80,21 @@ on 2026-11-08:
    the opto inputs with their wiring.
 9. **`make build-vm CMD=image`** copies the newest images out of the VM to
    `build/agl/`, decompressed, named `<image>-<release>-<commit>.wic`.
+10. **Each service runs in a sandbox** measured on the bench. On top of what
+    Stage 1 had: no capabilities, systemd's `@system-service` call filter
+    without `@privileged` and `@resources`, no namespaces, a hidden process
+    list, no IP traffic beyond what the service needs. Per service:
+    - gateway: devices limited to USB serial (`char-ttyUSB`), IP limited to
+      localhost and private ranges (`tcp:` adapters)
+    - recorder: also no network, no devices, its own user namespace
+    - dashboard: had no sandbox at all. Now: the GPU only (`char-drm`), no
+      network, the file system read-only except Mesa's shader cache and
+      `~/.flutter-auto`. No `RemoveIPC=` and no `PrivateUsers=`: `agl-driver`
+      also runs the compositor. The power-off helper (`ExecStopPost=+`) runs
+      outside the sandbox.
+
+    `systemd-analyze security`, before and after: gateway 6.8 → 1.6,
+    recorder 5.3 → 0.2, dashboard 9.2 → 0.6 (2026-11-08, sim transport).
 
 ## Consequences
 
@@ -91,3 +107,13 @@ on 2026-11-08:
 - The release image has no password login at all: a lost key means
   re-flashing. The development image stays for the bench.
 - Audio, GPS and maps add their packages back when their phases land.
+- connman keeps Bluetooth switched off (`[Bluetooth] Enable=false`; the
+  controller is rfkill soft-blocked). Nothing in AGL's layers turns it on;
+  the demo's settings app did that at run time, if anything. The MX+ over
+  RFCOMM needs it on, and has never run on AGL. The CAN adapter
+  (ADR-0012) doesn't need it.
+- The gateway's sandbox has only run with the simulator. The `obdlink`
+  (serial, RFCOMM, TCP) and `can` transports may need a call or device the
+  filter refuses. Each gets checked the first time it runs on AGL.
+- A Phase 6 feature that needs a device or the network (cameras, audio,
+  maps, the backlight) adds it to its unit's sandbox, with a new measurement.

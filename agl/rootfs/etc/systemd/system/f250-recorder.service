@@ -36,21 +36,36 @@ StateDirectoryMode=0750
 # The data drive is mounted inside the state directory; '-': fine if absent.
 ReadWritePaths=-/var/lib/f250/storage
 
+# Sandbox (ADR-0021). `systemd-analyze security f250-recorder`: 5.3 before,
+# 0.2 after [BENCH] (2026-11-08).
 NoNewPrivileges=yes
+CapabilityBoundingSet=
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
 PrivateNetwork=yes
 PrivateDevices=yes
+PrivateUsers=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
+ProtectKernelLogs=yes
 ProtectControlGroups=yes
 ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
 SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
 RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
 
 [Install]
 WantedBy=multi-user.target

@@ -10,10 +10,10 @@ with the head unit's software and none of the demo's
 - `agl-f250-release`, for the truck: root's password locked, SSH by key only,
   no debug tools or package manager
 
-Status: `[BENCH]` 2026-11-08, `agl-f250` built from f16fc60 (still on the demo
-image) boots on the bench Pi and passes `stage1-setup.sh --check` with nothing
-sideloaded. The trimmed development and release images parse `[SIM]`; not
-built yet. See [ROADMAP 5.4](../../docs/ROADMAP.md) and the
+Status: `[BENCH]` 2026-11-08, the trimmed `agl-f250` built from 33d8324 boots
+on the bench Pi and passes `stage1-setup.sh --check` with nothing sideloaded;
+its services run sandboxed. `agl-f250-release` is built from the same commit
+but not booted yet. See [ROADMAP 5.4](../../docs/ROADMAP.md) and the
 [bench log](../../docs/hardware/bench-log.md). Design:
 [ADR-0017](../../docs/architecture/adr/0017-meta-f250-layer.md),
 [ADR-0021](../../docs/architecture/adr/0021-trimmed-dev-and-release-images.md).
@@ -60,4 +60,5 @@ updates it in place for quick iterations.
 Not here, on purpose (ADR-0021): a kernel config fragment (`gs_usb`,
 `can-raw` and `can-isotp` are modules the images install) and udev rules
 (nothing writes the backlight or reads GPIO yet; each rule comes with its
-feature). Still to do: unit hardening beyond Stage 1's.
+feature). The services' sandboxes are in their units under `agl/rootfs`
+(ADR-0021 §10).
