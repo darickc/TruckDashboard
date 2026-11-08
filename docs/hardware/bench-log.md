@@ -1166,5 +1166,12 @@ flashed by the owner, booted on Ethernet. `/etc/f250-release`: e82719f.
     scan           connmanctl enable wifi; scan wifi: "Scan completed",
                    the nearby networks listed.
 
-Verdict: the connman patch works. Not yet tested: joining the phone hotspot,
-and rejoining it after a reboot without Ethernet.
+Verdict: the connman patch works.
+
+    hotspot        the owner joined the phone's hotspot with connmanctl
+                   (agl.md, Wi-Fi): wlan0 10.238.106.42/24, saved with
+                   AutoConnect=true; the clock synchronized over it.
+    reboot         rejoined on its own, same address; gateway, recorder,
+                   dashboard active.
+
+The Pi is ready for the truck session (can.md, On the AGL image).
