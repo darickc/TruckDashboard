@@ -11,7 +11,10 @@
 # Environment:
 #   AGL_TOP     where the layers, downloads, sstate and build live ($HOME/agl)
 #   FEATURES    aglsetup.sh features ("agl-demo agl-devel")
-#   TARGET      bitbake target (agl-f250; agl-ivi-demo-flutter is AGL's own)
+#   TARGET      bitbake targets ("agl-f250 agl-f250-release", or agl-f250 alone
+#               when there is no key; agl-ivi-demo-flutter is AGL's own)
+#   F250_AUTHORIZED_KEYS  root's SSH keys for both images ($AGL_TOP/f250-authorized_keys;
+#               build-vm.sh copies the Mac's key there). The release image needs it.
 #   F250_LAYER=0  leave meta-f250 out (only AGL's images build then)
 #   F250_ALLOW_DIRTY=1  build although the checkout has uncommitted changes
 #   THREADS     BitBake tasks at once (8); JOBS make -j per task (nproc)
@@ -38,7 +41,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE="${1:-build}"
 AGL_TOP="${AGL_TOP:-$HOME/agl}"
 FEATURES="${FEATURES:-agl-demo agl-devel}"
-TARGET="${TARGET:-agl-f250}"
+F250_AUTHORIZED_KEYS="${F250_AUTHORIZED_KEYS:-$AGL_TOP/f250-authorized_keys}"
+if [[ -s "$F250_AUTHORIZED_KEYS" ]]; then
+  TARGET="${TARGET:-agl-f250 agl-f250-release}"
+else
+  TARGET="${TARGET:-agl-f250}"
+fi
 F250_LAYER="${F250_LAYER:-1}"
 F250_REPO="$(cd "$HERE/../.." && pwd)"
 THREADS="${THREADS:-8}"
@@ -160,6 +168,11 @@ f250_layer() {
 F250_REPO = "$F250_REPO"
 F250_SRCREV = "$rev"
 EOF
+  if [[ -s "$F250_AUTHORIZED_KEYS" ]]; then
+    printf '# Root SSH keys for both images (ADR-0021).\nF250_AUTHORIZED_KEYS = "%s"\n' "$F250_AUTHORIZED_KEYS" >> conf/site.conf
+  else
+    say "No SSH key at $F250_AUTHORIZED_KEYS: the release image is skipped, and the development image has no key"
+  fi
   if ! grep -q "$F250_REPO/agl/meta-f250" conf/bblayers.conf; then
     printf '\n# Added by agl/scripts/agl-build.sh\nBBLAYERS += "%s"\n' "$F250_REPO/agl/meta-f250" >> conf/bblayers.conf
   fi
@@ -169,10 +182,11 @@ EOF
 build() {
   mkdir -p "$AGL_TOP/logs"
   local log
-  log="$AGL_TOP/logs/$TARGET-$(date +%Y%m%d-%H%M%S).log"
+  log="$AGL_TOP/logs/${TARGET// /+}-$(date +%Y%m%d-%H%M%S).log"
   say "bitbake $TARGET (log: $log)"
   local start=$SECONDS rc=0
-  bitbake "$TARGET" 2>&1 | tee "$log" || rc=$?
+  # shellcheck disable=SC2086 # TARGET is a list of targets
+  bitbake $TARGET 2>&1 | tee "$log" || rc=$?
   # The result goes in the log too, so it survives the terminal or tmux.
   {
     say "bitbake exit $rc after $(( (SECONDS - start) / 60 )) min"

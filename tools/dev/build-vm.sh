@@ -9,6 +9,8 @@
 #   make build-vm CMD=delete   delete the VM and everything built in it
 #   make agl-build             run agl/scripts/agl-build.sh in the VM, in tmux
 #                              (Ctrl-b d detaches; DETACH=1 starts it detached)
+#   make build-vm CMD=image    copy the newest agl-f250 images to build/agl/,
+#                              decompressed, named <image>-<release>-<commit>.wic
 #
 # The VM is Ubuntu 24.04 aarch64 under Apple's Virtualization framework.
 # Everything Lima keeps for it (the VM's disk included) lives in one
@@ -20,7 +22,8 @@
 # which made builds slow; BUILD_VM_DIR=/Volumes/External/lima still uses it.
 #
 # Environment: BUILD_VM_DIR (~/agl-build-vm), VM_CPUS (12), VM_MEMORY in GiB
-# (32), VM_DISK in GiB (420).
+# (32), VM_DISK in GiB (420), F250_SSH_KEY (~/.ssh/id_ed25519.pub: the public
+# key both images install for root, ADR-0021; copied into the VM before a build).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 REPO="$PWD"
@@ -66,6 +69,16 @@ case "$CMD" in
   shell) running || up; limactl shell "$NAME" ;;
   build)
     running || up
+    key="${F250_SSH_KEY:-$HOME/.ssh/id_ed25519.pub}"
+    vhome="$(in_vm printenv HOME)"
+    if [[ -s "$key" ]]; then
+      in_vm mkdir -p "$vhome/agl"
+      limactl copy "$key" "$NAME:$vhome/agl/f250-authorized_keys"
+      say "Root's SSH key for the images: $key"
+    else
+      in_vm rm -f "$vhome/agl/f250-authorized_keys"
+      say "No SSH key at $key (F250_SSH_KEY): only the development image is built, without a key"
+    fi
     # In tmux inside the VM, so a long build survives this terminal closing.
     # Attach from a terminal; with DETACH=1 (or no terminal) it runs on, and
     # `make build-vm CMD=log` follows it.
@@ -80,6 +93,22 @@ case "$CMD" in
     else
       say "Running in tmux session agl-build in the VM: make build-vm CMD=log"
     fi ;;
+  image)
+    running || die "the VM is not running: make build-vm"
+    . agl/configurations/vimba.env
+    vhome="$(in_vm printenv HOME)"
+    deploy="$vhome/agl/$AGL_BRANCH-$AGL_RELEASE/build-$AGL_MACHINE/tmp/deploy/images/$AGL_MACHINE"
+    rev="$(in_vm sed -n 's/^F250_SRCREV = "\(.......\).*/\1/p' "$vhome/agl/$AGL_BRANCH-$AGL_RELEASE/build-$AGL_MACHINE/conf/site.conf")"
+    mkdir -p build/agl
+    for img in agl-f250 agl-f250-release; do
+      src="$(in_vm readlink -f "$deploy/$img-$AGL_MACHINE.rootfs.wic.zst" 2>/dev/null || true)"
+      [[ -n "$src" ]] && in_vm test -f "$src" || { echo "  $img: not built"; continue; }
+      out="build/agl/$img-$AGL_RELEASE-$rev"
+      limactl copy "$NAME:$src" "$out.wic.zst"
+      limactl copy "$NAME:${src%.wic.zst}.manifest" "$out.manifest"
+      zstd -dqf --rm "$out.wic.zst" -o "$out.wic"
+      say "$out.wic ($(shasum -a 256 "$out.wic" | cut -c1-16)…)"
+    done ;;
   log) in_vm bash -lc 'tail -n "${LINES:-40}" -F "$(ls -t ~/agl/logs/*.log | head -1)"' ;;
   stop) exists && running && limactl stop "$NAME"; say "stopped" ;;
   status)
@@ -88,5 +117,5 @@ case "$CMD" in
     df -h "$VM_DIR" | tail -1
     if running; then in_vm bash -lc 'df -h ~ | tail -1; free -g | head -2; ls ~/agl/logs 2>/dev/null | tail -3'; fi ;;
   delete) exists && limactl delete --force "$NAME"; say "deleted $NAME (rm -rf $VM_DIR removes the rest)" ;;
-  *) die "usage: make build-vm [CMD=up|shell|stop|status|log|delete]" ;;
+  *) die "usage: make build-vm [CMD=up|shell|stop|status|log|image|delete]" ;;
 esac

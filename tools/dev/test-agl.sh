@@ -200,6 +200,10 @@ echo disabled >"$R7/.test/unit-flutter-ics-homescreen.service"; rm -f "$R7/.test
 mkdir -p "$R7/opt/f250/share/data/signals"; echo '{}' >"$R7/opt/f250/share/data/warning_rules.json"
 if setup "$R7" --check >"$T/check-drive.out" 2>&1; then ok; else fail "--check with the drive mounted: $(grep FAIL "$T/check-drive.out")"; fi
 check "--check sees the mount"         "grep -q 'mounted at /var/lib/f250/storage' '$T/check-drive.out'"
+# The trimmed image has none of the demo's units (ADR-0021).
+rm -f "$R7/.test/unit-flutter-ics-homescreen.service" "$R7/.test/unit-kuksa-can-provider.service" "$R7/.test/unit-can-dev-helper.service"
+if setup "$R7" --check >"$T/check-trimmed.out" 2>&1; then ok; else fail "--check without the demo's units: $(grep FAIL "$T/check-trimmed.out")"; fi
+check "--check: homescreen not installed" "grep -q 'flutter-ics-homescreen.service not installed' '$T/check-trimmed.out'"
 rm "$R7/.test/mounted-storage"
 if setup "$R7" --check >"$T/check-nodrive.out" 2>&1; then fail "--check passed with DATA_DRIVE=1 and nothing mounted"; else ok; fi
 check "--check says the recorder stops" "grep -q \"the recorder won't run\" '$T/check-nodrive.out'"
@@ -303,9 +307,25 @@ done
 check "units stage1 enables have [Install]" "for u in f250-gateway f250-recorder f250-dashboard; do grep -q '^WantedBy=' agl/rootfs/etc/systemd/system/\$u.service || exit 1; done"
 check "static IDs for f250"            "grep -qx 'f250::950:950:F-250 head unit services:/var/lib/f250:/bin/false' $M/files/f250-passwd && grep -qx 'f250::950:' $M/files/f250-group"
 check "agl-driver joins f250"          "grep -qx 'GROUPMEMS_PARAM:\${PN} = \"-a agl-driver -g f250\"' $M/recipes-config/agl-users/agl-users_%.bbappend"
-check "image drops the demo homescreen" "grep -qx 'AGL_APPS_INSTALL:remove = \"flutter-ics-homescreen\"' $M/recipes-platform/images/agl-f250.bb"
-for p in f250-system f250-services f250-dashboard; do
-  check "image installs $p" "grep -qx '    $p \\\\' $M/recipes-platform/images/agl-f250.bb"
+IMG=$M/recipes-platform/images
+check "images start from the compositor image, not the demo" "grep -qx 'require recipes-platform/images/agl-image-compositor.bb' $IMG/agl-f250-base.inc && ! grep -rq 'agl-ivi-demo\\|agl-ivi-image' $IMG"
+for i in agl-f250 agl-f250-release; do
+  check "$i uses the shared base" "grep -qx 'require agl-f250-base.inc' $IMG/$i.bb"
+done
+for p in f250-system f250-services f250-dashboard weston-ini-conf-flutter bluez5 rsync; do
+  check "base installs $p" "grep -qx '    $p \\\\' $IMG/agl-f250-base.inc"
+done
+for feat in allow-empty-password empty-root-password allow-root-login tools-debug tools-profile package-management; do
+  check "release drops $feat" "sed -n '/^IMAGE_FEATURES:remove/,/^\"/p' $IMG/agl-f250-release.bb | grep -qx '    $feat \\\\'"
+done
+check "release drops agl-devel's packages" "grep -qx 'IMAGE_INSTALL:remove = \"packagegroup-agl-core-devel libdrm-tests weston-examples screen mc\"' $IMG/agl-f250-release.bb && grep -qx 'FEATURE_PACKAGES_selinux = \"packagegroup-agl-core-selinux\"' $IMG/agl-f250-release.bb"
+check "release needs a root key"       "grep -q 'SkipRecipe(\"F250_AUTHORIZED_KEYS is not set' $IMG/agl-f250-release.bb"
+check "key installed for root, in the rootfs signature" "grep -q 'ROOT_HOME}/.ssh/authorized_keys' $IMG/agl-f250-base.inc && grep -q 'do_rootfs\\[file-checksums\\]' $IMG/agl-f250-base.inc"
+check "agl-build.sh hands the key to BitBake" "grep -q 'F250_AUTHORIZED_KEYS = ' agl/scripts/agl-build.sh && grep -q 'f250-authorized_keys' tools/dev/build-vm.sh"
+# Every command the on-Pi scripts call comes from a package f250-system pulls in.
+for pair in candump:can-utils lsusb:usbutils mkfs.ext4:e2fsprogs-mke2fs blkid:util-linux-blkid lsblk:util-linux-lsblk findmnt:util-linux-findmnt ip:iproute2 cmp:diffutils; do
+  cmd=${pair%%:*}; pkg=${pair#*:}
+  check "f250-system pulls in $pkg ($cmd)" "grep -A2 '^RDEPENDS' '$SYSBB' | grep -qw '$pkg'"
 done
 check "services: the binaries deploy.sh builds" "grep -q -- '-p vehicle-gateway -p recorder -p obd-console --features vehicle-gateway/rfcomm' $M/recipes-f250/f250-services/f250-services.bb && grep -q -- '-p vehicle-gateway --features rfcomm' tools/dev/deploy.sh"
 check "dashboard: deploy.sh's defines"  "grep -q -- '-DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock' $M/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -q -- '--dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:\$SOCK' tools/dev/deploy.sh"

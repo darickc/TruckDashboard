@@ -1,13 +1,22 @@
 # meta-f250
 
 The F-250 head unit as a Yocto layer on AGL 22.0.1 (Vimba), for
-`MACHINE = "raspberrypi5"`. It builds the image `agl-f250`: AGL's Flutter demo
-image with the head unit's software in place of the demo homescreen.
+`MACHINE = "raspberrypi5"`. It builds two images on AGL's compositor image,
+with the head unit's software and none of the demo's
+([ADR-0021](../../docs/architecture/adr/0021-trimmed-dev-and-release-images.md)):
 
-Status: `[BENCH]` 2026-11-08, `agl-f250` built from f16fc60 boots on the bench
-Pi and passes `stage1-setup.sh --check` with nothing sideloaded; see [ROADMAP 5.4](../../docs/ROADMAP.md) and the
-[bench log](../../docs/hardware/bench-log.md) for what has been built and
-booted. Design: [ADR-0017](../../docs/architecture/adr/0017-meta-f250-layer.md).
+- `agl-f250`, for the bench: `agl-devel`'s tools, package management, and
+  root with an empty password
+- `agl-f250-release`, for the truck: root's password locked, SSH by key only,
+  no debug tools or package manager
+
+Status: `[BENCH]` 2026-11-08, `agl-f250` built from f16fc60 (still on the demo
+image) boots on the bench Pi and passes `stage1-setup.sh --check` with nothing
+sideloaded. The trimmed development and release images parse `[SIM]`; not
+built yet. See [ROADMAP 5.4](../../docs/ROADMAP.md) and the
+[bench log](../../docs/hardware/bench-log.md). Design:
+[ADR-0017](../../docs/architecture/adr/0017-meta-f250-layer.md),
+[ADR-0021](../../docs/architecture/adr/0021-trimmed-dev-and-release-images.md).
 
 ## Build
 
@@ -16,7 +25,7 @@ make agl-build
 ```
 
 `agl/scripts/agl-build.sh` adds this layer to the build, then builds
-`agl-f250` from **this checkout's HEAD commit** (`F250_REPO`, `F250_SRCREV` in
+`agl-f250` and `agl-f250-release` from **this checkout's HEAD commit** (`F250_REPO`, `F250_SRCREV` in
 `conf/site.conf`). It stops if the checkout has uncommitted changes, because
 BitBake reads these recipes from the working tree.
 [linux-build-host.md](../../docs/setup/linux-build-host.md) covers the build VM.
@@ -25,7 +34,8 @@ BitBake reads these recipes from the working tree.
 
 | File | Does | Stage 1 equivalent |
 |---|---|---|
-| `recipes-platform/images/agl-f250.bb` | `agl-ivi-demo-flutter` without `flutter-ics-homescreen`, plus the three packages below | the prebuilt image |
+| `recipes-platform/images/agl-f250-base.inc` | `agl-image-compositor` plus the Flutter compositor config, DejaVu, BlueZ, rsync, the three packages below, and root's SSH key (`F250_AUTHORIZED_KEYS`) | the prebuilt image, minus the demo |
+| `recipes-platform/images/agl-f250.bb`, `agl-f250-release.bb` | development (adds package management; `agl-devel` adds the rest) and release (removes `agl-devel`'s features and packages) | — |
 | `recipes-f250/f250-system` | `agl/rootfs/` (units, drop-ins, `/etc/default/f250`, helpers), the `f250` user, the masked KUKSA CAN units, the enabled units, the persistent journal, `f250-can`, `f250-storage`, `/opt/f250/share/agl`, `/etc/f250-release` | `stage1-setup.sh` steps 1, 3, 4, 7 |
 | `recipes-f250/f250-services` | `vehicle-gateway` (with RFCOMM), `recorder`, `obd-console` in `/opt/f250/bin`, the gateway's data in `/opt/f250/share/data`; the recorder links the image's `libsqlite3` (`make deploy` builds SQLite in) | `make deploy`'s Rust build |
 | `recipes-f250/f250-dashboard` | `apps/infotainment` as a flutter-auto bundle in `/usr/share/flutter/f250_infotainment/3.38.3/release` | `make deploy`'s Flutter build, step 6 |
@@ -47,7 +57,7 @@ updates it in place for quick iterations.
   `agl/rootfs` for the targets its `[Install]` names, and that this layer's
   `config.txt` step writes the same file as `stage1-setup.sh`.
 
-Not here yet (ROADMAP 5.4): a kernel config fragment (none needed so far:
-the USB CAN adapter's `gs_usb` is in the image's kernel), udev rules, unit
-hardening beyond Stage 1's, trimming the demo apps, and turning off
-`agl-devel` (the empty root password) before the truck.
+Not here, on purpose (ADR-0021): a kernel config fragment (`gs_usb`,
+`can-raw` and `can-isotp` are modules the images install) and udev rules
+(nothing writes the backlight or reads GPIO yet; each rule comes with its
+feature). Still to do: unit hardening beyond Stage 1's.

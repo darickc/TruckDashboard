@@ -219,7 +219,7 @@ agl-test: ## Tests for the AGL Stage 1 scripts (no Pi needed)
 agl-image: ## Download, verify and decompress the pinned AGL Pi 5 image into build/agl/
 	agl/scripts/fetch-image.sh
 
-build-vm: ## AGL build host: Lima VM on the external drive (CMD=up|shell|stop|status|log|delete)
+build-vm: ## AGL build host: Lima VM in ~/agl-build-vm (CMD=up|shell|stop|status|log|image|delete)
 	tools/dev/build-vm.sh $(or $(CMD),up)
 
 agl-build: ## Build the pinned AGL release from source in the build VM (hours; AGL_BUILD_ARGS=fetch|setup)

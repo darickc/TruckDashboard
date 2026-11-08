@@ -258,6 +258,7 @@ check() {
   done
   case "$(unit_state "$DEMO_HOMESCREEN")" in
     enabled) warn "$DEMO_HOMESCREEN is still enabled: two homescreens would compete" ;;
+    absent) ok "$DEMO_HOMESCREEN not installed" ;;
     *) ok "$DEMO_HOMESCREEN disabled" ;;
   esac
   if cmp -s "$HERE/rootfs/$COMPOSITOR_DROPIN" "$ROOT/$COMPOSITOR_DROPIN"; then

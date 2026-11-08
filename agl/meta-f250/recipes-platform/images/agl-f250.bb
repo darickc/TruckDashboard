@@ -1,17 +1,9 @@
-# The head unit image: AGL's Flutter demo image (the one Stage 1 starts from,
-# booted and checked on the Pi), with the F-250 software in place of the demo
-# homescreen. The demo's other apps stay for now; trimming them is a later
-# step, once this image has booted.
-require recipes-platform/images/agl-ivi-demo-flutter.bb
+# The development image, for the bench: the head unit plus agl-devel's tools
+# (gdb, strace, perf, ...), package management, and root with an empty
+# password (agl-devel, from the build's local.conf). Never in the truck: use
+# agl-f250-release there (ADR-0021).
+require agl-f250-base.inc
 
-SUMMARY = "F-250 head unit image (AGL Flutter)"
+SUMMARY = "F-250 head unit image, development (AGL Flutter)"
 
-# One homescreen per compositor run: agl-compositor 0.0.24 aborts on a second
-# one (ADR-0016 addendum), so the demo's is not installed at all.
-AGL_APPS_INSTALL:remove = "flutter-ics-homescreen"
-
-IMAGE_INSTALL += " \
-    f250-system \
-    f250-services \
-    f250-dashboard \
-"
+IMAGE_FEATURES += "package-management"

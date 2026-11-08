@@ -79,5 +79,9 @@ CONFFILES:${PN} = "${sysconfdir}/default/f250"
 
 FILES:${PN} = "${sysconfdir} /opt/f250 ${localstatedir}/lib/journal"
 
-# The scripts are bash; f250-can needs ip (iproute2); --check needs cmp.
-RDEPENDS:${PN} = "bash iproute2 diffutils systemd"
+# What the scripts call, so the image needn't happen to carry it: bash;
+# f250-can: ip (iproute2), candump (can-utils), lsusb (usbutils), timeout
+# (coreutils); f250-storage: blkid, lsblk, findmnt (util-linux), mkfs.ext4
+# (e2fsprogs-mke2fs); --check: cmp (diffutils).
+RDEPENDS:${PN} = "bash systemd iproute2 can-utils usbutils coreutils \
+    util-linux-blkid util-linux-lsblk util-linux-findmnt e2fsprogs-mke2fs diffutils"

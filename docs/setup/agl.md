@@ -76,8 +76,10 @@ twice; `dd` overwrites whatever disk you name), then `diskutil unmountDisk
    Not `ssh-copy-id`: with no root password, its first test login succeeds
    and then waits at a shell, so it hangs (Ctrl-C gets out; bench log
    2026-11-07).
-   This image is for the bench. It is not locked down; `meta-f250`
-   (Phase 5.4) will be.
+   This image is for the bench. It is not locked down. Our own release image,
+   `agl-f250-release`, is: root's password is locked and SSH takes only the
+   key built into it ([ADR-0021](../architecture/adr/0021-trimmed-dev-and-release-images.md),
+   [linux-build-host.md](linux-build-host.md)).
 4. Before deploying, look at the image as it comes (bench-log entry):
    `cat /etc/os-release`, `uname -r`, `cat /etc/default/flutter`,
    `systemctl is-enabled systemd-networkd kuksa-can-provider can-dev-helper`.
