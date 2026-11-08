@@ -910,10 +910,13 @@ Result:
     check 6        gateway (sim, drive_cycle) and recorder active; obd-console
                    pids: eot 93.16 degC, trans_temp 58.65 degC, eot_ect_delta
                    5.17 degC Valid; recorder session 2 writing telemetry.sqlite
+    check 7        dashboard Power: the Pi powered off; on the next boot
+                   journalctl -b -1 shows "power off: requested from the
+                   dashboard" at 02:37:53 and "Journal stopped" at 02:37:56
     unrelated      bthelper@hci0.service failed: "Can't init device hci0:
                    Operation not possible due to RF-kill". Also failed on the
                    prebuilt image (2026-11-06, persistent journal entry); not looked at yet
 
 Verdict: works. The image built in the aarch64 VM boots and behaves like the
 prebuilt 22.0.1 image for Stage 1. The VM stays the build host (ADR-0004).
-Still to do on this card: checks 7 (power button) and 8 (CAN).
+Still to do on this card: check 8 (CAN listen-only), when the adapter is back.
