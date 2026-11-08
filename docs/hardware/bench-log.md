@@ -1033,3 +1033,33 @@ Verdict: works. The trimmed development image replaces the demo-based one on
 the bench. The sandboxed units go into the next build.
 Still to do: boot `agl-f250-release` (key-only SSH, password refused); CAN
 check 8.
+
+## 2026-11-08 — The agl-f250-release image boots; root by key only [BENCH]
+
+Hardware: as above. Image: `agl-f250-release-22.0.1-33d8324.wic` (ADR-0021),
+1,085,904,896 bytes, sha256 `61c45d8e…8cd5e5`. Built from the same commit as
+the development image above, so **without** the 759f807 sandboxes. Flashed by
+the owner; nothing installed by hand.
+
+Result:
+    login          `ssh root@raspberrypi5.local` with the built-in key: works
+    passwords      /etc/shadow: no account has a usable password (root `*`).
+                   sshd -T: permitrootlogin prohibit-password,
+                   permitemptypasswords no. An empty-password login with no
+                   key is refused for root, agl-driver and f250 ("Permission
+                   denied (publickey,password)")
+    --check        all checks passed (0 warnings)
+    services       f250-gateway, f250-recorder, f250-dashboard,
+                   agl-compositor, avahi-daemon, bluetooth active; ofono
+                   inactive; no failed units
+    tools          absent: gdb, strace, perf, screen, mc, rpm, opkg, dnf,
+                   systemd-analyze. Present: candump, lsusb, blkid, mkfs.ext4,
+                   rsync
+    disk           / 525 MB used of 851 MB
+
+`systemd-analyze` isn't on the release image, so exposure scores are measured
+on the development image; the units are the same files.
+
+Verdict: works. The release image locks root to the built-in key.
+Still to do: boot `agl-f250-release-22.0.1-759f807.wic` (the sandboxed
+units) and check its services run.

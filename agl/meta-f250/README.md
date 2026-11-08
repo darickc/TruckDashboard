@@ -12,8 +12,8 @@ with the head unit's software and none of the demo's
 
 Status: `[BENCH]` 2026-11-08, the trimmed `agl-f250` built from 33d8324 boots
 on the bench Pi and passes `stage1-setup.sh --check` with nothing sideloaded;
-its services run sandboxed. `agl-f250-release` is built from the same commit
-but not booted yet. See [ROADMAP 5.4](../../docs/ROADMAP.md) and the
+its services run sandboxed. `agl-f250-release` from the same commit boots
+too, with root reachable only by the built-in key. See [ROADMAP 5.4](../../docs/ROADMAP.md) and the
 [bench log](../../docs/hardware/bench-log.md). Design:
 [ADR-0017](../../docs/architecture/adr/0017-meta-f250-layer.md),
 [ADR-0021](../../docs/architecture/adr/0021-trimmed-dev-and-release-images.md).

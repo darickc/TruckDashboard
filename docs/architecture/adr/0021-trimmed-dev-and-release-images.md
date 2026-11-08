@@ -1,7 +1,8 @@
 # ADR 0021 — Trimmed images: development and release
 
-- **Status:** Proposed (both images built from 33d8324; the development image
-  passes the bench checks, [BENCH] 2026-11-08; the release image isn't booted yet)
+- **Status:** Accepted (both images from 33d8324 pass their bench checks,
+  [BENCH] 2026-11-08; the sandboxed units ran on the development image. The
+  release image with them, 759f807, isn't booted yet)
 - **Date:** 2026-11-08
 - **Refines:** [ADR-0017](0017-meta-f250-layer.md)
 
