@@ -959,6 +959,10 @@ Result:
                    (linked against the image's libsqlite3 3.51.3);
                    obd-console pids: eot 93.86 degC, ect 88.43 degC, trans_temp
                    61.03 degC, boost 32.98 kPa
+    check 7        dashboard Power: the Pi powered off; on the next boot
+                   journalctl -b -1 shows "power off: requested from the
+                   dashboard" (dashboard-stopped) at 05:56:50 and "Journal
+                   stopped" at 05:56:53, so the persistent journal works too
     failed units   none (bthelper@hci0 active this time; it failed on RF-kill
                    on the 2026-11-07 card)
     clock          journal times read Oct 27 until NTP synced (the image's
@@ -973,5 +977,4 @@ nothing about the image.
 
 Verdict: works. The image built from the layer gives the same head unit as
 the prebuilt image plus Stage 1, with no sideload.
-Still to do on this card: check 7 (dashboard Power) and check 8 (CAN
-listen-only with the adapter on a bus).
+Still to do on this card: check 8 (CAN listen-only with the adapter on a bus).
