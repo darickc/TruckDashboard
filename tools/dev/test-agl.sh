@@ -330,6 +330,9 @@ done
 check "units stage1 enables have [Install]" "for u in f250-gateway f250-recorder f250-dashboard; do grep -q '^WantedBy=' agl/rootfs/etc/systemd/system/\$u.service || exit 1; done"
 check "static IDs for f250"            "grep -qx 'f250::950:950:F-250 head unit services:/var/lib/f250:/bin/false' $M/files/f250-passwd && grep -qx 'f250::950:' $M/files/f250-group"
 check "agl-driver joins f250"          "grep -qx 'GROUPMEMS_PARAM:\${PN} = \"-a agl-driver -g f250\"' $M/recipes-config/agl-users/agl-users_%.bbappend"
+CM=$M/recipes-connectivity/connman
+check "connman patch is in SRC_URI"    "grep -qx 'SRC_URI += \"file://0001-rtnl-receive-whole-netlink-messages.patch\"' $CM/connman_%.bbappend && test -f $CM/connman/0001-rtnl-receive-whole-netlink-messages.patch"
+check "connman reads 32 KiB from netlink" "grep -qxF -e '-	unsigned char buf[4096];' $CM/connman/0001-rtnl-receive-whole-netlink-messages.patch && grep -qxF -e '+	unsigned char buf[32768];' $CM/connman/0001-rtnl-receive-whole-netlink-messages.patch"
 IMG=$M/recipes-platform/images
 check "images start from the compositor image, not the demo" "grep -qx 'require recipes-platform/images/agl-image-compositor.bb' $IMG/agl-f250-base.inc && ! grep -rq 'agl-ivi-demo\\|agl-ivi-image' $IMG"
 for i in agl-f250 agl-f250-release; do

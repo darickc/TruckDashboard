@@ -41,6 +41,7 @@ BitBake reads these recipes from the working tree.
 | `recipes-f250/f250-dashboard` | `apps/infotainment` as a flutter-auto bundle in `/usr/share/flutter/f250_infotainment/3.38.3/release` | `make deploy`'s Flutter build, step 6 |
 | `recipes-bsp/bootfiles/rpi-config_git.bbappend` | appends `agl/boot/config-f250.txt` to `config.txt` | step 2 |
 | `recipes-config/agl-users/agl-users_%.bbappend` | `agl-driver` joins group `f250` (the gateway socket) | step 3 |
+| `recipes-connectivity/connman/connman_%.bbappend` | patches connman 2.0 to read whole netlink messages; without it the Pi 5's 16 KiB-page kernel cut `wlan0` out of connman's startup link dump and Wi-Fi never came up after boot | — (the prebuilt image has the bug) |
 | `files/f250-passwd`, `files/f250-group` | static IDs (AGL refuses dynamic ones): `f250` is 950 | — |
 
 The paths are the Stage 1 paths ([ADR-0016](../../docs/architecture/adr/0016-stage1-sideload-layout.md)),

@@ -1098,3 +1098,60 @@ panel stayed empty.
 
 Verdict: works. The sandboxed release image needs the fixed unit, so 0233cca
 is the release image for the truck (`agl-f250-release-22.0.1-0233cca.wic`).
+
+## 2026-11-08 — Gateway's CAN transport inside its sandbox, on vcan [BENCH]
+
+Card: the 759f807 release card with the fixed dashboard unit. Every file
+from `agl/rootfs/` matches 0233cca, and the binaries are the same (0233cca
+changed only the dashboard unit). The Pi's USB CAN adapter was plugged in,
+but not used: the test ran on a virtual interface, so nothing went on a bus.
+
+    setup          modprobe vcan; ip link add vcan0 type vcan; up.
+                   /etc/default/f250: TRANSPORT=can TRANSMIT=1 CAN_IF=vcan0
+                   ENABLE=eot; systemctl restart f250-gateway
+    transmit       requests on 7DF at the scheduled rate (candump); no
+                   system-call or address-family denial, NRestarts=0. With
+                   nothing answering: SUSPECT → BACKOFF → QUARANTINED and
+                   link DEGRADED ⇄ RECOVERING_SOFT, as designed.
+    receive        a shell responder (candump | cansend) answered SAE 01 0C
+                   and 01 05 from 7E8 with arbitrary values. Both PIDs stayed
+                   ACTIVE at ~4 Hz; the traffic log in /var/lib/f250/traffic
+                   records each TX/RX pair.
+    reverted       /etc/default/f250 restored (TRANSPORT=sim), vcan0 deleted.
+
+Verdict: the gateway's sandbox allows the SocketCAN transport. Not tested:
+`f250-can active` on a real `can0` with the sandboxed gateway (the truck
+drive will be the first), the obdlink serial and RFCOMM transports.
+
+## 2026-11-08 — Wi-Fi never comes up after boot on AGL: connman loses wlan0; patched [BENCH]
+
+Same card. `connmanctl enable wifi` worked, but `connmanctl scan wifi`
+answered "Not implemented" and `connmanctl services` listed only Ethernet.
+The radio is fine: brcmfmac loads firmware 7.45.265, rfkill shows wlan
+unblocked, wpa_supplicant runs.
+
+    symptom        connman logs lo, eth0 and can0 at start, never wlan0.
+                   `ip link set wlan0 down; up` makes it appear ("Adding
+                   interface wlan0 [ wifi ]"), and the scan then lists the
+                   nearby networks. After a reboot, with WiFi Enable=true in
+                   /var/lib/connman/settings, it is missing again.
+    cause          connmand -n -d: the startup link dump returns three
+                   NEWLINK messages (lo, eth0, can0: 1468 + 1528 + 1008
+                   bytes) and DONE; wlan0 only arrives later as an event.
+                   connman 2.0's netlink_event() (src/rtnl.c) reads into
+                   `unsigned char buf[4096]` and ignores truncation. This
+                   kernel has CONFIG_PAGE_SIZE_16KB=y, so NLMSG_GOODSIZE is
+                   8 KiB less overhead and a dump packs more than 4096 bytes
+                   into one message: wlan0's record was cut off. (Kernel
+                   source of this build: include/linux/netlink.h,
+                   net/netlink/af_netlink.c.)
+    not the cause  systemd-networkd lists wlan0 as unmanaged; connman's
+                   NetworkInterfaceBlacklist doesn't match it.
+    fix            meta-f250 patches connman to read 32768 bytes, the most
+                   the kernel puts in one message
+                   (recipes-connectivity/connman). Both images need a
+                   rebuild.
+
+Verdict: on 759f807/0233cca, Wi-Fi works only after something toggles wlan0,
+so the Pi can't join a phone hotspot on its own. The patched image is still
+to be tested.

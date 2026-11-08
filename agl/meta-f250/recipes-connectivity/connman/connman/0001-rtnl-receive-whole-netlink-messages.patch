@@ -1,0 +1,40 @@
+From: Darick Carpenter <carpenterd@byui.edu>
+Subject: [PATCH] rtnl: receive whole netlink messages
+
+netlink_event() read into a 4096-byte buffer and never checked for
+truncation. A dump packs several messages into one, sized by the kernel
+at NLMSG_GOODSIZE (8 KiB less overhead when pages are over 8 KiB) or the
+largest receive buffer seen, capped at SKB_WITH_OVERHEAD(32768). On the
+Raspberry Pi 5's 16 KiB-page kernel the initial link dump of lo, eth0,
+can0 and wlan0 did not fit: wlan0 was cut off unseen, connman never
+created its device, and "connmanctl scan wifi" answered "Not
+implemented" until wlan0 changed state.
+
+Read into 32768 bytes, which holds any message the kernel sends.
+
+Kernel references: include/linux/netlink.h (NLMSG_GOODSIZE),
+net/netlink/af_netlink.c (netlink_recvmsg, netlink_dump), checked in the
+kernel source this image is built from (CONFIG_PAGE_SIZE_16KB=y).
+
+Upstream-Status: Pending
+Signed-off-by: Darick Carpenter <carpenterd@byui.edu>
+---
+--- a/src/rtnl.c
++++ b/src/rtnl.c
+@@ -1472,7 +1472,15 @@
+ 
+ static gboolean netlink_event(GIOChannel *chan, GIOCondition cond, gpointer data)
+ {
+-	unsigned char buf[4096];
++	/*
++	 * Large enough for any netlink message the kernel sends. A dump packs
++	 * several messages into one, up to NLMSG_GOODSIZE (8 KiB less overhead
++	 * with pages over 8 KiB) or the largest receive buffer seen, capped at
++	 * SKB_WITH_OVERHEAD(32768). With 4096 bytes the rest of a larger dump
++	 * message was cut off unseen, so on a 16 KiB-page kernel the initial
++	 * link dump lost interfaces (wlan0 on the Raspberry Pi 5).
++	 */
++	unsigned char buf[32768];
+ 	struct sockaddr_nl nladdr;
+ 	socklen_t addr_len = sizeof(nladdr);
+ 	ssize_t status;

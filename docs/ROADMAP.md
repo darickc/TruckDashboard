@@ -217,8 +217,11 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       `systemd-analyze security` gateway 6.8 → 1.6, recorder 5.3 → 0.2, dashboard 9.2 → 0.6, sim transport).
       The release image boots too: root by key only, every password login refused, no debug tools.
       The sandboxed release image runs too, after a fix (0233cca: the dashboard writes to its own state and
-      cache directories; a fresh card has no `~/.flutter-auto`). Still to do: the gateway's sandbox with the
-      `obdlink` and `can` transports; Bluetooth is off under connman (the MX+ needs it on).
+      cache directories; a fresh card has no `~/.flutter-auto`). The `can` transport runs in the gateway's
+      sandbox (on vcan0). Wi-Fi never came up after boot: connman 2.0 lost `wlan0` from its startup link
+      dump on the 16 KiB-page kernel; meta-f250 patches it (bench-log 2026-11-08), the patched image is
+      still to be tested. Still to do: the gateway's sandbox with the `obdlink` transports; Bluetooth is off
+      under connman (the MX+ needs it on); the release rootfs isn't expanded (851 MB on a 7.3 GB card).
       No kernel fragment or udev rules yet: each comes with its feature.
       Done ahead of it: the service watchdogs. `crates/sd-notify` (systemd's notify protocol, no `unsafe`); the
       gateway and recorder are `Type=notify` with `WatchdogSec=60` / `30`, and send keep-alives only while their loops

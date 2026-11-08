@@ -42,8 +42,8 @@ StateDirectoryMode=0750
 ReadWritePaths=-/var/lib/f250/storage
 
 # Sandbox (ADR-0021). `systemd-analyze security f250-gateway`: 6.8 before,
-# 1.6 after [BENCH] (2026-11-08, sim transport). The obdlink and can
-# transports haven't run under the system-call filter and device list yet.
+# 1.6 after [BENCH] (2026-11-08, sim transport). The can transport runs in it
+# [BENCH] (2026-11-08, on vcan0); the obdlink transports haven't run in it yet.
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 ProtectSystem=strict
