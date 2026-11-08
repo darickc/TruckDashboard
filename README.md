@@ -117,7 +117,7 @@ On the Pi 5 with Raspberry Pi OS (the Phase 3.5 MX+ trial), use `make pi-setup`,
 
 On AGL (Phase 5 Stage 1): `make agl-image`, flash, then `make deploy PI=<host>`
 and `make logs PI=<host>`. See [docs/setup/agl.md](docs/setup/agl.md). Custom AGL
-images build on Linux: a Linux VM on the Mac with its disk on an external drive
+images build on Linux: a Linux VM on the Mac, kept in `~/agl-build-vm`
 (`make build-vm`, `make agl-build`; built and booted on the Pi `[BENCH]`) or an
 x86_64 PC. See
 [docs/setup/linux-build-host.md](docs/setup/linux-build-host.md).

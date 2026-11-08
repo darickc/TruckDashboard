@@ -178,13 +178,13 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
 ## Phase 5 — AGL deployment [HW]
 
 Guide: [setup/agl.md](setup/agl.md). Stage 1 runs on the Pi with AGL 22.0.1
-**[BENCH]** (2026-11-06). The build host is a VM on the Mac with an external drive
-(ADR-0004 amendment); it built AGL 22.0.1 from source on 2026-11-07, and that image boots and runs Stage 1 **[BENCH]**.
+**[BENCH]** (2026-11-06). The build host is a VM on the Mac, kept in `~/agl-build-vm` (moved
+off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0.1 from source on 2026-11-07, and that image boots and runs Stage 1 **[BENCH]**.
 
 - [~] 5.1 Release confirmed: **Vimba 22.0.1** (2026-11-02), pinned with its SHA-256 in
       `agl/configurations/vimba.env`, `make agl-image` fetches and checks it ([ADR-0001](architecture/adr/0001-agl-release.md)).
       Build host (ADR-0004, needed for 5.4 only): `make build-vm` makes an aarch64 Ubuntu VM on the Mac with its disk
-      on the external drive; `make agl-build` fetches the pinned 22.0.1 layers and runs BitBake. First full build
+      in `~/agl-build-vm`; `make agl-build` fetches the pinned 22.0.1 layers and runs BitBake. First full build
       `[BENCH]` 2026-11-07: `agl-ivi-demo-flutter` built from source (about 12¾ h on a 5,400 rpm USB disk, 116 GB
       used); it boots on the Pi and passes `stage1-setup.sh --check` ([linux-build-host.md](setup/linux-build-host.md), [bench log](hardware/bench-log.md))
 - [~] 5.2 Done `[SIM]`: `agl/boot/config-f250.txt` (DSI panel; RTC charging, NVMe PCIe and

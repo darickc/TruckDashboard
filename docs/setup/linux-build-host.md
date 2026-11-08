@@ -1,17 +1,27 @@
 # Linux build host for AGL / Yocto
 
-Status: **first full build done and booted on the Pi `[BENCH]` 2026-11-07.** `make build-vm` makes an Ubuntu 24.04 VM on the Mac with its disk
-on an external drive, and `make agl-build` builds the pinned AGL release in it.
+Status: **first full build done and booted on the Pi `[BENCH]` 2026-11-07.** `make build-vm` makes an Ubuntu 24.04 VM on the Mac, kept in
+`~/agl-build-vm`, and `make agl-build` builds the pinned AGL release in it.
 That arrangement is still outside what AGL documents (aarch64 host), so results
 are recorded in
 [bench-log.md](../hardware/bench-log.md) as they come
 ([ADR-0004](../architecture/adr/0004-linux-build-host.md),
 [ADR-0005](../architecture/adr/0005-staged-agl-bringup.md)).
 
-## Quick start (the Mac + an external drive)
+## Quick start (the Mac)
 
-The drive must be APFS (exFAT has no sparse files, symlinks or case-sensitive
-names) and mounted at `/Volumes/External` (or set `BUILD_VOLUME`).
+Everything Lima keeps for the VM, its disk included, is in one directory:
+`~/agl-build-vm` (`BUILD_VM_DIR` to put it elsewhere, for example on an
+external drive). It must be on APFS (exFAT has no sparse files, symlinks or
+case-sensitive names). To remove the VM entirely:
+`make build-vm CMD=delete`, then `rm -rf ~/agl-build-vm`.
+
+The VM's disk is a sparse file that grows as the build fills it, up to
+`VM_DISK` (420 GiB); after the first full build it held about 111 GB. Keep
+that much free on the Mac. Deleting files in the VM doesn't shrink it, and
+copying it with `dd conv=sparse` fills in some of the holes (111 GB became
+158 GB). `limactl shell agl-build sudo fstrim -v /` gives the space back
+(158 GB to 112 GB on 2026-11-07).
 
 ```bash
 brew install lima
@@ -27,7 +37,7 @@ make agl-build
 
 | Command | What it does |
 |---|---|
-| `make build-vm` | Create (once) and start the `agl-build` VM: Ubuntu 24.04 aarch64, 12 CPUs, 32 GiB RAM, a 420 GiB sparse disk. Everything Lima keeps lives in `/Volumes/External/lima`. Then runs `agl/scripts/setup-build-host.sh` in it |
+| `make build-vm` | Create (once) and start the `agl-build` VM: Ubuntu 24.04 aarch64, 12 CPUs, 32 GiB RAM, a 420 GiB sparse disk. Everything Lima keeps lives in `~/agl-build-vm`. Then runs `agl/scripts/setup-build-host.sh` in it |
 | `make agl-build` | Runs `agl/scripts/agl-build.sh` in the VM: `repo` fetches AGL-repo's `vimba_<release>.xml` at the release tag, `aglsetup.sh -m raspberrypi5 agl-demo agl-devel`, adds [`agl/meta-f250`](../../agl/meta-f250/README.md) at this checkout's HEAD commit, then `bitbake agl-f250`. It stops if the checkout has uncommitted changes. Log in `~/agl/logs/` in the VM |
 | `make build-vm CMD=shell` | A shell in the VM. The repo is mounted read-only at the same path |
 | `make build-vm CMD=status` | VM state, disk and memory |
@@ -53,13 +63,14 @@ the finished tasks are reused from `sstate-cache`. Once the layers are fetched,
 it does not run `repo sync` again (`AGL_BUILD_ARGS=fetch` forces one).
 `setup-build-host.sh` turns off Ubuntu's automatic apt updates in the VM.
 
-**The drive's speed sets the build time.** On 2026-11-07 the External drive
-was a 5,400 rpm laptop hard disk (Seagate ST9500325AS). The VM's disk was
+**The drive's speed sets the build time.** Until 2026-11-07 the VM lived on the
+External drive (`/Volumes/External/lima`), which was a 5,400 rpm laptop hard disk (Seagate ST9500325AS). The VM's disk was
 86–96% busy at about 100 operations a second, and the CPUs spent about half
 their time waiting on it. The first build from scratch took about 12¾ hours of
 BitBake. At the end the VM's disk held 116 GB (downloads 49 GB, sstate 15 GB),
 and its image file on the drive was 103 GB; the peak during the build was not
-measured. An external SSD should be several times faster
+measured. On 2026-11-07 the VM moved to the Mac's internal SSD
+(`~/agl-build-vm`), which should be several times faster (not measured yet)
 ([bench log](../hardware/bench-log.md)).
 
 ## Why not the Mac
