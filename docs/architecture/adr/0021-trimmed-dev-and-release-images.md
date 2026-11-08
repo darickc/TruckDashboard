@@ -19,7 +19,7 @@ on 2026-11-08:
   - applaunchd and its templates, the demo apps and the CAN simulator
 - `agl-image-compositor` already gives:
   - boot and machine packages
-  - connman, with avahi while `AGL_FEATURES` has `agl-devel`
+  - connman (built with its `3g` option, so oFono comes along)
   - `agl-compositor` and `agl-users` (`agl-driver`)
 - `agl-devel` is a distro feature set in `local.conf`. It changes images
   through `IMAGE_FEATURES`: `allow-empty-password`, `empty-root-password`,
@@ -41,6 +41,7 @@ on 2026-11-08:
    - the boot splash
    - DejaVu fonts
    - BlueZ (the MX+ over RFCOMM)
+   - avahi (`raspberrypi5.local`; the demo had it only through PipeWire)
    - rsync (`make deploy`)
    - our three packages
 
@@ -63,15 +64,18 @@ on 2026-11-08:
    rebuild nearly every recipe. So the release image still runs the compositor
    with `--debug` (a local Wayland debug protocol) and keeps core dumps.
    Revisit when there's a reason to run a second build directory.
-6. **`f250-system` declares the tools its scripts call**: `can-utils`,
+6. **oFono stays installed but off.** connman's `3g` option pulls it in;
+   `00-f250.preset` disables `ofono.service`. Rebuilding connman without it
+   would change the shared build for one idle daemon.
+7. **`f250-system` declares the tools its scripts call**: `can-utils`,
    `usbutils`, `util-linux` (`blkid`, `lsblk`, `findmnt`) and
    `e2fsprogs-mke2fs`. Until now the demo happened to carry them.
-7. **No kernel fragment and no udev rules yet.** `gs_usb`, `can-raw` and
+8. **No kernel fragment and no udev rules yet.** `gs_usb`, `can-raw` and
    `can-isotp` are modules of the image's kernel, and both images install
    them (`kernel-modules`, from the Pi machine configuration). No code writes the backlight or reads GPIO yet.
    Each rule comes with the feature that needs it: backlight dimming in 6.7,
    the opto inputs with their wiring.
-8. **`make build-vm CMD=image`** copies the newest images out of the VM to
+9. **`make build-vm CMD=image`** copies the newest images out of the VM to
    `build/agl/`, decompressed, named `<image>-<release>-<commit>.wic`.
 
 ## Consequences

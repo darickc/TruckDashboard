@@ -2,7 +2,7 @@
 # the F-250 software and what it needs, and nothing of the demo's.
 #
 # agl-image-compositor (meta-agl-core) gives the boot and machine packages,
-# connman (and avahi with agl-devel's AGL_FEATURES), agl-compositor and
+# connman, agl-compositor and
 # agl-users (agl-driver). The demo image added on top of it: KUKSA and the
 # HVAC, radio and audio-mixer services, Qt and the navigation demo, gpsd,
 # oFono, rtl-sdr, mpd, text-to-speech, the CJK fonts, applaunchd and the demo
@@ -21,6 +21,7 @@ IMAGE_INSTALL += " \
     ttf-dejavu-sans \
     ttf-dejavu-sans-mono \
     bluez5 \
+    avahi-daemon \
     rsync \
     f250-system \
     f250-services \
@@ -31,7 +32,8 @@ IMAGE_INSTALL += " \
 # (agl-compositor-init needs some weston-ini; this is the one the Flutter
 # demo used). The dashboard has no fonts of its own, so the system's sans
 # (DejaVu) draws it. bluez5: the gateway reaches the MX+ over RFCOMM. rsync:
-# `make deploy` copies with it.
+# `make deploy` copies with it. avahi-daemon: the Pi answers as
+# raspberrypi5.local (the demo image got avahi only through PipeWire).
 
 # root's SSH key, from the build host (agl-build.sh puts the file's path in
 # site.conf). Root logs in with it; the release image has no other way in

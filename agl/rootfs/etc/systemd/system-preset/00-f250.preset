@@ -7,3 +7,7 @@
 # matching preset wins and 00 sorts first, so these lines win.
 disable kuksa-can-provider.service
 disable can-dev-helper.service
+
+# oFono, the telephony daemon: connman is built with its 3g option, which
+# pulls oFono in. Nothing here uses it; the demo's phone app did.
+disable ofono.service

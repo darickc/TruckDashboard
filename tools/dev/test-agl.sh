@@ -312,7 +312,7 @@ check "images start from the compositor image, not the demo" "grep -qx 'require 
 for i in agl-f250 agl-f250-release; do
   check "$i uses the shared base" "grep -qx 'require agl-f250-base.inc' $IMG/$i.bb"
 done
-for p in f250-system f250-services f250-dashboard weston-ini-conf-flutter bluez5 rsync; do
+for p in f250-system f250-services f250-dashboard weston-ini-conf-flutter bluez5 avahi-daemon rsync; do
   check "base installs $p" "grep -qx '    $p \\\\' $IMG/agl-f250-base.inc"
 done
 for feat in allow-empty-password empty-root-password allow-root-login tools-debug tools-profile package-management; do
@@ -337,6 +337,7 @@ check "f250-services links the image's SQLite (the cargo class unbundles rusqlit
 for u in kuksa-can-provider.service can-dev-helper.service; do
   check "preset disables masked $u (preset-all fails on a masked enable)" "grep -qx 'disable $u' agl/rootfs/etc/systemd/system-preset/00-f250.preset && grep -q '$u' '$SETUP'"
 done
+check "preset disables oFono (connman's 3g pulls it in)" "grep -qx 'disable ofono.service' agl/rootfs/etc/systemd/system-preset/00-f250.preset"
 check "f250-system skips configure and compile" "grep -q '^do_compile\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb && grep -q '^do_configure\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb"
 
 echo
