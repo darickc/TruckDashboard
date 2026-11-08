@@ -902,9 +902,10 @@ Result:
                    stage1-setup.sh --check: all checks passed (0 warnings)
     check 1        both KUKSA CAN units masked, networkd override, can0 absent
     check 2        card1-DSI-1 connected; agl-compositor active; the dashboard
-                   loaded its AOT at 800×480 fullscreen. Picture on the panel
-                   not yet confirmed by eye
-    check 3        "generic ft5x06" touch input present; tap not tried yet
+                   loaded its AOT at 800×480 fullscreen; the owner sees the
+                   dashboard on the panel
+    check 3        "generic ft5x06" touch input present; the owner tapped the
+                   nav bar and it responds
     check 4        backlight max_brightness 255
     check 6        gateway (sim, drive_cycle) and recorder active; obd-console
                    pids: eot 93.16 degC, trans_temp 58.65 degC, eot_ect_delta
@@ -915,4 +916,4 @@ Result:
 
 Verdict: works. The image built in the aarch64 VM boots and behaves like the
 prebuilt 22.0.1 image for Stage 1. The VM stays the build host (ADR-0004).
-Still to do on this card: checks 2 and 3 by eye, 7 (power button) and 8 (CAN).
+Still to do on this card: checks 7 (power button) and 8 (CAN).
