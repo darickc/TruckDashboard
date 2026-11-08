@@ -950,8 +950,9 @@ Result:
     check 1        both KUKSA CAN units masked (is-enabled: masked), networkd
                    override present; can0 (the adapter) present, STOPPED, down
     check 2        card1-DSI-1 connected; agl-compositor active; the dashboard
-                   loaded its AOT at 800 x 480 fullscreen (owner's look: see below)
-    check 3        ft5x06 touch input present (owner's tap: see below)
+                   loaded its AOT at 800 x 480 fullscreen; the owner sees the
+                   dashboard on the panel
+    check 3        ft5x06 touch input present; the owner confirms touch works
     check 6        gateway (sim, drive_cycle), recorder and dashboard active;
                    /run/f250/vehicle.sock f250:f250 0770; agl-driver in group
                    f250 (950); recorder session 1 writing telemetry.sqlite
