@@ -216,8 +216,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       `--check` passes, gateway/recorder/dashboard/avahi run, oFono is off. Units sandboxed (ADR-0021 §10;
       `systemd-analyze security` gateway 6.8 → 1.6, recorder 5.3 → 0.2, dashboard 9.2 → 0.6, sim transport).
       The release image boots too: root by key only, every password login refused, no debug tools.
-      Still to do: boot the sandboxed release image (759f807); the gateway's sandbox with the `obdlink` and
-      `can` transports; Bluetooth is off under connman (the MX+ needs it on).
+      The sandboxed release image runs too, after a fix (0233cca: the dashboard writes to its own state and
+      cache directories; a fresh card has no `~/.flutter-auto`). Still to do: the gateway's sandbox with the
+      `obdlink` and `can` transports; Bluetooth is off under connman (the MX+ needs it on).
       No kernel fragment or udev rules yet: each comes with its feature.
       Done ahead of it: the service watchdogs. `crates/sd-notify` (systemd's notify protocol, no `unsafe`); the
       gateway and recorder are `Type=notify` with `WatchdogSec=60` / `30`, and send keep-alives only while their loops

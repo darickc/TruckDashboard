@@ -1,8 +1,8 @@
 # ADR 0021 — Trimmed images: development and release
 
 - **Status:** Accepted (both images from 33d8324 pass their bench checks,
-  [BENCH] 2026-11-08; the sandboxed units ran on the development image. The
-  release image with them, 759f807, isn't booted yet)
+  [BENCH] 2026-11-08; the sandboxed units run on both, the release image
+  from 0233cca)
 - **Date:** 2026-11-08
 - **Refines:** [ADR-0017](0017-meta-f250-layer.md)
 
@@ -89,8 +89,9 @@ on 2026-11-08:
       localhost and private ranges (`tcp:` adapters)
     - recorder: also no network, no devices, its own user namespace
     - dashboard: had no sandbox at all. Now: the GPU only (`char-drm`), no
-      network, the file system read-only except Mesa's shader cache and
-      `~/.flutter-auto`. No `RemoveIPC=` and no `PrivateUsers=`: `agl-driver`
+      network, the home read-only; it writes only to the state and cache
+      directories systemd creates for it (`HOME` and `XDG_CACHE_HOME` point
+      there). No `RemoveIPC=` and no `PrivateUsers=`: `agl-driver`
       also runs the compositor. The power-off helper (`ExecStopPost=+`) runs
       outside the sandbox.
 

@@ -1092,3 +1092,9 @@ panel stayed empty.
                    fontconfig and GStreamer write only in the new
                    directories; --check passes. bthelper@hci0 failed this
                    boot (rfkill; see the Bluetooth note above).
+    owner          with the fixed unit on the 759f807 release card: the
+                   dashboard shows on the panel, touch works, and Power turns
+                   the Pi off.
+
+Verdict: works. The sandboxed release image needs the fixed unit, so 0233cca
+is the release image for the truck (`agl-f250-release-22.0.1-0233cca.wic`).
