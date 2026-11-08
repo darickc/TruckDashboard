@@ -39,3 +39,7 @@ bluer = { version = "0.17", features = ["rfcomm"], optional = true }
 # SocketCAN for the direct-CAN transport (ADR-0012). No system libraries;
 # netlink is left out because the gateway never configures the interface.
 socketcan = { version = "4", default-features = false, features = ["tokio"] }
+
+[dev-dependencies]
+# Paused clock for the simulator-loop tests (tests/gateway_sim.rs).
+tokio = { version = "1", features = ["test-util"] }

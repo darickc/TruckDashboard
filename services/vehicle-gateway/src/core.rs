@@ -4,7 +4,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use f250_elm::{Addressing, ElmConfig, ObdCommand, ObdRequest, ServiceAllowList};
 use f250_proto::vehicle::v1 as pb;
@@ -17,6 +17,8 @@ use f250_telemetry::{
     Registry, SignalDef, TelemetryStore, Validity, WarningConfig,
 };
 use tokio::sync::{mpsc, oneshot, watch};
+// tokio's clock, so tests can pause it; it is the std clock otherwise.
+use tokio::time::Instant;
 
 use crate::config::{Config, TransportKind};
 use crate::link::{
@@ -182,6 +184,11 @@ impl Core {
                 );
             }
         }
+        // A computed signal is valid only while its inputs were read within
+        // its skew limit of each other: read them back to back (ADR-0018).
+        for d in registry.iter().filter(|d| d.is_computed() && d.enabled) {
+            sched.group(&d.inputs);
+        }
 
         let (transport, driver_rx) = match cfg.transport {
             TransportKind::Sim => {
@@ -330,6 +337,11 @@ impl Core {
             {
                 self.poll(&id).await;
                 polled = true;
+                // Mid-group: read the other inputs before publishing, so no
+                // snapshot pairs one fresh input with one 3 s old (ADR-0018).
+                if self.sched.follow_up_pending() {
+                    continue;
+                }
             }
             let now = self.now();
             if now >= next_health {
