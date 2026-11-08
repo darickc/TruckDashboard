@@ -17,6 +17,10 @@ SRC_URI = "git://${F250_REPO};protocol=file;nobranch=1;destsuffix=f250"
 SRCREV = "${F250_SRCREV}"
 S = "${UNPACKDIR}/f250"
 
+# The top-level Makefile is the developer's, not a build of any recipe here:
+# without this, base_do_configure runs `make clean` in it (no such target).
+CLEANBROKEN = "1"
+
 python () {
     if not d.getVar("F250_REPO") or not d.getVar("F250_SRCREV"):
         raise bb.parse.SkipRecipe("F250_REPO and F250_SRCREV are not set: build with agl/scripts/agl-build.sh")

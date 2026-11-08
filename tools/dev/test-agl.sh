@@ -312,6 +312,8 @@ check "dashboard: deploy.sh's defines"  "grep -q -- '-DVEHICLE_SOURCE=gateway -D
 check "dashboard: bundle name is the app's" "grep -qx 'PUBSPEC_APPNAME = \"f250_infotainment\"' $M/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -qx 'name: f250_infotainment' apps/infotainment/pubspec.yaml && grep -q '^APP_ID=f250_infotainment$' '$SETUP'"
 check "layer builds a commit, not the tree" "grep -q 'F250_ALLOW_DIRTY' agl/scripts/agl-build.sh && grep -q 'F250_SRCREV = \"\$rev\"' agl/scripts/agl-build.sh"
 check "recipes fail without the commit pin" "grep -q 'SkipRecipe' $M/conf/include/f250-source.inc"
+check "recipes never run the repository's Makefile clean" "grep -q '^CLEANBROKEN = \"1\"' $M/conf/include/f250-source.inc"
+check "f250-system skips configure and compile" "grep -q '^do_compile\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb && grep -q '^do_configure\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb"
 
 echo
 echo "agl-test: $PASS passed, $FAIL failed"

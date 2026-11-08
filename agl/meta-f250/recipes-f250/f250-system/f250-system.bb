@@ -16,6 +16,11 @@ USERADD_PARAM:${PN} = "--system -g f250 -d /var/lib/f250 -M -s /bin/false -c 'F-
 
 SYSD = "${sysconfdir}/systemd/system"
 
+# Files only, nothing to build: the default tasks would run the repository's
+# own Makefile.
+do_configure[noexec] = "1"
+do_compile[noexec] = "1"
+
 # Units go where Stage 1 puts them (/etc/systemd/system), so --check compares
 # the same paths on both kinds of image. Enabling and masking are the
 # symlinks `systemctl enable` and `systemctl mask` would make.
