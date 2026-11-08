@@ -51,8 +51,11 @@ that image boots and runs Stage 1 too (bench log, 2026-11-07). Facts from the
    (`tools/dev/gen-crates-inc.py`), because `bitbake -c update_crates` would
    write into the read-only layer. `make agl-test` fails if it is stale.
 5. **The KUKSA CAN units are masked, not removed**, as Stage 1 does, so
-   nothing that depends on them breaks. Removing them belongs to trimming the
-   demo apps, after this image boots.
+   nothing that depends on them breaks. Their packages' presets enable them,
+   and `systemctl preset-all` (the rootfs step, and a first boot) fails on a
+   masked enable, so `agl/rootfs` also ships `00-f250.preset`, which disables
+   them and sorts first. Removing them belongs to trimming the demo apps,
+   after this image boots.
 6. **Static ID 950** for the `f250` user and group, in the layer's own tables
    (`files/f250-passwd`, `files/f250-group`), appended to AGL's lists.
 

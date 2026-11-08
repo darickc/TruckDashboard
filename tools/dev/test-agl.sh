@@ -314,6 +314,9 @@ check "layer builds a commit, not the tree" "grep -q 'F250_ALLOW_DIRTY' agl/scri
 check "recipes fail without the commit pin" "grep -q 'SkipRecipe' $M/conf/include/f250-source.inc"
 check "recipes never run the repository's Makefile clean" "grep -q '^CLEANBROKEN = \"1\"' $M/conf/include/f250-source.inc"
 check "f250-services links the image's SQLite (the cargo class unbundles rusqlite)" "grep -q '^DEPENDS += \"sqlite3\"' $M/recipes-f250/f250-services/f250-services.bb"
+for u in kuksa-can-provider.service can-dev-helper.service; do
+  check "preset disables masked $u (preset-all fails on a masked enable)" "grep -qx 'disable $u' agl/rootfs/etc/systemd/system-preset/00-f250.preset && grep -q '$u' '$SETUP'"
+done
 check "f250-system skips configure and compile" "grep -q '^do_compile\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb && grep -q '^do_configure\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb"
 
 echo
