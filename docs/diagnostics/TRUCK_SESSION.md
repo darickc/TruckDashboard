@@ -363,9 +363,9 @@ stats
 `stats` gives requests/s and each signal's p50/p95 latency. The gateway's
 budget defaults to 10 requests/s for the MX+ (`--budget-rps`,
 [config.rs](../../services/vehicle-gateway/src/config.rs); `BUDGET_RPS=` in
-`make pi-run`). The poll intervals in `shared/signals/*.yaml` ask for more than
-that ([gateway.md](../setup/gateway.md#known-issue-the-poll-intervals-ask-too-much-of-the-mx));
-retune them from this measurement. **Re-measure after any addressing change
+`make pi-run`). The poll intervals in `shared/signals/*.yaml` are budgeted to
+ask under 80 % of it ([gateway.md](../setup/gateway.md#poll-intervals-and-the-throughput-budget),
+ADR-0019); retune them if this measurement differs. **Re-measure after any addressing change
 from Part 1**: physical addressing and the response-count digit both change
 what a request costs.
 

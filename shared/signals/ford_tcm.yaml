@@ -12,7 +12,7 @@
   response: {expect: "62 16 74", length: 2}
   decode: {formula: "((A*256)+B)/8", unit: degF}
   range: {min: -40, max: 150}
-  poll: {priority: 3, interval_ms: 500, timeout_ms: 500}
+  poll: {priority: 3, interval_ms: 1500, timeout_ms: 500}
   stale_after_ms: 4000
   provenance: VERIFIED_ON_TRUCK
   evidence: "docs/diagnostics/VERIFICATION_LOG.md, 2026-08-09 (later), TransTemp1 22 1674"

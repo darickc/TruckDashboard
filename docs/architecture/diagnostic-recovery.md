@@ -32,12 +32,29 @@ This is a port of the tested ESP32 `PidScheduler`, with additions.
 - **Throughput budget.** The budget comes from measured requests per second for
   the active transport.
   - About 10 requests/s is measured for the MX+ on `7DF` with two responders.
-  - The SocketCAN figure is to be measured.
+  - About 16 requests/s is measured for the USB CAN adapter (SocketCAN, 50 ms
+    window).
+  - The registry's poll intervals are budgeted so the default enabled set asks
+    for under 80 % of it, and no interval is longer than half its
+    `stale_after_ms` ([ADR-0019](adr/0019-poll-intervals-budgeted.md)).
   - When the enabled set oversubscribes the budget, lower priorities stretch
     first, and the stretch is reported as a health event. A gauge that promises
     10 Hz and delivers 2 Hz is a lie told to the driver.
+  - When the enabled set leaves room under 80 %, the room goes to priority 0:
+    while nothing else is due, a healthy priority-0 signal is read early,
+    no sooner than the 250 ms snapshot period after its last request. Early
+    reads never go before a due signal, never change the registry interval
+    or staleness, and the plan including them stays within 80 % (with the
+    probe budget reserved while anything is probed)
+    ([ADR-0020](adr/0020-spare-budget-to-priority-0.md)).
 - **One request in flight per transport.** This is the ELM's half-duplex rule,
   and the same discipline applies to ISO-TP.
+- **Computed inputs are read together.** The inputs of a computed signal
+  (EOT and ECT for EOT − ECT) are read back to back, and no snapshot goes out
+  between them, so a stretched schedule can't put them more than
+  `max_input_skew_ms` apart. Following never makes a slow input fast
+  ([ADR-0018](adr/0018-computed-inputs-read-together.md)); after an early
+  (spare) read, only members that are due themselves follow (ADR-0020).
 - **Adaptive intervals.** Stable, slowly changing signals may back off to their
   `max_interval_ms`. They return to the target interval on change.
 - **Jittered retries.** A retry is bounded per request: one retry, then the

@@ -11,8 +11,9 @@
 # A row pins rx_id only where the truck showed which module owns the DID
 # (VERIFICATION_LOG.md); the others leave the responder open.
 # Ranges and stale times mirror apps/infotainment/lib/model/signal_catalog.dart;
-# poll values come from firmware/esp32/lib/ObdCore/src/PidDefs.cpp where the
-# row exists there.
+# priorities and timeouts come from firmware/esp32/lib/ObdCore/src/PidDefs.cpp
+# where the row exists there; poll intervals are budgeted from the measured
+# link throughput (ADR-0019).
 
 - id: eot
   name: Engine oil temp
@@ -29,7 +30,7 @@
   response: {expect: "62 13 10", length: 2}
   decode: {formula: "(((A*256)+B)/100)-40", unit: degC}
   range: {min: -40, max: 150}
-  poll: {priority: 3, interval_ms: 500, timeout_ms: 500}
+  poll: {priority: 3, interval_ms: 1500, timeout_ms: 500}
   stale_after_ms: 4000
   provenance: IMPORTED_UNVERIFIED
   enabled: false
@@ -45,7 +46,7 @@
   response: {expect: "62 14 40", length: 2}
   decode: {formula: "(((A*256)+B)*0.03625)", unit: psi}
   range: {min: 0, max: 400}
-  poll: {priority: 0, interval_ms: 100, timeout_ms: 500}
+  poll: {priority: 0, interval_ms: 500, timeout_ms: 500}
   stale_after_ms: 1500
   provenance: IMPORTED_UNVERIFIED
   enabled: false
@@ -64,7 +65,7 @@
   response: {expect: "62 14 46", length: 2}
   decode: {formula: "((A*256)+B)*(57/100)", unit: psi}
   range: {min: 0, max: 31000}
-  poll: {priority: 1, interval_ms: 100, timeout_ms: 500}
+  poll: {priority: 1, interval_ms: 1000, timeout_ms: 500}
   stale_after_ms: 2000
   provenance: IMPORTED_UNVERIFIED
   enabled: false
@@ -80,7 +81,7 @@
   response: {expect: "62 14 34", length: 1}
   decode: {formula: "(A*13.53)/35", unit: "%"}
   range: {min: 0, max: 100}
-  poll: {priority: 2, interval_ms: 150, timeout_ms: 500}
+  poll: {priority: 2, interval_ms: 1000, timeout_ms: 500}
   stale_after_ms: 2000
   provenance: IMPORTED_UNVERIFIED
   enabled: false
@@ -96,7 +97,7 @@
   response: {expect: "62 09 D0", length: 2}
   decode: {formula: "((A*256)+B)*(100/256)/100", unit: V}
   range: {min: 0, max: 60}
-  poll: {priority: 3, interval_ms: 400, timeout_ms: 500}
+  poll: {priority: 3, interval_ms: 1500, timeout_ms: 500}
   stale_after_ms: 4000
   provenance: IMPORTED_UNVERIFIED
   enabled: false
@@ -112,7 +113,7 @@
   response: {expect: "62 11 72", length: 1}
   decode: {formula: "A/16", unit: V}
   range: {min: 0, max: 20}
-  poll: {priority: 4, interval_ms: 1000, timeout_ms: 500}
+  poll: {priority: 4, interval_ms: 3000, timeout_ms: 500}
   stale_after_ms: 8000
   provenance: IMPORTED_UNVERIFIED
   enabled: false
@@ -135,5 +136,5 @@
   notes: >-
     Torque row "[FORD]Fuel Level", 0x2216c1. Which module answers, and whether
     the scaling matches the cluster gauge, are open questions
-    (TRUCK_SESSION.md Part 3). Not in the ESP32 table, so the poll values are
-    a software choice.
+    (TRUCK_SESSION.md Part 3). Not in the ESP32 table, so the priority is a
+    software choice; the interval is budgeted (ADR-0019).
