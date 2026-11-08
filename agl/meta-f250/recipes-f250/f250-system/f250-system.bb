@@ -53,6 +53,7 @@ do_install() {
     install -d -m 2755 ${D}${localstatedir}/lib/journal
 
     # The tools `make deploy` installs, and agl/ for `stage1-setup.sh --check`.
+    install -d ${D}/opt/f250/bin
     install -m 0755 ${S}/tools/pi/can.sh ${D}/opt/f250/bin/f250-can
     install -m 0755 ${S}/agl/scripts/storage.sh ${D}/opt/f250/bin/f250-storage
     install -d ${D}/opt/f250/share/agl
