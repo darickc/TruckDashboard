@@ -882,3 +882,37 @@ powering off.
 Verdict: pass. The adapter transmits on the truck cleanly. The wiring
 sign-off is complete.
 Closes: the 5V terminal check; active mode on the truck.
+
+## 2026-11-07 — The source-built AGL image boots on the Pi and runs Stage 1 [BENCH]
+
+Hardware: the bench Pi 5 and 7" DSI panel, on the SD card the prebuilt demo
+image had been on (that card was re-flashed).
+Image: `agl-f250-source-22.0.1-20261107.wic`, the image from the previous
+build entry decompressed with `zstd -d` (3,037,933,568 bytes, as in its `.bmap`).
+Setup: flashed from the Mac; `ssh root@raspberrypi5.local` (empty root password,
+from `agl-devel`); key installed; `make deploy PI=raspberrypi5.local`; reboot.
+
+Result:
+    first boot     joins the network as raspberrypi5.local; kernel
+                   6.18.33-v8-16k; os-release "Automotive Grade Linux 22.0.1 (vimba)"
+    ssh-copy-id    hangs: its probe login succeeds with no password and waits
+                   at a shell. Ctrl-C, then append the key by hand (agl.md)
+    make deploy    ran through all seven stage1-setup.sh steps, no errors
+    after reboot   systemd-analyze: 0.86 s kernel + 9.8 s userspace;
+                   stage1-setup.sh --check: all checks passed (0 warnings)
+    check 1        both KUKSA CAN units masked, networkd override, can0 absent
+    check 2        card1-DSI-1 connected; agl-compositor active; the dashboard
+                   loaded its AOT at 800×480 fullscreen. Picture on the panel
+                   not yet confirmed by eye
+    check 3        "generic ft5x06" touch input present; tap not tried yet
+    check 4        backlight max_brightness 255
+    check 6        gateway (sim, drive_cycle) and recorder active; obd-console
+                   pids: eot 93.16 degC, trans_temp 58.65 degC, eot_ect_delta
+                   5.17 degC Valid; recorder session 2 writing telemetry.sqlite
+    unrelated      bthelper@hci0.service failed: "Can't init device hci0:
+                   Operation not possible due to RF-kill". Also failed on the
+                   prebuilt image (2026-11-06, persistent journal entry); not looked at yet
+
+Verdict: works. The image built in the aarch64 VM boots and behaves like the
+prebuilt 22.0.1 image for Stage 1. The VM stays the build host (ADR-0004).
+Still to do on this card: checks 2 and 3 by eye, 7 (power button) and 8 (CAN).

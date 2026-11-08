@@ -63,15 +63,19 @@ twice; `dd` overwrites whatever disk you name), then `diskutil unmountDisk
    `config.txt` doesn't load the DSI overlay; our block adds it at deploy. The
    green ACT LED flickering means it's booting. A monitor on HDMI0 should show
    the AGL demo (UNVERIFIED).
-2. Find the Pi. The image has avahi, so try `ping raspberrypi5.local`
-   (UNVERIFIED: the hostname should be the machine name). Otherwise look in
-   the router's DHCP list.
+2. Find the Pi. The image has avahi and answers as `raspberrypi5.local`
+   (seen on both the prebuilt and the source-built image). Otherwise look in
+   the router's DHCP list. A re-flashed card has a new host key: clear the old
+   one with `ssh-keygen -R raspberrypi5.local`.
 3. `ssh root@raspberrypi5.local`. The AGL development image has an **empty
    root password**: press Enter. Put your key on it so `make deploy` doesn't
    ask each time:
    ```bash
-   ssh-copy-id root@raspberrypi5.local
+   ssh root@raspberrypi5.local 'umask 077; mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys' < ~/.ssh/id_ed25519.pub
    ```
+   Not `ssh-copy-id`: with no root password, its first test login succeeds
+   and then waits at a shell, so it hangs (Ctrl-C gets out; bench log
+   2026-11-07).
    This image is for the bench. It is not locked down; `meta-f250`
    (Phase 5.4) will be.
 4. Before deploying, look at the image as it comes (bench-log entry):

@@ -1,7 +1,6 @@
 # Linux build host for AGL / Yocto
 
-Status: **first full build done `[BENCH]` 2026-11-07; the image has not been
-booted yet.** `make build-vm` makes an Ubuntu 24.04 VM on the Mac with its disk
+Status: **first full build done and booted on the Pi `[BENCH]` 2026-11-07.** `make build-vm` makes an Ubuntu 24.04 VM on the Mac with its disk
 on an external drive, and `make agl-build` builds the pinned AGL release in it.
 That arrangement is still outside what AGL documents (aarch64 host), so results
 are recorded in

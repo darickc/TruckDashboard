@@ -20,7 +20,7 @@
 # published with the 22.0.1 Pi 5 image (raspberrypi5_repo_default.xml).
 #
 # Status: [BENCH] built agl-ivi-demo-flutter for raspberrypi5 in the build VM
-# on 2026-11-07 (docs/hardware/bench-log.md). The image has not been booted yet.
+# on 2026-11-07; the image boots on the Pi and runs Stage 1 (docs/hardware/bench-log.md).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
