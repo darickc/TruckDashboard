@@ -1063,3 +1063,32 @@ on the development image; the units are the same files.
 Verdict: works. The release image locks root to the built-in key.
 Still to do: boot `agl-f250-release-22.0.1-759f807.wic` (the sandboxed
 units) and check its services run.
+
+## 2026-11-08 — Sandboxed release image (759f807): no dashboard on a fresh card; fixed [BENCH]
+
+Image: `agl-f250-release-22.0.1-759f807.wic`, flashed by the owner. The
+panel stayed empty.
+
+    cause          flutter-auto aborted (SIGABRT, core dump) at start:
+                   "filesystem error: in create_directories: Read-only file
+                   system [/home/agl-driver/.flutter-auto]". ProtectHome=
+                   read-only allowed writes only to ~/.cache and
+                   ~/.flutter-auto, and only if they already existed; on a
+                   fresh card ~/.flutter-auto doesn't. Three crashes, then
+                   agl-compositor hit its start limit, so the panel stayed empty.
+    missed because on the development image the directory was already there
+                   from earlier runs without the sandbox.
+    tried          ProtectHome=yes with private directories: "Failed to
+                   connect to Wayland display. Permission denied" (it also
+                   hides /run/user).
+    fix            StateDirectory= and CacheDirectory= f250-dashboard (systemd
+                   creates them, owned by agl-driver, 0700),
+                   HOME=/var/lib/f250-dashboard,
+                   XDG_CACHE_HOME=/var/cache/f250-dashboard; home read-only,
+                   nothing written there.
+    test           the fixed unit copied to /etc/systemd/system, both
+                   directories deleted, reboot: compositor and dashboard
+                   active, no restarts; flutter-auto, Mesa's shader cache,
+                   fontconfig and GStreamer write only in the new
+                   directories; --check passes. bthelper@hci0 failed this
+                   boot (rfkill; see the Bluetooth note above).

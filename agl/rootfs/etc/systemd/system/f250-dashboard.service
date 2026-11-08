@@ -43,15 +43,25 @@ SuccessExitStatus=42
 # helper outside it.
 # - Devices: the GPU only (Vulkan on /dev/dri). Input comes from the compositor.
 # - Network: none. The gateway's socket and Wayland's are files under /run.
-# - Writes: Mesa's shader cache and flutter-auto's own directory in the
-#   home, which agl-driver shares with the compositor. No RemoveIPC= for
-#   the same reason.
+# - Writes: only its own directories, which systemd creates on every start.
+#   flutter-auto keeps its files in $HOME/.flutter-auto (and aborts if it
+#   can't create it), so HOME points at the state directory; Mesa's shader
+#   cache and fontconfig follow XDG_CACHE_HOME. The real home stays
+#   read-only; agl-driver shares it with the compositor (and so no
+#   RemoveIPC=). ProtectHome=yes would hide /run/user and with it the Wayland
+#   socket. A fresh card has no ~/.flutter-auto: [BENCH] 2026-11-08, the
+#   dashboard aborted on 759f807 when it could only write there.
 UMask=0077
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=-/home/agl-driver/.cache -/home/agl-driver/.flutter-auto
+StateDirectory=f250-dashboard
+StateDirectoryMode=0700
+CacheDirectory=f250-dashboard
+CacheDirectoryMode=0700
+Environment=HOME=/var/lib/f250-dashboard
+Environment=XDG_CACHE_HOME=/var/cache/f250-dashboard
 PrivateTmp=yes
 PrivateNetwork=yes
 DevicePolicy=closed
