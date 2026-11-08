@@ -268,6 +268,60 @@ make pi-stop
 tools/pi/can.sh listen               # or: tools/pi/can.sh down
 ```
 
+### On the AGL image
+
+The same session on the AGL release image (`agl-f250-release-*.wic`): the
+gateway runs as a systemd service, so there is no `make pi-start`. You reach
+the Pi over a phone hotspot ([agl.md, Wi-Fi](agl.md#wi-fi-a-phone-hotspot)).
+
+Once per card, in `/etc/default/f250`:
+
+```
+TRANSPORT=can
+TRANSMIT=1
+ENABLE=eot
+```
+
+At boot nothing transmits: `can0` stays down until you switch it, so the
+gateway's requests go nowhere (ADR-007). Each drive, after the engine is
+running:
+
+```bash
+ssh root@raspberrypi5.local
+f250-can active                      # asks you to type 'active'
+systemctl restart f250-gateway       # a clean session; the recorder restarts with it
+systemctl is-active f250-gateway f250-recorder f250-dashboard
+journalctl -fu f250-gateway          # watch for QUARANTINED
+```
+
+In a second SSH window, the capture:
+
+```bash
+f250-can capture                     # to /root/f250-data/<date>-candump, until Ctrl-C
+```
+
+The capture takes about 120 MB an hour at the truck's ~730 frames/s, and the
+release image has about 250 MB free (its root filesystem isn't expanded yet).
+Keep the drive under 45 minutes, or check `df -h /` now and then.
+
+When you're done: Ctrl-C the capture, `f250-can listen`, then from the Mac:
+
+```bash
+make logs PI=raspberrypi5.local      # journals, state, the gateway's traffic logs
+scp -r root@raspberrypi5.local:f250-data build/logs/
+```
+
+`make logs` doesn't include the candump capture, so copy it separately.
+Then delete it on the Pi (`rm -r /root/f250-data/*`) to free the space.
+
+**The pinned-request test (ADR-0012 §3, fix ddb96b1, `[SIM]` so far).** On
+the 2026-11-07 drives, EOT was quarantined 6 times and trans temp 3 times,
+each `ACTIVE → QUARANTINED (Unsupported ×1)` after a late refusal from the
+other module. Pass: a drive about as long, with no `QUARANTINED` line for
+`eot` or `trans_temp` in the gateway journal, and the interface's error
+counters flat in `session.txt`. Record the result in
+[VERIFICATION_LOG.md](../diagnostics/VERIFICATION_LOG.md), pass or fail.
+
 ### What to look at afterwards
 
 - `~/f250-data/<date>-can/traffic/adapter-traffic.1.log`: every frame sent

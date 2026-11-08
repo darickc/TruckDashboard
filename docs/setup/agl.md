@@ -164,7 +164,40 @@ opens the adapter (ADR-0007), and `TRANSPORT=can TRANSMIT=1` needs
 
 `f250-can` is `tools/pi/can.sh`; everything in [can.md](can.md) applies, run
 as root on the Pi (no `sudo` on AGL). The firmware `flash` command needs
-`dfu-util`, which the image doesn't have: flash from Raspberry Pi OS.
+`dfu-util`, which the image doesn't have: flash from Raspberry Pi OS. The
+truck session on AGL: [can.md, On the AGL image](can.md#on-the-agl-image).
+
+### Wi-Fi: a phone hotspot
+
+The images start with Wi-Fi off, and only Ethernet is configured. To reach
+the Pi in the truck, join it to your phone's hotspot once, on the bench over
+Ethernet, with the hotspot on. connman remembers the network and joins it on
+later boots.
+
+Needs an image built from e82719f or later. Before that, connman 2.0 lost
+`wlan0` at boot on the Pi 5, and `scan wifi` answered "Not implemented"
+(bench-log 2026-11-08).
+
+```bash
+ssh root@raspberrypi5.local
+connmanctl enable wifi
+connmanctl                       # interactive: the passphrase prompt needs it
+```
+
+```
+connmanctl> agent on
+connmanctl> scan wifi
+connmanctl> services             # find the hotspot's wifi_..._psk name
+connmanctl> connect wifi_<...>_managed_psk
+Passphrase? <type it yourself>
+connmanctl> quit
+```
+
+Then `ip -br addr show wlan0` shows its address on the hotspot. Write it
+down: if `raspberrypi5.local` doesn't resolve on the hotspot, SSH to that
+address instead (the phone usually hands out the same one again). Your laptop
+joins the same hotspot. The clock syncs over it too (connman's NTP), so
+captures get real times.
 
 ### Data drive (NVMe HAT or USB SSD)
 

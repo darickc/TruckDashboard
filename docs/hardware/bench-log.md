@@ -1153,5 +1153,18 @@ unblocked, wpa_supplicant runs.
                    rebuild.
 
 Verdict: on 759f807/0233cca, Wi-Fi works only after something toggles wlan0,
-so the Pi can't join a phone hotspot on its own. The patched image is still
-to be tested.
+so the Pi can't join a phone hotspot on its own.
+
+## 2026-11-08 — Release image e82719f: connman sees wlan0 at boot [BENCH]
+
+Image: `agl-f250-release-22.0.1-e82719f.wic` (sha `e01ec7ec812ab724…`),
+flashed by the owner, booted on Ethernet. `/etc/f250-release`: e82719f.
+
+    boot           gateway, recorder, dashboard active. connman's log:
+                   "wlan0 {create}", "Adding interface wlan0 [ wifi ]" at
+                   start, with nothing toggling the link.
+    scan           connmanctl enable wifi; scan wifi: "Scan completed",
+                   the nearby networks listed.
+
+Verdict: the connman patch works. Not yet tested: joining the phone hotspot,
+and rejoining it after a reboot without Ethernet.
