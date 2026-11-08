@@ -9,5 +9,7 @@ disable kuksa-can-provider.service
 disable can-dev-helper.service
 
 # oFono, the telephony daemon: connman is built with its 3g option, which
-# pulls oFono in. Nothing here uses it; the demo's phone app did.
+# pulls oFono in. Nothing here uses it; the demo's phone app did. The image
+# build disables it explicitly (agl-f250-base.inc); this line keeps a later
+# full `systemctl preset-all` from turning it back on.
 disable ofono.service

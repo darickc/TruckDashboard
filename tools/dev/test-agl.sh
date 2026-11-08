@@ -337,7 +337,7 @@ check "f250-services links the image's SQLite (the cargo class unbundles rusqlit
 for u in kuksa-can-provider.service can-dev-helper.service; do
   check "preset disables masked $u (preset-all fails on a masked enable)" "grep -qx 'disable $u' agl/rootfs/etc/systemd/system-preset/00-f250.preset && grep -q '$u' '$SETUP'"
 done
-check "preset disables oFono (connman's 3g pulls it in)" "grep -qx 'disable ofono.service' agl/rootfs/etc/systemd/system-preset/00-f250.preset"
+check "oFono disabled in the image and by preset" "grep -qx 'disable ofono.service' agl/rootfs/etc/systemd/system-preset/00-f250.preset && grep -q 'disable ofono.service' agl/meta-f250/recipes-platform/images/agl-f250-base.inc"
 check "f250-system skips configure and compile" "grep -q '^do_compile\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb && grep -q '^do_configure\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb"
 
 echo

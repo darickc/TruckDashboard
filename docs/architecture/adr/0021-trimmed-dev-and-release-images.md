@@ -65,7 +65,9 @@ on 2026-11-08:
    with `--debug` (a local Wayland debug protocol) and keeps core dumps.
    Revisit when there's a reason to run a second build directory.
 6. **oFono stays installed but off.** connman's `3g` option pulls it in;
-   `00-f250.preset` disables `ofono.service`. Rebuilding connman without it
+   the image build disables `ofono.service` (`systemctl disable` in a rootfs
+   step: its package enables it on install, and OE's preset step runs
+   enable-only), and `00-f250.preset` keeps a full preset from re-enabling it. Rebuilding connman without it
    would change the shared build for one idle daemon.
 7. **`f250-system` declares the tools its scripts call**: `can-utils`,
    `usbutils`, `util-linux` (`blkid`, `lsblk`, `findmnt`) and

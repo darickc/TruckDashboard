@@ -46,3 +46,12 @@ f250_root_authorized_keys() {
     install -d -m 0700 ${IMAGE_ROOTFS}${ROOT_HOME}/.ssh
     install -m 0600 ${F250_AUTHORIZED_KEYS} ${IMAGE_ROOTFS}${ROOT_HOME}/.ssh/authorized_keys
 }
+
+# oFono comes with connman (its 3g option) and its package enables it as it
+# is installed. OE's own preset step runs in enable-only mode, so the disable
+# line in 00-f250.preset can't undo that here: disable it explicitly. Nothing
+# D-Bus-activates it, so disabled is off.
+ROOTFS_POSTPROCESS_COMMAND += "f250_disable_units "
+f250_disable_units() {
+    systemctl --root="${IMAGE_ROOTFS}" disable ofono.service
+}
