@@ -97,7 +97,7 @@ change at exactly those moments. The cleanest:
 
 | ID / byte | Park | Reverse | Notes |
 |---|---|---|---|
-| `230` byte 0 | `F0` | `10` | Changes only at the shifts. In the drive (capture 3) the low nibble steps `01`→`02`→`03`→`05`→`06` while accelerating and back down while slowing (`04` never appears), so it looks like gear position; the high nibble is `F` in P, `1` in R, `0` driving |
+| `230` byte 0 | `F0` | `10` | Changes only at the shifts. In the drive (capture 3) the low nibble steps `01`→`02`→`03`→`05`→`06` while accelerating and back down while slowing (`04` never appears), so it looks like gear position; the high nibble is `F` in P, `1` in R, `0` driving. 2026-11-08 (VERIFICATION_LOG): P `F0`, R `10`, N `F1`, D `01` at the lever, and while moving the low nibble is exactly half the TCM's gear DID `22 11 B3` |
 | `420` byte 3 | `40` | `01` | One bit per lever position? Pulling out of P at the start of the drive it goes `40` → `01` → `80` → `10` within 0.4 s, which would fit P → R → N → D, then stays `10` while driving |
 | `105` byte 7, `106` bytes 2–3 | | | Also change at each shift |
 

@@ -170,8 +170,9 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
       quarantines a PID that has answered. Drive with the fix `[TRUCK]` 2026-11-08 on AGL (9 min, up to 41 km/h,
       cold): 533 refusals, none late, no quarantines. Physical addressing over CAN `[TRUCK]` 2026-11-08
       (`obd-console raw`, parked): `7E0` reaches only the PCM, `7E1` only the TCM, for `01 0C` and the
-      pinned DIDs `22 13 10` / `22 16 74`. The gateway now sends pinned requests that way `[SIM]`
-      (`--can-pinned`, `PINNED=functional` to go back). Next: a drive with it
+      pinned DIDs `22 13 10` / `22 16 74`. The gateway now sends pinned requests that way
+      (`--can-pinned`, `PINNED=functional` to go back), `[TRUCK]` over a 25-minute drive: 1999 pinned requests,
+      no refusals, no quarantines. Ford DID owners found (MAP, ICP, IPR, FICM, fuel: PCM; gear: TCM)
 - [ ] 4.6 Stage D: transport switching and the no-simultaneous-transmit rule, MX+ and CAN both present
 - [x] 4.7 Dropout experiment (listen-only CAN capture while the MX+ polls) `[TRUCK]` 2026-11-07: the PCM's EOT answer
       was on the bus (+39.5 ms); the MX+ closed its window after the TCM's refusal (+6.4 ms). 1 of 104. Possible MX+

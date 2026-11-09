@@ -70,8 +70,9 @@ The plan said Phase 4.5 would use the kernel's ISO-TP sockets (`can-isotp`).
    refusal to wait for. Unpinned requests stay on `7DF`. The registry keeps
    `tx_id: 0x7DF`, so the MX+ is unchanged (its `ATSH` is still untested).
    `--can-pinned functional` (`PINNED=functional` in `/etc/default/f250`)
-   restores the waiting behaviour above. Physical pinning is `[SIM]` only
-   until a drive runs it.
+   restores the waiting behaviour above. Physical pinning ran a 25-minute
+   drive `[TRUCK]` (2026-11-08): 1999 pinned requests, each answered by its
+   owner only, no refusals, nothing quarantined.
 4. **Requests are 8-byte frames padded with 0x00.** The MX+ pads with 0x00
    too (listen-only capture beside it, 2026-11-07).
 5. **Safety stays layered (ADR-0007):**

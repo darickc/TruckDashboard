@@ -54,7 +54,7 @@ const signalCatalog = <SignalDef>[
     id: 'map', name: 'Manifold absolute pressure', shortName: 'MAP',
     quantity: Quantity.pressure, unit: 'kPa',
     provenance: Provenance.importedUnverified,
-    min: 0, max: 400, request: '22 14 40',
+    min: 0, max: 400, request: '22 14 40', responder: '7E8',
     staleAfter: Duration(milliseconds: 1500),
   ),
   SignalDef(
@@ -86,21 +86,21 @@ const signalCatalog = <SignalDef>[
     id: 'icp', name: 'Injection control pressure', shortName: 'ICP',
     quantity: Quantity.pressure, unit: 'kPa',
     provenance: Provenance.importedUnverified,
-    min: 0, max: 31000, request: '22 14 46', displayDecimals: 0,
+    min: 0, max: 31000, request: '22 14 46', responder: '7E8', displayDecimals: 0,
     staleAfter: Duration(seconds: 2),
   ),
   SignalDef(
     id: 'ipr_duty', name: 'IPR duty cycle', shortName: 'IPR',
     quantity: Quantity.percent, unit: '%',
     provenance: Provenance.importedUnverified,
-    min: 0, max: 100, request: '22 14 34',
+    min: 0, max: 100, request: '22 14 34', responder: '7E8',
     staleAfter: Duration(seconds: 2),
   ),
   SignalDef(
     id: 'ficm_main', name: 'FICM main power', shortName: 'FICM',
     quantity: Quantity.voltage, unit: 'V',
     provenance: Provenance.importedUnverified,
-    min: 0, max: 60, request: '22 09 D0',
+    min: 0, max: 60, request: '22 09 D0', responder: '7E8',
     staleAfter: Duration(seconds: 4),
   ),
   SignalDef(
@@ -117,7 +117,7 @@ const signalCatalog = <SignalDef>[
     id: 'fuel_level', name: 'Fuel level', shortName: 'Fuel',
     quantity: Quantity.percent, unit: '%',
     provenance: Provenance.importedUnverified,
-    min: 0, max: 100, request: '22 16 C1',
+    min: 0, max: 100, request: '22 16 C1', responder: '7E8',
     staleAfter: Duration(seconds: 15),
   ),
   SignalDef(

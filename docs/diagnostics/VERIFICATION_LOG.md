@@ -574,6 +574,89 @@ gateway's pinned requests could go out this way and stop drawing a refusal
 on every read (ADR-0012 §3). Not done: the gateway still sends them to
 `7DF`; nothing has run this way over a drive.
 
+## 2026-11-08 — Ford DIDs: owners, parked readings, gear; a drive on physical pinning [TRUCK]
+
+AGL release `df61324` with the gateway `38af731` sideloaded (pinned requests
+to the owner's physical ID, `/etc/f250-overrides`). `can0` normal mode,
+`TRANSPORT=can TRANSMIT=1 ENABLE=eot`, PINNED unset (physical). Probes with
+`obd-console` through the gateway. The truck had run until ~03:10 UTC, so
+none of this is a cold soak. Logs: `build/logs/20261109-drive/` (traffic
+log, obd-console transcripts, battery loops), the capture
+`20261109-035531-candump` (03:55–04:27 UTC, ERROR-ACTIVE, berr-counter 0/0,
+no drops, no gaps) and `f250-logs-raspberrypi5-20261109-042732.tar.gz`
+(not in git). Decoded values use the registry's imported formulas.
+
+**Owners** (capture; every probe went to `7DF`):
+
+| DID | Signal | Answers | Refuses |
+|---|---|---|---|
+| `22 14 40` | map | PCM | TCM `7F 22 12` |
+| `22 14 46` | icp | PCM | TCM `7F 22 12` |
+| `22 14 34` | ipr_duty | PCM | TCM `7F 22 12` |
+| `22 09 D0` | ficm_main | PCM | TCM `7F 22 12` |
+| `22 16 C1` | fuel_level | PCM | TCM `7F 22 12` |
+| `22 14 45` | EBP (not in the registry) | PCM | TCM `7F 22 12` |
+| `22 11 B3` | gear (not in the registry) | TCM | PCM `7F 22 31` |
+| `22 11 72` | battery | PCM and TCM, within 1–2 counts | — |
+
+The five PCM signals are now pinned to `7E8` in the registry. A third module
+answered `01 00` from **`7ED`** with an empty bitmap (`41 00 00 00 00 00`);
+which module it is is unknown (TODO).
+
+**Readings, key on engine off (KOEO) and at idle (~690 rpm):**
+
+| Signal | KOEO | Idle | Reference | What it shows |
+|---|---|---|---|---|
+| map | 84.98 kPa (`01 54`) | 86.0–86.5 kPa | SAE baro 85 kPa (both) | Matches baro to within baro's 1 kPa step at one pressure. The formula is a pure scale; one point can't rule out an offset, and nothing here checks it under boost |
+| eot | 54.05 °C | 52.8 °C | SAE ECT 54 / 52–53 °C | Matches ECT with the engine heat-soaked. Not the cold-soak check (on 2026-11-08's cold start EOT read 11.7 °C against ECT 17 °C) |
+| ficm_main | 47.0 V | 47.5 V | ≈ 48 V nominal | Plausible; a wrong scale would be obvious. Not a measurement |
+| fuel_level | 98.9 % | 98.9 % | SAE `01 2F` (supported by the PCM, `A·100/255`) 99.2 %; dash gauge full (owner) | Matches at one level. A second, lower level is needed |
+| icp | 1.1 psi | ~640 psi | none | Plausible only |
+| ipr_duty | 14.7 % | 24.0 % | none | Plausible only |
+| battery | 11.6–11.8 V | 13.4–13.9 V | owner's meter at the battery: 12.5 V KOEO, "about 14 V" idling, read during the same loops | **Does not match the terminals:** 0.7–0.9 V low with the engine off, ~0.4 V low running. Not a constant offset or a scale error that one constant fixes; it fits a module-supply reading (behind the PCM's own wiring), which this can't confirm |
+
+EBP KOEO 86.5 kPa, idle 103.5 kPa (Torque formula, `IMPORTED_UNVERIFIED`).
+
+**Gear, `22 11 B3`.** Foot on the brake, P → R → N → D → P twice: the DID
+stayed `02`. The broadcast `230` byte 0 tracked the lever: **P `F0`, R `10`,
+N `F1`, D `01`** (P and R were in CAN_CENSUS; N and D are new). Driving, the
+DID changed with speed, and each value had its own rpm-per-km/h ratio
+(medians, speed ≥ 15 km/h): `02` 97, `04` 67, `06` 45, `0A` 32, `0C` 18.4.
+In all 231 samples while moving it was exactly twice `230`'s low nibble
+(`02`/`04`/`06`/`0A`/`0C` ↔ `1`/`2`/`3`/`5`/`6`); `08` and nibble `4` never
+appeared, here or in the census drive. So the DID is the transmission's
+current gear (1st while stopped, whatever the lever), not the selector.
+Torque's `A/2` gives 1, 2, 3, 5, 6; whether the five values are gears 1–5
+is UNVERIFIED (a gear-ratio comparison or FORScan would show it).
+
+**Drive on physical pinning**, 03:56–04:21 UTC (25.6 min, 0–89 km/h, ECT
+50 → 59 °C, 8.7 requests/s; gateway traffic log `adapter-traffic.8.log`):
+
+| | EOT → `7E0` | Trans temp → `7E1` |
+|---|---|---|
+| sent | 1001 | 998 |
+| answered by the owner | 1001 | 998 |
+| frames from the other module, refusals, duplicates | 0 | 0 |
+| answer, median / p95 / max | 28 / 36 / 123 ms | 22 / 31 / 101 ms |
+| longest gap between values (poll 1.5 s) | 2.4 s | 3.4 s |
+
+No pinned request went to `7DF`. The gateway journal has no state
+transition after the start: nothing stale, suspect or quarantined. EOT
+52 → 66 °C, above ECT under load; trans temp 41 → 61 °C. The capture holds
+1244 `7E0 22 13 10` and 1236 `7E1 22 16 74` answers over the whole session,
+every one from the owner.
+
+Verdict:
+- Physical pinning works on the truck over a drive (ADR-0012).
+- No signal is promoted. MAP, EOT and fuel level each match an independent
+  reference at one point; FICM, ICP and IPR are plausible only; the battery
+  DID reads below the battery terminals and stays unverified as "battery
+  voltage". Not recorded under load: MAP, ICP, IPR, FICM, battery (they
+  were not enabled for the drive).
+- Next: enable them for a drive (`ENABLE=eot,map,icp,ipr_duty,ficm_main,
+  battery,fuel_level`), a cold-soak EOT reading before a morning start, a
+  fuel reading at a clearly lower level, and the gear labels.
+
 ## Open questions for the next session
 
 1. ~~**Who is 7E9?**~~ **ANSWERED: the TCM.** It owns `22 1674` (transmission

@@ -42,7 +42,7 @@
   quantity: pressure
   unit: kPa
   source: diagnostic
-  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 14 40"}
+  request: {protocol: iso15765, tx_id: "0x7DF", rx_id: "0x7E8", payload: "22 14 40"}
   response: {expect: "62 14 40", length: 2}
   decode: {formula: "(((A*256)+B)*0.03625)", unit: psi}
   range: {min: 0, max: 400}
@@ -54,6 +54,9 @@
     Torque row "[FORD]MAP (Ford specific)", 0x221440. Absolute pressure;
     boost is the computed signal map - baro. The Torque "Boost (Ford
     specific)" row (same DID, minus BARO()) is deliberately not used.
+    Only the PCM answers; the TCM refuses (7F 22 12), 2026-11-08
+    (VERIFICATION_LOG): pinned to 7E8, as are icp, ipr_duty, ficm_main
+    and fuel_level. Battery is answered by both and stays unpinned.
 
 - id: icp
   name: Injection control pressure
@@ -61,7 +64,7 @@
   quantity: pressure
   unit: kPa
   source: diagnostic
-  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 14 46"}
+  request: {protocol: iso15765, tx_id: "0x7DF", rx_id: "0x7E8", payload: "22 14 46"}
   response: {expect: "62 14 46", length: 2}
   decode: {formula: "((A*256)+B)*(57/100)", unit: psi}
   range: {min: 0, max: 31000}
@@ -77,7 +80,7 @@
   quantity: percent
   unit: "%"
   source: diagnostic
-  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 14 34"}
+  request: {protocol: iso15765, tx_id: "0x7DF", rx_id: "0x7E8", payload: "22 14 34"}
   response: {expect: "62 14 34", length: 1}
   decode: {formula: "(A*13.53)/35", unit: "%"}
   range: {min: 0, max: 100}
@@ -93,7 +96,7 @@
   quantity: voltage
   unit: V
   source: diagnostic
-  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 09 D0"}
+  request: {protocol: iso15765, tx_id: "0x7DF", rx_id: "0x7E8", payload: "22 09 D0"}
   response: {expect: "62 09 D0", length: 2}
   decode: {formula: "((A*256)+B)*(100/256)/100", unit: V}
   range: {min: 0, max: 60}
@@ -125,7 +128,7 @@
   quantity: percent
   unit: "%"
   source: diagnostic
-  request: {protocol: iso15765, tx_id: "0x7DF", payload: "22 16 C1"}
+  request: {protocol: iso15765, tx_id: "0x7DF", rx_id: "0x7E8", payload: "22 16 C1"}
   response: {expect: "62 16 C1", length: 2}
   decode: {formula: "((A*256)+B)*(1/328)", unit: "%"}
   range: {min: 0, max: 100}
