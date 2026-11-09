@@ -136,6 +136,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 | 9 | RTC | `ls /sys/class/rtc/`, `hwclock -r`. Once the rechargeable cell is fitted: uncomment `dtparam=rtc_bbat_vchg` in `agl/boot/config-f250.txt`, deploy, reboot; `cat /sys/class/rtc/rtc0/charging_voltage` shows 3000000 | H20 on AGL |
 | 10 | Audio (once the DAC8x is fitted) | Uncomment `dtoverlay=hifiberry-dac8x` in `agl/boot/config-f250.txt`, deploy, reboot; `aplay -l` lists it; `pw-cli ls Node` shows its sink | ADR-0014 on AGL |
 | 11 | NVMe (once the HAT is fitted) | Uncomment `dtparam=pciex1`, deploy, reboot; `lspci` lists the drive's controller; `f250-storage status` shows `nvme0n1` and its health. Then [the data drive](#data-drive-nvme-hat-or-usb-ssd) | H31 |
+| 12 | Bluetooth and the MX+ | After a reboot, `--check` has no Bluetooth warnings; `bluetoothctl show` says `Powered: yes`, `Discoverable: no`. Then [pair the MX+](#bluetooth-and-the-mx) and run `TRANSPORT=obdlink` in the gateway's sandbox | ADR-0023, ADR-0021 §10 |
 
 If something fails, collect the evidence before changing anything:
 
@@ -201,6 +202,32 @@ down: if `raspberrypi5.local` doesn't resolve on the hotspot, SSH to that
 address instead (the phone usually hands out the same one again). Your laptop
 joins the same hotspot. The clock syncs over it too (connman's NTP), so
 captures get real times.
+
+### Bluetooth and the MX+
+
+connman no longer manages Bluetooth; BlueZ powers the controller at boot
+([ADR-0023](../architecture/adr/0023-bluetooth-belongs-to-bluez.md)). Needs an
+image built with that change, or a Stage 1 card after `make deploy` and a
+reboot. `connmanctl technologies` doesn't list Bluetooth any more: use
+`bluetoothctl power on|off`. **[SIM] only so far:** none of this has run on
+the Pi.
+
+Pair the MX+ once from the Pi, as on Raspberry Pi OS. Disconnect the phone
+and the ESP32 first. Keep the transcript for the bench log: which Secure
+Simple Pairing variant BlueZ uses with the MX+ hasn't been recorded yet.
+
+```bash
+ssh root@raspberrypi5.local
+bluetoothctl
+# agent on / default-agent / scan on / pair 00:04:3E:85:EA:FC / trust 00:04:3E:85:EA:FC
+```
+
+Confirm the passkey it shows; don't enter `1234`
+([bench-log](../hardware/bench-log.md)). Then set `TRANSPORT=obdlink` in
+`/etc/default/f250` and `systemctl restart f250-gateway`. Without
+`TRANSMIT=1` the gateway doesn't open the adapter. The `obdlink` transports
+haven't run in the gateway's sandbox yet (ADR-0021): if it can't connect,
+look for a refused call or device in `journalctl -u f250-gateway -b`.
 
 ### Data drive (NVMe HAT or USB SSD)
 
@@ -295,9 +322,9 @@ known-good reference: the panel, touch and dashboard worked on it on
 
 ## What's not here yet
 
-- `meta-f250`, the custom image (Phase 5.4). It needs the Linux build host
-  ([ADR-0004](../architecture/adr/0004-linux-build-host.md),
-  [linux-build-host.md](linux-build-host.md)).
+- How to build the custom image (`agl/meta-f250`, the same layout as Stage 1):
+  [linux-build-host.md](linux-build-host.md) and
+  [ADR-0017](../architecture/adr/0017-meta-f250-layer.md).
 - The hardware watchdog (`RuntimeWatchdogSec`, Phase 6.7 with the
   power-manager). The gateway and recorder already have systemd's service
   watchdog: `Type=notify`, `WatchdogSec=60` and `30`, keep-alives only while

@@ -213,6 +213,53 @@ sed -i.bak 's/^DATA_DRIVE=1$/DATA_DRIVE=0/' "$R7/etc/default/f250"
 setup "$R7" >/dev/null 2>&1 || fail "apply (DATA_DRIVE back to 0) exited non-zero"
 check "off again: fstab as before"     "cmp -s '$T/fstab.orig' '$R7/etc/fstab'"
 
+echo "stage1-setup: Bluetooth (ADR-0023)"
+# rfkill switches as sysfs shows them: connman left both blocked.
+rfkill() {   # rfkill <root> <n> <type> <soft> <hard>
+  mkdir -p "$1/sys/class/rfkill/rfkill$2"
+  echo "$3" >"$1/sys/class/rfkill/rfkill$2/type"
+  echo "$4" >"$1/sys/class/rfkill/rfkill$2/soft"
+  echo "$5" >"$1/sys/class/rfkill/rfkill$2/hard"
+}
+R8="$T/root8"; make_root "$R8"
+rfkill "$R8" 0 bluetooth 1 0
+rfkill "$R8" 1 wlan 1 0
+setup "$R8" >"$T/bt-apply.out" 2>&1 || { fail "apply (Bluetooth blocked) exited non-zero"; cat "$T/bt-apply.out"; }
+check "connman drop-in installed"      "cmp -s agl/rootfs/etc/systemd/system/connman.service.d/50-f250.conf '$R8/etc/systemd/system/connman.service.d/50-f250.conf'"
+check "unblocks Bluetooth"             "[[ \"\$(cat '$R8/sys/class/rfkill/rfkill0/soft')\" == 0 ]] && grep -q 'unblocked Bluetooth rfkill0' '$T/bt-apply.out'"
+check "leaves other radios alone"      "[[ \"\$(cat '$R8/sys/class/rfkill/rfkill1/soft')\" == 1 ]]"
+check "never restarts connman (SSH may be on its Wi-Fi)" "! grep -q 'connman' '$R8/.test/sys.log'"
+check "says a reboot applies the drop-in" "grep -q 'connman drop-in changed' '$T/bt-apply.out'"
+: >"$T/bt-apply2.out"
+setup "$R8" >"$T/bt-apply2.out" 2>&1 || fail "second apply (Bluetooth) exited non-zero"
+check "unblocked: nothing to do again" "! grep -q 'unblocked Bluetooth' '$T/bt-apply2.out'"
+R9="$T/root9"; make_root "$R9"
+setup "$R9" >"$T/bt-none.out" 2>&1 || fail "apply without a Bluetooth controller exited non-zero"
+check "no controller: warned, apply goes on" "grep -q 'no Bluetooth controller found' '$T/bt-none.out'"
+# --check reads the switch, connmand's command line and BlueZ's Powered.
+echo 'yes' >"$R8/.test/bt-powered"
+echo '/usr/sbin/connmand -n --noplugin=bluetooth ' >"$R8/.test/connmand-cmdline"
+setup "$R8" --check >"$T/bt-check.out" 2>&1 || true
+check "--check: drop-in ok"            "grep -q 'ok.*connman leaves Bluetooth to BlueZ' '$T/bt-check.out'"
+check "--check: switch not blocked"    "grep -q 'ok.*Bluetooth rfkill0 is not blocked' '$T/bt-check.out'"
+check "--check: powered"               "grep -q 'ok.*BlueZ: controller powered' '$T/bt-check.out'"
+check "--check: connman without the plugin, no warning" "! grep -q 'still runs with its Bluetooth plugin' '$T/bt-check.out'"
+check "--check: ignores other radios"  "! grep -q 'rfkill1' '$T/bt-check.out'"
+echo '/usr/sbin/connmand -n ' >"$R8/.test/connmand-cmdline"
+echo 'no' >"$R8/.test/bt-powered"
+setup "$R8" --check >"$T/bt-check2.out" 2>&1 || true
+check "--check: old connman needs a reboot" "grep -q 'WARN.*still runs with its Bluetooth plugin: reboot' '$T/bt-check2.out'"
+check "--check: not powered is a warning" "grep -q 'WARN.*controller not powered' '$T/bt-check2.out'"
+echo 1 >"$R8/sys/class/rfkill/rfkill0/soft"
+setup "$R8" --check >"$T/bt-check3.out" 2>&1 || true
+check "--check: soft-blocked fails"    "grep -q 'FAIL.*Bluetooth rfkill0 is soft-blocked' '$T/bt-check3.out'"
+echo 0 >"$R8/sys/class/rfkill/rfkill0/soft"; echo 1 >"$R8/sys/class/rfkill/rfkill0/hard"
+setup "$R8" --check >"$T/bt-check4.out" 2>&1 || true
+check "--check: hard-blocked fails"    "grep -q 'FAIL.*Bluetooth rfkill0 is hard-blocked' '$T/bt-check4.out'"
+rm "$R8/etc/systemd/system/connman.service.d/50-f250.conf"
+setup "$R8" --check >"$T/bt-check5.out" 2>&1 || true
+check "--check: missing drop-in fails" "grep -q 'FAIL.*connman.service.d/50-f250.conf missing' '$T/bt-check5.out'"
+
 echo "gateway-start"
 STUB="$T/vehicle-gateway"
 printf '#!/bin/sh\necho "$@"\n' >"$STUB"; chmod +x "$STUB"
@@ -311,6 +358,7 @@ check "dashboard is bound to the compositor" "grep -qx 'BindsTo=agl-compositor.s
 check "dashboard starts with the compositor" "grep -qx 'WantedBy=graphical.target agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard.service"
 check "dashboard never restarts alone" "! grep -q '^Restart=' agl/rootfs/etc/systemd/system/f250-dashboard.service"
 check "dashboard failure restarts the compositor" "grep -qx 'OnFailure=f250-dashboard-recover.service' agl/rootfs/etc/systemd/system/f250-dashboard.service && grep -qx 'ExecStart=/usr/bin/systemctl restart agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard-recover.service"
+check "connman: ExecStart reset, then without its Bluetooth plugin" "in_order agl/rootfs/etc/systemd/system/connman.service.d/50-f250.conf 'ExecStart=' 'ExecStart=/usr/sbin/connmand -n --noplugin=bluetooth'"
 check "compositor restarts after a crash" "grep -qx 'Restart=on-failure' agl/rootfs/etc/systemd/system/agl-compositor.service.d/50-f250.conf"
 check "journal mount: SD card to the journal's place" "grep -qx 'What=/var/lib/journal' agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount && grep -qx 'Where=/var/volatile/log/journal' agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount && grep -qx 'Before=systemd-journal-flush.service' agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount"
 check "journal mount unit name matches Where=" "[[ \"\$(basename agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount)\" == var-volatile-log-journal.mount ]] && grep -q '^JOURNAL_WHERE=/var/volatile/log/journal$' '$SETUP'"

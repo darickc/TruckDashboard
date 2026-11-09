@@ -26,8 +26,13 @@
 #   7. Disable the demo homescreen; enable the gateway, recorder and dashboard.
 #      The homescreen app is swapped with the compositor restarted: a second
 #      homescreen client makes agl-compositor 0.0.24 abort.
+#   8. Bluetooth (ADR-0023): step 4's connman drop-in leaves Bluetooth to
+#      BlueZ from connman's next start. Unblock the controller now, while
+#      the old connman still runs: systemd-rfkill saves that state, so the
+#      block connman left doesn't come back at the next boot.
 #
-# A reboot applies config.txt and the logind change.
+# A reboot applies config.txt, the logind change and the connman drop-in.
+# connman isn't restarted here: it may carry this SSH session's Wi-Fi.
 #
 # Testing: ROOT=<dir> runs against a directory tree, and F250_SYS_LOG=<file>
 # records system commands (systemctl, ip, useradd, ...) instead of running
@@ -42,7 +47,7 @@ case "${1:-}" in
   "") ;;
   --check) MODE=check ;;
   --restore-demo) MODE=restore ;;
-  -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,35p' "$0"; exit 0 ;;
   *) echo "usage: $0 [--check|--restore-demo]" >&2; exit 2 ;;
 esac
 
@@ -55,6 +60,8 @@ CAN_UNITS=(kuksa-can-provider.service can-dev-helper.service)
 F250_UNITS=(f250-gateway.service f250-recorder.service f250-dashboard.service)
 COMPOSITOR=agl-compositor.service
 COMPOSITOR_DROPIN=etc/systemd/system/agl-compositor.service.d/50-f250.conf
+CONNMAN_DROPIN=etc/systemd/system/connman.service.d/50-f250.conf
+RFKILL=/sys/class/rfkill
 JOURNAL_DIR=/var/lib/journal
 JOURNAL_MOUNT=var-volatile-log-journal.mount
 JOURNAL_WHERE=/var/volatile/log/journal
@@ -144,6 +151,32 @@ fstab_has_entry() {
   awk -v mp="$STORAGE" '$1 !~ /^#/ && $2 == mp { found = 1 } END { exit !found }' "$ROOT/etc/fstab" 2>/dev/null
 }
 
+bt_rfkill() {     # the rfkill switches of type bluetooth, one sysfs directory per line
+  local d
+  for d in "$ROOT$RFKILL"/rfkill*; do
+    [[ -f "$d/type" && "$(cat "$d/type")" == bluetooth ]] && echo "$d"
+  done
+  return 0
+}
+connmand_cmdline() {  # the running connmand's command line, or nothing (test: $ROOT/.test/connmand-cmdline)
+  if [[ -n "${F250_SYS_LOG:-}" ]]; then
+    cat "$ROOT/.test/connmand-cmdline" 2>/dev/null || true
+    return 0
+  fi
+  local pid
+  pid="$(systemctl show -p MainPID --value connman.service 2>/dev/null)" || true
+  [[ -n "$pid" && "$pid" != 0 && -r "/proc/$pid/cmdline" ]] && tr '\0' ' ' <"/proc/$pid/cmdline"
+  return 0
+}
+bt_powered() {   # yes/no from BlueZ, or nothing if it doesn't answer (test: $ROOT/.test/bt-powered)
+  if [[ -n "${F250_SYS_LOG:-}" ]]; then
+    cat "$ROOT/.test/bt-powered" 2>/dev/null || true
+    return 0
+  fi
+  command -v bluetoothctl >/dev/null || return 0
+  timeout 5 bluetoothctl show 2>/dev/null | sed -n 's/^[[:space:]]*Powered: //p' | head -1
+  return 0
+}
 flutter_version() {
   sed -n 's/^FLUTTER_VERSION=//p' "$ROOT/etc/default/flutter" 2>/dev/null | head -1
 }
@@ -151,7 +184,7 @@ flutter_version() {
 # ---------------------------------------------------------------- check ----
 
 check() {
-  local cfg ver bundle d u
+  local cfg ver bundle d u rf cmdline
   say "Vehicle bus safety (ADR-0015)"
   for u in "${CAN_UNITS[@]}"; do
     case "$(unit_state "$u")" in
@@ -266,6 +299,37 @@ check() {
   else
     bad "/$COMPOSITOR_DROPIN missing or old: a compositor crash leaves the panel on the text console"
   fi
+
+  say "Bluetooth (ADR-0023; the MX+ over RFCOMM)"
+  if cmp -s "$HERE/rootfs/$CONNMAN_DROPIN" "$ROOT/$CONNMAN_DROPIN"; then
+    ok "connman leaves Bluetooth to BlueZ (/$CONNMAN_DROPIN)"
+  else
+    bad "/$CONNMAN_DROPIN missing or old: connman keeps the controller rfkill-blocked (run this script)"
+  fi
+  cmdline="$(connmand_cmdline)"
+  if [[ -n "$cmdline" && "$cmdline" != *--noplugin=bluetooth* ]]; then
+    warn "connman still runs with its Bluetooth plugin: reboot to apply the drop-in"
+  fi
+  rf="$(bt_rfkill)"
+  if [[ -z "$rf" ]]; then
+    warn "no Bluetooth controller (no rfkill switch of type bluetooth): the obdlink transport can't reach the MX+"
+  else
+    while IFS= read -r d; do
+      if [[ "$(cat "$d/hard" 2>/dev/null)" == 1 ]]; then
+        bad "Bluetooth ${d##*/} is hard-blocked"
+      elif [[ "$(cat "$d/soft" 2>/dev/null)" == 1 ]]; then
+        bad "Bluetooth ${d##*/} is soft-blocked (run this script)"
+      else
+        ok "Bluetooth ${d##*/} is not blocked"
+      fi
+    done <<<"$rf"
+    case "$(bt_powered)" in
+      yes) ok "BlueZ: controller powered" ;;
+      no) warn "BlueZ: controller not powered (bluetoothctl power on; journalctl -u bluetooth)" ;;
+      *) warn "BlueZ didn't answer (systemctl status bluetooth)" ;;
+    esac
+  fi
+
   if [[ -z "$ROOT" ]]; then
     if systemctl is-active -q "$COMPOSITOR"; then
       ok "$COMPOSITOR running"
@@ -294,7 +358,7 @@ install_file() {  # install_file <src> <dest> <mode>: say whether it changed
 }
 
 apply() {
-  local u d cfg ver bundle engine f rel mode new
+  local u d cfg ver bundle engine f rel mode new rf
   [[ -n "$ROOT" || "$(id -u)" == 0 ]] || die "Run as root (on AGL, ssh root@<pi>)"
   [[ -n "$ROOT" || -f /etc/default/flutter ]] || die "/etc/default/flutter missing: this is not the AGL Flutter image"
 
@@ -442,8 +506,24 @@ apply() {
   sys systemctl reset-failed "$COMPOSITOR" || true
   sys systemctl restart "$COMPOSITOR"
   sys systemctl start f250-dashboard.service
+
+  say "8. Bluetooth (ADR-0023)"
+  # The drop-in (step 4) takes effect when connman next starts. Until then
+  # the old connman doesn't block the controller again: it only re-blocks
+  # when it first sees a switch (technology.c, __connman_technology_add_rfkill).
+  rf="$(bt_rfkill)"
+  if [[ -z "$rf" ]]; then
+    warn "no Bluetooth controller found: nothing to unblock"
+  else
+    while IFS= read -r d; do
+      if [[ "$(cat "$d/soft" 2>/dev/null)" == 1 ]]; then
+        echo 0 >"$d/soft"
+        echo "  unblocked Bluetooth ${d##*/} (systemd-rfkill keeps it unblocked)"
+      fi
+    done <<<"$rf"
+  fi
   echo
-  echo "Done. Reboot if config.txt or logind changed, then: $0 --check"
+  echo "Done. Reboot if config.txt, logind or the connman drop-in changed, then: $0 --check"
 }
 
 restore() {

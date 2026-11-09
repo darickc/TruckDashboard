@@ -113,7 +113,8 @@ on 2026-11-08:
   controller is rfkill soft-blocked). Nothing in AGL's layers turns it on;
   the demo's settings app did that at run time, if anything. The MX+ over
   RFCOMM needs it on, and has never run on AGL. The CAN adapter
-  (ADR-0012) doesn't need it.
+  (ADR-0012) doesn't need it. [ADR-0023](0023-bluetooth-belongs-to-bluez.md)
+  takes Bluetooth away from connman so BlueZ powers it.
 - The gateway's sandbox has run with the simulator and with the `can`
   transport on vcan0 (bench-log 2026-11-08) and on the truck's bus
   (VERIFICATION_LOG 2026-11-08). The `obdlink` transports
