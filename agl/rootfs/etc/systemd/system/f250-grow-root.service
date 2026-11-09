@@ -8,8 +8,9 @@
 # Ordered before the services that write data, so they start with the space.
 # Nothing here touches the vehicle bus (ADR-0007).
 #
-# Status: [SIM] (tools/dev/test-grow-root.sh runs grow-root under this
-# sandbox on a loop device). Not run on the Pi yet.
+# Status: [BENCH] on the release image from 7f9fa37 (bench-log 2026-11-08).
+# tools/dev/test-grow-root.sh runs grow-root under this sandbox on a loop
+# device [SIM].
 [Unit]
 Description=Grow the root filesystem to fill the card
 After=local-fs.target

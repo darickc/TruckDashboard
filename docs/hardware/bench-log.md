@@ -1168,3 +1168,27 @@ flashed by the owner, booted on Ethernet. `/etc/f250-release`: e82719f.
 
 Verdict: the connman patch works. Not yet tested: joining the phone hotspot,
 and rejoining it after a reboot without Ethernet.
+
+## 2026-11-08 — Release image 7f9fa37: root fills the card on the first boot [BENCH]
+
+Image: `agl-f250-release-22.0.1-7f9fa37.wic` (sha `bb9da0e574ddef93…`),
+flashed by the owner to the 7.3 GB bench card (15333376 sectors).
+`/etc/f250-release`: 7f9fa37. Checked over SSH as root ([ADR-0022](../architecture/adr/0022-grow-root-on-first-boot.md)).
+
+    first boot     f250-grow-root: "/ is /dev/mmcblk0p2, partition 2 of
+                   /dev/mmcblk0: 899 MiB, 6451 MiB after it". sfdisk moved
+                   p2's end from sector 2120907 to 15333375 (start 278528
+                   unchanged, p1 untouched); its own re-read failed ("Device
+                   or resource busy"), as in the loop test, and partx gave
+                   the kernel the new size. systemd-growfs: "Successfully
+                   resized "/" to 7.1G bytes". About 2 s in all.
+                   lsblk: mmcblk0p2 7.2G. df -h /: 7.0G, 527M used, 6.2G
+                   free (was 851M with about 250M free on e82719f).
+                   gateway, recorder, dashboard active; stage1-setup.sh
+                   --check: all checks passed (0 warnings).
+    second boot    after `systemctl reboot`: "7351 MiB, 0 MiB after it",
+                   no table write (sfdisk -d identical before and after),
+                   growfs a no-op; df -h / unchanged; all services active.
+
+Verdict: works on the Pi. At ~120 MB an hour, a candump capture now has
+about 50 hours of room. The card has a new SSH host key (re-flashed).

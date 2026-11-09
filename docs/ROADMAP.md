@@ -223,8 +223,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       `[BENCH]` (bench-log 2026-11-08). Joining a phone hotspot is still to test. Still to do: the gateway's sandbox with the `obdlink` transports; Bluetooth is off
       under connman (the MX+ needs it on).
       Root fills the card on the first boot ([ADR-0022](architecture/adr/0022-grow-root-on-first-boot.md):
-      `f250-grow-root.service`, sfdisk + partx + systemd-growfs; it was 851 MB on a 7.3 GB card) `[SIM]`
-      (test-agl.sh; a mounted loop device in the build VM, under the unit's sandbox); not on the Pi yet.
+      `f250-grow-root.service`, sfdisk + partx + systemd-growfs). `[BENCH]` 2026-11-08: the release image from
+      7f9fa37 grew root from 851 MB to 7.0 GB (6.2 GB free) on the 7.3 GB card on its first boot, and changed
+      nothing on the second ([bench log](hardware/bench-log.md)).
       No kernel fragment or udev rules yet: each comes with its feature.
       Done ahead of it: the service watchdogs. `crates/sd-notify` (systemd's notify protocol, no `unsafe`); the
       gateway and recorder are `Type=notify` with `WatchdogSec=60` / `30`, and send keep-alives only while their loops

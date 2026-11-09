@@ -1,7 +1,9 @@
 # ADR 0022 — Root fills the SD card on the first boot
 
-- **Status:** Proposed ([SIM]: `tools/dev/test-agl.sh`, and a mounted loop
-  device in the build VM under the unit's sandbox; not run on the Pi yet)
+- **Status:** Accepted (the release image from 7f9fa37 grew root from 899 MB
+  to 7.2 GB on its first boot and changed nothing on the second, [BENCH]
+  2026-11-08, bench-log; also `tools/dev/test-agl.sh`, and a mounted loop
+  device in the build VM under the unit's sandbox)
 - **Date:** 2026-11-08
 - **Refines:** [ADR-0021](0021-trimmed-dev-and-release-images.md)
 
@@ -85,8 +87,8 @@ Why not the others:
 
 ## Consequences
 
-- After the first boot, root is about the size of the card (about 7 GB on the
-  bench card). `f250-can capture` writes to `/root/f250-data` with no changes,
+- After the first boot, root is about the size of the card: on the 7.3 GB
+  bench card, 7.0 GB with 6.2 GB free (bench-log 2026-11-08). `f250-can capture` writes to `/root/f250-data` with no changes,
   and the services see the space with no changes.
 - Root can now fill up. A capture is the only unbounded writer: about 50
   hours fill the bench card. A full root stops the recorder and the journal.
