@@ -541,13 +541,47 @@ Mode 22 DIDs addressed physically (`7E0 22 13 10`, `7E1 22 16 74`), which is
 what the pinned requests would send; and the MX+'s `ATSH` path (question 2),
 which is an adapter question now, not a truck one.
 
+## 2026-11-08 — Mode 22 by physical address: only the addressed module answers [TRUCK]
+
+Same evening, same setup as the entry above: parked, engine idling, AGL
+release `df61324`, `can0` in normal mode, gateway restarted 03:09 UTC
+(2026-11-09 UTC). `obd-console` sent the pinned DIDs straight to each
+module, then to the wrong module, twice over. Logs:
+`build/logs/obd-console-1794193793.log`, the capture
+`20261109-030914-candump` and `f250-logs-raspberrypi5-20261109-031008.tar.gz`
+(not in git).
+
+| Request | Answer (both rounds) | From the other module, within 200 ms |
+|---|---|---|
+| `7E0 22 13 10` EOT → PCM | `7E8 05 62 13 10 22 11` / `22 12`, at 39 / 14 ms | nothing |
+| `7E1 22 16 74` trans temp → TCM | `7E9 05 62 16 74 02 F6`, at 13 / 20 ms | nothing |
+| `7E1 22 13 10` EOT → TCM | `7E9 03 7F 22 12`, at 20 / 26 ms | nothing |
+| `7E0 22 16 74` trans temp → PCM | `7E8 03 7F 22 31`, at 32 / 10 ms | nothing |
+
+From the candump (it holds the gateway's own requests too): every 7E8/7E9
+frame up to 200 ms after each request is the answer to one specific
+request, and each request has exactly one. The next request went out 51–53
+ms later; nothing arrived after it for the earlier one. Capture
+03:09:14–03:10:03, 8 physical requests and 391 `7DF` polls, ERROR-ACTIVE,
+berr-counter 0/0, no drops, no gaps. Trans temp `02 F6` = 94.75 °F with the
+verified formula; the EOT bytes are not decoded here (its formula is
+`IMPORTED_UNVERIFIED`).
+
+Verdict: physical addressing works for the pinned DIDs on this truck.
+Sent to `7E0`, `22 13 10` gets only the PCM's answer; sent to `7E1`,
+`22 16 74` gets only the TCM's, and no refusal from the other module. The
+gateway's pinned requests could go out this way and stop drawing a refusal
+on every read (ADR-0012 §3). Not done: the gateway still sends them to
+`7DF`; nothing has run this way over a drive.
+
 ## Open questions for the next session
 
 1. ~~**Who is 7E9?**~~ **ANSWERED: the TCM.** It owns `22 1674` (transmission
    fluid temp) and the PCM rejects that DID outright.
 2. **Does `ATSH` work at all once the protocol is pinned?** The truck side
    is answered (2026-11-08, direct CAN: `7E0` reaches only the PCM, `7E1`
-   only the TCM); what remains is whether the MX+ sends them. This was the
+   only the TCM, for `01 0C` and the pinned Mode 22 DIDs); what remains is
+   whether the MX+ sends them. This was the
    blocking question. **First disable every PID** — see the correction above; the
    previous attempt was confounded by the scheduler re-sending `ATSH7DF` between
    the two typed lines. Retest:

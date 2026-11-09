@@ -61,10 +61,10 @@ The plan said Phase 4.5 would use the kernel's ISO-TP sockets (`can-isotp`).
    "unsupported" refusal no longer quarantines a PID that has answered this
    session. Physical addressing for pinned requests (`7E1` for the TCM,
    `7E0` for the PCM, so the other module never sees them) would remove the
-   refusals altogether. On this truck `7E0 01 0C` reaches only the PCM and
-   `7E1 01 0C` only the TCM `[TRUCK]` (2026-11-08, VERIFICATION_LOG); Mode 22
-   DIDs sent that way are not yet tested, and the gateway still sends
-   pinned requests to `7DF`.
+   refusals altogether. On this truck `7E0` reaches only the PCM and `7E1`
+   only the TCM, for `01 0C` and for `22 13 10` / `22 16 74` `[TRUCK]`
+   (2026-11-08, VERIFICATION_LOG). The gateway still sends pinned requests
+   to `7DF`.
 4. **Requests are 8-byte frames padded with 0x00.** The MX+ pads with 0x00
    too (listen-only capture beside it, 2026-11-07).
 5. **Safety stays layered (ADR-0007):**
