@@ -1213,3 +1213,34 @@ flashed by the owner to the 7.3 GB bench card (15333376 sectors).
 
 Verdict: works on the Pi. At ~120 MB an hour, a candump capture now has
 about 50 hours of room. The card has a new SSH host key (re-flashed).
+
+## 2026-11-08 — Release image df61324: all of today's fixes together [BENCH]
+
+Image: `agl-f250-release-22.0.1-df61324.wic` (sha `5003ded3d9b8a7bb…`), the
+merge of the grow-root branch into the connman and traffic-log fixes.
+Flashed by the owner to the 7.3 GB bench card, first boot on Ethernet.
+`/etc/f250-release`: df61324. Checked over SSH as root.
+
+    root           f250-grow-root ran on the first boot (sfdisk, then
+                   systemd-growfs "resized / to 7.1G"). df -h /: 7.0G,
+                   528M used, 6.2G free.
+    Wi-Fi          connman logged "Adding interface wlan0 [ wifi ]" at
+                   boot; `connmanctl scan wifi` lists the networks; the
+                   owner joined the phone hotspot (AR, connected).
+    services       f250-gateway, f250-recorder, f250-dashboard,
+                   agl-compositor, connman, bluetooth active; no failed
+                   units.
+    traffic log    temporarily TRANSPORT=can, CAN_IF=vcan0, TRANSMIT=1,
+                   ENABLE=eot (nothing on the vehicle; vcan is local).
+                   Three restarts gave adapter-traffic.1/.2/.3.log and
+                   `current` = 1, 2, 3: each start kept the file before
+                   it. Each file opens with "opened vcan0" and the 7DF
+                   requests. /etc/default/f250 restored to the shipped
+                   sim defaults afterwards; vcan0 removed.
+
+Not covered here: the can0 adapter and the truck (the same gateway code ran
+[TRUCK] on 9dce16d's card), and the hotspot rejoin across a reboot on this
+card (done on e82719f).
+
+Verdict: the image the truck will run works on the bench. Before the drive,
+set /etc/default/f250 for CAN (docs/setup/can.md#on-the-agl-image).
