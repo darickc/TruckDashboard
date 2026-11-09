@@ -525,16 +525,25 @@ that decision chose.
    - backlight sysfs
    - compositor logs
 3. **5.3** Write the **HDMI and Raspberry Pi OS fallback procedure** for separating a hardware fault from an AGL driver fault.
-4. **5.4** Build `agl/meta-f250`:
-   - `RPI_EXTRA_CONFIG` overlays
-   - a kernel config fragment (CAN, ISO-TP)
-   - recipes for each Rust service (Yocto cargo)
-   - the Flutter app via the applaunchd template
+4. **5.4** Build `agl/meta-f250` ([ADR-0017](architecture/adr/0017-meta-f250-layer.md), [ADR-0021](architecture/adr/0021-trimmed-dev-and-release-images.md)):
+   - ~~`RPI_EXTRA_CONFIG` overlays~~: an `rpi-config` append writes
+     `agl/boot/config-f250.txt` into `config.txt`, the same block Stage 1 adds
+   - ~~a kernel config fragment (CAN, ISO-TP)~~: none needed. The image's kernel
+     has `gs_usb`, `can-raw` and `can-isotp`, and ISO-TP is our own code over a
+     raw socket ([ADR-0012](architecture/adr/0012-direct-can-usb-adapter.md)). A fragment comes with the first
+     feature that needs a kernel option
+   - one recipe, `f250-services`, for the Rust services (OE's `cargo` class,
+     the AGL tree's Rust 1.96.1, crate list generated from `Cargo.lock`)
+   - ~~the Flutter app via the applaunchd template~~: meta-flutter's
+     `flutter-app` class; the dashboard is a systemd unit bound to the
+     compositor, and the images have no applaunchd
    - systemd units with hardening and watchdogs
-   - udev rules (backlight, GPIO, CAN)
-   - an `agl-f250` image
-   - `kas` or AGL `aglsetup.sh` configuration in `agl/configurations/`
-5. **5.5** Set up deployment: `make deploy` copies cross-built binaries (cargo-zigbuild or cross for aarch64) and the Flutter bundle to the Pi over SSH. Write the image build and flash instructions, and the log-collection script.
+   - udev rules (backlight, GPIO): with their Phase 6 features. CAN needs none
+   - two images on AGL's compositor image: `agl-f250` (development) and
+     `agl-f250-release` (root by key only)
+   - ~~`kas` or~~ AGL's `aglsetup.sh`, run by `agl/scripts/agl-build.sh`, with
+     the release pin in `agl/configurations/vimba.env`
+5. **5.5** Set up deployment: `make deploy` copies the binaries (cross-built ~~with cargo-zigbuild or cross~~ in an arm64 Docker container, [ADR-0016](architecture/adr/0016-stage1-sideload-layout.md)) and the Flutter bundle to the Pi over SSH. Write the image build and flash instructions, and the log-collection script.
 
 ### Phase 6 — Infotainment features
 

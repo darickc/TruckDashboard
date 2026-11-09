@@ -2,7 +2,7 @@
 # `make logs PI=<host>`: run agl/scripts/collect-logs.sh on the AGL Pi and copy
 # the archive into build/logs/. The user defaults to root, as for make deploy.
 #
-# Status: not yet run against the AGL image.
+# Status: [BENCH] against AGL 22.0.1 (bench-log 2026-11-06).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 

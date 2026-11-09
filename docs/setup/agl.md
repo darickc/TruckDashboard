@@ -56,6 +56,19 @@ Command-line alternative: find the card with `diskutil list` (check its size
 twice; `dd` overwrites whatever disk you name), then `diskutil unmountDisk
 /dev/diskN` and `sudo dd if=build/agl/agl-ivi-demo-flutter-raspberrypi5.wic of=/dev/rdiskN bs=4m`.
 
+**An image you built** (meta-f250, [linux-build-host.md](linux-build-host.md)):
+`make build-vm CMD=image` copies the newest builds into `build/agl/` as
+`agl-f250-<release>-<commit>.wic` (development) and
+`agl-f250-release-<release>-<commit>.wic` (release: root logs in only with the
+key it was built with, [ADR-0021](../architecture/adr/0021-trimmed-dev-and-release-images.md)).
+Flash either one the same way. It already has the services, the dashboard and
+Stage 1's settings, so skip section 4: after the first boot (which grows
+root to fill the card, [ADR-0022](../architecture/adr/0022-grow-root-on-first-boot.md)),
+`/opt/f250/share/agl/scripts/stage1-setup.sh --check` passes with nothing
+deployed **[BENCH]** (bench-log 2026-11-08). The paths are Stage 1's, so
+`make deploy` should update it in place, but that hasn't been tried on a
+meta-f250 image: it reruns `stage1-setup.sh` over the image's files.
+
 ## 3. First boot and SSH
 
 1. CAN adapter **unplugged**. Card in, Ethernet in, power on.

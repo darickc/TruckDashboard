@@ -240,11 +240,12 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       are bounded, so a stuck gateway makes it reconnect instead of hang. On the Pi **[BENCH]** (2026-11-06): a frozen
       gateway was killed and restarted by systemd in under a minute, and the dashboard and recorder recovered
       ([bench-log](hardware/bench-log.md))
-- [~] 5.5 `make deploy PI=` (arm64 Docker build, engine-version check, copy, setup), `make deploy-build`,
+- [x] 5.5 `make deploy PI=` (arm64 Docker build, engine-version check, copy, setup), `make deploy-build`,
       `make logs PI=`, `make agl-image`, flashing docs. The arm64 build works on the Mac; the gateway,
       recorder and `obd-console` ran against each other in an arm64 container `[SIM]`
       ([ADR-0016](architecture/adr/0016-stage1-sideload-layout.md)). `make deploy` works against the Pi with AGL 22.0.1
-      **[BENCH]** (2026-11-06, several deploys), and so does `make logs`
+      **[BENCH]** (2026-11-06, several deploys), and so does `make logs`. Flashing: the prebuilt
+      image and images built from meta-f250 ([agl.md §2](setup/agl.md#2-download-and-flash))
 
 ## Phase 6 — Infotainment
 
