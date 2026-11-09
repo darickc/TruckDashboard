@@ -1244,3 +1244,27 @@ card (done on e82719f).
 
 Verdict: the image the truck will run works on the bench. Before the drive,
 set /etc/default/f250 for CAN (docs/setup/can.md#on-the-agl-image).
+
+## 2026-11-08 — Gateway 38af731 sideloaded: pinned requests go out physically [BENCH]
+
+The df61324 card in the truck, over the hotspot. Only two files changed,
+the image's copies kept beside them as `*.df61324`, and the swap noted in
+`/etc/f250-overrides`:
+
+- `/opt/f250/bin/vehicle-gateway`: 38af731, built for aarch64 in
+  `rust:1-bookworm` (`--features rfcomm`; sha256 `65685290db69c1cc…`).
+  The `f250-arm64-build` deploy image wasn't on the Mac, and a full
+  `make deploy` would also rerun stage1-setup on a release image.
+- `/opt/f250/libexec/gateway-start`: passes `PINNED` (`--can-pinned`).
+
+Check, with `CAN_IF=vcan0` for a moment (no vehicle; nothing answered):
+the gateway's traffic log `adapter-traffic.5.log` shows `TX 7E0 03 22 13 10`
+×3 and `TX 7E1 03 22 16 74` ×3, and no `7DF 03 22` frame; candump on vcan0
+saw 19 `7DF` (the SAE PIDs), 3 `7E0`, 3 `7E1`. Same sandbox, same unit.
+Then back to `CAN_IF=can0` (`TRANSPORT=can TRANSMIT=1 ENABLE=eot`, PINNED
+unset → physical); gateway, recorder, dashboard active.
+
+Not covered: the truck's answers to the gateway's own physical polls (only
+`obd-console raw` has had them so far, VERIFICATION_LOG 2026-11-08) and a
+drive. To go back: `PINNED=functional` in `/etc/default/f250`, or restore
+the `*.df61324` files.
