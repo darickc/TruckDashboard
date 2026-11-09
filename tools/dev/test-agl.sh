@@ -28,6 +28,7 @@ SETUP=agl/scripts/stage1-setup.sh
 GW=agl/rootfs/opt/f250/libexec/gateway-start
 STOPPED=agl/rootfs/opt/f250/libexec/dashboard-stopped
 REC=agl/rootfs/opt/f250/libexec/recorder-start
+GROW=agl/rootfs/opt/f250/libexec/grow-root
 STORAGE_TOOL=agl/scripts/storage.sh
 FSTAB_LINE='LABEL=f250-data /var/lib/f250/storage ext4 noatime,nofail,x-systemd.device-timeout=10s 0 2'
 
@@ -102,6 +103,7 @@ check "DATA_DRIVE off by default"      "has_line '$R/etc/default/f250' 'DATA_DRI
 check "fstab untouched when off"       "! grep -q f250 '$R/etc/fstab'"
 check "no mount when off"              "! grep -q 'var-lib-f250-storage' '$L'"
 check "recorder-start installed"       "[[ -x '$R/opt/f250/libexec/recorder-start' ]]"
+check "grow-root installed, never enabled by Stage 1" "[[ -x '$R/opt/f250/libexec/grow-root' ]] && ! grep -q 'f250-grow-root' '$L'"
 check "units installed"                "[[ -f '$R/etc/systemd/system/f250-gateway.service' && -f '$R/etc/systemd/system/f250-dashboard.service' ]]"
 check "logind drop-in installed"       "[[ -f '$R/etc/systemd/logind.conf.d/50-f250-power-key.conf' ]]"
 B="$R/usr/share/flutter/f250_infotainment/3.38.3/release"
@@ -234,6 +236,56 @@ check "SD card by default"   "[[ \"\$(rec)\" == 'run --gateway unix:/run/f250/ve
 check "data drive"           "[[ \"\$(rec DATA_DRIVE=1 F250_TEST_MOUNTED=1)\" == 'run --gateway unix:/run/f250/vehicle.sock --db /var/lib/f250/storage/telemetry.sqlite' ]]"
 check "no drive: refuses, never the SD" "! rec DATA_DRIVE=1 F250_TEST_MOUNTED=0 >'$T/rec.out' && [[ ! -s '$T/rec.out' ]]"
 
+echo "grow-root"
+# A fake sysfs for the card: <disk sectors> then partitions as <n>:<start>:<size>
+# (512-byte sectors, as sysfs counts). Root is partition 2 (179:2).
+fake_card() {
+  local d="$1" disk="$2"; shift 2
+  rm -rf "$d"; mkdir -p "$d/block/mmcblk0" "$d/dev/block"
+  echo "$disk" >"$d/block/mmcblk0/size"
+  for p in "$@"; do
+    IFS=: read -r n start size <<<"$p"
+    mkdir -p "$d/block/mmcblk0/mmcblk0p$n"
+    echo "$n" >"$d/block/mmcblk0/mmcblk0p$n/partition"
+    echo "$start" >"$d/block/mmcblk0/mmcblk0p$n/start"
+    echo "$size" >"$d/block/mmcblk0/mmcblk0p$n/size"
+    ln -s "../../block/mmcblk0/mmcblk0p$n" "$d/dev/block/179:$n"
+  done
+}
+grow() {   # grow <pttype>: run grow-root on $T/sys, commands to $T/grow.log
+  : >"$T/grow.log"
+  env -i PATH="$PATH" F250_SYSFS="$T/sys" F250_TEST_MAJMIN='179:2  ' F250_TEST_PTTYPE="$1" \
+    F250_SYS_LOG="$T/grow.log" bash "$GROW" >"$T/grow.out" 2>&1
+}
+# The release image on a card of about 7.3 GiB: boot 8192+266240, root 278528+1842380 (its MBR).
+CARD=15269888
+fake_card "$T/sys" $CARD 1:8192:266240 2:278528:1842380
+if grow dos; then ok; else fail "grow-root exited non-zero: $(cat "$T/grow.out")"; fi
+check "grows partition 2 to the end"   "has_line '$T/grow.log' 'sfdisk --no-reread -N 2 /dev/mmcblk0'"
+check "tells the kernel the new size"  "in_order '$T/grow.log' 'sfdisk --no-reread -N 2 /dev/mmcblk0' 'partx -u --nr 2 /dev/mmcblk0'"
+check "then grows the filesystem"      "[[ \"\$(tail -1 '$T/grow.log')\" == '/usr/lib/systemd/systemd-growfs /' ]]"
+check "says how much room"             "grep -q 'partition 2 of /dev/mmcblk0: 899 MiB, 6420 MiB after it' '$T/grow.out'"
+fake_card "$T/sys" $CARD 1:8192:266240 "2:278528:$((CARD - 278528))"
+grow dos || fail "grow-root (already grown) exited non-zero"
+check "already full: no table write"   "! grep -q sfdisk '$T/grow.log' && has_line '$T/grow.log' '/usr/lib/systemd/systemd-growfs /'"
+fake_card "$T/sys" $CARD 1:8192:266240 "2:278528:$((CARD - 278528 - 30000))"
+grow dos || fail "grow-root (15 MiB left) exited non-zero"
+check "under 16 MiB left: no table write" "! grep -q sfdisk '$T/grow.log'"
+fake_card "$T/sys" $CARD 1:8192:266240 2:278528:1842380 3:4194304:2097152
+grow dos || fail "grow-root (partition after root) exited non-zero"
+check "a partition after root: left alone" "! grep -q sfdisk '$T/grow.log' && grep -q 'mmcblk0p3 comes after it' '$T/grow.out'"
+fake_card "$T/sys" $CARD 1:8192:266240 2:278528:1842380
+grow gpt || fail "grow-root (GPT) exited non-zero"
+check "GPT: left alone"                "! grep -q sfdisk '$T/grow.log' && grep -q \"'gpt' partition table\" '$T/grow.out'"
+rm -rf "$T/sys"; mkdir -p "$T/sys/dev/block/0:25"
+grow dos || fail "grow-root (not a partition) exited non-zero"
+check "root not on a partition: nothing written" "! grep -q sfdisk '$T/grow.log'"
+check "grow unit: enabled after local-fs, before the data writers" "grep -qx 'After=local-fs.target' agl/rootfs/etc/systemd/system/f250-grow-root.service && grep -qx 'Before=f250-gateway.service f250-recorder.service' agl/rootfs/etc/systemd/system/f250-grow-root.service && grep -qx 'WantedBy=multi-user.target' agl/rootfs/etc/systemd/system/f250-grow-root.service"
+# A device allow-list (DeviceAllow=, or ProtectClock= and PrivateDevices=, which
+# imply one) would shut it out of the disk; / must stay writable for the resize.
+check "grow unit: the disk and / stay writable" "! grep -qE '^(DeviceAllow|DevicePolicy|ProtectClock|PrivateDevices)=' agl/rootfs/etc/systemd/system/f250-grow-root.service && grep -qx 'ProtectSystem=full' agl/rootfs/etc/systemd/system/f250-grow-root.service"
+check "grow unit: only the capabilities it needs" "grep -qx 'CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_RESOURCE' agl/rootfs/etc/systemd/system/f250-grow-root.service"
+
 echo "f250-storage"
 check "unknown command refused" "! bash '$STORAGE_TOOL' bogus 2>/dev/null"
 check "format needs a disk"     "! bash '$STORAGE_TOOL' format 2>/dev/null"
@@ -349,7 +401,7 @@ check "release needs a root key"       "grep -q 'SkipRecipe(\"F250_AUTHORIZED_KE
 check "key installed for root, in the rootfs signature" "grep -q 'ROOT_HOME}/.ssh/authorized_keys' $IMG/agl-f250-base.inc && grep -q 'do_rootfs\\[file-checksums\\]' $IMG/agl-f250-base.inc"
 check "agl-build.sh hands the key to BitBake" "grep -q 'F250_AUTHORIZED_KEYS = ' agl/scripts/agl-build.sh && grep -q 'f250-authorized_keys' tools/dev/build-vm.sh"
 # Every command the on-Pi scripts call comes from a package f250-system pulls in.
-for pair in candump:can-utils lsusb:usbutils mkfs.ext4:e2fsprogs-mke2fs blkid:util-linux-blkid lsblk:util-linux-lsblk findmnt:util-linux-findmnt ip:iproute2 cmp:diffutils; do
+for pair in candump:can-utils lsusb:usbutils mkfs.ext4:e2fsprogs-mke2fs blkid:util-linux-blkid lsblk:util-linux-lsblk findmnt:util-linux-findmnt ip:iproute2 cmp:diffutils sfdisk:util-linux-sfdisk partx:util-linux-partx systemd-growfs:systemd; do
   cmd=${pair%%:*}; pkg=${pair#*:}
   check "f250-system pulls in $pkg ($cmd)" "grep -A2 '^RDEPENDS' '$SYSBB' | grep -qw '$pkg'"
 done

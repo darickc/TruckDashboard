@@ -1,0 +1,52 @@
+# Grow the root partition and filesystem into the rest of the SD card
+# (ADR-0022). The first boot of a freshly flashed card does the work; later
+# boots find nothing to do. See /opt/f250/libexec/grow-root.
+#
+# Enabled in the meta-f250 images (f250-system). stage1-setup.sh installs the
+# file on the prebuilt demo image but doesn't enable it.
+#
+# Ordered before the services that write data, so they start with the space.
+# Nothing here touches the vehicle bus (ADR-0007).
+#
+# Status: [BENCH] on the release image from 7f9fa37 (bench-log 2026-11-08).
+# tools/dev/test-grow-root.sh runs grow-root under this sandbox on a loop
+# device [SIM].
+[Unit]
+Description=Grow the root filesystem to fill the card
+After=local-fs.target
+Before=f250-gateway.service f250-recorder.service
+ConditionPathIsReadWrite=/
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/f250/libexec/grow-root
+
+# Sandbox. It writes the disk's partition table and resizes the mounted
+# filesystem: CAP_SYS_ADMIN for the kernel's partition update (BLKPG),
+# CAP_SYS_RESOURCE for ext4's online resize. / stays writable (the resize
+# needs a writable mount); /usr, /boot and /etc are read-only. No device
+# allow-list, and so no ProtectClock= (it implies one): the disk itself has
+# to be writable.
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_RESOURCE
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

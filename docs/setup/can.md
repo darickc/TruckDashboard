@@ -300,9 +300,12 @@ In a second SSH window, the capture:
 f250-can capture                     # to /root/f250-data/<date>-candump, until Ctrl-C
 ```
 
-The capture takes about 120 MB an hour at the truck's ~730 frames/s, and the
-release image has about 250 MB free (its root filesystem isn't expanded yet).
-Keep the drive under 45 minutes, or check `df -h /` now and then.
+The capture takes about 120 MB an hour at the truck's ~730 frames/s. Check
+`df -h /` before you start. Images with `f250-grow-root.service`
+([ADR-0022](../architecture/adr/0022-grow-root-on-first-boot.md), newer than
+e82719f) grow root to fill the card on their first boot: 6.2 GB free on the
+7.3 GB bench card, roughly 50 hours of capture (bench-log 2026-11-08). On e82719f and older, root has about
+250 MB free, so keep the drive under 45 minutes.
 
 When you're done: Ctrl-C the capture, `f250-can listen`, then from the Mac
 (at the desk is fine: everything is on the card):

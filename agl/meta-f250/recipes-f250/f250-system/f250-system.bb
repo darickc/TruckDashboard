@@ -52,6 +52,10 @@ do_install() {
     f250_wants graphical.target f250-dashboard.service
     f250_wants agl-compositor.service f250-dashboard.service
 
+    # Root fills the card on the first boot (ADR-0022). Only in the images:
+    # stage1-setup.sh installs the unit but doesn't enable it.
+    f250_wants multi-user.target f250-grow-root.service
+
     # Persistent journal (step 4): /var/lib/journal, bind-mounted over the
     # tmpfs journal directory. Its group is set in pkg_postinst.
     f250_wants local-fs.target var-volatile-log-journal.mount
@@ -82,6 +86,8 @@ FILES:${PN} = "${sysconfdir} /opt/f250 ${localstatedir}/lib/journal"
 # What the scripts call, so the image needn't happen to carry it: bash;
 # f250-can: ip (iproute2), candump (can-utils), lsusb (usbutils), timeout
 # (coreutils); f250-storage: blkid, lsblk, findmnt (util-linux), mkfs.ext4
-# (e2fsprogs-mke2fs); --check: cmp (diffutils).
+# (e2fsprogs-mke2fs); grow-root: sfdisk, partx, findmnt, blkid (util-linux),
+# systemd-growfs (systemd); --check: cmp (diffutils).
 RDEPENDS:${PN} = "bash systemd iproute2 can-utils usbutils coreutils \
-    util-linux-blkid util-linux-lsblk util-linux-findmnt e2fsprogs-mke2fs diffutils"
+    util-linux-blkid util-linux-lsblk util-linux-findmnt e2fsprogs-mke2fs diffutils \
+    util-linux-sfdisk util-linux-partx"
