@@ -1,0 +1,13 @@
+[package]
+name = "f250-elm"
+version = "0.1.0"
+description = "ELM327/STN (OBDLink MX+) client: sans-IO request/response state machine, response parsing, ISO-TP reassembly, responder attribution"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

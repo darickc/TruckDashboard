@@ -1,0 +1,15 @@
+[package]
+name = "can-monitor"
+version = "0.1.0"
+description = "Offline analysis of candump logs: broadcast census, PID answers decoded with the signal registry, and broadcast-vs-PID correlation (Phase 4.2)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+f250-telemetry = { path = "../../crates/telemetry" }
+clap = { version = "4", features = ["derive"] }
+
+[lints]
+workspace = true

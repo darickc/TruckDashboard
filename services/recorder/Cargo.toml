@@ -1,0 +1,29 @@
+[package]
+name = "recorder"
+version = "0.1.0"
+description = "Records gateway snapshots and events to SQLite (bounded) and exports CSV"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "recorder"
+path = "src/lib.rs"
+
+[[bin]]
+name = "recorder"
+path = "src/main.rs"
+
+[dependencies]
+f250-proto = { path = "../../crates/proto" }
+f250-sd-notify = { path = "../../crates/sd-notify", features = ["tokio"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
+tonic = "0.14"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "signal"] }
+tower = { version = "0.5", features = ["util"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+clap = { version = "4", features = ["derive"] }
+
+[lints]
+workspace = true

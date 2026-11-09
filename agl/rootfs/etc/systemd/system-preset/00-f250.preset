@@ -1,0 +1,15 @@
+# F-250 head unit: the demo's CAN units stay off (ADR-0015).
+#
+# They are masked (stage1-setup.sh step 1, f250-system), but the AGL packages
+# ship presets that enable them (/usr/lib/systemd/system-preset/98-*.preset).
+# `systemctl preset-all` refuses to enable a masked unit, which fails the
+# image build's rootfs step, and it also runs on a first boot. The first
+# matching preset wins and 00 sorts first, so these lines win.
+disable kuksa-can-provider.service
+disable can-dev-helper.service
+
+# oFono, the telephony daemon: connman is built with its 3g option, which
+# pulls oFono in. Nothing here uses it; the demo's phone app did. The image
+# build disables it explicitly (agl-f250-base.inc); this line keeps a later
+# full `systemctl preset-all` from turning it back on.
+disable ofono.service

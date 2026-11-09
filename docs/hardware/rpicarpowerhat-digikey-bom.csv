@@ -1,0 +1,30 @@
+Quantity,Manufacturer Part Number,Manufacturer,Digi-Key Part Number,Description,Reference Designators,Customer Reference,Check before ordering
+3,K104K15X7RF5UH5,Vishay Beyschlag/Draloric/BC Components,,Ceramic 0.1uF 50V X7R radial 5mm,"C1,C5,C6",0.1uF,"Listed on DigiKey; 5.00 mm lead spacing confirmed (element14, Future)"
+1,FG28X5R1E106MRT06,TDK Corporation,,Ceramic 10uF 25V X5R radial 5mm,C2,10uF,Listed on DigiKey; 5.00 mm lead spacing
+1,ECA-1HM100,Panasonic Industry,,Electrolytic 10uF 50V 5x11mm 2mm pitch (ACC hold-up),C7,10uF 50V,"Replaces Nichicon UVR1H100MDD (obsolete on DigiKey). Active on DigiKey, 2.0 mm pitch. Not ECA-1HM100I (2.5 mm pitch)"
+4,WP710A10GD,Kingbright,754-1603-ND,LED 3mm green,"D1,D2,D3,D4",LED,Active on DigiKey
+2,1N4007-E3/54,Vishay General Semiconductor - Diodes Division,,Diode 1000V 1A DO-41 (ACC/REV reverse protection),"D5,D11",1N4007,Replaces onsemi 1N4007 (discontinued on DigiKey). Active on DigiKey; any DO-41 1N4007 fits
+1,1N4148,onsemi,1N4148FS-ND,Diode 100V 200mA DO-35 (ACC hold-up),D6,1N4148,Active on DigiKey (bulk)
+2,1N5245B,onsemi,1N5245BFS-ND,Zener 15V 500mW DO-35 (MOSFET gate clamp),"D7,D9",15V,Listed on DigiKey (bulk)
+1,1.5KE30CA,Littelfuse Inc.,1.5KE30CALFCT-ND,"TVS bidirectional 1500W 25.6V standoff, DO-201",D8,1.5KE30CA,Listed on DigiKey (cut tape). 1.5KE30CA-B is a separate listing
+1,1729144,Phoenix Contact,277-1249-ND,"Terminal block 4-pos 5.08mm (GND, BAT, ACC, REV)",J1,GND/BAT/ACC/REV,Listed on DigiKey
+1,1729128,Phoenix Contact,277-1247-ND,Terminal block 2-pos 5.08mm (switched 12V out),J2,12V_SW_OUT,Active on DigiKey
+1,PPTC202LFBN-RC,Sullins Connector Solutions,S6104-ND,Female header 2x20 2.54mm (Pi GPIO). With the Pi 5 Active Cooler use a 16 mm stacking header instead,J3,40HAT,Active on DigiKey
+1,61400826021,Würth Elektronik,732-2107-ND,USB-A stacked dual receptacle (5V power only),J4,USB_A,Listed on DigiKey; stock varies
+3,2N3904BU,onsemi,2N3904FS-ND,NPN transistor TO-92,"Q1,Q2,Q3",2N3904,Active on DigiKey
+2,IRF4905PBF,Infineon Technologies,,P-MOSFET -55V -74A 20mOhm TO-220 (reverse-battery FET and power switch),"Q4,Q5",IRF4905,Active on DigiKey
+1,MFR-25FBF52-249K,YAGEO,,Resistor 249k 1/4W axial 1%,R1,249k,Listed on DigiKey (via findchips)
+5,MFR-25FBF52-100K,YAGEO,,Resistor 100k 1/4W axial 1%,"R2,R11,R14,R17,R21",100k,Standard Yageo MFR-25 1% part; DigiKey listing not individually confirmed
+5,MFR-25FBF52-10K,YAGEO,,Resistor 10k 1/4W axial 1%,"R3,R5,R18,R19,R20",10k,Standard Yageo MFR-25 1% part; DigiKey listing not individually confirmed
+1,MFR-25FBF52-200K,YAGEO,,Resistor 200k 1/4W axial 1%,R4,200k,Standard Yageo MFR-25 1% part; DigiKey listing not individually confirmed
+2,MFR-25FBF52-24K9,YAGEO,,Resistor 24.9k 1/4W axial 1%,"R6,R7",24.9k,Yageo part exists (Avnet); DigiKey listing not confirmed. MFR-25FRF52-24K9 is the same resistor on tape
+2,MFR-25FBF52-4K7,YAGEO,,Resistor 4.7k 1/4W axial 1%,"R8,R9",4.7k,Listed on DigiKey (via findchips)
+2,MFR-25FBF52-619R,YAGEO,,Resistor 619 1/4W axial 1%,"R10,R12",619,Yageo part exists (Avnet); DigiKey listing not confirmed. DigiKey stocks MFR-25FRF52-619R (same resistor on tape)
+1,CFR-25JB-52-10M,YAGEO,,Resistor 10M 1/4W axial 5%,R13,10M,On DigiKey but was temporarily out of stock; CFR25SJT-52-10M is the same value
+1,MFR-25FBF52-47K,YAGEO,,Resistor 47k 1/4W axial 1%,R15,47k,Standard Yageo MFR-25 1% part; DigiKey listing not individually confirmed
+2,MFR-25FBF52-1K,YAGEO,,Resistor 1k 1/4W axial 1%,"R16,R22",1k,Standard Yageo MFR-25 1% part; DigiKey listing not individually confirmed
+1,3296W-1-203LF,Bourns Inc.,,Trimmer 20k 25-turn top adjust (low-voltage threshold),RV1,20k,"Active part (Mouser 652-3296W-1-203LF); DigiKey listing not confirmed. Must be 3296W, not 3296X/Y/P (different pin layout)"
+2,LTV-817,Lite-On Inc.,160-1366-5-ND,Optocoupler DIP-4 (PC817 equivalent),"U1,U2",LTV-817,Active on DigiKey
+1,LM2903P,Texas Instruments,296-6601-5-ND,Dual comparator DIP-8,U3,LM2903,Active on DigiKey
+1,4091,Pololu,2183-4091-ND,"Pololu D36V50F5 5V 5.5A step-down module, 5.5-50V in",U4,D36V50F5,"DigiKey Marketplace item (ships from Pololu), or buy from pololu.com"
+1,TL431AILP,Texas Instruments,296-10183-5-ND,Shunt reference 2.495V TO-92,U5,TL431,Listed on DigiKey; any TO-92 TL431 with anode on the middle pin works

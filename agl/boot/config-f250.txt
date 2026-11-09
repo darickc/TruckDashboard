@@ -1,0 +1,40 @@
+# >>> f250 (agl/boot/config-f250.txt; managed by agl/scripts/stage1-setup.sh)
+# Appended to the AGL image's config.txt. The setup script replaces everything
+# between the >>> and <<< markers, so edit this file, not the copy on the Pi.
+#
+# Sources and status: docs/hardware/compatibility-matrix.md. None of these
+# lines has run on the AGL image yet (UNVERIFIED); docs/setup/agl.md says how
+# to check each one.
+
+# Original 7" touchscreen on DSI0 (CAM/DISP 0): the port Raspberry Pi OS
+# found it on (rp1 dsi 1f00118000, touch on I2C bus 10; bench-log 2026-11-02
+# and 2026-11-06). Without ",dsi0" the overlay drives DSI1, and the panel
+# stays dark. Includes the edt-ft5406 touch driver. Drop ",dsi0" only if the
+# ribbon moves to CAM/DISP 1 (H3).
+# AGL's own config.txt only loads vc4-kms-v3d-pi5,cma-256 and leaves the panel
+# off, so this line is what turns the display on.
+dtoverlay=vc4-kms-dsi-7inch,dsi0
+
+# Pi 5 onboard RTC: charge the rechargeable cell on J5 (H20). Uncomment once
+# that cell is fitted: only a rechargeable one, never a CR2032. Applied and
+# read back as 3000000 on AGL 22.0.1 (bench-log 2026-11-06). Without a cell
+# the clock starts at 1970 on every cold boot until network time sets it.
+#dtparam=rtc_bbat_vchg=3000000
+
+# HiFiBerry DAC8x (ADR-0014). The overlay ships in the Vimba 22.0.1 image.
+# Uncomment once the HAT is fitted: the overlay claims BCM18-27.
+#dtoverlay=hifiberry-dac8x
+
+# NVMe HAT on the Pi 5's external PCIe connector. Uncomment once the HAT is
+# fitted: until then it is one more unknown on the first AGL boot. The
+# firmware is reported to turn PCIe on by itself for HAT+ boards with an ID
+# EEPROM (unverified); this line turns it on for any board. The NVMe and Pi 5
+# PCIe drivers are built into the 22.0.1 kernel, and pciex1 is a parameter of
+# its bcm2712-rpi-5-b.dtb (checked in the image files, 2026-11-06). Gen 2 (the
+# default): Gen 3 (pciex1_gen=3) isn't certified.
+# Using the drive: DATA_DRIVE in /etc/default/f250 (docs/setup/agl.md).
+#dtparam=pciex1
+
+# CAN: nothing here. The USB adapter (gs_usb, ADR-0012) needs no overlay; the
+# mcp251x HAT lines in AGL's config.txt stay commented out.
+# <<< f250

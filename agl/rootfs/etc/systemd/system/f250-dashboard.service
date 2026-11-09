@@ -1,0 +1,89 @@
+# The dashboard on AGL (Stage 1 sideload): our Flutter app under flutter-auto,
+# as the compositor's background surface, in place of the AGL demo homescreen
+# (agl/scripts/stage1-setup.sh disables flutter-ics-homescreen.service).
+#
+# Modelled on the image's own flutter-ics-homescreen.service (meta-agl-demo,
+# Vimba): same user, runtime dir, environment file and flutter-auto bundle
+# layout. The window type, size and fullscreen come from the bundle's
+# config.toml (agl/flutter/config.toml).
+#
+# Exit status 42 is the dashboard's Power button: not a failure, no restart,
+# and ExecStopPost powers the Pi off (agl/rootfs/opt/f250/libexec/dashboard-stopped).
+#
+# One dashboard per compositor run. agl-compositor 0.0.24 aborts when a second
+# homescreen client connects to it, so this unit never restarts on its own
+# (bench-log 2026-11-06):
+#   - BindsTo/PartOf: it stops and restarts with the compositor.
+#   - WantedBy=agl-compositor.service: every compositor start, including the
+#     automatic restart after a crash (agl-compositor.service.d/50-f250.conf),
+#     brings it back up.
+#   - OnFailure: if it fails, f250-dashboard-recover restarts the compositor,
+#     and with it a fresh dashboard.
+#
+# Status: [BENCH] on AGL 22.0.1 (bench-log 2026-11-06).
+[Unit]
+Description=F-250 dashboard
+BindsTo=agl-compositor.service
+PartOf=agl-compositor.service
+After=agl-compositor.service f250-gateway.service
+Wants=f250-gateway.service
+OnFailure=f250-dashboard-recover.service
+
+[Service]
+User=agl-driver
+EnvironmentFile=/etc/default/flutter
+Environment=XDG_RUNTIME_DIR=/run/user/1001/
+Environment=F250_POWER_OFF=1
+ExecStart=/usr/bin/flutter-auto -b /usr/share/flutter/f250_infotainment/${FLUTTER_VERSION}/${FLUTTER_RUNTIME} --xdg-shell-app-id homescreen
+ExecStopPost=+/opt/f250/libexec/dashboard-stopped
+SuccessExitStatus=42
+
+# Sandbox (ADR-0021). `systemd-analyze security f250-dashboard`: 9.2 before,
+# 0.6 after [BENCH] (2026-11-08). The `+` on ExecStopPost runs the power-off
+# helper outside it.
+# - Devices: the GPU only (Vulkan on /dev/dri). Input comes from the compositor.
+# - Network: none. The gateway's socket and Wayland's are files under /run.
+# - Writes: only its own directories, which systemd creates on every start.
+#   flutter-auto keeps its files in $HOME/.flutter-auto (and aborts if it
+#   can't create it), so HOME points at the state directory; Mesa's shader
+#   cache and fontconfig follow XDG_CACHE_HOME. The real home stays
+#   read-only; agl-driver shares it with the compositor (and so no
+#   RemoveIPC=). ProtectHome=yes would hide /run/user and with it the Wayland
+#   socket. A fresh card has no ~/.flutter-auto: [BENCH] 2026-11-08, the
+#   dashboard aborted on 759f807 when it could only write there.
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=read-only
+StateDirectory=f250-dashboard
+StateDirectoryMode=0700
+CacheDirectory=f250-dashboard
+CacheDirectoryMode=0700
+Environment=HOME=/var/lib/f250-dashboard
+Environment=XDG_CACHE_HOME=/var/cache/f250-dashboard
+PrivateTmp=yes
+PrivateNetwork=yes
+DevicePolicy=closed
+DeviceAllow=char-drm rw
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+
+[Install]
+WantedBy=graphical.target agl-compositor.service

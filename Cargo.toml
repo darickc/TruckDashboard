@@ -1,0 +1,33 @@
+# Rust workspace: libraries in crates/, daemons in services/, CLIs in tools/
+# (ADR-0008). Build with `make rust-test`; see CLAUDE.md.
+[workspace]
+resolver = "3"
+members = [
+    "crates/elm",
+    "crates/telemetry",
+    "crates/powerstroke-sim",
+    "crates/proto",
+    "crates/sd-notify",
+    "services/vehicle-gateway",
+    "services/recorder",
+    "tools/obd-console",
+    "tools/can-monitor",
+]
+
+[workspace.package]
+edition = "2024"
+# The oldest Rust the workspace must build with: the AGL 22.0.1 tree's Rust
+# (meta-lts-mixins_rust, 1.96.1), which builds the services into the image
+# (agl/meta-f250). Development uses rust-toolchain.toml; clippy's
+# incompatible_msrv lint keeps newer std APIs out.
+rust-version = "1.96"
+license = "UNLICENSED"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"

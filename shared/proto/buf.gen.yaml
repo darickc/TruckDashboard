@@ -1,0 +1,8 @@
+# Dart client code for the Flutter app. Rust code is generated at build time
+# by crates/proto/build.rs. Run via `make proto` (needs protoc-gen-dart:
+# `fvm dart pub global activate protoc_plugin`).
+version: v2
+plugins:
+  - local: protoc-gen-dart
+    out: ../../apps/infotainment/lib/gen
+    opt: grpc

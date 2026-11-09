@@ -1,0 +1,14 @@
+# Added hardware (lib/Sensors in the ESP32 firmware). These values are not
+# available from the PCM at all (FORD_6_0_PIDS.md).
+
+- id: egt
+  name: Exhaust gas temp
+  short_name: EGT
+  quantity: temperature
+  unit: degC
+  source: aux
+  range: {min: -40, max: 1000}
+  stale_after_ms: 3000
+  provenance: AUX_SENSOR
+  enabled: false
+  notes: Disabled — no EGT probe installed (pre-turbo thermocouple + amplifier).

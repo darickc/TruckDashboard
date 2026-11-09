@@ -1,0 +1,17 @@
+#!/bin/bash
+# ExecStopPost of f250-dashboard.service (runs as root, the `+` prefix).
+#
+# The dashboard's Power button ends the app with exit status 42
+# (apps/infotainment/lib/core/power.dart, powerOffExitCode). That is the only
+# case that powers off; a crash or a `systemctl stop` doesn't.
+# `systemctl poweroff` stops the recorder before the gateway (unit ordering),
+# the same order tools/pi/run.sh uses.
+#
+# Status: [BENCH] on AGL 22.0.1 (bench-log 2026-11-06, check 7).
+set -u
+POWER_OFF_EXIT=42
+if [[ "${EXIT_CODE:-}" == exited && "${EXIT_STATUS:-}" == "$POWER_OFF_EXIT" ]]; then
+  echo "power off: requested from the dashboard"
+  exec systemctl poweroff --no-block
+fi
+exit 0

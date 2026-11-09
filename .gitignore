@@ -2,3 +2,17 @@
 .vscode/
 *.pyc
 __pycache__/
+
+# Rust
+target/
+
+# Flutter / fvm
+.fvm/
+.dart_tool/
+build/
+
+# macOS
+.DS_Store
+
+# Claude Code personal settings (launch.json is shared)
+.claude/settings.local.json

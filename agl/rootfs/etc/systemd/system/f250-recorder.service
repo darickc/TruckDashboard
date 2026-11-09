@@ -1,0 +1,71 @@
+# Telemetry recorder on AGL (Stage 1 sideload). Reads the gateway's API and
+# writes telemetry.sqlite, with its default retention: in /var/lib/f250, or on
+# the data drive with DATA_DRIVE=1 (agl/rootfs/opt/f250/libexec/recorder-start).
+# Ordered after the gateway, so at shutdown it stops first and records the
+# gateway's last samples, as tools/pi/run.sh does.
+#
+# Type=notify: READY once the database is open; `systemctl status` shows
+# whether it is recording. The watchdog keep-alive goes out every 15 s, only
+# if a snapshot arrived or a reconnect was tried since the last one. Every
+# wait on the gateway has a timeout (10 s at most), so a stuck gateway makes
+# it reconnect, not hang; stuck for 30 s, systemd restarts it.
+#
+# Status: [BENCH] on AGL 22.0.1, the watchdog included (bench-log
+# 2026-11-06).
+[Unit]
+Description=F-250 telemetry recorder
+Requires=f250-gateway.service
+After=f250-gateway.service
+# The data drive's mount (/etc/fstab, written by stage1-setup.sh when
+# DATA_DRIVE=1). Ordering only: without the drive, recorder-start refuses.
+After=var-lib-f250-storage.mount
+
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=30
+User=f250
+Group=f250
+EnvironmentFile=/etc/default/f250
+ExecStart=/opt/f250/libexec/recorder-start
+Restart=on-failure
+RestartSec=2
+UMask=0027
+StateDirectory=f250
+StateDirectoryMode=0750
+# The data drive is mounted inside the state directory; '-': fine if absent.
+ReadWritePaths=-/var/lib/f250/storage
+
+# Sandbox (ADR-0021). `systemd-analyze security f250-recorder`: 5.3 before,
+# 0.2 after [BENCH] (2026-11-08).
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+PrivateDevices=yes
+PrivateUsers=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target

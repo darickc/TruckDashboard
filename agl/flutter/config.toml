@@ -1,0 +1,12 @@
+# flutter-auto settings for the dashboard bundle. make deploy copies this to
+# /usr/share/flutter/f250_infotainment/<flutter version>/release/config.toml.
+#
+# Same keys as the AGL demo homescreen's config (meta-agl-demo,
+# flutter-ics-homescreen/files/ics-homescreen.toml, Vimba), sized for the 7"
+# panel. BG: the compositor's background surface, which is what the demo
+# homescreen is. UNVERIFIED on the image.
+[view]
+window_type = "BG"
+width = 800
+height = 480
+fullscreen = true

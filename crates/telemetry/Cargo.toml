@@ -1,0 +1,22 @@
+[package]
+name = "f250-telemetry"
+version = "0.1.0"
+description = "Signal registry, safe formula grammar, units, calibration, validity/staleness, computed signals and warnings"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Derive for the registry and warning-rule data types.
+serde = { version = "1.0.229", features = ["derive"] }
+# Signal registry YAML (serde_yaml successor maintained by The YAML Organization).
+yaml_serde = "0.10.7"
+# The warning-rule format is JSON (apps/infotainment/assets/config/warning_rules.json),
+# shared with the Flutter app; parsing JSON with a YAML parser would be a hack.
+serde_json = "1.0.154"
+# Error types.
+thiserror = "2.0.21"
+
+[lints]
+workspace = true

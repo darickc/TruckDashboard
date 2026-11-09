@@ -1,0 +1,493 @@
+//! The direct-CAN transport (ADR-0012) against an in-memory bus replaying
+//! this truck's captured replies. [SIM]: no interface, adapter or truck.
+
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
+#[path = "common/fake_can.rs"]
+mod fake_can;
+
+use std::path::PathBuf;
+use std::sync::atomic::Ordering;
+use std::time::Duration;
+
+use clap::Parser;
+use f250_elm::request::{Addressing, ObdCommand, ObdRequest, ServiceAllowList};
+use f250_proto::vehicle::v1 as pb;
+use fake_can::{FakeBus, r};
+use tokio::sync::mpsc;
+use vehicle_gateway::config::{Config, PinnedAddressing};
+use vehicle_gateway::core::Core;
+use vehicle_gateway::transport::Outcome;
+use vehicle_gateway::transport::can::{BusEvent, CAN_ERR_BUSOFF, CanLink, CanTiming};
+use vehicle_gateway::transport::obdlink::DriverEvent;
+
+const WINDOW: Duration = Duration::from_millis(50);
+
+fn link(bus: &FakeBus) -> (CanLink, mpsc::Receiver<DriverEvent>) {
+    link_pinned(bus, PinnedAddressing::Physical)
+}
+
+/// Pinned requests on 7DF: how the gateway ran until physical addressing
+/// was verified, and still the fallback (`--can-pinned functional`).
+fn link_functional(bus: &FakeBus) -> (CanLink, mpsc::Receiver<DriverEvent>) {
+    link_pinned(bus, PinnedAddressing::Functional)
+}
+
+fn link_pinned(bus: &FakeBus, pinned: PinnedAddressing) -> (CanLink, mpsc::Receiver<DriverEvent>) {
+    CanLink::spawn(
+        "vcan-test".into(),
+        bus.opener(),
+        ServiceAllowList::read_only_default(),
+        CanTiming {
+            window: WINDOW,
+            pinned,
+        },
+        None,
+    )
+}
+
+async fn ready(events: &mut mpsc::Receiver<DriverEvent>) {
+    loop {
+        match tokio::time::timeout(Duration::from_secs(2), events.recv()).await {
+            Ok(Some(DriverEvent::Ready { .. })) => return,
+            Ok(Some(_)) => {}
+            other => panic!("no Ready: {other:?}"),
+        }
+    }
+}
+
+fn eot() -> ObdRequest {
+    ObdRequest::new(ObdCommand::did(0x1310))
+}
+
+#[tokio::test]
+async fn nothing_is_opened_or_sent_before_connect() {
+    let bus = FakeBus::truck();
+    let (link, _ev) = link(&bus);
+    assert_eq!(link.request(eot()).await, Outcome::LinkDown);
+    assert_eq!(bus.opens.load(Ordering::SeqCst), 0);
+    assert!(bus.sent().is_empty());
+}
+
+/// The 2026-11-03 window that the MX+ sometimes cut short: the TCM's refusal
+/// arrives first. Unpinned, the gateway waits its own window and still gets
+/// the PCM's value.
+#[tokio::test]
+async fn eot_unpinned_gets_the_pcm_value_after_the_tcm_refusal() {
+    let bus = FakeBus::truck();
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    match link.request(eot()).await {
+        Outcome::Payload {
+            responders,
+            latency_ms,
+        } => {
+            assert_eq!(responders.len(), 1);
+            assert_eq!(responders[0].can_id, "7E8");
+            assert_eq!(responders[0].payload, [0x26, 0x91]);
+            assert!(latency_ms >= 50, "waited the window: {latency_ms} ms");
+        }
+        o => panic!("{o:?}"),
+    }
+    let sent = bus.sent();
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].id, 0x7DF);
+    assert_eq!(sent[0].data, [0x03, 0x22, 0x13, 0x10, 0, 0, 0, 0]);
+}
+
+#[tokio::test]
+async fn eot_pinned_returns_as_soon_as_the_pcm_answers() {
+    let bus = FakeBus::truck();
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    match link.request(eot().with_expected_responder(0x7E8)).await {
+        Outcome::Payload {
+            responders,
+            latency_ms,
+        } => {
+            assert_eq!(responders[0].can_id, "7E8");
+            assert!(
+                latency_ms < 50,
+                "no need to wait the window: {latency_ms} ms"
+            );
+        }
+        o => panic!("{o:?}"),
+    }
+    assert_eq!(bus.sent()[0].id, 0x7E0, "to the PCM only");
+}
+
+/// Pinned requests go to their owner's physical ID (2026-11-08 on the
+/// truck: 7E0 reaches only the PCM, 7E1 only the TCM). The other module never
+/// hears them, so nothing refuses and nothing is waited for.
+#[tokio::test]
+async fn pinned_requests_go_to_their_owner_only() {
+    let bus = FakeBus::truck();
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    // RPM first, as in a normal cycle: both modules are now known.
+    assert!(matches!(link.request(rpm()).await, Outcome::Payload { .. }));
+    for _ in 0..3 {
+        let out = link.request(trans_temp()).await;
+        assert_eq!(value(&out, "7E9"), [0x04, 0x13]);
+        if let Outcome::Payload { latency_ms, .. } = out {
+            assert!(latency_ms < 50, "no refusal to wait for: {latency_ms} ms");
+        }
+        let out = link.request(eot().with_expected_responder(0x7E8)).await;
+        assert_eq!(value(&out, "7E8"), [0x26, 0x91]);
+    }
+    let ids: Vec<u16> = bus.sent().iter().skip(1).map(|f| f.id).collect();
+    assert_eq!(ids, [0x7E1, 0x7E0, 0x7E1, 0x7E0, 0x7E1, 0x7E0]);
+}
+
+/// Unpinned requests stay functional: every module may own the answer.
+#[tokio::test]
+async fn unpinned_requests_stay_on_7df() {
+    let bus = FakeBus::truck();
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    assert!(matches!(link.request(rpm()).await, Outcome::Payload { .. }));
+    assert!(matches!(link.request(eot()).await, Outcome::Payload { .. }));
+    let ids: Vec<u16> = bus.sent().iter().map(|f| f.id).collect();
+    assert_eq!(ids, [0x7DF, 0x7DF]);
+}
+
+#[tokio::test]
+async fn physical_owner_silent_is_no_response() {
+    let bus = FakeBus::truck();
+    bus.on("7E0 0322131000000000", vec![]);
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    let out = link.request(eot().with_expected_responder(0x7E8)).await;
+    assert!(matches!(out, Outcome::NoResponse { .. }), "{out:?}");
+    assert_eq!(bus.sent()[0].id, 0x7E0);
+}
+
+fn trans_temp() -> ObdRequest {
+    ObdRequest::new(ObdCommand::did(0x1674)).with_expected_responder(0x7E9)
+}
+
+fn rpm() -> ObdRequest {
+    ObdRequest::new(ObdCommand::mode01(0x0C))
+}
+
+fn value(out: &Outcome, from: &str) -> Vec<u8> {
+    match out {
+        Outcome::Payload { responders, .. } => {
+            assert_eq!(responders.len(), 1, "{out:?}");
+            assert_eq!(responders[0].can_id, from);
+            responders[0].payload.clone()
+        }
+        o => panic!("expected {from}'s value, got {o:?}"),
+    }
+}
+
+/// The 2026-11-07 drive: refusals ~30 ms after the request (the drive's
+/// medians were 12 ms for the TCM and 27–32 ms for the PCM, up to 49 ms).
+/// The owner answers first, so a pinned exchange that stopped there left the
+/// other module's refusal on its way, and the next pinned request took it
+/// for its own owner's answer ("unsupported") and was quarantined for 60 s.
+/// With the gateway waiting for every module it has heard, each refusal
+/// lands in its own exchange.
+#[tokio::test]
+async fn a_late_refusal_is_never_read_as_the_next_requests_answer() {
+    let bus = FakeBus::truck();
+    // Trans temp: the TCM answers at 7 ms, the PCM refuses at 30 ms.
+    bus.on(
+        "7DF 0322167400000000",
+        vec![
+            r(7, 0x7E9, "0562167404350000"),
+            r(30, 0x7E8, "037F223100000000"),
+        ],
+    );
+    // EOT, the slow-refusal case: the PCM answers at 40 ms, the TCM's
+    // refusal follows at 45 ms. Stopping at the owner's answer, each stray
+    // refusal arrives before the next request's real answer (23 ms vs 40 ms,
+    // 5 ms vs 7 ms), as on the drive.
+    bus.on(
+        "7DF 0322131000000000",
+        vec![
+            r(40, 0x7E8, "05621310289B0000"),
+            r(45, 0x7E9, "037F221200000000"),
+        ],
+    );
+    let (link, mut ev) = link_functional(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    // A normal cycle starts with RPM, which both modules answer: that is
+    // how the gateway learns who is on the bus.
+    assert!(matches!(link.request(rpm()).await, Outcome::Payload { .. }));
+    for _ in 0..3 {
+        // Trans temp then EOT: the PCM's refusal of trans temp must not
+        // become "the PCM refuses EOT".
+        assert_eq!(
+            value(&link.request(trans_temp()).await, "7E9"),
+            [0x04, 0x35]
+        );
+        assert_eq!(
+            value(
+                &link.request(eot().with_expected_responder(0x7E8)).await,
+                "7E8"
+            ),
+            [0x28, 0x9B]
+        );
+        // And the next round's trans temp follows EOT: the TCM's refusal of
+        // EOT must not become "the TCM refuses trans temp".
+    }
+    assert!(
+        bus.sent().iter().all(|f| f.id == 0x7DF),
+        "functional setting"
+    );
+}
+
+#[tokio::test]
+async fn a_silent_module_costs_one_window_not_a_dropout() {
+    let bus = FakeBus::truck();
+    let (link, mut ev) = link_functional(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    assert!(matches!(link.request(rpm()).await, Outcome::Payload { .. }));
+    // Now the PCM stops refusing trans temp: the exchange waits the window
+    // for it, then returns the TCM's value.
+    bus.on(
+        "7DF 0322167400000000",
+        vec![r(7, 0x7E9, "0562167404350000")],
+    );
+    match link.request(trans_temp()).await {
+        Outcome::Payload { latency_ms, .. } => {
+            assert!(latency_ms >= 50, "waited the window: {latency_ms} ms")
+        }
+        o => panic!("{o:?}"),
+    }
+}
+
+#[tokio::test]
+async fn pinned_owner_silent_is_no_response_on_7df() {
+    let bus = FakeBus::truck();
+    bus.on(
+        "7DF 0322131000000000",
+        vec![r(18, 0x7E9, "037F221200000000")],
+    );
+    let (link, mut ev) = link_functional(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    let out = link.request(eot().with_expected_responder(0x7E8)).await;
+    assert!(matches!(out, Outcome::NoResponse { .. }), "{out:?}");
+}
+
+#[tokio::test]
+async fn both_modules_answer_rpm() {
+    let bus = FakeBus::truck();
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    match link
+        .request(ObdRequest::new(ObdCommand::mode01(0x0C)))
+        .await
+    {
+        Outcome::Payload { responders, .. } => {
+            let ids: Vec<_> = responders.iter().map(|r| r.can_id.as_str()).collect();
+            assert_eq!(ids, ["7E9", "7E8"]);
+        }
+        o => panic!("{o:?}"),
+    }
+}
+
+#[tokio::test]
+async fn physical_request_goes_out_on_its_header() {
+    let bus = FakeBus::truck();
+    bus.on(
+        "7E1 02010C0000000000",
+        vec![r(10, 0x7E9, "04410C0AC4000000")],
+    );
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    let req =
+        ObdRequest::new(ObdCommand::mode01(0x0C)).with_addressing(Addressing::header("7E1", None));
+    assert!(matches!(link.request(req).await, Outcome::Payload { .. }));
+    assert_eq!(bus.sent()[0].id, 0x7E1);
+}
+
+#[tokio::test]
+async fn raw_lists_every_frame_and_refuses_what_it_must() {
+    let bus = FakeBus::truck();
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+
+    let out = link.raw("221310".into()).await;
+    assert_eq!(out.refused, None);
+    assert_eq!(out.lines[0], "TX 7DF 03 22 13 10 00 00 00 00");
+    assert!(
+        out.lines[1].ends_with("7E9 03 7F 22 12 00 00 00 00"),
+        "{:?}",
+        out.lines
+    );
+    assert!(
+        out.lines[2].ends_with("7E8 05 62 13 10 26 91 00 00"),
+        "{:?}",
+        out.lines
+    );
+
+    for bad in ["ATSH7E1", "04", "7E0 2E131000", "7E8 010C", "726 221310"] {
+        let out = link.raw(bad.into()).await;
+        assert!(out.refused.is_some(), "{bad} must be refused");
+    }
+    assert_eq!(bus.sent().len(), 1, "refused lines never reach the bus");
+}
+
+#[tokio::test]
+async fn bus_off_drops_the_link() {
+    let bus = FakeBus::truck();
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    bus.inject(Ok(BusEvent::Error {
+        class: CAN_ERR_BUSOFF,
+        data: vec![0; 8],
+    }));
+    let got = tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            if let Some(DriverEvent::Disconnected(why)) = ev.recv().await {
+                return why;
+            }
+        }
+    })
+    .await
+    .expect("Disconnected after bus-off");
+    assert!(got.contains("bus-off"));
+    assert_eq!(link.request(eot()).await, Outcome::LinkDown);
+}
+
+// ---- the whole gateway ------------------------------------------------------
+
+fn repo(p: &str) -> String {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(p)
+        .display()
+        .to_string()
+}
+
+fn config(extra: &[&str]) -> Config {
+    let mut args = vec![
+        "vehicle-gateway".to_string(),
+        "--transport".into(),
+        "can".into(),
+        "--can-if".into(),
+        "vcan-test".into(),
+        "--signals".into(),
+        repo("shared/signals"),
+        "--warnings".into(),
+        repo("apps/infotainment/assets/config/warning_rules.json"),
+    ];
+    args.extend(extra.iter().map(|s| s.to_string()));
+    Config::parse_from(args)
+}
+
+#[tokio::test]
+async fn without_transmit_the_interface_is_never_opened() {
+    let bus = FakeBus::truck();
+    let (core, driver, mut snaps) = Core::with_can_opener(config(&[]), Some(bus.opener())).unwrap();
+    let (_cmd_tx, cmd_rx) = mpsc::channel(8);
+    tokio::spawn(core.run(cmd_rx, driver));
+    tokio::time::sleep(Duration::from_millis(1200)).await;
+    snaps.changed().await.unwrap();
+    let link = snaps.borrow().link.clone().unwrap();
+    assert_eq!(link.machine_state, "PASSIVE_ONLY");
+    assert_eq!(link.transport, "can:vcan-test");
+    assert_eq!(
+        bus.opens.load(Ordering::SeqCst),
+        0,
+        "PASSIVE_ONLY must not open"
+    );
+    assert!(bus.sent().is_empty());
+}
+
+/// EOT enabled, the truck's replies, the MX+'s dropout pattern included
+/// (the TCM's refusal arrives first every time): EOT and trans_temp decode
+/// and stay ACTIVE, and only read-only single frames reach the bus.
+#[tokio::test]
+async fn polls_eot_and_trans_temp_through_the_registry() {
+    let bus = FakeBus::truck();
+    let (core, driver, mut snaps) = Core::with_can_opener(
+        config(&["--transmit", "--enable", "eot"]),
+        Some(bus.opener()),
+    )
+    .unwrap();
+    let (_cmd_tx, cmd_rx) = mpsc::channel(8);
+    tokio::spawn(core.run(cmd_rx, driver));
+
+    let (eot, trans) = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            snaps.changed().await.unwrap();
+            let snap = snaps.borrow().clone();
+            let find = |id: &str| {
+                snap.samples
+                    .iter()
+                    .find(|s| s.signal_id == id && s.validity == pb::Validity::Valid as i32)
+                    .cloned()
+            };
+            if let (Some(e), Some(t)) = (find("eot"), find("trans_temp")) {
+                return (e, t);
+            }
+        }
+    })
+    .await
+    .expect("eot and trans_temp valid within 10 s");
+    // 26 91 → 9873 / 100 − 40 = 58.73 °C.
+    assert!((eot.value.unwrap() - 58.73).abs() < 1e-6, "{:?}", eot.value);
+    assert_eq!(eot.last_responder, "7E8");
+    // 04 13 → 130.375 °F = 54.653 °C.
+    assert!((trans.value.unwrap() - 54.652_777).abs() < 1e-3);
+    assert_eq!(trans.last_responder, "7E9");
+
+    // Let it poll for a while, then check what reached the bus.
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    let sent = bus.sent();
+    assert!(sent.len() > 10, "polled: {}", sent.len());
+    for f in &sent {
+        assert!(
+            f.id == 0x7DF || (0x7E0..=0x7E7).contains(&f.id),
+            "id {:03X}",
+            f.id
+        );
+        assert_eq!(f.data.len(), 8);
+        let len = usize::from(f.data[0]);
+        assert!((1..=7).contains(&len), "single frame: {:02X?}", f.data);
+        assert!(
+            [0x01, 0x03, 0x07, 0x09, 0x22].contains(&f.data[1]),
+            "service {:02X} outside the read-only list",
+            f.data[1]
+        );
+    }
+    // The pinned DIDs went to their owners, never to 7DF.
+    let did = |f: &&vehicle_gateway::transport::isotp::Frame, d: [u8; 3]| f.data[1..4] == d;
+    let to = |d: [u8; 3]| -> Vec<u16> {
+        let mut ids: Vec<u16> = sent.iter().filter(|f| did(f, d)).map(|f| f.id).collect();
+        ids.dedup();
+        ids
+    };
+    assert_eq!(to([0x22, 0x13, 0x10]), [0x7E0], "EOT to the PCM");
+    assert_eq!(to([0x22, 0x16, 0x74]), [0x7E1], "trans temp to the TCM");
+    let snap = snaps.borrow().clone();
+    let link = snap.link.clone().unwrap();
+    assert_eq!(link.machine_state, "POLLING");
+    assert!(link.transmit_enabled);
+    let eot_state = snap.samples.iter().find(|s| s.signal_id == "eot").unwrap();
+    assert_eq!(eot_state.validity, pb::Validity::Valid as i32);
+}
+
+#[test]
+fn pinned_requests_are_physical_unless_asked() {
+    assert_eq!(config(&[]).can_pinned, PinnedAddressing::Physical);
+    assert_eq!(
+        config(&["--can-pinned", "functional"]).can_pinned,
+        PinnedAddressing::Functional
+    );
+}

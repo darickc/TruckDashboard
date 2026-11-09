@@ -1,0 +1,62 @@
+{
+  "_comment": "EXAMPLE THRESHOLDS — VERIFY BEFORE TRUSTING. These are commonly cited 6.0L community figures, not measurements from this truck, and they do not fit every towing or driving condition. Values are in canonical units (degC, kPa, V). Notes give approximate imperial equivalents. Replace each one with a limit set just above the normal range measured on this truck (docs/diagnostics/TRUCK_SESSION.md Part 4).",
+  "comm_watch": ["eot", "ect", "trans_temp"],
+  "rules": [
+    {
+      "id": "eot_ect_delta_high",
+      "signal": "eot_ect_delta",
+      "direction": "above",
+      "advisory": {"trigger": 8.3, "clear": 6.7},
+      "critical": {"trigger": 13.9, "clear": 11.1},
+      "min_duration_ms": 30000,
+      "when": {"signal": "ect", "direction": "above", "value": 82},
+      "note": "EXAMPLE. Advisory above about 15 °F, critical above about 25 °F, only once ECT is above about 180 °F (warm engine)."
+    },
+    {
+      "id": "ect_high",
+      "signal": "ect",
+      "direction": "above",
+      "advisory": {"trigger": 104, "clear": 101},
+      "critical": {"trigger": 110, "clear": 107},
+      "min_duration_ms": 5000,
+      "note": "EXAMPLE. About 220 °F advisory, 230 °F critical."
+    },
+    {
+      "id": "eot_high",
+      "signal": "eot",
+      "direction": "above",
+      "advisory": {"trigger": 110, "clear": 107},
+      "critical": {"trigger": 121, "clear": 118},
+      "min_duration_ms": 5000,
+      "note": "EXAMPLE. About 230 °F advisory, 250 °F critical."
+    },
+    {
+      "id": "trans_temp_high",
+      "signal": "trans_temp",
+      "direction": "above",
+      "advisory": {"trigger": 104, "clear": 99},
+      "critical": {"trigger": 121, "clear": 115},
+      "min_duration_ms": 5000,
+      "note": "EXAMPLE. About 220 °F advisory, 250 °F critical."
+    },
+    {
+      "id": "ficm_main_low",
+      "signal": "ficm_main",
+      "direction": "below",
+      "advisory": {"trigger": 46, "clear": 47},
+      "critical": {"trigger": 45, "clear": 46},
+      "min_duration_ms": 3000,
+      "when": {"signal": "rpm", "direction": "above", "value": 400},
+      "note": "EXAMPLE. FICM main power is commonly expected near 48 V with the engine running."
+    },
+    {
+      "id": "battery_low",
+      "signal": "battery",
+      "direction": "below",
+      "advisory": {"trigger": 12.4, "clear": 12.8},
+      "min_duration_ms": 10000,
+      "when": {"signal": "rpm", "direction": "above", "value": 400},
+      "note": "EXAMPLE. A running engine should be charging well above this."
+    }
+  ]
+}

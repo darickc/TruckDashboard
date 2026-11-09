@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+// Developer diagnostics for tools/obd-console (Phase 3.13): the Pi-side
+// equivalent of the ESP32 serial console. Every request still passes the
+// ADR-0007 service allow-list in the gateway; nothing here can send a write,
+// control, routine or DTC-clear service.
+package f250.vehicle.v1;
+
+service DiagnosticsService {
+  // Enable or disable polling of one signal at runtime (not persisted).
+  rpc SetPolling(SetPollingRequest) returns (SetPollingResponse);
+  // Poll one signal now, `count` times, reporting every responder.
+  rpc Probe(ProbeRequest) returns (ProbeResponse);
+  // Send one raw line (AT command or allow-listed OBD request) and return the
+  // adapter's lines verbatim. Polling pauses while a raw request is in flight.
+  rpc Raw(RawRequest) returns (RawResponse);
+  rpc Stats(StatsRequest) returns (StatsResponse);
+}
+
+message SetPollingRequest {
+  string signal_id = 1;
+  bool enabled = 2;
+}
+
+message SetPollingResponse {}
+
+message ProbeRequest {
+  string signal_id = 1;
+  uint32 count = 2;
+}
+
+message Responder {
+  string can_id = 1;
+  // Payload bytes after the positive-response echo, hex.
+  string payload_hex = 2;
+  optional double decoded = 3;
+}
+
+message ProbeAttempt {
+  // "ok", "no_response", "negative", "invalid", "link_down", "refused".
+  string outcome = 1;
+  uint32 latency_ms = 2;
+  repeated Responder responders = 3;
+  uint32 nrc = 4;
+  string detail = 5;
+}
+
+message ProbeResponse {
+  repeated ProbeAttempt attempts = 1;
+}
+
+message RawRequest {
+  string line = 1;
+}
+
+message RawResponse {
+  repeated string lines = 1;
+  uint32 latency_ms = 2;
+  // Set when the gateway refused the line (e.g. a service outside the allow-list).
+  string refused = 3;
+}
+
+message StatsRequest {
+  bool reset = 1;
+}
+
+message SignalStats {
+  string signal_id = 1;
+  uint64 successes = 2;
+  uint64 failures = 3;
+  uint32 latency_p50_ms = 4;
+  uint32 latency_p95_ms = 5;
+  string poll_state = 6;
+  uint32 interval_ms = 7;
+}
+
+message StatsResponse {
+  double requests_per_second = 1;
+  repeated SignalStats signals = 2;
+  uint64 window_ms = 3;
+}

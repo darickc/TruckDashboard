@@ -1,0 +1,45 @@
+[package]
+name = "vehicle-gateway"
+version = "0.1.0"
+description = "Owns all vehicle communication: transports, scheduling, recovery, validity, and the f250.vehicle.v1 gRPC API"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "vehicle_gateway"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vehicle-gateway"
+path = "src/main.rs"
+
+[features]
+# BlueZ RFCOMM to the MX+ (Linux only; needs libdbus-1-dev to build).
+rfcomm = ["dep:bluer"]
+
+[dependencies]
+f250-elm = { path = "../../crates/elm" }
+f250-telemetry = { path = "../../crates/telemetry" }
+f250-proto = { path = "../../crates/proto" }
+f250-sd-notify = { path = "../../crates/sd-notify", features = ["tokio"] }
+tonic = "0.14"
+tokio-stream = { version = "0.1", features = ["net", "sync"] }
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "signal", "fs"] }
+tokio-serial = "5"
+powerstroke-sim = { path = "../../crates/powerstroke-sim" }
+
+[lints]
+workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+bluer = { version = "0.17", features = ["rfcomm"], optional = true }
+# SocketCAN for the direct-CAN transport (ADR-0012). No system libraries;
+# netlink is left out because the gateway never configures the interface.
+socketcan = { version = "4", default-features = false, features = ["tokio"] }
+
+[dev-dependencies]
+# Paused clock for the simulator-loop tests (tests/gateway_sim.rs).
+tokio = { version = "1", features = ["test-util"] }

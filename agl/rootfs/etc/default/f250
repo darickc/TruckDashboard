@@ -1,0 +1,29 @@
+# F-250 head unit settings for the AGL services (f250-gateway, f250-recorder,
+# f250-dashboard). The same options as `make pi-run` (tools/pi/run.sh).
+# After editing: systemctl restart f250-gateway
+#
+# TRANSPORT  sim | obdlink | can
+# TRANSMIT   0 | 1. 1 is the ADR-0007 opt-in: read-only polling. Without it
+#            the gateway never opens the adapter (PASSIVE_ONLY).
+#            With TRANSPORT=can, can0 must also be in active mode first
+#            (tools/pi/can.sh active), only after the wiring checklist.
+TRANSPORT=sim
+TRANSMIT=0
+ADAPTER=rfcomm:00:04:3E:85:EA:FC
+CAN_IF=can0
+# PINNED     can only. physical (empty: the default): EOT goes to 7E0 and trans
+#            temp to 7E1, so the other module never hears them. functional:
+#            both on 7DF, as on the 2026-11-08 drive (the fallback).
+PINNED=
+# Comma-separated signal ids to enable, and the request budget (empty: defaults)
+ENABLE=
+BUDGET_RPS=
+# Simulator only
+SCENARIO=drive_cycle
+START=0
+# DATA_DRIVE 0 | 1. 1: an ext4 drive labelled f250-data (an NVMe HAT, or a
+#            USB SSD) mounts at /var/lib/f250/storage and holds the telemetry
+#            database and traffic logs. Format it once with f250-storage, then
+#            rerun /opt/f250/share/agl/scripts/stage1-setup.sh. With 1 and no
+#            drive, the recorder stops rather than write to the SD card.
+DATA_DRIVE=0

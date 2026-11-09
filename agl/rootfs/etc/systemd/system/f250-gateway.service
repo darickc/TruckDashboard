@@ -1,0 +1,83 @@
+# Vehicle gateway on AGL (Stage 1 sideload, ADR-0005). The only process that
+# talks to the vehicle adapter; everything else uses its gRPC API on
+# /run/f250/vehicle.sock (ADR-0002). Settings: /etc/default/f250.
+#
+# The socket is group f250, mode 0770 (UMask). agl-driver, which runs the
+# dashboard, is in that group (agl/scripts/stage1-setup.sh).
+#
+# Type=notify: READY once the socket is bound, so the recorder and dashboard
+# (After=) start against a socket that exists. The watchdog keep-alive goes
+# out every 30 s, and only if the control loop has made progress since the
+# last one (crates/sd-notify). A loop stuck for 60 s is killed (SIGABRT) and
+# Restart= brings it back. The longest legitimate stall is one adapter
+# request with the ELM recovery ladder behind it (≈ 20 s); a probe counts
+# each of its requests as progress.
+#
+# Status: [BENCH] on AGL 22.0.1, the watchdog included (bench-log
+# 2026-11-06).
+[Unit]
+Description=F-250 vehicle gateway
+After=bluetooth.service
+# Traffic logs go on the data drive when DATA_DRIVE=1 (gateway-start). Ordering
+# only: the gateway runs without the drive. The mount gives up after 10 s.
+After=var-lib-f250-storage.mount
+
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=60
+User=f250
+Group=f250
+EnvironmentFile=/etc/default/f250
+ExecStart=/opt/f250/libexec/gateway-start
+Restart=on-failure
+RestartSec=2
+UMask=0007
+RuntimeDirectory=f250
+RuntimeDirectoryMode=0750
+# The recorder and dashboard are still connected while this restarts.
+RuntimeDirectoryPreserve=yes
+StateDirectory=f250
+StateDirectoryMode=0750
+ReadWritePaths=-/var/lib/f250/storage
+
+# Sandbox (ADR-0021). `systemd-analyze security f250-gateway`: 6.8 before,
+# 1.6 after [BENCH] (2026-11-08, sim transport). The can transport runs in it
+# [BENCH] on vcan0 and [TRUCK] on can0 (2026-11-08); the obdlink transports
+# haven't run in it yet.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# Devices: only USB serial adapters (serial:/dev/ttyUSB*). SocketCAN and
+# RFCOMM are sockets, not devices.
+DevicePolicy=closed
+DeviceAllow=char-ttyUSB rw
+# unix: gRPC; can: SocketCAN; bluetooth: the MX+ over RFCOMM; inet: tcp: adapters;
+# netlink: `ip link` in gateway-start
+RestrictAddressFamilies=AF_UNIX AF_CAN AF_BLUETOOTH AF_INET AF_INET6 AF_NETLINK
+# tcp: adapters sit on the local network; nothing reaches the internet.
+IPAddressDeny=any
+IPAddressAllow=localhost link-local 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+
+[Install]
+WantedBy=multi-user.target

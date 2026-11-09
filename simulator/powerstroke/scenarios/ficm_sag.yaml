@@ -1,0 +1,11 @@
+# FICM main power sags under load. This exercises the low-voltage warning path,
+# with hysteresis and minimum-duration behaviour. Not a model of any real FICM
+# failure.
+schema: f250.scenario.v1
+extends: drive_cycle
+name: FICM voltage sag
+description: FICM main power sags to about 44 V during the towing climb.
+
+signals:
+  ficm_main: {unit: V, interval_ms: 1000, noise: 0.2,
+              keyframes: [[0, 48], [215, 48], [240, 44.5], [370, 44], [400, 48], [600, 48]]}

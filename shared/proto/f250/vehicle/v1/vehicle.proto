@@ -1,0 +1,217 @@
+syntax = "proto3";
+
+// Vehicle data served by services/vehicle-gateway. The UI and the recorder
+// read vehicle state only through this API (CLAUDE.md rule 5).
+//
+// Times: `*_mono_ms` are the gateway's monotonic clock (milliseconds since it
+// started) and are only comparable with each other; clients compute ages from
+// `Snapshot.mono_ms`, never from wall clocks.
+package f250.vehicle.v1;
+
+service VehicleService {
+  // Every known signal and how much to trust its definition.
+  rpc ListSignals(ListSignalsRequest) returns (ListSignalsResponse);
+  // Full state at a fixed period. A client that stops receiving snapshots
+  // must treat all data as stale (the UI does).
+  rpc StreamSnapshots(StreamSnapshotsRequest) returns (stream StreamSnapshotsResponse);
+  // Recent structured events (state transitions, recoveries, errors).
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+  // Truck-specific correction for one signal (docs/diagnostics/CALIBRATION.md).
+  // Affects only what is displayed and recorded; nothing is written to the truck.
+  rpc SetCalibration(SetCalibrationRequest) returns (SetCalibrationResponse);
+}
+
+enum Quantity {
+  QUANTITY_UNSPECIFIED = 0;
+  QUANTITY_TEMPERATURE = 1;
+  QUANTITY_TEMPERATURE_DELTA = 2;
+  QUANTITY_PRESSURE = 3;
+  QUANTITY_VOLTAGE = 4;
+  QUANTITY_SPEED = 5;
+  QUANTITY_ROTATION = 6;
+  QUANTITY_PERCENT = 7;
+}
+
+enum Provenance {
+  PROVENANCE_UNSPECIFIED = 0;
+  // Published SAE J1979 formula.
+  PROVENANCE_SAE = 1;
+  // Confirmed on this truck; evidence in docs/diagnostics/VERIFICATION_LOG.md.
+  PROVENANCE_VERIFIED_ON_TRUCK = 2;
+  // Imported (e.g. Torque export) and not yet confirmed on this truck.
+  PROVENANCE_IMPORTED_UNVERIFIED = 3;
+  PROVENANCE_COMPUTED = 4;
+  PROVENANCE_AUX_SENSOR = 5;
+  PROVENANCE_BROADCAST_DECODED = 6;
+}
+
+enum Validity {
+  VALIDITY_UNSPECIFIED = 0;
+  VALIDITY_VALID = 1;
+  VALIDITY_STALE = 2;
+  VALIDITY_NO_DATA = 3;
+  VALIDITY_OUT_OF_RANGE = 4;
+  VALIDITY_DECODE_ERROR = 5;
+  VALIDITY_UNSUPPORTED = 6;
+  VALIDITY_DISABLED = 7;
+}
+
+message SignalDefinition {
+  string id = 1;
+  string name = 2;
+  string short_name = 3;
+  Quantity quantity = 4;
+  // Canonical unit (degC, kPa, V, km/h, rpm, %).
+  string unit = 5;
+  Provenance provenance = 6;
+  double min = 7;
+  double max = 8;
+  uint32 stale_after_ms = 9;
+  // Request as documented, for display (e.g. "22 16 74").
+  string request = 10;
+  // CAN ID of the owning module when verified (e.g. "7E9").
+  string responder = 11;
+  string evidence = 12;
+  bool enabled = 13;
+  string disabled_reason = 14;
+  // Computed signals: input ids.
+  repeated string inputs = 15;
+  double calibration_scale = 16;
+  double calibration_offset = 17;
+}
+
+message ListSignalsRequest {}
+
+message ListSignalsResponse {
+  repeated SignalDefinition signals = 1;
+}
+
+message Sample {
+  string signal_id = 1;
+  Validity validity = 2;
+  // Present only while validity is VALID. A client must never display
+  // last_good_value as current.
+  optional double value = 3;
+  optional double last_good_value = 4;
+  // Before calibration.
+  optional double last_good_raw = 5;
+  // Age of the last good reading at Snapshot.mono_ms.
+  optional uint64 last_good_age_ms = 6;
+  // The latest answer, when it was implausible (OUT_OF_RANGE).
+  optional double rejected_value = 7;
+  // Last negative response code, 0 if none.
+  uint32 last_nrc = 8;
+  string last_responder = 9;
+  uint32 last_latency_ms = 10;
+  uint64 successes = 11;
+  uint64 failures = 12;
+  uint32 consecutive_failures = 13;
+  // Computed signals: inputs that are not VALID.
+  repeated string invalid_inputs = 14;
+  // Scheduler state for diagnosis (ACTIVE, SUSPECT, BACKOFF, QUARANTINED, OFF).
+  string poll_state = 15;
+}
+
+enum LinkState {
+  LINK_STATE_UNSPECIFIED = 0;
+  LINK_STATE_CONNECTING = 1;
+  LINK_STATE_UP = 2;
+  LINK_STATE_DEGRADED = 3;
+  LINK_STATE_DOWN = 4;
+}
+
+message LinkStatus {
+  LinkState state = 1;
+  uint64 since_mono_ms = 2;
+  // "simulated", "obdlink", "socketcan".
+  string transport = 3;
+  bool simulated = 4;
+  // False = PASSIVE_ONLY (ADR-0007): nothing is transmitted to the vehicle.
+  bool transmit_enabled = 5;
+  double requests_per_second = 6;
+  // Gateway link state machine (diagnostic-recovery.md), e.g. "POLLING".
+  string machine_state = 7;
+  string detail = 8;
+  // Adapter supply voltage from ATRV, when the transport has one.
+  optional double adapter_voltage = 9;
+  // Simulated source only: scenario id and clock.
+  string scenario = 10;
+  double scenario_seconds = 11;
+}
+
+enum AlertLevel {
+  ALERT_LEVEL_UNSPECIFIED = 0;
+  ALERT_LEVEL_ADVISORY = 1;
+  ALERT_LEVEL_CRITICAL = 2;
+}
+
+enum AlertKind {
+  ALERT_KIND_UNSPECIFIED = 0;
+  ALERT_KIND_THRESHOLD = 1;
+  ALERT_KIND_SIGNAL_NOT_UPDATING = 2;
+  ALERT_KIND_LINK_LOST = 3;
+}
+
+message Alert {
+  string id = 1;
+  AlertKind kind = 2;
+  AlertLevel level = 3;
+  uint64 since_mono_ms = 4;
+  string signal_id = 5;
+  string rule_id = 6;
+  // Threshold that was crossed (canonical units) and its direction.
+  double threshold = 7;
+  bool above = 8;
+}
+
+message Snapshot {
+  uint64 mono_ms = 1;
+  repeated Sample samples = 2;
+  LinkStatus link = 3;
+  // Critical first, then oldest first.
+  repeated Alert alerts = 4;
+}
+
+message StreamSnapshotsRequest {
+  // 0 = gateway default (250 ms). Clamped to 100..2000.
+  uint32 period_ms = 1;
+}
+
+message StreamSnapshotsResponse {
+  Snapshot snapshot = 1;
+}
+
+enum EventSeverity {
+  EVENT_SEVERITY_UNSPECIFIED = 0;
+  EVENT_SEVERITY_INFO = 1;
+  EVENT_SEVERITY_ADVISORY = 2;
+  EVENT_SEVERITY_CRITICAL = 3;
+}
+
+message Event {
+  uint64 mono_ms = 1;
+  // Unix epoch milliseconds (wall clock; may jump).
+  int64 wall_ms = 2;
+  EventSeverity severity = 3;
+  string message = 4;
+}
+
+message ListEventsRequest {
+  uint32 limit = 1;
+}
+
+message ListEventsResponse {
+  // Newest first.
+  repeated Event events = 1;
+  uint64 dropped = 2;
+}
+
+message SetCalibrationRequest {
+  string signal_id = 1;
+  double scale = 2;
+  double offset = 3;
+}
+
+message SetCalibrationResponse {
+  SignalDefinition signal = 1;
+}

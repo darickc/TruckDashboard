@@ -1,0 +1,11 @@
+# Versioned head-unit API (ADR-0002/0003). Packages are f250.<domain>.v1;
+# breaking changes go to v2 alongside v1. `buf lint` and `buf breaking` run in CI.
+version: v2
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE
