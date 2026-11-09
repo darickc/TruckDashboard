@@ -3,7 +3,8 @@
 - **Status:** Proposed (decided by the owner; the DAC's boot behaviour, its
   header pass-through and the R150-2's bridged input are pending)
 - **Date:** 2026-11-04. Amended 2026-11-05: the amplifier remote is on ACC
-  through a delay-on timer, not on the Pi (decision 6)
+  through a delay-on timer, not on the Pi (decision 6). Amended 2026-11-09
+  (owner): ACC goes straight to the amps' remote leads, with no timer
 - **Amends:** [audio-routing.md](../audio-routing.md),
   [power-and-inputs.md](../../wiring/power-and-inputs.md) (GPIO pins), and the
   "I2S DAC HAT, model TBD" row of [ADR-0013](0013-dcdc-usb-power-supply.md).
@@ -46,11 +47,12 @@ There were two ways to feed them:
 5. **Crossover, fader, balance and sub level run in PipeWire** (a filter-chain
    in front of the DAC8x sink), owned by audio-manager (Phase 6). The
    amplifiers' own crossovers are set flat, or used only as a backstop.
-6. **The amplifiers' remote leads are switched by ACC through a delay-on
-   timer relay**, not by the Pi (owner, 2026-11-05). This replaces the
-   GPIO-driven switch planned in ADR-0013.
-   - The delay is longer than the Pi's boot-to-audio time, so the amps come on
-     after the DAC is up.
+6. **The amplifiers' remote leads are switched by ACC**, not by the Pi (owner,
+   2026-11-05). This replaces the GPIO-driven switch planned in ADR-0013.
+   - **Amended 2026-11-09 (owner): ACC straight to both REM leads, through a
+     small fuse, with no timer.** The 2026-11-05 version put a delay-on timer
+     relay in between, so the amps came on after the DAC was up.
+   - The amps come on at key-on, while the Pi is still booting.
    - At key-off the amps go off at once, before the Pi shuts down.
    - The Pi has no amplifier output, no GPIO for it, and no crash-state
      requirement on one.
@@ -77,15 +79,17 @@ There were two ways to feed them:
   strain-relieved in a vibrating truck.
 - **It uses most of the header's I2S side.** BCM18–27 and BCM5 are gone. Header
   pass-through with the HAT fitted is unknown (H27).
-- **Mute at boot is undocumented** (H6). The delay-on timer keeps the amps off
-  while the DAC initialises, provided the delay is set above the measured
-  boot time.
+- **Mute at boot is undocumented** (H6), and the amps are on while the DAC
+  initialises (decision 6). Any pop or DC step at power-up reaches the
+  speakers. The bench scope check ([audio.md check 3](../../wiring/audio.md#checks-before-sign-off))
+  shows whether there is one; if it is audible, a delay-on timer relay goes
+  back between ACC and REM, with no change on the Pi (Revisit if).
 - **A Pi crash with the key on leaves the amps on** (decision 6). Usually that's
   silence; the worst case is a repeating-buffer buzz until key-off (H5). Key-off
   always cuts the amps. The safety assumption is "key-off always cuts the
   amplifiers", not "a crash leaves them off".
-- **Cranking can reset the timer** if ACC drops (H22): the amps come on one
-  delay after the engine starts.
+- **If ACC drops while cranking** (H22), the amps drop out with it and come
+  back when it returns.
 - **A software crossover means a misconfiguration sends full-range audio to the
   subs or bass to small door speakers.** The R150-2's own low-pass can stay on
   as a backstop. The audio-manager config gets validation tests.
@@ -104,9 +108,10 @@ There were two ways to feed them:
 
 ## Revisit if
 
-- The DAC8x pops at boot in a way the remote sequencing can't hide, or AGL can't
-  load its overlay. Then use a USB multichannel DAC, or a stereo DAC into a car
-  DSP.
+- The DAC8x pops audibly at power-up with the amps on (H6). First put a
+  delay-on timer relay between ACC and the REM leads, set above the measured
+  boot-to-audio time. If the pop also comes at other times, or AGL can't load
+  the overlay, use a USB multichannel DAC, or a stereo DAC into a car DSP.
 - The header can't be shared with the opto board (H27).
 - A Pi crash produces a buzz or loud noise through the amps (H5). Then go back
   to a Pi-controlled remote with a hardware heartbeat timer that drops it.

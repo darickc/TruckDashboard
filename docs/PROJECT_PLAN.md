@@ -556,8 +556,8 @@ that decision chose.
    - volume limits
    - leaves an extension point for HFP and echo cancellation
 2. **6.2** **Amplifier switching and mute** (ADR-0014):
-   - the amplifier remote is on ACC through a delay-on timer relay, not on the Pi
-   - set the delay above the measured boot-to-audio time [HW]
+   - the amplifier remote is on ACC with no timer, not on the Pi (amended 2026-11-09)
+   - measure whether the DAC8x pops at power-up with the amps on; if it does, add a delay-on timer relay [HW] (H6)
    - the DAC stays muted until the pipeline is up, and is muted before shutdown
    - record what the speakers do when the Pi panics or the watchdog resets it with the amps on [HW] (H5)
 3. **6.3** **Physical volume knob** on the ESP32 (encoder) or on Pi GPIO.
@@ -576,19 +576,17 @@ that decision chose.
    - camera hardware chosen by measured driver support and latency on the Pi 5 (UVC first)
 
    Tests: reverse priority, debounce, missing source, return to the previous screen, and hazard behaviour.
-7. **6.7** **power-manager**, the single owner of the GPIO, the power key and the DCDC-USB link ([power-states.md](architecture/power-states.md)):
-   - states: `OFF, STARTING, RUNNING, SHUTDOWN_PENDING (cancellable), SHUTTING_DOWN, FAULT`
-   - the power key (the DCDC-USB's PSW pulse on J2): ignored during the boot window and while the ignition is on
-   - ignition and battery voltage read from the DCDC-USB over USB (H24); pulse-only fallback without it
-   - reboot instead of halting if the ignition came back during shutdown
-   - low-voltage behaviour, from the DCDC-USB's input voltage or an ESP32 ADC [HW]
+7. **6.7** **power-manager**, the single owner of the GPIO and the power key, pulse-only ([power-states.md](architecture/power-states.md); ADR-0013 amended 2026-11-09):
+   - states: `OFF, STARTING, RUNNING, SHUTTING_DOWN, FAULT`
+   - the power key (the DCDC-USB's PSW pulse on J2): ignored during the boot window, otherwise it shuts down
+   - ~~ignition and battery voltage over USB, reboot instead of halt, low-voltage shutdown~~: dropped, the DCDC-USB's USB isn't connected
    - the reverse input, with debounce
    - day/night from sun position and a manual override (no illumination wire)
    - backlight dimming
    - systemd and hardware watchdogs
-   - revisit the dashboard **Power** button: Restart, not Shut down, while the ignition is on
+   - the dashboard **Power** button becomes Restart: the Pi can't tell when Shut down is safe (ADR-0013 decision 5)
 
-   Tests: the power key in every state, stray pulses during boot, telemetry loss, shutdown cancellation, reboot instead of halt, low voltage, and a process dying unexpectedly.
+   Tests: the power key in every state, stray pulses during boot, and a process dying unexpectedly.
 
 ### Phase 7 — Installation and reliability [HW] [HUMAN]
 
@@ -697,7 +695,7 @@ already have if the display runs on the Pi 5.
 | Item | Note |
 |---|---|
 | mini-box DCDC-USB | Chosen 2026-11-04 instead of the CarPiHAT PRO 5 (ADR-0013) |
-| Opto-isolated input board, I2S DAC HAT (DAC8x), delay-on timer relay for the amplifier remote | The CarPiHAT's other jobs (ADR-0013, ADR-0014) |
+| Opto-isolated input board, I2S DAC HAT (DAC8x) | The CarPiHAT's other jobs (ADR-0013, ADR-0014). The amplifier remote needs no part since 2026-11-09 |
 | USB candleLight CAN adapter | Bought 2026-11-03 (ADR-0012) |
 | 22→15-way display FFC | Display type, **not** a camera cable |
 | OBD-II Y-splitter and DLC breakout | |

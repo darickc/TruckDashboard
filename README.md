@@ -82,7 +82,7 @@ flowchart LR
   end
   DLC -- SocketCAN / OBDLink --> GW
   IN -- opto-isolated input board --> PWR
-  ACC -- DCDC-USB: power, PSW pulse, USB telemetry --> PWR
+  ACC -- DCDC-USB: power, PSW pulse --> PWR
   GW -- gRPC f250.vehicle.v1 --> UI
   GW --> REC
   PWR --> CAM

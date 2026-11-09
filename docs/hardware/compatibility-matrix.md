@@ -137,7 +137,7 @@ All read 2026-11-04.
 | Ignition returns during HARDOFF | Not documented | U | — ([H23](open-questions.md)) |
 | Vaux | "Unregulated switched input" for peripherals in automotive modes. When it switches is not documented | V / U | QIG p. 2 |
 | USB telemetry | The Windows tool shows input, ignition and output voltages, the PSW and output state, and the off-delay and hard-off timers | V | USB manual p. 2–3 |
-| USB telemetry on Linux | mini-box links a Linux tool, [mini-box/dcdc-usb](https://github.com/mini-box/dcdc-usb). Not checked: whether it reads these values in automotive mode on the Pi | U | — ([H24](open-questions.md)) |
+| USB telemetry on Linux | mini-box links a Linux tool, [mini-box/dcdc-usb](https://github.com/mini-box/dcdc-usb). Not checked, and not needed: the USB port isn't connected (pulse-only, 2026-11-09) | U | — ([H24](open-questions.md), moot) |
 
 ## Raspberry Pi 5 power button and 5 V input
 

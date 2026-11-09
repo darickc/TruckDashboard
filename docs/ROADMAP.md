@@ -250,12 +250,12 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
 ## Phase 6 — Infotainment
 
 - [ ] 6.1 audio-manager (A2DP sink, AVRCP, pairing window), and the PipeWire filter-chain for the DAC8x: crossover, fader, sub level ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md))
-- [ ] 6.2 DAC mute sequencing (H6) and the crash test with the amps on (H5). The amps' remote is on ACC through a delay-on timer, not the Pi ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md)). Wiring design: [wiring/audio.md](wiring/audio.md)
+- [ ] 6.2 DAC mute sequencing (H6) and the crash test with the amps on (H5). The amps' remote is straight on ACC, no timer, not the Pi ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md), 2026-11-09). Wiring design: [wiring/audio.md](wiring/audio.md)
 - [ ] 6.3 Volume knob
 - [ ] 6.4 GPS
 - [ ] 6.5 Offline map, then routing, then the update workflow
 - [ ] 6.6 camera-manager and the ADR-0009 spike
-- [ ] 6.7 power-manager: the DCDC-USB power key and USB telemetry, the reverse input ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
+- [ ] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the reverse input ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 

@@ -37,7 +37,7 @@ flowchart TB
   subgraph HW[Hardware]
     CAN[CAN controller<br/>USB gs_usb adapter]
     MX[OBDLink MX+<br/>Bluetooth SPP]
-    PSU[mini-box DCDC-USB<br/>ignition · PSW → J2 · USB telemetry]
+    PSU[mini-box DCDC-USB<br/>ignition · PSW → J2]
     GPIO[opto input board → GPIO<br/>REV · left/right turn]
     V4L[USB/UVC cameras]
     GNSS[USB GNSS]
@@ -120,7 +120,7 @@ in Phase 5.
 
 | Unit | User | Notes |
 |---|---|---|
-| `f250-power-manager.service` | dedicated, `gpio` and `input` groups, plus a udev rule for the DCDC-USB | Starts first. Handles the power key (logind `HandlePowerKey=ignore`). `WatchdogSec` |
+| `f250-power-manager.service` | dedicated, `gpio` and `input` groups | Starts first. Handles the power key (logind `HandlePowerKey=ignore`), pulse-only. `WatchdogSec` |
 | `f250-vehicle-gateway.service` | dedicated, CAN access | Socket at `/run/f250/vehicle.sock`. Transmit is disabled unless config opts in |
 | `f250-recorder.service` | dedicated | Writes `/var/lib/f250/` only |
 | `f250-camera-manager.service` | dedicated, `video` group | |

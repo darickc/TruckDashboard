@@ -43,9 +43,8 @@ flowchart LR
   HF --> SPKF[Front door speakers]
   HR --> SPKR[Rear speakers]
   R150 --> SUBS[2 × 10-inch subs]
-  ACC[Radio harness ACC<br/>wire TODO, H22] -- small fuse --> TD[Delay-on timer relay<br/>part TBD]
-  TD -- REM --> A4F
-  TD -- REM --> R150
+  ACC[Radio harness ACC<br/>wire TODO, H22] -- small fuse, REM --> A4F
+  ACC -- REM --> R150
   BATT[Battery +12 V] -- fuse at battery, TODO --> DB[Distribution block<br/>one fuse per amp]
   DB --> A4F
   DB --> R150
@@ -78,28 +77,25 @@ the truck by ear and with a meter.
 | New 4-ch amp speaker outputs | Radio harness adapter: LF±, RF±, LR±, RR± | These are the wires the Pioneer's speaker outputs used, so the factory speaker wiring is reused. Wire colours: **TODO**, from the existing adapter's label and confirmed with a 1.5 V battery "pop" test or a test tone. Keep + and − the same on all four (polarity check below) |
 | Battery +12 V | Fuse within about 18 in (45 cm) of the battery → power wire → new 4-ch amp B+ | Gauge and fuse rating: **TODO**, from the chosen amp's manual. If the R150-2's existing power wire is large enough for both amps, a distribution block with **one fuse per amp** can split it instead ([H28](../hardware/open-questions.md)) |
 | New 4-ch amp GND | Bare chassis metal, short run | Ideally the same ground point as the R150-2, to avoid alternator whine (below) |
-| Radio harness **ACC** | Small inline fuse → delay-on timer relay: coil/supply input and the contact's common | The same ACC wire that feeds the DCDC-USB's IGN ([power-and-inputs.md](power-and-inputs.md)); which wire: **TODO** ([H22](../hardware/open-questions.md)). Fuse rating: **TODO**, from the timer's draw plus both amps' REM draw (from their manuals) |
-| Chassis ground | Delay-on timer relay ground | |
-| Delay-on timer relay output (normally-open contact) | 4-ch amp **REM** and R150-2 **REM** | Replaces the Pioneer's remote lead (usually blue/white on aftermarket harnesses; **TODO**, check the Pioneer's harness). The contact rating must cover both REM inputs. **The Pi isn't connected to this at all** ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)) |
+| Radio harness **ACC** | Small inline fuse → 4-ch amp **REM** and R150-2 **REM** | The same ACC wire that feeds the DCDC-USB's IGN ([power-and-inputs.md](power-and-inputs.md)); which wire: **TODO** ([H22](../hardware/open-questions.md)). Replaces the Pioneer's remote lead (usually blue/white on aftermarket harnesses; **TODO**, check the Pioneer's harness). Fuse rating: **TODO**, from both amps' REM draw (from their manuals). **The Pi isn't connected to this at all** ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)) |
 
-## Remote turn-on: ACC through a delay-on timer
+## Remote turn-on: ACC straight to REM
 
-The amplifiers' remote leads are switched by the key, not the Pi. A delay-on
-timer relay sits between ACC and both REM terminals:
+The amplifiers' remote leads are switched by the key, not the Pi. ACC goes
+straight to both REM terminals, with no timer (owner, 2026-11-09):
 
 | Moment | What happens |
 |---|---|
-| Key to ACC/RUN | The Pi starts booting; the timer starts counting. The amps stay off |
-| Timer expires | The amps turn on. The delay is set **longer than the Pi's measured boot-to-audio time**, so the DAC8x has finished initialising first. Example: 45 s; the real value comes from the bench (check 4) |
-| Cranking | If ACC drops while cranking ([H22](../hardware/open-questions.md)), the timer resets. The amps come on one delay after the engine starts |
+| Key to ACC/RUN | The amps turn on at once. The Pi starts booting, so the DAC8x initialises with the amps on: any pop or DC step it makes reaches the speakers ([H6](../hardware/open-questions.md), check 3) |
+| Cranking | If ACC drops while cranking ([H22](../hardware/open-questions.md)), the amps drop out with it and come back when it returns |
 | Key off (ACC drops) | The amps turn off **at once**. The Pi keeps running and shuts down later on the DCDC-USB's timers, so the amps are always off before the DAC stops: no key-off pop |
 | Ford accessory delay keeps ACC on after key-off | The amps stay on with the Pi still running, until ACC drops |
 | Pi crash with the key on | **The amps stay on.** Usually that's silence. The worst case is the DAC repeating its last buffer as a buzz until key-off ([H5](../hardware/open-questions.md)). Key-off always ends it |
 
-Without the timer (ACC straight to REM) it also works, but the amps are on
-while the Pi boots, so any pop from the DAC8x initialising reaches the
-speakers ([H6](../hardware/open-questions.md)). Check it on the bench before
-deciding the timer isn't needed.
+If check 3 finds an audible pop at power-up, put a 12 V delay-on timer relay
+(normally-open contact rated for both REM inputs) between ACC and the REM
+leads, with its delay above the measured boot-to-audio time. Nothing changes
+on the Pi ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)).
 
 Don't use the DCDC-USB's **Vaux** for this. Its manual calls it an
 "unregulated switched input" without saying when it switches. If it follows the
@@ -156,7 +152,7 @@ a GPIO breakout.
 | 1 | DAC8x: test tone on each ALSA channel pair, identify jacks 1–4 | Channel map filled in above | |
 | 2 | DAC8x line level: 0 dBFS 1 kHz into a meter on each jack | About 2.1 Vrms or less (documented maximum) | |
 | 3 | DAC8x at power-up and shutdown, on a scope, amps disconnected | Record any pop or DC step (H6) | |
-| 4 | Time from power-on to the audio pipeline ready, then the timer set above it; key on, crank, key off | Amps on only after the DAC is up; off the moment ACC drops (H22) | |
+| 4 | Amps connected: key on, crank, key off, listening at each step | No pop at key-on while the Pi boots (H6); amps off the moment ACC drops (H22) | |
 | 4a | With the amps on: force a kernel panic and a watchdog reset | Record what the speakers do: silence, a pop or a buzz (H5) | |
 | 5 | Factory speaker DC resistance at the harness, one per channel, amp disconnected | Record it; about 3.2 Ω usually means a 4 Ω speaker (H29) | |
 | 6 | Each speaker's channel and polarity (test tone, fader, battery pop test) | All four in phase; fader moves front ↔ rear | |

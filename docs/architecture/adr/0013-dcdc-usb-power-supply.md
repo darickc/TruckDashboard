@@ -2,7 +2,9 @@
 
 - **Status:** Proposed (decided by the owner; the PSW-to-J2 link and the
   timers are pending bench measurement)
-- **Date:** 2026-11-04
+- **Date:** 2026-11-04. Amended 2026-11-09 (owner): pulse-only. The DCDC-USB's
+  USB port isn't connected, and its timers and output voltage are set by
+  jumpers (decisions 2, 3 and 5)
 - **Amends:** [power-states.md](../power-states.md),
   [camera-policy.md](../camera-policy.md),
   [audio-routing.md](../audio-routing.md), and Phases 4.3, 5.2, 6.2, 6.6,
@@ -45,17 +47,20 @@ button ([matrix](../../hardware/compatibility-matrix.md#raspberry-pi-5-power-but
 2. **The DCDC-USB is the single authority on power timing.**
    - The Pi never halts on its own because the ignition went off. It shuts
      down when the PSW pulse arrives.
-   - OFFDELAY and HARDOFF are set over USB. HARDOFF is the hard backstop: it
-     cuts power even if the Pi hangs.
-3. **power-manager handles the power key itself.**
+   - OFFDELAY and HARDOFF come from one of the supply's **jumper presets**
+     (amended 2026-11-09; they were to be set over USB). HARDOFF is the hard
+     backstop: it cuts power even if the Pi hangs.
+3. **power-manager handles the power key itself, pulse-only** (amended
+   2026-11-09, owner: "keep it simple").
    - logind is set to `HandlePowerKey=ignore`.
    - power-manager ignores a press during the boot window, which covers the
      supply's ON pulse.
-   - It acts on a press when the ignition is off, according to the
-     DCDC-USB's USB telemetry. If that telemetry is unavailable, it acts on
-     any press outside the boot window.
-   - It reads the ignition and input voltages from the DCDC-USB over USB. This
-     is unverified on Linux (H24). Without it, the system runs pulse-only.
+   - Any press after the boot window shuts the Pi down.
+   - **The DCDC-USB's USB port isn't connected to the Pi.** The Pi doesn't
+     see the ignition or the battery voltage. The earlier plan read them over
+     USB (H24, never verified on Linux) for a countdown banner, cancelling a
+     shutdown when the ignition came back, and a low-voltage shutdown. All
+     three are dropped.
 4. **The CarPiHAT PRO 5 is dropped entirely.** Its other jobs are replaced
    separately:
 
@@ -65,13 +70,15 @@ button ([matrix](../../hardware/compatibility-matrix.md#raspberry-pi-5-power-but
    | Turn signals | **First check HS-CAN** with a listen-only event capture ([can.md](../../setup/can.md#event-captures-reverse-and-brake)). If they aren't there, use two more channels on the same opto board. *2026-11-07: they aren't (an analogue flasher-relay circuit, owner): two opto channels* |
    | Illumination | No input. Day/night comes from sun position (GPS time and location) and a manual override |
    | DAC | An I2S DAC HAT. Pick it by its documented line level and mute-at-boot behaviour (H6). **Chosen: the HiFiBerry DAC8x ([ADR-0014](0014-multichannel-dac8x.md))** |
-   | Amplifier remote | A GPIO-driven switched 12 V output that fails **off**, part TBD (H5). It waits on the amplifier inventory (H8). **Superseded 2026-11-05:** ACC through a delay-on timer relay, not on the Pi ([ADR-0014](0014-multichannel-dac8x.md)) |
+   | Amplifier remote | A GPIO-driven switched 12 V output that fails **off**, part TBD (H5). It waits on the amplifier inventory (H8). **Superseded 2026-11-05:** on ACC, not on the Pi; since 2026-11-09 ACC goes straight to the amps, without a timer ([ADR-0014](0014-multichannel-dac8x.md)) |
    | CAN | The USB adapter (ADR-0012), unchanged |
 
-5. **The UI offers Restart, not Shut down, while the ignition is on.** If the
-   Pi halts with ACC still on, the next off-pulse would wake it, and HARDOFF
-   would then cut it mid-boot. The existing dashboard **Power** button belongs
-   to the temporary truck setup (3.5.3) and is revisited in Phase 6.7.
+5. **The UI offers Restart, not Shut down.** If the Pi halts with ACC still
+   on, the next off-pulse would wake it, and HARDOFF would then cut it
+   mid-boot. The Pi can't see the ignition (decision 3), so it can't tell
+   when Shut down would be safe; turning the key off is how it shuts down.
+   The existing dashboard **Power** button belongs to the temporary truck
+   setup (3.5.3) and changes in Phase 6.7.
 
 ## Consequences
 
@@ -93,11 +100,19 @@ button ([matrix](../../hardware/compatibility-matrix.md#raspberry-pi-5-power-but
   eliminated:
   - a stray ON pulse during boot
   - an off-pulse when the Pi is already halted
-  - the ignition returning during HARDOFF (H23)
-- **Without the USB telemetry, the Pi can't see the ignition.** The countdown
-  banner and the reboot-instead-of-halt check need H24.
-- **More parts:** an opto board, a DAC HAT and an amplifier-remote switch (now a delay-on timer relay on ACC, ADR-0014),
-  instead of one HAT.
+  - the ignition returning during OFFDELAY or HARDOFF (H23)
+- **The Pi can't see the ignition** (pulse-only, 2026-11-09). There is no
+  countdown before shutdown, and no reboot instead of a halt when the
+  ignition comes back during shutdown. If it comes back during HARDOFF, the
+  head unit may stay dark until the next key cycle (H23).
+- **No low-voltage shutdown while running.** With ACC on, the head unit draws
+  power as the old radio did. The supply's 11.2 V cutoff only acts during
+  HARDOFF. An ESP32 ADC is the option if this is wanted later (H16).
+- **Output voltage by jumper only (5 V).** It can't be trimmed up for the
+  cable's drop without USB. If the Pi shows undervoltage (H25), set VOUT once
+  from a laptop over USB, or use the 12 V → 5 V converter (Revisit if).
+- **More parts:** an opto board and a DAC HAT instead of one HAT. The
+  amplifier remote needs no part: ACC goes straight to the amps (ADR-0014).
 - **The radio harness's ACC behaviour is unknown on this truck (H22).** It may
   drop while cranking, or stay on after key-off (Ford accessory delay).
   OFFDELAY must cover a cranking dropout.
@@ -108,8 +123,8 @@ button ([matrix](../../hardware/compatibility-matrix.md#raspberry-pi-5-power-but
 
 **Tests:**
 
-- power-manager's handling of the power key, telemetry loss, the boot window
-  and reboot-instead-of-halt is pure logic, unit-tested `[SIM]` in Phase 6.7.
+- power-manager's handling of the power key and the boot window is pure
+  logic, unit-tested `[SIM]` in Phase 6.7.
 - Everything electrical is `[BENCH]` first: H21, H23, H25, and HARDOFF against
   the measured shutdown time.
 

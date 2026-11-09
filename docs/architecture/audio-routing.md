@@ -26,9 +26,8 @@ flowchart LR
   DAC -- jack 3 sub, mono --> R150[Rockford R150-2<br/>bridged mono]
   AMP4 --> SPK[4 factory speakers]
   R150 --> SUBS[2 × 10-inch subs]
-  ACC[Radio harness ACC] --> TD[Delay-on timer relay<br/>part TBD]
-  TD -- REM --> AMP4
-  TD -- REM --> R150
+  ACC[Radio harness ACC] -- REM --> AMP4
+  ACC -- REM --> R150
 ```
 
 - **The Pi never drives speakers directly.** Line out only, to amplifiers.
@@ -72,11 +71,13 @@ flowchart LR
 
 ## Pop prevention and failure safety
 
-- **The Pi doesn't switch the amplifiers.** Their remote leads are on ACC
-  through a delay-on timer relay ([ADR-0014](adr/0014-multichannel-dac8x.md),
-  [wiring](../wiring/audio.md#remote-turn-on-acc-through-a-delay-on-timer)).
-- On startup, the DAC stays muted until the pipeline is up. The timer's delay
-  is set longer than that, so the amps come on after the DAC is ready.
+- **The Pi doesn't switch the amplifiers.** Their remote leads are on ACC,
+  with no timer ([ADR-0014](adr/0014-multichannel-dac8x.md),
+  [wiring](../wiring/audio.md#remote-turn-on-acc-straight-to-rem)).
+- On startup the amps are already on while the Pi boots. The DAC stays muted
+  until the pipeline is up; whether the DAC8x itself pops as it initialises
+  is measured on the bench (H6). If it does, a delay-on timer relay goes
+  between ACC and REM.
 - At key-off, ACC drops and the amps go off at once. The Pi mutes the DAC and
   stops the pipeline later, during its own shutdown.
 - A Pi crash with the key on leaves the amplifiers **on**. What the speakers

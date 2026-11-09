@@ -31,7 +31,7 @@ owner's explicit agreement.
   GPIO. Inputs go through a protected opto-isolated input board whose output
   side runs from the Pi's 3.3 V.
 - **Failure-safe audio.** Key-off always cuts the amplifiers: their remote
-  leads are on ACC through a delay-on timer, not on the Pi
+  leads are on ACC, not on the Pi
   ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)). A Pi crash with
   the key on can leave them on. It must not produce a sustained loud noise;
   this is to be verified ([H5](../hardware/open-questions.md)).
