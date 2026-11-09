@@ -159,6 +159,27 @@ sections "Power button", "Power supply", "Universal Serial Bus (USB)" and
 | `usb_max_current_enable=1` | Documented for **USB boot** on a 3 A supply. Not documented as a way to raise the peripheral current | V | Boot sequence |
 | 5 V into the GPIO header | Bypasses the PMIC: USB current isn't visible. The docs don't present it as a supported way to power the board. **Use the USB-C input** | V / U | Power supplies and Raspberry Pi OS |
 
+## 5-way navigation button module (camera switch candidate)
+
+The owner's bench candidate for the camera switch, 2026-11-09
+([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md),
+[H32](open-questions.md)): an "EC Buying" five-way navigation button module,
+Amazon ASIN `B0D8T4YQ3Y`. **The Amazon listing itself wasn't read** (Amazon
+refuses automated readers). The rows below come from other sellers' listings
+of this generic module, read 2026-11-09, so the exact board must be checked
+against its own pin labels when it arrives.
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| Signal type | Digital, one contact per direction (up, down, left, right, centre), no potentiometers, so no ADC is needed | F | [Little Bird](https://littlebirdelectronics.com.au/products/five-direction-navigation-button-rocker-joystick-module) |
+| Output | Active low: pressed reads LOW | F | Little Bird |
+| Supply | 3.3–5 V compatible | F | Little Bird |
+| Pins | Varies by seller: up, down, left, right, centre plus GND and VCC (Little Bird); other listings describe seven switches (adding SET and RST buttons) sharing one COM pin | C | Little Bird; search summaries of other sellers |
+| On-board pull-ups | Unknown. If the board has a VCC pin it probably has them: then VCC goes to the Pi's **3.3 V**, never 5 V | U | — |
+| Mounting | Bare PCB with pin headers, for breadboards. Needs an enclosure or panel mount and a cap for the dash; Dupont leads work loose with vibration | V (by its form) / U (in a truck) | listings |
+| Temperature, durability | Not stated | U | — |
+| Bench check | Pin labels, a meter on each line at the Pi (wiring checks 8–9), feel by hand | — | [wiring](../wiring/power-and-inputs.md#camera-switch) |
+
 ## CarPiHAT PRO 5 (TJD; sold by The Pi Hut, TPH-106064, and Core Electronics)
 
 > **Not used** ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md),

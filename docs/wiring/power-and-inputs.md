@@ -78,7 +78,14 @@ which the Pi 5 doesn't have. Part, mounting place and cable length: **TODO**
 - A 1 kΩ series resistor in each line at the Pi end limits the current from a
   static discharge on the cable run. Example value.
 - **Never 5 V or 12 V on these wires.** The switch carries only the Pi's own
-  3.3 V. It isn't connected to anything in the truck. The amplifier remote
+  3.3 V. It isn't connected to anything in the truck.
+
+**Bench candidate:** a 5-way navigation button module
+([matrix](../hardware/compatibility-matrix.md#5-way-navigation-button-module-camera-switch-candidate)).
+Its pins map as UP → Forward, DWN → Back, LFT → Left, RHT → Right, MID →
+Press, COM → GND. Any SET and RST buttons stay unconnected. If the board has a
+VCC pin (its own pull-ups), VCC goes to the Pi's **3.3 V**, never 5 V. Check
+the labels on the board before wiring; listings differ. The amplifier remote
 is not on the Pi; ACC goes straight to it
 ([wiring/audio.md](audio.md#remote-turn-on-acc-straight-to-rem)). Header access with
 the DAC8x fitted: [H27](../hardware/open-questions.md).
