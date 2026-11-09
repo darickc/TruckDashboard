@@ -109,12 +109,13 @@ The DAC8x overlay in the Raspberry Pi kernel
 - **BCM18–27** for the multichannel I2S
 - **BCM5**, read by the driver to detect the optional ADC8x add-on (`hasadc-gpio`, active-low)
 
-The opto inputs proposed in [power-and-inputs.md](power-and-inputs.md) used
-BCM5 (reverse) and BCM26 (a turn signal), so they **move** (proposed there):
-reverse to BCM6, turn signals to BCM12 and BCM13. **Leave BCM5 unconnected**,
-so the driver never sees a false "ADC present".
+The GPIO inputs are the camera switch's five contacts, proposed on BCM6, 12,
+13, 16 and 17 ([power-and-inputs.md](power-and-inputs.md#camera-switch),
+[ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md)),
+clear of the DAC8x. **Leave BCM5 unconnected**, so the driver never sees a
+false "ADC present".
 
-Whether the DAC8x passes the 40-pin header through, so the opto board can
+Whether the DAC8x passes the 40-pin header through, so the camera switch can
 reach its pins with the HAT fitted: **TODO**
 ([H27](../hardware/open-questions.md)). If it doesn't, use a stacking header or
 a GPIO breakout.

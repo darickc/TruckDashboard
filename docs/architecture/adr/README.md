@@ -32,5 +32,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0021](0021-trimmed-dev-and-release-images.md) | Trimmed images: development (`agl-f250`) and release (`agl-f250-release`) | Accepted (both images [BENCH] 2026-11-08) |
 | [0022](0022-grow-root-on-first-boot.md) | Root fills the SD card on the first boot | Accepted ([BENCH] 2026-11-08) |
 | [0023](0023-bluetooth-belongs-to-bluez.md) | Bluetooth belongs to BlueZ, not connman | Accepted ([SIM] only) |
+| [0024](0024-camera-selection-switch-and-can-reverse.md) | Cameras: a 5-way switch picks the view, reverse comes from CAN; no opto board | Accepted (owner; reverse decoder not yet verified) |
 
 New ADRs use the next number and the same headings.

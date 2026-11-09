@@ -10,18 +10,17 @@ Pi 5.
 
 ## Inputs
 
+How the view is chosen: [ADR-0024](adr/0024-camera-selection-switch-and-can-reverse.md)
+(owner, 2026-11-09).
+
 | Input | Source | Never |
 |---|---|---|
-| Reverse | Opto-isolated input board → Pi GPIO (proposed BCM6, a config value), via the power-manager ([wiring](../wiring/power-and-inputs.md)) | A raw 12 V line on GPIO |
-| Left / right turn | Two more channels on the same opto board (proposed BCM12 and BCM13). They are an analogue flasher-relay circuit, not on HS-CAN (owner, 2026-11-07) | Same. Never by polling a module |
-| Gear and speed | Gateway signals, used **only** to decide whether manual selection is allowed | — |
+| Camera switch | A 5-way switch in the cab (left, right, back, forward, press) on Pi GPIO, read by the power-manager ([wiring](../wiring/power-and-inputs.md#camera-switch)). Part TBD ([H32](../hardware/open-questions.md)) | — |
+| Reverse | The gateway, from HS-CAN broadcast `230` byte 0 (`10` in R), listen-only. A **candidate** decoder until its truck check ([CAN_CENSUS](../diagnostics/CAN_CENSUS.md#reverse-found-event-matched-candidates)) | A reverse-lamp tap; asking the gateway to transmit |
+| Speed | Gateway signal, only if the optional `manual_max_speed` is set | — |
 
-Turn signals are **not** on HS-CAN: they are an analogue circuit switched by a
-flasher relay under the dash (owner, 2026-11-07), and the listen-only census
-found no flasher-rate bit ([H14](../hardware/open-questions.md)). They come
-from the opto board, like reverse. Reverse stays on its hardware input; the
-CAN reverse candidates ([event captures](../setup/can.md#event-captures-reverse-and-brake))
-would only cross-check it after Stage B.
+There are no turn-signal inputs: the turn signals aren't on HS-CAN, and side
+views are picked with the switch instead.
 
 The camera manager **never** asks the gateway to transmit anything.
 
@@ -30,23 +29,31 @@ The camera manager **never** asks the gateway to transmit anything.
 Priority, highest first:
 
 1. **Reverse** shows the rear camera.
-   - Activates when REV is asserted for at least `rev_debounce_ms` (default
-     150 ms).
-   - Stays up for `rev_hold_ms` after REV clears (default 2000 ms).
-2. **Turn signal**, if enabled, shows that side's camera.
-   - A flasher blinks at roughly 1–2 Hz. Treat any edge within
-     `turn_hold_ms` (default 1500 ms) as still active, so the display doesn't
-     flicker.
-   - Activates on the first edge.
-   - Releases `turn_hold_ms` after the last edge.
-3. **Hazards.** Left and right flash together, edges within
-   `hazard_window_ms`. Do **not** switch cameras. Keep the current screen and
-   show a small indicator.
-4. **Manual selection** is allowed while parked or below `manual_max_speed`.
-   Reverse and turn activation override it.
+   - Activates when reverse has been reported for at least `rev_debounce_ms`
+     (default 150 ms, an example).
+   - Stays up for `rev_hold_ms` after reverse clears (default 2000 ms, an
+     example).
+   - If the reverse signal is **stale or unknown** (no CAN adapter, gateway
+     down, decoder not yet verified), there is no automatic rear view, and the
+     UI shows that reverse is unknown. It is never treated as "not in reverse"
+     silently.
+2. **The switch's choice**, latched until the next move:
 
-When automatic activation ends, the UI returns to the screen or app that was
-showing before it.
+   | Switch | Default (configuration) |
+   |---|---|
+   | Left / Right | That side's camera |
+   | Back | Rear camera |
+   | Forward / Press | No camera: back to the previous screen |
+
+   - Allowed at any speed (owner). `manual_max_speed` is an optional limit,
+     off by default.
+   - A contact must be closed for `switch_debounce_ms` (default 30 ms, an
+     example) to count.
+   - Moving the switch during reverse records the choice; it shows once
+     reverse ends.
+
+When reverse ends, the UI shows the switch's choice if there is one, otherwise
+the screen or app that was showing before reverse.
 
 | Situation | Result |
 |---|---|

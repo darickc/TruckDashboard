@@ -5,7 +5,7 @@ Status: **design sheets only; nothing installed** (Phase 7).
 | Sheet | What |
 |---|---|
 | [dlc-can-adapter.md](dlc-can-adapter.md) | Temporary DLC hookup for the USB CAN adapter |
-| [power-and-inputs.md](power-and-inputs.md) | DCDC-USB power, ACC, PSW → J2, and the reverse input ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md)) |
+| [power-and-inputs.md](power-and-inputs.md) | DCDC-USB power, ACC, PSW → J2, and the camera switch ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md), [ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md)) |
 | [audio.md](audio.md) | DAC8x → new 4-ch amp and the R150-2, speaker and power wiring, amp remote straight on ACC ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)) |
 
 Every diagram here must:

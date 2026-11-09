@@ -62,6 +62,10 @@ There were two ways to feed them:
    - turn signals to BCM12 and BCM13
    - BCM5 left unconnected
 
+   **Superseded 2026-11-09** ([ADR-0024](0024-camera-selection-switch-and-can-reverse.md)):
+   no reverse or turn-signal inputs. BCM6, 12, 13, 16 and 17 are proposed for
+   the camera switch. BCM5 stays unconnected.
+
 ## Consequences
 
 **Gains:**
@@ -112,7 +116,7 @@ There were two ways to feed them:
   delay-on timer relay between ACC and the REM leads, set above the measured
   boot-to-audio time. If the pop also comes at other times, or AGL can't load
   the overlay, use a USB multichannel DAC, or a stereo DAC into a car DSP.
-- The header can't be shared with the opto board (H27).
+- The header can't be shared with the camera switch's wiring (H27).
 - A Pi crash produces a buzz or loud noise through the amps (H5). Then go back
   to a Pi-controlled remote with a hardware heartbeat timer that drops it.
 - The owner replaces the R150-2 and the new 4-ch amp with one 5-channel amp.

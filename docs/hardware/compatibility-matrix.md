@@ -278,5 +278,5 @@ Manual", model RH-02 Pro-1), unless noted.
 |---|---|
 | PSW is a driven voltage, not a contact ([H21](open-questions.md)) | Put a small reed relay or optocoupler between PSW and J2 |
 | The DCDC-USB can't hold 5 V at the Pi's load ([H25](open-questions.md)) | Run it at 12 V into a dedicated 5 V / 5 A converter, and keep it for the ignition logic and PSW |
-| The turn signals aren't on HS-CAN (settled 2026-11-07: they aren't) | Two more channels on the reverse input's opto board |
-| A CAN HAT is wanted instead of USB | Waveshare 2-CH CAN HAT: isolated, jumper termination, 16 MHz, INT GPIO23/25 ([wiki](https://www.waveshare.com/wiki/2-CH_CAN_HAT)). Check its pins against the DAC HAT and the opto inputs |
+| The turn signals aren't on HS-CAN (settled 2026-11-07: they aren't) | Not used: a 5-way switch picks the side cameras ([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md)) |
+| A CAN HAT is wanted instead of USB | Waveshare 2-CH CAN HAT: isolated, jumper termination, 16 MHz, INT GPIO23/25 ([wiki](https://www.waveshare.com/wiki/2-CH_CAN_HAT)). Check its pins against the DAC HAT and the camera switch |

@@ -81,7 +81,7 @@ flowchart LR
     UI[Flutter UI<br/>800×480]
   end
   DLC -- SocketCAN / OBDLink --> GW
-  IN -- opto-isolated input board --> PWR
+  IN -- 5-way camera switch --> PWR
   ACC -- DCDC-USB: power, PSW pulse --> PWR
   GW -- gRPC f250.vehicle.v1 --> UI
   GW --> REC

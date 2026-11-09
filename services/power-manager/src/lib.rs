@@ -21,7 +21,8 @@
 //! `ExecStopPost` (run as root) calls `systemctl poweroff`. The service itself
 //! needs no privileges.
 //!
-//! Not in this slice of 6.7: the reverse input, day/night and the backlight.
+//! Not in this slice of 6.7: the camera switch (ADR-0024), day/night and the
+//! backlight.
 //!
 //! Status: `[SIM]`. The policy, the event parsing and the device discovery are
 //! unit-tested; nothing has run on the Pi.

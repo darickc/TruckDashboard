@@ -78,7 +78,7 @@ on 2026-11-08:
    `can-isotp` are modules of the image's kernel, and both images install
    them (`kernel-modules`, from the Pi machine configuration). No code writes the backlight or reads GPIO yet.
    Each rule comes with the feature that needs it: backlight dimming in 6.7,
-   the opto inputs with their wiring.
+   the camera switch's GPIO with its wiring (ADR-0024).
 9. **`make build-vm CMD=image`** copies the newest images out of the VM to
    `build/agl/`, decompressed, named `<image>-<release>-<commit>.wic`.
 10. **Each service runs in a sandbox** measured on the bench. On top of what

@@ -3,7 +3,7 @@
 Status: the power-key part is implemented in `services/power-manager`
 (Phase 6.7) **[SIM]**: the state machine below, unit-tested transition by
 transition, and smoke-tested with a fake key device. Not yet run on the Pi. The
-reverse input, day/night and the backlight are still design.
+camera switch, day/night and the backlight are still design.
 The electrical behaviour is unverified until it is measured on the bench and in
 the truck (Phase 7).
 
@@ -21,7 +21,7 @@ The wiring is in [power-and-inputs.md](../wiring/power-and-inputs.md).
 | Power to the Pi | DCDC-USB **VOUT** at about 5 V → Pi 5 | Output is switched by the DCDC-USB's timers |
 | Shutdown request | DCDC-USB **PSW** → Pi 5 **J2** pads | A momentary closure, the same as pressing the Pi's power button. Electrical form to be confirmed (H21) |
 | Battery voltage | Not measured | The supply cuts power below 11.2 V during HARDOFF. No running measurement (H16) |
-| Reverse input | Opto board → Pi GPIO | Owned by power-manager, passed to camera-manager ([camera policy](camera-policy.md)) |
+| Camera switch | 5-way switch → Pi GPIO | Read by power-manager (the GPIO owner), passed to camera-manager ([camera policy](camera-policy.md), [ADR-0024](adr/0024-camera-selection-switch-and-can-reverse.md)). Reverse itself comes from the gateway (HS-CAN), not from a wire |
 | Amplifier remote | Radio-harness ACC → both amps' REM, no timer. **Not on the Pi** ([ADR-0014](adr/0014-multichannel-dac8x.md)) | Key-on turns the amps on while the Pi boots; key-off cuts them at once, before the Pi shuts down ([wiring](../wiring/audio.md#remote-turn-on-acc-straight-to-rem)) |
 | Illumination | None | Day/night from sun position, see below |
 

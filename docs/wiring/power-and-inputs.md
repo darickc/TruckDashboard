@@ -1,12 +1,15 @@
-# Power (DCDC-USB) and the reverse input
+# Power (DCDC-USB) and the camera switch
 
 **Status: DESIGN, NOT VERIFIED. Nothing here has been connected yet.** A person
-must check every line against the truck, the DCDC-USB and the opto board, and
+must check every line against the truck, the DCDC-USB and the camera switch, and
 sign it off in [bench-log.md](../hardware/bench-log.md), before it is installed
 ([safety gates](../safety/assumptions.md#human-verification-gates)).
 
 This is the permanent power and input design from
-[ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md). Behaviour:
+[ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md) and
+[ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md).
+**No vehicle signal goes to the Pi's GPIO:** reverse comes from HS-CAN through
+the gateway, and the turn signals aren't used. Behaviour:
 [power-states.md](../architecture/power-states.md). Documented facts about the
 parts: [compatibility matrix](../hardware/compatibility-matrix.md#mini-box-dcdc-usb).
 
@@ -30,8 +33,7 @@ flowchart LR
   end
   VOUT -- USB-C lead --> PI[Pi 5 USB-C]
   PSW -- H21 first --> J2[Pi 5 J2 pads]
-  REV[Reverse lamp feed<br/>wire TODO, H9] -- fuse + TVS --> OPTO[Opto board ch 1]
-  OPTO -- 3.3 V side --> GPIO[Pi BCM6 · pin 31]
+  SW[5-way camera switch<br/>part TBD, H32] -- 5 contacts to GND --> GPIO[Pi BCM6, 12, 13, 16, 17]
 ```
 
 ## Connections
@@ -44,17 +46,39 @@ flowchart LR
 | DCDC-USB **VOUT** (yellow) and GND (black) | USB-C lead → Pi 5 USB-C | Not into the GPIO header. Short and heavy enough for 5 A. VOUT is set by the 5 V jumper; measure it **at the Pi** under load |
 | DCDC-USB **PSW** | Pi 5 **J2** pads | **Only after H21.** J2 wants a normally-open momentary closure. If PSW is a driven voltage, put a reed relay or optocoupler between them. Which pad is ground: TODO, by continuity to a GPIO ground pin |
 | DCDC-USB mini-USB | Nothing | Not connected: the system is pulse-only ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md), 2026-11-09) |
-| Reverse lamp feed | Small inline fuse → TVS → opto board **channel 1 input +** | Which wire: **TODO** ([H9](../hardware/open-questions.md)). Fuse rating: TODO. The TVS can be left out if the board's input protection is documented |
-| Chassis ground | Opto board **channel 1 input −** | |
-| Pi **3.3 V** (pin 1 or 17) | Opto board **output VCC** | **Never 5 V.** The output must not pull a GPIO above 3.3 V |
-| Pi **GND** (for example pin 30) | Opto board **output GND** | |
-| Opto board **channel 1 out** | Pi **BCM6** (pin 31) | Proposed pin; it is a config value in power-manager. Moved from BCM5, which the DAC8x driver reads ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)). Expected active-low (the opto pulls the line down in reverse). Confirm on the bench ([H26](../hardware/open-questions.md)) |
-| Opto board channels 2–3 | Left and right turn (proposed BCM12, pin 32; BCM13, pin 33) | Needed: the turn signals are an analogue flasher-relay circuit, not on HS-CAN (owner, 2026-11-07). Inputs pulse at the flasher rate. Which wires to tap: **TODO** (H9), metered and verified by a person before installation |
+| Camera switch | Pi GPIO, see [below](#camera-switch) | 3.3 V logic only |
 
-Pins taken by the DAC8x ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)):
-its overlay claims **BCM18–27** for I2S and reads **BCM5** (ADC add-on detect).
-Leave BCM5 unconnected. The proposed input pins above avoid all of them
-([wiring/audio.md](audio.md#gpio-budget-with-the-dac8x)). The amplifier remote
+## Camera switch
+
+A 5-way switch in the cab picks the camera
+([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md)).
+It must be a **digital** switch, one contact per direction and one for the
+press, each closing to ground: a navigation switch, a microswitch joystick or
+five buttons. An analog joystick module (two potentiometers) needs an ADC,
+which the Pi 5 doesn't have. Part, mounting place and cable length: **TODO**
+([H32](../hardware/open-questions.md)).
+
+| Contact | Pi GPIO (proposed) | Header pin | Default action |
+|---|---|---|---|
+| Left | BCM12 | 32 | Left camera |
+| Right | BCM13 | 33 | Right camera |
+| Back | BCM16 | 36 | Rear camera |
+| Forward | BCM6 | 31 | No camera |
+| Press | BCM17 | 11 | No camera |
+| Common | GND | 34 or 39 | — |
+
+- The pins are configuration in power-manager, and proposed: they avoid the
+  DAC8x's **BCM18–27** and **BCM5**
+  ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md); leave BCM5
+  unconnected), the I2C pins and the UART. Header access with the DAC8x
+  fitted: [H27](../hardware/open-questions.md).
+- Each line idles high and reads low when its contact closes. Pull-ups: a
+  10 kΩ resistor from each line to the Pi's **3.3 V** (pin 1 or 17), near the
+  Pi, plus the internal pull-up. Example values; a person checks them.
+- A 1 kΩ series resistor in each line at the Pi end limits the current from a
+  static discharge on the cable run. Example value.
+- **Never 5 V or 12 V on these wires.** The switch carries only the Pi's own
+  3.3 V. It isn't connected to anything in the truck. The amplifier remote
 is not on the Pi; ACC goes straight to it
 ([wiring/audio.md](audio.md#remote-turn-on-acc-straight-to-rem)). Header access with
 the DAC8x fitted: [H27](../hardware/open-questions.md).
@@ -85,8 +109,8 @@ limit is to be checked (H25).
 | 5 | Bench: IGN back on during HARDOFF | Record what happens (H23) | |
 | 6 | Pi at full load: `vcgencmd get_throttled` | `0x0` | |
 | 7 | ACC wire on the truck: key on, crank, run, key off, door open | Record the voltage at each step (H22) | |
-| 8 | Reverse wire on the truck, in and out of reverse | About 12 V in reverse, 0 V otherwise (H9) | |
-| 9 | Opto output at BCM6 with the input at 0 V, 12 V and 14.5 V | 3.3 V idle, low when active, never above 3.3 V | |
+| 8 | Each switch line with a meter, Pi powered, switch at rest | 3.3 V on each GPIO, nothing above 3.3 V | |
+| 9 | Each switch direction in turn | Only its own line reads 0 V; once power-manager reads the switch, `journalctl -u f250-power-manager` logs that direction | |
 | 10 | Parked draw after HARDOFF | Well under 1 mA (documented claim) | |
 
 Signed off by: _____ Date: _____

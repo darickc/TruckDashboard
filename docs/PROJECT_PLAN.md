@@ -145,11 +145,11 @@ the PRO 5.
    reverse-polarity details. Plan an external fuse and TVS until they answer.
 3. **The DSI cable fit and the HAT stack must be checked by hand.** This includes
    any NVMe base.
-4. **Reverse comes from an opto-isolated input board on Pi GPIO**
-   ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md); this replaced
-   the HAT's opto inputs). **Turn signals use two more channels on the same
-   board**: they are an analogue flasher-relay circuit, not on HS-CAN (owner,
-   2026-11-07). Never OBD polling.
+4. **Reverse comes from HS-CAN, a 5-way switch picks the camera**
+   ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md),
+   2026-11-09). Reverse is broadcast (`230` byte 0) and read listen-only by
+   the gateway; never OBD polling. The turn signals (an analogue
+   flasher-relay circuit, not on HS-CAN) aren't used. No opto board.
 5. **The MX+ is still needed for K-line modules.** Its Bluetooth link shares the
    Pi's radio with A2DP. Mitigations:
    - use the transport for validation only
@@ -496,7 +496,7 @@ that decision chose.
 3. **4.3** **Stage A on the truck**, passive and listen-only only, after a [HUMAN] wiring checklist:
    - confirm 500 k
    - record the broadcast census at KOEO, idle and driving
-   - the **event captures**: reverse and brake, one capture each ([can.md](setup/can.md#event-captures-reverse-and-brake)). The turn signals are settled: not on the bus, so opto inputs (H14)
+   - the **event captures**: reverse and brake, one capture each ([can.md](setup/can.md#event-captures-reverse-and-brake)). The turn signals are settled: not on the bus, and not used (ADR-0024, H14)
 4. **4.4** **Stage B:** decoders only for broadcast signals that can be corroborated (for example against the RPM and speed PIDs). Each records its provenance and confidence. **No guessed definitions are shown as validated.**
 5. **4.5** **Stage C:** active diagnostics through kernel ISO-TP (`can-isotp`), PCM `7E0/7E8` and TCM `7E1/7E9`, first proven with a single request. It needs both the transmit opt-in and the checklist. Polling is conservative and has a kill switch.
 6. **4.6** **Stage D:** the OBDLink transport already ran on the truck in Phase 3.5. Here, confirm two things:
@@ -570,17 +570,17 @@ that decision chose.
 6. **6.6** **camera-manager**:
    - V4L2 and GStreamer pipelines
    - the ADR-009 rendering spike
-   - the policy state machine: reverse priority, turn-signal debounce and hold, hazard suppression, restore the previous screen
-   - camera-loss warnings
-   - inputs only from the protected opto input board, never raw 12 V (reverse and both turn signals)
+   - the policy state machine (ADR-0024): reverse priority, then the 5-way switch's latched choice at any speed, restore the previous screen
+   - camera-loss warnings, and a visible "reverse unknown" when the CAN reverse signal is stale
+   - reverse from the gateway (HS-CAN broadcast `230`, once its decoder is verified); the switch from power-manager. No vehicle wire on GPIO
    - camera hardware chosen by measured driver support and latency on the Pi 5 (UVC first)
 
-   Tests: reverse priority, debounce, missing source, return to the previous screen, and hazard behaviour.
+   Tests: reverse priority, stale reverse, the latched choice, switch debounce, missing source, and return to the previous screen.
 7. **6.7** **power-manager**, the single owner of the GPIO and the power key, pulse-only ([power-states.md](architecture/power-states.md); ADR-0013 amended 2026-11-09):
    - states: `OFF, STARTING, RUNNING, SHUTTING_DOWN, FAULT`
    - the power key (the DCDC-USB's PSW pulse on J2): ignored during the boot window, otherwise it shuts down
    - ~~ignition and battery voltage over USB, reboot instead of halt, low-voltage shutdown~~: dropped, the DCDC-USB's USB isn't connected
-   - the reverse input, with debounce
+   - the camera switch (five GPIO contacts, debounced), passed to camera-manager (ADR-0024)
    - day/night from sun position and a manual override (no illumination wire)
    - backlight dimming
    - systemd and hardware watchdogs
@@ -597,7 +597,7 @@ that decision chose.
    - ground scheme
    - DLC tap or Y-cable
    - amplifier signal, remote and separate fused power
-   - the reverse tap and both turn-signal taps into the opto input board
+   - the camera switch's cable to the Pi's GPIO
    - camera power
 
    Each diagram must be reviewed by a person before installation.
@@ -695,7 +695,7 @@ already have if the display runs on the Pi 5.
 | Item | Note |
 |---|---|
 | mini-box DCDC-USB | Chosen 2026-11-04 instead of the CarPiHAT PRO 5 (ADR-0013) |
-| Opto-isolated input board, I2S DAC HAT (DAC8x) | The CarPiHAT's other jobs (ADR-0013, ADR-0014). The amplifier remote needs no part since 2026-11-09 |
+| I2S DAC HAT (DAC8x), a 5-way camera switch | The CarPiHAT's other jobs (ADR-0013, ADR-0014, ADR-0024). No opto board and no amplifier-remote part since 2026-11-09 |
 | USB candleLight CAN adapter | Bought 2026-11-03 (ADR-0012) |
 | 22→15-way display FFC | Display type, **not** a camera cable |
 | OBD-II Y-splitter and DLC breakout | |

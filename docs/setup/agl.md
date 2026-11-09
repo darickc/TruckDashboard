@@ -345,7 +345,7 @@ known-good reference: the panel, touch and dashboard worked on it on
   watchdog: `Type=notify`, `WatchdogSec=60` and `30`, keep-alives only while
   their loops make progress ([diagnostic-recovery.md](../architecture/diagnostic-recovery.md)).
 - Booting from NVMe: see [the data drive](#data-drive-nvme-hat-or-usb-ssd).
-- The rest of the power-manager: the reverse input, day/night and the
+- The rest of the power-manager: the camera switch, day/night and the
   backlight. Its first part handles the power key: after the boot window
   (`BOOT_KEY_IGNORE_S`, 30 s), pressing the Pi's button powers it off, as the
   DCDC-USB's PSW pulse will. The dashboard's *Power* button still shuts down

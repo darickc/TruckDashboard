@@ -131,9 +131,10 @@ What it answers:
 The turn signals are settled: they are switched by an analogue flasher relay
 under the dash, not by a module on the bus (owner, 2026-11-07; no flasher-rate
 bit appeared on HS-CAN either, [CAN_CENSUS](../diagnostics/CAN_CENSUS.md)).
-They need two more opto inputs
-([wiring](../wiring/power-and-inputs.md), H14). These captures confirm the
-reverse and brake candidates. They are still listen-only.
+They aren't used: a 5-way switch picks the side cameras
+([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md)).
+These captures confirm the reverse and brake candidates. Reverse matters most:
+it drives the rear camera. They are still listen-only.
 
 Take **one capture per action**, so each file holds one event. Key on, engine
 off (KOEO), parked, with the parking brake set. Write the action and the

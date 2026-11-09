@@ -66,8 +66,8 @@ button ([matrix](../../hardware/compatibility-matrix.md#raspberry-pi-5-power-but
 
    | Job | Replacement |
    |---|---|
-   | Reverse input | A **protected opto-isolated input board** on Pi GPIO, read by power-manager. Its output side is powered from the Pi's **3.3 V**, never 5 V. At least 4 channels, so the turn signals can be added later |
-   | Turn signals | **First check HS-CAN** with a listen-only event capture ([can.md](../../setup/can.md#event-captures-reverse-and-brake)). If they aren't there, use two more channels on the same opto board. *2026-11-07: they aren't (an analogue flasher-relay circuit, owner): two opto channels* |
+   | Reverse input | A **protected opto-isolated input board** on Pi GPIO, read by power-manager. Its output side is powered from the Pi's **3.3 V**, never 5 V. At least 4 channels, so the turn signals can be added later. **Superseded 2026-11-09:** reverse comes from HS-CAN through the gateway, and there is no opto board ([ADR-0024](0024-camera-selection-switch-and-can-reverse.md)) |
+   | Turn signals | **First check HS-CAN** with a listen-only event capture ([can.md](../../setup/can.md#event-captures-reverse-and-brake)). If they aren't there, use two more channels on the same opto board. *2026-11-07: they aren't (an analogue flasher-relay circuit, owner): two opto channels.* **Superseded 2026-11-09:** not used; a 5-way switch picks the side camera ([ADR-0024](0024-camera-selection-switch-and-can-reverse.md)) |
    | Illumination | No input. Day/night comes from sun position (GPS time and location) and a manual override |
    | DAC | An I2S DAC HAT. Pick it by its documented line level and mute-at-boot behaviour (H6). **Chosen: the HiFiBerry DAC8x ([ADR-0014](0014-multichannel-dac8x.md))** |
    | Amplifier remote | A GPIO-driven switched 12 V output that fails **off**, part TBD (H5). It waits on the amplifier inventory (H8). **Superseded 2026-11-05:** on ACC, not on the Pi; since 2026-11-09 ACC goes straight to the amps, without a timer ([ADR-0014](0014-multichannel-dac8x.md)) |
@@ -111,7 +111,8 @@ button ([matrix](../../hardware/compatibility-matrix.md#raspberry-pi-5-power-but
 - **Output voltage by jumper only (5 V).** It can't be trimmed up for the
   cable's drop without USB. If the Pi shows undervoltage (H25), set VOUT once
   from a laptop over USB, or use the 12 V → 5 V converter (Revisit if).
-- **More parts:** an opto board and a DAC HAT instead of one HAT. The
+- **More parts:** a DAC HAT and a camera switch instead of one HAT (no opto
+  board since ADR-0024). The
   amplifier remote needs no part: ACC goes straight to the amps (ADR-0014).
 - **The radio harness's ACC behaviour is unknown on this truck (H22).** It may
   drop while cranking, or stay on after key-off (Ford accessory delay).

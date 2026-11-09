@@ -155,7 +155,7 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
 - [ ] 4.3 Stage A: passive census on the truck, plus the reverse/brake event captures (H14)
       Captures at key on, idle and driving `[TRUCK]`: the same 14 IDs, 712 frames/s, no errors; `4FF`
       carries the VIN (check digit validates). Candidates: reverse/gear (`230`, `420`), brake (`440`), RPM
-      (`201`), wheel speeds (`215`). Turn signals: not on the bus, an analogue flasher-relay circuit (owner): opto inputs. Reverse/brake captures still to do. [CAN_CENSUS.md](diagnostics/CAN_CENSUS.md)
+      (`201`), wheel speeds (`215`). Turn signals: not on the bus, an analogue flasher-relay circuit (owner): not used (ADR-0024). Reverse/brake captures still to do; reverse now drives the rear camera, so it needs its own check. [CAN_CENSUS.md](diagnostics/CAN_CENSUS.md)
 - [ ] 4.4 Stage B: corroborated broadcast decoders
       First corroboration drive `[TRUCK]` (MX+ beside a listen-only capture, 2026-11-07): RPM (`201`), speed
       (`201`), ECT (`420`), load (`106`) and trans temp (`225`) match the PIDs with exact scalings. Needs a second
@@ -254,12 +254,12 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
 - [ ] 6.3 Volume knob
 - [ ] 6.4 GPS
 - [ ] 6.5 Offline map, then routing, then the update workflow
-- [ ] 6.6 camera-manager and the ADR-0009 spike
-- [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the reverse input ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
+- [ ] 6.6 camera-manager and the ADR-0009 spike. Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
+- [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
       presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later
       press (exit 42, `ExecStopPost` as root). Sandboxed unit, watchdog, in `make deploy` and both images. Not yet
-      on the Pi. Still to do: the reverse input, day/night, backlight dimming, the hardware watchdog, and the
+      on the Pi. Still to do: the camera switch (ADR-0024), day/night, backlight dimming, the hardware watchdog, and the
       dashboard's Power button becoming Restart once the DCDC-USB is installed
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]

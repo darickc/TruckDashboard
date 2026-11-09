@@ -10,7 +10,7 @@ class CamerasScreen extends StatelessWidget {
         icon: Icons.videocam_off_rounded,
         title: 'Cameras — not implemented yet',
         lines: [
-          'Rear and side cameras, and reverse / turn-signal switching, arrive in Phase 6.',
+          'Rear and side cameras arrive in Phase 6: the rear view in reverse, any view from the camera switch.',
           'This is not a safety camera system. Always use the mirrors.',
         ],
       );
