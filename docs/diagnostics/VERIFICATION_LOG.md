@@ -503,11 +503,51 @@ Lost: the gateway's own traffic log for this drive. The gateway truncates
 candump has every frame. Fixed: each start now opens the next file
 (`services/vehicle-gateway/src/transport/traffic.rs`).
 
+## 2026-11-08 — Physical addressing over direct CAN: each module answers only its own ID [TRUCK]
+
+Parked, engine idling (~725 rpm), USB CAN adapter alone, AGL release image
+`df61324`. `/etc/default/f250`: `TRANSPORT=can TRANSMIT=1 ENABLE=eot`;
+`can0` in normal mode; gateway restarted 02:37:09 UTC (2026-11-09 UTC, the
+evening of 2026-11-08 local). `obd-console` sent the requests through the
+gateway, between its own polls. Logs: `build/logs/obd-console-1794191864.log`,
+the capture `20261109-023729-candump` and
+`f250-logs-raspberrypi5-20261109-024056.tar.gz` (not in git).
+
+There is no ELM here: the gateway writes the frame itself, so none of the
+`ATSH` questions (the scheduler re-sending `ATSH7DF`, question 2 below) can
+confound it. Every frame below is from the candump, which also holds the
+gateway's own requests (loopback); each window runs until the next request.
+
+| Request | Answers before the next request | Next request |
+|---|---|---|
+| `7E0 02 01 0C` (PCM) | `7E8 04 41 0C 0B 52` at 32 ms | `7DF 01 04` at 51 ms |
+| `7E1 02 01 0C` (TCM) | `7E9 04 41 0C 0B 54` at 17 ms | `7DF 01 0C` at 51 ms |
+| `7E0 02 01 0C` (PCM) | `7E8 04 41 0C 0B 51` at 32 ms | `7E1 01 0C` at 85 ms |
+| `7E1 02 01 0C` (TCM) | `7E9 04 41 0C 0B 54` at 9 ms | `7DF 22 13 10` at 52 ms |
+
+After the second request the gateway's next poll was functional `7DF 01 0C`,
+and each module answered it once (7E8 at 72 ms, 7E9 at 78 ms after the
+`7E1` request): no extra 7E8 answer to the `7E1` request turned up later
+either. The functional `raw 221310` right after drew the usual pair (7E9
+`7F 22 12` at 29 ms, 7E8 `62 13 10` at 30 ms). In the 3 min capture the only
+`7E0`/`7E1` frames are these four; 1569 `7DF` requests. Capture: ERROR-ACTIVE,
+berr-counter 0/0, no gaps over 1 s, `rx_dropped` unchanged (68431 at start
+and stop).
+
+Verdict: on this truck, 11-bit physical requests to `7E0` reach only the PCM
+and to `7E1` only the TCM, each answering on `7E8`/`7E9` (H12, over direct
+CAN). Tested with `01 0C` only, 2 requests each, parked. Not yet tested:
+Mode 22 DIDs addressed physically (`7E0 22 13 10`, `7E1 22 16 74`), which is
+what the pinned requests would send; and the MX+'s `ATSH` path (question 2),
+which is an adapter question now, not a truck one.
+
 ## Open questions for the next session
 
 1. ~~**Who is 7E9?**~~ **ANSWERED: the TCM.** It owns `22 1674` (transmission
    fluid temp) and the PCM rejects that DID outright.
-2. **Does `ATSH` work at all once the protocol is pinned?** This is now the
+2. **Does `ATSH` work at all once the protocol is pinned?** The truck side
+   is answered (2026-11-08, direct CAN: `7E0` reaches only the PCM, `7E1`
+   only the TCM); what remains is whether the MX+ sends them. This was the
    blocking question. **First disable every PID** — see the correction above; the
    previous attempt was confounded by the scheduler re-sending `ATSH7DF` between
    the two typed lines. Retest:
