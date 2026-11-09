@@ -49,6 +49,7 @@ do_install() {
     # Stage 1 step 7. The demo homescreen is left out of the image (agl-f250.bb).
     f250_wants multi-user.target f250-gateway.service
     f250_wants multi-user.target f250-recorder.service
+    f250_wants multi-user.target f250-power-manager.service
     f250_wants graphical.target f250-dashboard.service
     f250_wants agl-compositor.service f250-dashboard.service
 

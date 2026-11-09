@@ -255,7 +255,12 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
 - [ ] 6.4 GPS
 - [ ] 6.5 Offline map, then routing, then the update workflow
 - [ ] 6.6 camera-manager and the ADR-0009 spike
-- [ ] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the reverse input ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
+- [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the reverse input ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
+      Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
+      presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later
+      press (exit 42, `ExecStopPost` as root). Sandboxed unit, watchdog, in `make deploy` and both images. Not yet
+      on the Pi. Still to do: the reverse input, day/night, backlight dimming, the hardware watchdog, and the
+      dashboard's Power button becoming Restart once the DCDC-USB is installed
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 

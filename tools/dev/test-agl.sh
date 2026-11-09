@@ -88,7 +88,8 @@ check "journald drop-in installed"     "cmp -s agl/rootfs/etc/systemd/journald.c
 check "journal directory created"      "[[ -d '$R/var/lib/journal' && -g '$R/var/lib/journal' ]]"
 check "journal mount enabled, then started" "in_order '$L' 'systemctl enable var-volatile-log-journal.mount' 'systemctl start var-volatile-log-journal.mount' 'systemctl restart systemd-journald.service' 'journalctl --flush'"
 check "compositor drop-in installed"   "cmp -s agl/rootfs/etc/systemd/system/agl-compositor.service.d/50-f250.conf '$R/etc/systemd/system/agl-compositor.service.d/50-f250.conf'"
-check "enables our services"           "has_line '$L' 'systemctl enable f250-gateway.service f250-recorder.service f250-dashboard.service'"
+check "enables our services"           "has_line '$L' 'systemctl enable f250-gateway.service f250-recorder.service f250-power-manager.service f250-dashboard.service'"
+check "restarts the power manager"     "has_line '$L' 'systemctl restart f250-gateway.service f250-recorder.service f250-power-manager.service'"
 check "config.txt keeps the original"  "cmp -s '$T/config.orig' '$R/boot/config.txt.agl-orig'"
 check "config.txt has one f250 block"  "[[ \$(count '$R/boot/config.txt' '# >>> f250') == 1 ]]"
 check "config.txt enables the DSI panel" "has_line '$R/boot/config.txt' 'dtoverlay=vc4-kms-dsi-7inch,dsi0'"
@@ -158,8 +159,8 @@ if setup "$R6" --check >"$T/check-before.out" 2>&1; then fail "--check passed be
 check "--check flags the CAN provider" "grep -q 'kuksa-can-provider.service is not masked' '$T/check-before.out'"
 check "--check flags normal-mode can0" "grep -q 'NORMAL mode' '$T/check-before.out'"
 check "--check changes nothing"        "[[ ! -s '$R6/.test/sys.log' && ! -e '$R6/etc/systemd/network/60-canbus-can.network' ]]"
-for b in vehicle-gateway recorder obd-console f250-can f250-storage; do printf '#!/bin/sh\n' >"$R/opt/f250/bin/$b"; chmod +x "$R/opt/f250/bin/$b"; done
-for u in f250-gateway f250-recorder f250-dashboard; do echo enabled >"$R/.test/unit-$u.service"; done
+for b in vehicle-gateway recorder obd-console power-manager f250-can f250-storage; do printf '#!/bin/sh\n' >"$R/opt/f250/bin/$b"; chmod +x "$R/opt/f250/bin/$b"; done
+for u in f250-gateway f250-recorder f250-power-manager f250-dashboard; do echo enabled >"$R/.test/unit-$u.service"; done
 echo enabled >"$R/.test/unit-var-volatile-log-journal.mount"; : >"$R/.test/mounted-journal"
 mkdir -p "$R/opt/f250/share/data/signals"; echo '{}' >"$R/opt/f250/share/data/warning_rules.json"
 if setup "$R" --check >"$T/check-after.out" 2>&1; then ok; else fail "--check after setup: $(grep FAIL "$T/check-after.out")"; fi
@@ -194,9 +195,9 @@ touch "$R7/.test/mounted-storage"
 setup "$R7" >/dev/null 2>&1 || fail "apply (DATA_DRIVE=1, mounted) exited non-zero"
 check "mounted: owned by f250"         "has_line '$R7/.test/sys.log' 'chown f250:f250 /var/lib/f250/storage' && has_line '$R7/.test/sys.log' 'chmod 0750 /var/lib/f250/storage'"
 check "mounted: no second mount"       "! grep -q 'systemctl start var-lib' '$R7/.test/sys.log'"
-for b in vehicle-gateway recorder obd-console f250-can f250-storage; do printf '#!/bin/sh\n' >"$R7/opt/f250/bin/$b"; chmod +x "$R7/opt/f250/bin/$b"; done
+for b in vehicle-gateway recorder obd-console power-manager f250-can f250-storage; do printf '#!/bin/sh\n' >"$R7/opt/f250/bin/$b"; chmod +x "$R7/opt/f250/bin/$b"; done
 for u in kuksa-can-provider can-dev-helper; do echo masked >"$R7/.test/unit-$u.service"; done
-for u in f250-gateway f250-recorder f250-dashboard; do echo enabled >"$R7/.test/unit-$u.service"; done
+for u in f250-gateway f250-recorder f250-power-manager f250-dashboard; do echo enabled >"$R7/.test/unit-$u.service"; done
 echo enabled >"$R7/.test/unit-var-volatile-log-journal.mount"; : >"$R7/.test/mounted-journal"
 echo disabled >"$R7/.test/unit-flutter-ics-homescreen.service"; rm -f "$R7/.test/ip-can0"
 mkdir -p "$R7/opt/f250/share/data/signals"; echo '{}' >"$R7/opt/f250/share/data/warning_rules.json"
@@ -352,6 +353,18 @@ check "no power off on a crash or stop" "[[ ! -e '$T/poweroff.log' ]]"
 env -i PATH="$SB:$PATH" EXIT_CODE=exited EXIT_STATUS=42 bash "$STOPPED" >/dev/null
 check "power off on exit 42"  "has_line '$T/poweroff.log' 'systemctl poweroff --no-block'"
 
+echo "power-manager-stopped"
+PMSTOPPED=agl/rootfs/opt/f250/libexec/power-manager-stopped
+rm -f "$T/poweroff.log"
+env -i PATH="$SB:$PATH" EXIT_CODE=exited EXIT_STATUS=1 bash "$PMSTOPPED" >/dev/null
+env -i PATH="$SB:$PATH" EXIT_CODE=exited EXIT_STATUS=0 bash "$PMSTOPPED" >/dev/null
+env -i PATH="$SB:$PATH" EXIT_CODE=killed EXIT_STATUS=TERM bash "$PMSTOPPED" >/dev/null
+env -i PATH="$SB:$PATH" EXIT_CODE=dumped EXIT_STATUS=ABRT bash "$PMSTOPPED" >/dev/null
+check "power-manager: no power off on a crash, stop or watchdog kill" "[[ ! -e '$T/poweroff.log' ]]"
+env -i PATH="$SB:$PATH" EXIT_CODE=exited EXIT_STATUS=42 bash "$PMSTOPPED" >/dev/null
+check "power-manager: power off on exit 42" "has_line '$T/poweroff.log' 'systemctl poweroff --no-block'"
+check "power-manager: exit code matches the service" "grep -q 'pub const POWER_OFF_EXIT: u8 = 42;' services/power-manager/src/lib.rs"
+
 echo "units"
 check "dashboard treats 42 as success" "grep -qx 'SuccessExitStatus=42' agl/rootfs/etc/systemd/system/f250-dashboard.service"
 check "dashboard is bound to the compositor" "grep -qx 'BindsTo=agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard.service && grep -qx 'PartOf=agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard.service"
@@ -371,7 +384,7 @@ check "mount point agrees everywhere" "grep -q '^STORAGE=/var/lib/f250/storage$'
 check "drive label agrees"     "grep -q '^DRIVE_LABEL=f250-data$' '$SETUP' && grep -q '^LABEL=f250-data$' '$STORAGE_TOOL'"
 # Sandbox (ADR-0021): each service has the settings measured on the bench.
 U=agl/rootfs/etc/systemd/system
-for unit in f250-gateway f250-recorder f250-dashboard; do
+for unit in f250-gateway f250-recorder f250-power-manager f250-dashboard; do
   for line in 'NoNewPrivileges=yes' 'CapabilityBoundingSet=' 'ProtectSystem=strict' 'PrivateTmp=yes' \
               'ProtectKernelTunables=yes' 'ProtectKernelModules=yes' 'ProtectKernelLogs=yes' \
               'ProtectControlGroups=yes' 'ProtectClock=yes' 'ProtectHostname=yes' 'ProtectProc=invisible' \
@@ -384,6 +397,15 @@ done
 check "gateway reaches only USB serial devices" "grep -qx 'DevicePolicy=closed' $U/f250-gateway.service && [[ \"\$(grep -c '^DeviceAllow=' $U/f250-gateway.service)\" == 1 ]] && grep -qx 'DeviceAllow=char-ttyUSB rw' $U/f250-gateway.service"
 check "gateway keeps its adapter families" "grep -qx 'RestrictAddressFamilies=AF_UNIX AF_CAN AF_BLUETOOTH AF_INET AF_INET6 AF_NETLINK' $U/f250-gateway.service"
 check "gateway reaches the local network only" "grep -qx 'IPAddressAllow=localhost link-local 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16' $U/f250-gateway.service"
+PM=$U/f250-power-manager.service
+check "power-manager: ExecStopPost as root powers off" "grep -qx 'ExecStopPost=+/opt/f250/libexec/power-manager-stopped' $PM && grep -qx 'SuccessExitStatus=42' $PM"
+check "power-manager: reads input devices only" "grep -qx 'DevicePolicy=closed' $PM && [[ \"\$(grep -c '^DeviceAllow=' $PM)\" == 1 ]] && grep -qx 'DeviceAllow=char-input r' $PM && grep -qx 'SupplementaryGroups=input' $PM"
+check "power-manager: /proc/uptime visible (no ProcSubset=pid)" "! grep -q '^ProcSubset=' $PM"
+check "power-manager: input group mapped (no PrivateUsers)" "! grep -q '^PrivateUsers=' $PM && ! grep -q '^PrivateDevices=' $PM"
+check "power-manager: no network" "grep -qx 'PrivateNetwork=yes' $PM && grep -qx 'RestrictAddressFamilies=AF_UNIX' $PM"
+check "power-manager: boot window default and setting agree" "grep -qx 'Environment=BOOT_KEY_IGNORE_S=30' $PM && grep -qx 'BOOT_KEY_IGNORE_S=30' agl/rootfs/etc/default/f250 && grep -q 'default_value_t = 30' services/power-manager/src/main.rs"
+check "power-manager: the setting reaches the binary" "grep -qx 'ExecStart=/opt/f250/bin/power-manager --boot-key-ignore-s \${BOOT_KEY_IGNORE_S}' $PM"
+check "power-manager: deployed and built into the image" "grep -q -- '-p power-manager' tools/dev/deploy.sh && grep -q '/target/release/power-manager' tools/dev/deploy.sh && grep -q -- '-p power-manager' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'obd-console power-manager; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb"
 check "recorder has no network or devices" "grep -qx 'PrivateNetwork=yes' $U/f250-recorder.service && grep -qx 'PrivateDevices=yes' $U/f250-recorder.service && grep -qx 'RestrictAddressFamilies=AF_UNIX' $U/f250-recorder.service"
 check "dashboard reaches only the GPU" "grep -qx 'DevicePolicy=closed' $U/f250-dashboard.service && [[ \"\$(grep -c '^DeviceAllow=' $U/f250-dashboard.service)\" == 1 ]] && grep -qx 'DeviceAllow=char-drm rw' $U/f250-dashboard.service"
 check "dashboard has no network" "grep -qx 'PrivateNetwork=yes' $U/f250-dashboard.service && grep -qx 'RestrictAddressFamilies=AF_UNIX' $U/f250-dashboard.service"
@@ -429,7 +451,7 @@ for unit in agl/rootfs/etc/systemd/system/*.service agl/rootfs/etc/systemd/syste
     check "image enables $name for $tgt" "grep -qx '    f250_wants $tgt $name' '$SYSBB'"
   done
 done
-check "units stage1 enables have [Install]" "for u in f250-gateway f250-recorder f250-dashboard; do grep -q '^WantedBy=' agl/rootfs/etc/systemd/system/\$u.service || exit 1; done"
+check "units stage1 enables have [Install]" "for u in f250-gateway f250-recorder f250-power-manager f250-dashboard; do grep -q '^WantedBy=' agl/rootfs/etc/systemd/system/\$u.service || exit 1; done"
 check "static IDs for f250"            "grep -qx 'f250::950:950:F-250 head unit services:/var/lib/f250:/bin/false' $M/files/f250-passwd && grep -qx 'f250::950:' $M/files/f250-group"
 check "agl-driver joins f250"          "grep -qx 'GROUPMEMS_PARAM:\${PN} = \"-a agl-driver -g f250\"' $M/recipes-config/agl-users/agl-users_%.bbappend"
 CM=$M/recipes-connectivity/connman
@@ -455,7 +477,7 @@ for pair in candump:can-utils lsusb:usbutils mkfs.ext4:e2fsprogs-mke2fs blkid:ut
   cmd=${pair%%:*}; pkg=${pair#*:}
   check "f250-system pulls in $pkg ($cmd)" "grep -A2 '^RDEPENDS' '$SYSBB' | grep -qw '$pkg'"
 done
-check "services: the binaries deploy.sh builds" "grep -q -- '-p vehicle-gateway -p recorder -p obd-console --features vehicle-gateway/rfcomm' $M/recipes-f250/f250-services/f250-services.bb && grep -q -- '-p vehicle-gateway --features rfcomm' tools/dev/deploy.sh"
+check "services: the binaries deploy.sh builds" "grep -q -- '-p vehicle-gateway -p recorder -p obd-console -p power-manager --features vehicle-gateway/rfcomm' $M/recipes-f250/f250-services/f250-services.bb && grep -q -- '-p vehicle-gateway --features rfcomm' tools/dev/deploy.sh"
 check "dashboard: deploy.sh's defines"  "grep -q -- '-DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock' $M/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -q -- '--dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:\$SOCK' tools/dev/deploy.sh"
 check "dashboard: bundle name is the app's" "grep -qx 'PUBSPEC_APPNAME = \"f250_infotainment\"' $M/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -qx 'name: f250_infotainment' apps/infotainment/pubspec.yaml && grep -q '^APP_ID=f250_infotainment$' '$SETUP'"
 check "layer builds a commit, not the tree" "grep -q 'F250_ALLOW_DIRTY' agl/scripts/agl-build.sh && grep -q 'F250_SRCREV = \"\$rev\"' agl/scripts/agl-build.sh"

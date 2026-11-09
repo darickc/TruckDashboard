@@ -23,7 +23,8 @@
 #      it) at /var/lib/f250/storage, with nofail; with 0, the entry is removed.
 #   6. Link the dashboard bundle to the image's Flutter engine, after checking
 #      the engine version matches the one the bundle was built with.
-#   7. Disable the demo homescreen; enable the gateway, recorder and dashboard.
+#   7. Disable the demo homescreen; enable the gateway, recorder, power manager
+#      and dashboard.
 #      The homescreen app is swapped with the compositor restarted: a second
 #      homescreen client makes agl-compositor 0.0.24 abort.
 #   8. Bluetooth (ADR-0023): step 4's connman drop-in leaves Bluetooth to
@@ -47,7 +48,7 @@ case "${1:-}" in
   "") ;;
   --check) MODE=check ;;
   --restore-demo) MODE=restore ;;
-  -h|--help) sed -n '2,35p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
   *) echo "usage: $0 [--check|--restore-demo]" >&2; exit 2 ;;
 esac
 
@@ -57,7 +58,7 @@ APP_ID=f250_infotainment
 CAN_IF="${CAN_IF:-can0}"
 DEMO_HOMESCREEN=flutter-ics-homescreen.service
 CAN_UNITS=(kuksa-can-provider.service can-dev-helper.service)
-F250_UNITS=(f250-gateway.service f250-recorder.service f250-dashboard.service)
+F250_UNITS=(f250-gateway.service f250-recorder.service f250-power-manager.service f250-dashboard.service)
 COMPOSITOR=agl-compositor.service
 COMPOSITOR_DROPIN=etc/systemd/system/agl-compositor.service.d/50-f250.conf
 CONNMAN_DROPIN=etc/systemd/system/connman.service.d/50-f250.conf
@@ -275,7 +276,7 @@ check() {
   else
     bad "no dashboard bundle in $bundle (make deploy)"
   fi
-  for d in vehicle-gateway recorder obd-console f250-can f250-storage; do
+  for d in vehicle-gateway recorder obd-console power-manager f250-can f250-storage; do
     [[ -x "$ROOT/opt/f250/bin/$d" ]] && ok "/opt/f250/bin/$d" || bad "/opt/f250/bin/$d missing (make deploy)"
   done
   if [[ -d "$ROOT/opt/f250/share/data/signals" && -f "$ROOT/opt/f250/share/data/warning_rules.json" ]]; then
@@ -496,7 +497,7 @@ apply() {
     sys systemctl disable "$DEMO_HOMESCREEN"; echo "  disabled $DEMO_HOMESCREEN"
   fi
   sys systemctl enable "${F250_UNITS[@]}"
-  sys systemctl restart f250-gateway.service f250-recorder.service
+  sys systemctl restart f250-gateway.service f250-recorder.service f250-power-manager.service
   # agl-compositor 0.0.24 takes one homescreen client per run: a second one
   # (a restarted dashboard, or ours after the demo's) makes it abort. Stop
   # the clients (the compositor survives that), then restart it, and the

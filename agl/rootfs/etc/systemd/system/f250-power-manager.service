@@ -1,0 +1,69 @@
+# Power manager on AGL (Phase 6.7, pulse-only: ADR-0013, power-states.md).
+# Reads the power key (the DCDC-USB's PSW pulse on J2, or the Pi 5's own
+# button): a press inside the boot window is the supply's ON pulse and is
+# ignored; any later press powers the Pi off. logind ignores the key
+# (logind.conf.d/50-f250-power-key.conf).
+#
+# The service has no privileges. To power off it exits with status 42, and
+# ExecStopPost (`+`: as root, outside the sandbox) runs `systemctl poweroff`.
+# A crash or a `systemctl stop` doesn't power off.
+#
+# BOOT_KEY_IGNORE_S (seconds after the kernel started) is an example value,
+# overridden in /etc/default/f250. Keep it shorter than the DCDC-USB's
+# OFFDELAY, or a quick key cycle's off-pulse is ignored.
+#
+# Status: [SIM]. Not yet run on the Pi.
+[Unit]
+Description=F-250 power manager (power key, pulse-only)
+
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=30
+User=f250
+Group=f250
+# /dev/input/event* are group input (udev 50-udev-default.rules; the group
+# comes from base-passwd).
+SupplementaryGroups=input
+Environment=BOOT_KEY_IGNORE_S=30
+EnvironmentFile=-/etc/default/f250
+ExecStart=/opt/f250/bin/power-manager --boot-key-ignore-s ${BOOT_KEY_IGNORE_S}
+ExecStopPost=+/opt/f250/libexec/power-manager-stopped
+SuccessExitStatus=42
+Restart=on-failure
+RestartSec=2
+
+# Sandbox (ADR-0021), like the recorder's, except:
+# - no PrivateDevices: it reads /dev/input (DeviceAllow below)
+# - no ProcSubset=pid: the boot window is measured from /proc/uptime
+# - no PrivateUsers: the input group must stay mapped
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+DevicePolicy=closed
+DeviceAllow=char-input r
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target

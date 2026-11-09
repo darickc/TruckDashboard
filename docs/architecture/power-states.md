@@ -1,6 +1,9 @@
 # Power management
 
-Status: **design**. It is implemented in `services/power-manager` in Phase 6.
+Status: the power-key part is implemented in `services/power-manager`
+(Phase 6.7) **[SIM]**: the state machine below, unit-tested transition by
+transition, and smoke-tested with a fake key device. Not yet run on the Pi. The
+reverse input, day/night and the backlight are still design.
 The electrical behaviour is unverified until it is measured on the bench and in
 the truck (Phase 7).
 

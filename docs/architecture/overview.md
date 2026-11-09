@@ -120,7 +120,7 @@ in Phase 5.
 
 | Unit | User | Notes |
 |---|---|---|
-| `f250-power-manager.service` | dedicated, `gpio` and `input` groups | Starts first. Handles the power key (logind `HandlePowerKey=ignore`), pulse-only. `WatchdogSec` |
+| `f250-power-manager.service` | `f250`, plus the `input` group (and `gpio` with the reverse input) | Handles the power key (logind `HandlePowerKey=ignore`), pulse-only. Powers off by exiting 42 to a root `ExecStopPost`. `WatchdogSec` |
 | `f250-vehicle-gateway.service` | dedicated, CAN access | Socket at `/run/f250/vehicle.sock`. Transmit is disabled unless config opts in |
 | `f250-recorder.service` | dedicated | Writes `/var/lib/f250/` only |
 | `f250-camera-manager.service` | dedicated, `video` group | |

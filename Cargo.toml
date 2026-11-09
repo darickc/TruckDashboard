@@ -10,6 +10,7 @@ members = [
     "crates/sd-notify",
     "services/vehicle-gateway",
     "services/recorder",
+    "services/power-manager",
     "tools/obd-console",
     "tools/can-monitor",
 ]

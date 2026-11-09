@@ -1,0 +1,17 @@
+#!/bin/bash
+# ExecStopPost of f250-power-manager.service (runs as root, the `+` prefix).
+#
+# power-manager exits with status 42 when the power key is pressed after the
+# boot window (services/power-manager, POWER_OFF_EXIT): the DCDC-USB's PSW
+# pulse at key-off, or the Pi's own button. That is the only case that powers
+# off; a crash or a `systemctl stop` doesn't. The same pattern as
+# dashboard-stopped (its Power button).
+#
+# Status: [SIM] (tools/dev/test-agl.sh).
+set -u
+POWER_OFF_EXIT=42
+if [[ "${EXIT_CODE:-}" == exited && "${EXIT_STATUS:-}" == "$POWER_OFF_EXIT" ]]; then
+  echo "power off: the power key, after the boot window"
+  exec systemctl poweroff --no-block
+fi
+exit 0

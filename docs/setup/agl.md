@@ -150,6 +150,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 | 10 | Audio (once the DAC8x is fitted) | Uncomment `dtoverlay=hifiberry-dac8x` in `agl/boot/config-f250.txt`, deploy, reboot; `aplay -l` lists it; `pw-cli ls Node` shows its sink | ADR-0014 on AGL |
 | 11 | NVMe (once the HAT is fitted) | Uncomment `dtparam=pciex1`, deploy, reboot; `lspci` lists the drive's controller; `f250-storage status` shows `nvme0n1` and its health. Then [the data drive](#data-drive-nvme-hat-or-usb-ssd) | H31 |
 | 12 | Bluetooth and the MX+ | After a reboot, `--check` has no Bluetooth warnings; `bluetoothctl show` says `Powered: yes`, `Discoverable: no`. Then [pair the MX+](#bluetooth-and-the-mx) and run `TRANSPORT=obdlink` in the gateway's sandbox | ADR-0023, ADR-0021 §10 |
+| 13 | Power key ([power-manager](../architecture/power-states.md), pulse-only) | `journalctl -u f250-power-manager -b` shows "reading the power key on /dev/input/eventN". Press the Pi's power button within 30 s of power-on: "ignored: inside the boot window". Press it later: "power off: power key after the boot window", and the Pi halts cleanly (`journalctl -b -1` after the next boot). The DCDC-USB's PSW on J2 is the same press once it is wired (H21) | ADR-0013 |
 
 If something fails, collect the evidence before changing anything:
 
@@ -174,7 +175,8 @@ second homescreen app connects to it.
 
 `/etc/default/f250` has the same options as `make pi-run`:
 `TRANSPORT=sim|obdlink|can`, `TRANSMIT=0|1`, `ADAPTER`, `CAN_IF`, `ENABLE`,
-`BUDGET_RPS`, plus `DATA_DRIVE` ([below](#data-drive-nvme-hat-or-usb-ssd)). Edit it on the Pi, then `systemctl restart f250-gateway`. The
+`BUDGET_RPS`, plus `DATA_DRIVE` ([below](#data-drive-nvme-hat-or-usb-ssd)) and the power-manager's
+`BOOT_KEY_IGNORE_S`. Edit it on the Pi, then `systemctl restart f250-gateway` (or the service you changed). The
 same rules as on Raspberry Pi OS apply: without `TRANSMIT=1` the gateway never
 opens the adapter (ADR-0007), and `TRANSPORT=can TRANSMIT=1` needs
 `f250-can active` first ([can.md](can.md)).
@@ -343,5 +345,8 @@ known-good reference: the panel, touch and dashboard worked on it on
   watchdog: `Type=notify`, `WatchdogSec=60` and `30`, keep-alives only while
   their loops make progress ([diagnostic-recovery.md](../architecture/diagnostic-recovery.md)).
 - Booting from NVMe: see [the data drive](#data-drive-nvme-hat-or-usb-ssd).
-- The power key does nothing on AGL (logind ignores it, as planned for the
-  DCDC-USB); shut down with the dashboard's *Power* button or `systemctl poweroff`.
+- The rest of the power-manager: the reverse input, day/night and the
+  backlight. Its first part handles the power key: after the boot window
+  (`BOOT_KEY_IGNORE_S`, 30 s), pressing the Pi's button powers it off, as the
+  DCDC-USB's PSW pulse will. The dashboard's *Power* button still shuts down
+  too, until the DCDC-USB is installed (ADR-0013 decision 5).
