@@ -33,6 +33,7 @@ use super::Outcome;
 use super::isotp::{self, Exchange, Frame};
 use super::obdlink::{DriverEvent, RawOutcome};
 use super::traffic::TrafficLog;
+use crate::config::PinnedAddressing;
 
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
@@ -60,11 +61,13 @@ pub type Opener = Arc<dyn Fn() -> BoxFuture<'static, io::Result<Box<dyn CanBus>>
 /// SocketCAN error class: bus-off (linux/can/error.h `CAN_ERR_BUSOFF`).
 pub const CAN_ERR_BUSOFF: u32 = 0x0000_0040;
 
-/// Timing for one transport instance.
+/// Timing and addressing for one transport instance.
 #[derive(Debug, Clone, Copy)]
 pub struct CanTiming {
     /// How long to collect answers to a functional or unpinned request.
     pub window: Duration,
+    /// Where pinned requests go: the owner's physical ID, or `7DF`.
+    pub pinned: PinnedAddressing,
 }
 
 enum Cmd {
@@ -390,10 +393,19 @@ impl Driver {
     }
 
     async fn obd(&mut self, req: ObdRequest) -> Outcome {
-        let frame = match isotp::request_frame(&req, &self.allow) {
+        let mut frame = match isotp::request_frame(&req, &self.allow) {
             Ok(f) => f,
             Err(reason) => return Outcome::Refused { reason },
         };
+        // A pinned request names its one owner: send it there, and the other
+        // module never hears it, never refuses it, and has nothing left to
+        // say when the next request goes out.
+        if self.timing.pinned == PinnedAddressing::Physical
+            && frame.id == isotp::FUNCTIONAL_ID
+            && let Some(id) = req.expected_responder.and_then(isotp::physical_request_id)
+        {
+            frame.id = id;
+        }
         let mut ex = Exchange::new(&req, self.timing.window);
         if frame.id == isotp::FUNCTIONAL_ID {
             ex = ex.wait_for(self.responders.iter().copied());

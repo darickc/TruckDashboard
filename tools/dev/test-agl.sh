@@ -221,6 +221,8 @@ check "sim"                 "[[ \"\$(gw TRANSPORT=sim)\" == '--listen unix:/run/
 check "obdlink passive"     "[[ \"\$(gw TRANSPORT=obdlink)\" == '--listen unix:/run/f250/vehicle.sock --transport obdlink --signals /opt/f250/share/data/signals --warnings /opt/f250/share/data/warning_rules.json --adapter rfcomm:00:04:3E:85:EA:FC --traffic-log /var/lib/f250/traffic' ]]"
 check "obdlink transmit"    "[[ \"\$(gw TRANSPORT=obdlink TRANSMIT=1)\" == *' --transmit' ]]"
 check "can passive"         "[[ \"\$(gw TRANSPORT=can CAN_IF=can0)\" == '--listen unix:/run/f250/vehicle.sock --transport can --signals /opt/f250/share/data/signals --warnings /opt/f250/share/data/warning_rules.json --can-if can0 --traffic-log /var/lib/f250/traffic' ]]"
+check "pinned: physical by default" "[[ \"\$(gw TRANSPORT=can PINNED=)\" != *--can-pinned* ]]"
+check "pinned on 7DF"       "[[ \"\$(gw TRANSPORT=can PINNED=functional)\" == *' --can-pinned functional'* ]]"
 check "TRANSMIT=0 never transmits" "[[ \"\$(gw TRANSPORT=can TRANSMIT=0)\" != *--transmit* ]]"
 check "can transmit refused without the interface" "! gw TRANSPORT=can TRANSMIT=1 CAN_IF=f250-test-none >/dev/null"
 check "enable and budget"   "[[ \"\$(gw TRANSPORT=sim ENABLE=rpm,trans_temp BUDGET_RPS=8)\" == *'--enable rpm,trans_temp --budget-rps 8' ]]"

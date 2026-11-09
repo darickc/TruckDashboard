@@ -231,6 +231,7 @@ impl Core {
                     .unwrap_or_else(|| crate::transport::can::socket::opener(cfg.can_if.clone()));
                 let timing = CanTiming {
                     window: Duration::from_millis(cfg.can_window_ms),
+                    pinned: cfg.can_pinned,
                 };
                 let (link, rx) =
                     CanLink::spawn(cfg.can_if.clone(), opener, allow_list()?, timing, traffic);

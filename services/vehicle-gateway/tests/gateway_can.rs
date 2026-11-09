@@ -15,7 +15,7 @@ use f250_elm::request::{Addressing, ObdCommand, ObdRequest, ServiceAllowList};
 use f250_proto::vehicle::v1 as pb;
 use fake_can::{FakeBus, r};
 use tokio::sync::mpsc;
-use vehicle_gateway::config::Config;
+use vehicle_gateway::config::{Config, PinnedAddressing};
 use vehicle_gateway::core::Core;
 use vehicle_gateway::transport::Outcome;
 use vehicle_gateway::transport::can::{BusEvent, CAN_ERR_BUSOFF, CanLink, CanTiming};
@@ -24,11 +24,24 @@ use vehicle_gateway::transport::obdlink::DriverEvent;
 const WINDOW: Duration = Duration::from_millis(50);
 
 fn link(bus: &FakeBus) -> (CanLink, mpsc::Receiver<DriverEvent>) {
+    link_pinned(bus, PinnedAddressing::Physical)
+}
+
+/// Pinned requests on 7DF: how the gateway ran until physical addressing
+/// was verified, and still the fallback (`--can-pinned functional`).
+fn link_functional(bus: &FakeBus) -> (CanLink, mpsc::Receiver<DriverEvent>) {
+    link_pinned(bus, PinnedAddressing::Functional)
+}
+
+fn link_pinned(bus: &FakeBus, pinned: PinnedAddressing) -> (CanLink, mpsc::Receiver<DriverEvent>) {
     CanLink::spawn(
         "vcan-test".into(),
         bus.opener(),
         ServiceAllowList::read_only_default(),
-        CanTiming { window: WINDOW },
+        CanTiming {
+            window: WINDOW,
+            pinned,
+        },
         None,
     )
 }
@@ -102,6 +115,56 @@ async fn eot_pinned_returns_as_soon_as_the_pcm_answers() {
         }
         o => panic!("{o:?}"),
     }
+    assert_eq!(bus.sent()[0].id, 0x7E0, "to the PCM only");
+}
+
+/// Pinned requests go to their owner's physical ID (2026-11-08 on the
+/// truck: 7E0 reaches only the PCM, 7E1 only the TCM). The other module never
+/// hears them, so nothing refuses and nothing is waited for.
+#[tokio::test]
+async fn pinned_requests_go_to_their_owner_only() {
+    let bus = FakeBus::truck();
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    // RPM first, as in a normal cycle: both modules are now known.
+    assert!(matches!(link.request(rpm()).await, Outcome::Payload { .. }));
+    for _ in 0..3 {
+        let out = link.request(trans_temp()).await;
+        assert_eq!(value(&out, "7E9"), [0x04, 0x13]);
+        if let Outcome::Payload { latency_ms, .. } = out {
+            assert!(latency_ms < 50, "no refusal to wait for: {latency_ms} ms");
+        }
+        let out = link.request(eot().with_expected_responder(0x7E8)).await;
+        assert_eq!(value(&out, "7E8"), [0x26, 0x91]);
+    }
+    let ids: Vec<u16> = bus.sent().iter().skip(1).map(|f| f.id).collect();
+    assert_eq!(ids, [0x7E1, 0x7E0, 0x7E1, 0x7E0, 0x7E1, 0x7E0]);
+}
+
+/// Unpinned requests stay functional: every module may own the answer.
+#[tokio::test]
+async fn unpinned_requests_stay_on_7df() {
+    let bus = FakeBus::truck();
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    assert!(matches!(link.request(rpm()).await, Outcome::Payload { .. }));
+    assert!(matches!(link.request(eot()).await, Outcome::Payload { .. }));
+    let ids: Vec<u16> = bus.sent().iter().map(|f| f.id).collect();
+    assert_eq!(ids, [0x7DF, 0x7DF]);
+}
+
+#[tokio::test]
+async fn physical_owner_silent_is_no_response() {
+    let bus = FakeBus::truck();
+    bus.on("7E0 0322131000000000", vec![]);
+    let (link, mut ev) = link(&bus);
+    link.connect().await;
+    ready(&mut ev).await;
+    let out = link.request(eot().with_expected_responder(0x7E8)).await;
+    assert!(matches!(out, Outcome::NoResponse { .. }), "{out:?}");
+    assert_eq!(bus.sent()[0].id, 0x7E0);
 }
 
 fn trans_temp() -> ObdRequest {
@@ -152,7 +215,7 @@ async fn a_late_refusal_is_never_read_as_the_next_requests_answer() {
             r(45, 0x7E9, "037F221200000000"),
         ],
     );
-    let (link, mut ev) = link(&bus);
+    let (link, mut ev) = link_functional(&bus);
     link.connect().await;
     ready(&mut ev).await;
     // A normal cycle starts with RPM, which both modules answer: that is
@@ -175,12 +238,16 @@ async fn a_late_refusal_is_never_read_as_the_next_requests_answer() {
         // And the next round's trans temp follows EOT: the TCM's refusal of
         // EOT must not become "the TCM refuses trans temp".
     }
+    assert!(
+        bus.sent().iter().all(|f| f.id == 0x7DF),
+        "functional setting"
+    );
 }
 
 #[tokio::test]
 async fn a_silent_module_costs_one_window_not_a_dropout() {
     let bus = FakeBus::truck();
-    let (link, mut ev) = link(&bus);
+    let (link, mut ev) = link_functional(&bus);
     link.connect().await;
     ready(&mut ev).await;
     assert!(matches!(link.request(rpm()).await, Outcome::Payload { .. }));
@@ -199,13 +266,13 @@ async fn a_silent_module_costs_one_window_not_a_dropout() {
 }
 
 #[tokio::test]
-async fn pinned_owner_silent_is_no_response() {
+async fn pinned_owner_silent_is_no_response_on_7df() {
     let bus = FakeBus::truck();
     bus.on(
         "7DF 0322131000000000",
         vec![r(18, 0x7E9, "037F221200000000")],
     );
-    let (link, mut ev) = link(&bus);
+    let (link, mut ev) = link_functional(&bus);
     link.connect().await;
     ready(&mut ev).await;
     let out = link.request(eot().with_expected_responder(0x7E8)).await;
@@ -399,10 +466,28 @@ async fn polls_eot_and_trans_temp_through_the_registry() {
             f.data[1]
         );
     }
+    // The pinned DIDs went to their owners, never to 7DF.
+    let did = |f: &&vehicle_gateway::transport::isotp::Frame, d: [u8; 3]| f.data[1..4] == d;
+    let to = |d: [u8; 3]| -> Vec<u16> {
+        let mut ids: Vec<u16> = sent.iter().filter(|f| did(f, d)).map(|f| f.id).collect();
+        ids.dedup();
+        ids
+    };
+    assert_eq!(to([0x22, 0x13, 0x10]), [0x7E0], "EOT to the PCM");
+    assert_eq!(to([0x22, 0x16, 0x74]), [0x7E1], "trans temp to the TCM");
     let snap = snaps.borrow().clone();
     let link = snap.link.clone().unwrap();
     assert_eq!(link.machine_state, "POLLING");
     assert!(link.transmit_enabled);
     let eot_state = snap.samples.iter().find(|s| s.signal_id == "eot").unwrap();
     assert_eq!(eot_state.validity, pb::Validity::Valid as i32);
+}
+
+#[test]
+fn pinned_requests_are_physical_unless_asked() {
+    assert_eq!(config(&[]).can_pinned, PinnedAddressing::Physical);
+    assert_eq!(
+        config(&["--can-pinned", "functional"]).can_pinned,
+        PinnedAddressing::Functional
+    );
 }

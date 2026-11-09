@@ -96,7 +96,10 @@ requests on a SocketCAN interface instead of going through an ELM adapter
 ([ADR-0012](../architecture/adr/0012-direct-can-usb-adapter.md)). The same
 `--transmit` opt-in, allow-list, scheduler, recovery, recorder and UI apply.
 `--can-window-ms` (default 50) is how long it collects answers to a request
-not pinned to one responder. The interface itself is set up by
+not pinned to one responder. A pinned request (registry `rx_id`) goes to
+its owner's physical ID instead of `7DF` (`7E8` → `7E0`, `7E9` → `7E1`),
+so the other module never hears it; `--can-pinned functional` keeps it on
+`7DF`. The interface itself is set up by
 `tools/pi/can.sh`, listen-only unless `active`. The bench and truck
 procedure is in [can.md](can.md).
 

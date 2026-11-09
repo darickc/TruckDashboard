@@ -49,6 +49,7 @@ case "$TRANSPORT" in
     args+=(--adapter "$ADAPTER" --traffic-log "$TRAFFIC") ;;
   can)
     args+=(--can-if "$CAN_IF" --traffic-log "$TRAFFIC")
+    [[ -n "${PINNED:-}" ]] && args+=(--can-pinned "$PINNED")
     if [[ "$TRANSMIT" == 1 ]]; then
       if [[ ! -e "/sys/class/net/$CAN_IF" ]]; then
         echo "$CAN_IF does not exist: plug in the CAN adapter, then 'f250-can active'" >&2; exit 1

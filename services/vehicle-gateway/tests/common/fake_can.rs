@@ -84,6 +84,26 @@ impl FakeBus {
                 r(40, 0x7E8, "0562131026910000"),
             ],
         );
+        // The same two DIDs by physical address: only the addressed module
+        // hears them (2026-11-08: answers in 13–39 ms, nothing from the
+        // other module). The values are the ones above.
+        bus.on(
+            "7E1 0322167400000000",
+            vec![r(13, 0x7E9, "0562167404130000")],
+        );
+        bus.on(
+            "7E0 0322131000000000",
+            vec![r(30, 0x7E8, "0562131026910000")],
+        );
+        // And to the wrong module: only it refuses (2026-11-08).
+        bus.on(
+            "7E1 0322131000000000",
+            vec![r(20, 0x7E9, "037F221200000000")],
+        );
+        bus.on(
+            "7E0 0322167400000000",
+            vec![r(32, 0x7E8, "037F223100000000")],
+        );
         // The other default SAE signals, at the values in the 2026-11-03
         // console transcript after the drive (ECT 56 °C, baro 84 kPa, IAT
         // 19 °C, load 35 %, speed 0). Both modules answer ECT there; the

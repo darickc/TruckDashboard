@@ -58,6 +58,14 @@ pub fn is_request_id(id: u16) -> bool {
     id == FUNCTIONAL_ID || PHYSICAL_IDS.contains(&id)
 }
 
+/// The physical request ID of the module that answers on `responder`: ECU n
+/// is addressed on `7E0 + n` and answers on `7E8 + n` (ISO 15765-4 11-bit
+/// OBD IDs). On this truck `7E0`→`7E8` (PCM) and `7E1`→`7E9` (TCM) are
+/// verified [TRUCK] (VERIFICATION_LOG 2026-11-08); the others are not.
+pub fn physical_request_id(responder: u16) -> Option<u16> {
+    RESPONSE_IDS.contains(&responder).then(|| responder - 8)
+}
+
 /// Parse a request ID from an `ATSH`-style header string ("7DF", "7E1").
 fn parse_request_id(header: &str) -> Result<u16, String> {
     let id = u16::from_str_radix(header.trim(), 16)
@@ -445,6 +453,15 @@ mod tests {
     }
 
     /// 2026-11-03, the usual EOT window: the TCM refuses, the PCM answers.
+    #[test]
+    fn physical_request_id_is_the_responder_less_8() {
+        assert_eq!(physical_request_id(0x7E8), Some(0x7E0));
+        assert_eq!(physical_request_id(0x7E9), Some(0x7E1));
+        assert_eq!(physical_request_id(0x7EF), Some(0x7E7));
+        assert_eq!(physical_request_id(0x7E7), None);
+        assert_eq!(physical_request_id(0x7F0), None);
+    }
+
     #[test]
     fn unpinned_waits_the_window_and_keeps_the_positive() {
         let mut ex = Exchange::new(&eot(), W);

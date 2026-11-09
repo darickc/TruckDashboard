@@ -34,6 +34,7 @@ TRANSMIT="${TRANSMIT:-0}"
 CAPTURE="${CAPTURE:-0}"
 ENABLE="${ENABLE:-}"
 BUDGET_RPS="${BUDGET_RPS:-}"
+PINNED="${PINNED:-}"   # can: physical (default) | functional; see /etc/default/f250 on AGL
 SCENARIO="${SCENARIO:-drive_cycle}"
 START="${START:-0}"
 UI="${UI:-1}"
@@ -70,6 +71,7 @@ case "$TRANSPORT" in
     fi ;;
   can)
     gw_args+=(--can-if "$CAN_IF")
+    [[ -n "$PINNED" ]] && gw_args+=(--can-pinned "$PINNED")
     if [[ "$TRANSMIT" == 1 ]]; then
       gw_args+=(--transmit)
       # The gateway can't change the interface mode (that needs root), so say

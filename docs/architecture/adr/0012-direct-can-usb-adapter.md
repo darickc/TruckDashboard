@@ -63,8 +63,15 @@ The plan said Phase 4.5 would use the kernel's ISO-TP sockets (`can-isotp`).
    `7E0` for the PCM, so the other module never sees them) would remove the
    refusals altogether. On this truck `7E0` reaches only the PCM and `7E1`
    only the TCM, for `01 0C` and for `22 13 10` / `22 16 74` `[TRUCK]`
-   (2026-11-08, VERIFICATION_LOG). The gateway still sends pinned requests
-   to `7DF`.
+   (2026-11-08, VERIFICATION_LOG).
+   *Since then, pinned requests go to their owner's physical ID*
+   (`--can-pinned physical`, the default: answers on `7E8` → sent to `7E0`,
+   `7E9` → `7E1`). The other module never hears them, so there is no
+   refusal to wait for. Unpinned requests stay on `7DF`. The registry keeps
+   `tx_id: 0x7DF`, so the MX+ is unchanged (its `ATSH` is still untested).
+   `--can-pinned functional` (`PINNED=functional` in `/etc/default/f250`)
+   restores the waiting behaviour above. Physical pinning is `[SIM]` only
+   until a drive runs it.
 4. **Requests are 8-byte frames padded with 0x00.** The MX+ pads with 0x00
    too (listen-only capture beside it, 2026-11-07).
 5. **Safety stays layered (ADR-0007):**

@@ -17,6 +17,21 @@ pub enum TransportKind {
     Can,
 }
 
+/// Direct CAN: where a pinned request goes (one owner in the registry,
+/// `rx_id`, sent on the functional ID `7DF`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
+pub enum PinnedAddressing {
+    /// To the owner's physical ID (`7E8` answers → sent to `7E0`): the other
+    /// module never hears it, so it never refuses it. `7E0` reaches only the
+    /// PCM and `7E1` only the TCM on this truck, for `22 13 10` and
+    /// `22 16 74` too [TRUCK] (VERIFICATION_LOG 2026-11-08).
+    #[default]
+    Physical,
+    /// On `7DF`, as the registry says, waiting for every module's answer
+    /// (ADR-0012 §3). The fallback, and how the 2026-11-08 drive ran.
+    Functional,
+}
+
 #[derive(Debug, Clone, Parser)]
 #[command(about = "F-250 vehicle gateway: the only process that talks to the truck")]
 pub struct Config {
@@ -56,6 +71,9 @@ pub struct Config {
     /// maximum (UNVERIFIED here; the traffic log measures the real figure).
     #[arg(long, default_value_t = 50)]
     pub can_window_ms: u64,
+    /// CAN: send pinned requests to the owner's physical ID, or on 7DF.
+    #[arg(long, value_enum, default_value = "physical")]
+    pub can_pinned: PinnedAddressing,
     /// Allow diagnostic requests to the vehicle (read-only services only).
     /// Off by default: the gateway stays PASSIVE_ONLY.
     #[arg(long)]

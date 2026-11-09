@@ -282,6 +282,11 @@ TRANSMIT=1
 ENABLE=eot
 ```
 
+EOT then goes to the PCM on `7E0` and trans temp to the TCM on `7E1`, so
+neither module refuses the other's request. If that misbehaves on a drive,
+add `PINNED=functional` and restart the gateway: both go back to `7DF`, as
+on the 2026-11-08 drive.
+
 At boot nothing transmits: `can0` stays down until you switch it, so the
 gateway's requests go nowhere (ADR-007). Each drive, after the engine is
 running:

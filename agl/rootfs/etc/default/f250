@@ -11,6 +11,10 @@ TRANSPORT=sim
 TRANSMIT=0
 ADAPTER=rfcomm:00:04:3E:85:EA:FC
 CAN_IF=can0
+# PINNED     can only. physical (empty: the default): EOT goes to 7E0 and trans
+#            temp to 7E1, so the other module never hears them. functional:
+#            both on 7DF, as on the 2026-11-08 drive (the fallback).
+PINNED=
 # Comma-separated signal ids to enable, and the request budget (empty: defaults)
 ENABLE=
 BUDGET_RPS=
