@@ -415,6 +415,15 @@ check "flutter-auto's HOME is the state directory" "grep -qx 'Environment=HOME=/
 check "dashboard leaves the compositor's IPC alone" "! grep -q '^RemoveIPC=' $U/f250-dashboard.service"
 check "power off runs outside the sandbox" "grep -qx 'ExecStopPost=+/opt/f250/libexec/dashboard-stopped' $U/f250-dashboard.service"
 check "config block is marked"         "[[ \"\$(head -1 agl/boot/config-f250.txt)\" == '# >>> f250'* && \"\$(tail -1 agl/boot/config-f250.txt)\" == '# <<< f250' ]]"
+# Camera switch (ADR-0025): the gpio-key overlay's default key is KEY_POWER, so
+# every line must name its own; the five keys are power-manager's F13-F17, on
+# the wiring doc's pins, none of them the DAC8x's (BCM5, BCM18-27).
+GK="$(grep '^dtoverlay=gpio-key' agl/boot/config-f250.txt)"
+check "camera switch: five gpio-key lines" "[[ \"\$(grep -c . <<<\"\$GK\")\" == 5 ]]"
+check "camera switch: every line sets keycode" "! grep -v ',keycode=' <<<\"\$GK\" | grep -q . && ! grep -q 'keycode=116' <<<\"\$GK\""
+check "camera switch: keys match power-manager" "[[ \"\$(sed -n 's/.*keycode=\\([0-9]*\\).*/\\1/p' <<<\"\$GK\" | sort | tr '\\n' ' ')\" == '183 184 185 186 187 ' ]] && grep -q 'Direction::Left => 183' services/power-manager/src/camera_switch.rs && grep -q 'Direction::Press => 187' services/power-manager/src/camera_switch.rs"
+check "camera switch: pins as wired" "[[ \"\$(sed -n 's/.*gpio=\\([0-9]*\\),.*/\\1/p' <<<\"\$GK\" | sort -n | tr '\\n' ' ')\" == '6 12 13 16 17 ' ]]"
+check "camera switch: pull-ups on" "! grep -v ',gpio_pull=2' <<<\"\$GK\" | grep -q ."
 check "engine pin matches .fvmrc"      "grep -q \"AGL_FLUTTER_VERSION=\$(sed -n 's/.*\"flutter\": *\"\\([^\"]*\\)\".*/\\1/p' .fvmrc)\" agl/configurations/vimba.env"
 
 # Build host (Phase 5.4): the build scripts only run on Linux, and the

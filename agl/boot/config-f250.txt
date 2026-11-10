@@ -25,6 +25,22 @@ dtoverlay=vc4-kms-dsi-7inch,dsi0
 # Uncomment once the HAT is fitted: the overlay claims BCM18-27.
 #dtoverlay=hifiberry-dac8x
 
+# Camera switch (ADR-0024, ADR-0025): five contacts to ground, one gpio-key
+# overlay each. The kernel turns a contact into a key on its own input device;
+# power-manager reads and debounces them. gpio_pull=2 is the pull-up (per the
+# overlay's source); active low is its default. Keys F13-F17, because nothing
+# in the UI acts on them (arrow keys would move its focus).
+# Pins: docs/wiring/power-and-inputs.md#camera-switch; clear of the DAC8x
+# (BCM5, BCM18-27). Never leave out keycode=: the overlay's default is
+# KEY_POWER (116), and a camera press would shut the Pi down. Unconnected
+# pins just sit pulled up. UNVERIFIED on the Pi 5: bench checks 8-9 in the
+# wiring doc, then `journalctl -u f250-power-manager`.
+dtoverlay=gpio-key,gpio=12,keycode=183,label=CAM_LEFT,gpio_pull=2
+dtoverlay=gpio-key,gpio=13,keycode=184,label=CAM_RIGHT,gpio_pull=2
+dtoverlay=gpio-key,gpio=16,keycode=185,label=CAM_BACK,gpio_pull=2
+dtoverlay=gpio-key,gpio=6,keycode=186,label=CAM_FORWARD,gpio_pull=2
+dtoverlay=gpio-key,gpio=17,keycode=187,label=CAM_PRESS,gpio_pull=2
+
 # NVMe HAT on the Pi 5's external PCIe connector. Uncomment once the HAT is
 # fitted: until then it is one more unknown on the first AGL boot. The
 # firmware is reported to turn PCIe on by itself for HAT+ boards with an ID

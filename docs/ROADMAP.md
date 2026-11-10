@@ -260,8 +260,13 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
       presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later
       press (exit 42, `ExecStopPost` as root). Sandboxed unit, watchdog, in `make deploy` and both images.
-      `[BENCH]` 2026-11-09 with the Pi's own button: power off after the window, a press at 12 s ignored. Still to do: the camera switch (ADR-0024), day/night, backlight dimming, the hardware watchdog, and the
-      dashboard's Power button becoming Restart once the DCDC-USB is installed
+      `[BENCH]` 2026-11-09 with the Pi's own button: power off after the window, a press at 12 s ignored.
+      Camera switch read `[SIM]` ([ADR-0025](architecture/adr/0025-camera-switch-through-gpio-key.md)): five `gpio-key`
+      overlays (pull-ups, keys F13–F17) in `config-f250.txt`; power-manager finds them by key bitmap, debounces
+      (`--switch-debounce-ms`, only one contact closed, once per closure) and logs each move. `make agl-test` checks
+      every line names its key (the overlay's default is `KEY_POWER`). Not yet on the Pi (wiring checks 8–9), and
+      passing moves to camera-manager comes with 6.6. Still to do: day/night, backlight dimming, the hardware
+      watchdog, and the dashboard's Power button becoming Restart once the DCDC-USB is installed
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 

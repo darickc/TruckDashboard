@@ -1,4 +1,6 @@
-//! Reading the power key from Linux input devices, with no C library.
+//! Reading keys from Linux input devices, with no C library: the power key,
+//! and the camera switch's contacts (which the `gpio-key` overlay turns into
+//! keys; [camera_switch](crate::camera_switch)).
 //!
 //! An event device (`/dev/input/eventN`) delivers `struct input_event`
 //! records (`linux/input.h`). On 64-bit Linux, the Pi 5's aarch64 included,
@@ -47,6 +49,19 @@ impl Event {
     pub fn is_power_press(&self) -> bool {
         self.kind == EV_KEY && self.code == KEY_POWER && self.value == KEY_PRESSED
     }
+
+    /// A key going down (`Some(true)`) or up (`Some(false)`). Autorepeat and
+    /// every other event are `None`.
+    pub fn key_change(&self) -> Option<bool> {
+        if self.kind != EV_KEY {
+            return None;
+        }
+        match self.value {
+            KEY_PRESSED => Some(true),
+            0 => Some(false),
+            _ => None,
+        }
+    }
 }
 
 /// Whether a sysfs key bitmap (`capabilities/key`) has `code` set.
@@ -67,22 +82,53 @@ pub fn bitmap_has(bitmap: &str, code: u16) -> bool {
 /// The event devices whose key bitmap has `KEY_POWER`, as `/dev/input/eventN`
 /// paths, sorted. `sysfs` is normally `/sys`.
 pub fn find_power_keys(sysfs: &Path) -> Vec<PathBuf> {
+    find_keys(sysfs, &[KEY_POWER])
+        .into_iter()
+        .map(|(path, _)| path)
+        .collect()
+}
+
+/// The event devices whose key bitmap has any of `codes`, as
+/// `/dev/input/eventN` paths with the ones each has, sorted by path.
+pub fn find_keys(sysfs: &Path, codes: &[u16]) -> Vec<(PathBuf, Vec<u16>)> {
     let Ok(entries) = std::fs::read_dir(sysfs.join("class/input")) else {
         return Vec::new();
     };
-    let mut found: Vec<PathBuf> = entries
+    let mut found: Vec<(PathBuf, Vec<u16>)> = entries
         .filter_map(Result::ok)
         .filter_map(|e| {
             let name = e.file_name().into_string().ok()?;
             if !name.starts_with("event") {
                 return None;
             }
-            let bitmap = std::fs::read_to_string(e.path().join("device/capabilities/key")).ok()?;
-            bitmap_has(&bitmap, KEY_POWER).then(|| Path::new("/dev/input").join(name))
+            let path = Path::new("/dev/input").join(name);
+            let has = device_keys(sysfs, &path, codes);
+            (!has.is_empty()).then_some((path, has))
         })
         .collect();
     found.sort();
     found
+}
+
+/// Which of `codes` the event device `device` (`/dev/input/eventN`) has, from
+/// its sysfs key bitmap. Empty if it can't be read.
+pub fn device_keys(sysfs: &Path, device: &Path, codes: &[u16]) -> Vec<u16> {
+    let Some(name) = device.file_name() else {
+        return Vec::new();
+    };
+    let Ok(bitmap) = std::fs::read_to_string(
+        sysfs
+            .join("class/input")
+            .join(name)
+            .join("device/capabilities/key"),
+    ) else {
+        return Vec::new();
+    };
+    codes
+        .iter()
+        .copied()
+        .filter(|&c| bitmap_has(&bitmap, c))
+        .collect()
 }
 
 #[cfg(test)]
@@ -142,6 +188,15 @@ mod tests {
             !Event::parse(&raw(0x04, KEY_POWER, 1)).is_power_press(),
             "EV_MSC"
         );
+    }
+
+    #[test]
+    fn key_changes() {
+        assert_eq!(Event::parse(&raw(EV_KEY, 183, 1)).key_change(), Some(true));
+        assert_eq!(Event::parse(&raw(EV_KEY, 183, 0)).key_change(), Some(false));
+        assert_eq!(Event::parse(&raw(EV_KEY, 183, 2)).key_change(), None);
+        assert_eq!(Event::parse(&raw(0, 0, 0)).key_change(), None);
+        assert_eq!(Event::parse(&raw(0x04, 183, 1)).key_change(), None);
     }
 
     #[test]
@@ -206,6 +261,36 @@ mod tests {
                 PathBuf::from("/dev/input/event10")
             ]
         );
+    }
+
+    #[test]
+    fn finds_gpio_key_devices_by_their_codes() {
+        // One gpio-key overlay instance per contact: each device has one key.
+        // KEY_F13 (183) is bit 55 of word 2; KEY_F17 (187) bit 59.
+        let root = std::env::temp_dir().join(format!("f250-pm-sysfs-sw-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let dev = |name: &str, bitmap: &str| {
+            let d = root
+                .join("class/input")
+                .join(name)
+                .join("device/capabilities");
+            std::fs::create_dir_all(&d).expect("mkdir");
+            std::fs::write(d.join("key"), bitmap).expect("write");
+        };
+        dev("event0", "10000000000000 0\n"); // the power button
+        dev("event3", "80000000000000 0 0\n"); // F13
+        dev("event4", "800000000000000 0 0\n"); // F17
+        let found = find_keys(&root, &[183, 184, 185, 186, 187]);
+        let power = find_power_keys(&root);
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(
+            found,
+            vec![
+                (PathBuf::from("/dev/input/event3"), vec![183]),
+                (PathBuf::from("/dev/input/event4"), vec![187]),
+            ]
+        );
+        assert_eq!(power, vec![PathBuf::from("/dev/input/event0")]);
     }
 
     #[test]

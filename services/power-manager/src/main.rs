@@ -1,6 +1,7 @@
 //! `power-manager`: shut the Pi down on the DCDC-USB's PSW pulse (the power
 //! key), except in the boot window. Pulse-only (ADR-0013); see the library
-//! docs for the rules.
+//! docs for the rules. It also reads the camera switch (ADR-0024, ADR-0025)
+//! and logs each move.
 //!
 //!   power-manager --boot-key-ignore-s 30
 //!   power-manager --dry-run --key-device /dev/input/event0    # bench: log, don't power off
@@ -17,13 +18,17 @@ use std::time::Duration;
 use clap::Parser;
 use f250_sd_notify::{Heartbeat, Notifier, run_watchdog};
 use power_manager::POWER_OFF_EXIT;
-use power_manager::evdev::{EVENT_SIZE, Event, find_power_keys};
+use power_manager::camera_switch::{Debouncer, Direction};
+use power_manager::evdev::{EVENT_SIZE, Event, KEY_POWER, device_keys, find_keys};
 use power_manager::policy::{Action, Input, Policy, State};
 use power_manager::uptime;
 use tokio::sync::mpsc;
+use tokio::time::Instant;
 
 #[derive(Parser)]
-#[command(about = "F-250 power manager: the power key, pulse-only (ADR-0013)")]
+#[command(
+    about = "F-250 power manager: the power key, pulse-only (ADR-0013), and the camera switch"
+)]
 struct Args {
     /// Seconds after the kernel started in which a power-key press is
     /// ignored (the supply's ON pulse). An example value: tune it once H21
@@ -31,10 +36,20 @@ struct Args {
     /// OFFDELAY.
     #[arg(long, default_value_t = 30)]
     boot_key_ignore_s: u64,
-    /// Read only these event devices. Default: every /dev/input/event* whose
-    /// key bitmap has KEY_POWER, rescanned every few seconds.
+    /// Read only these event devices for the power key. Default: every
+    /// /dev/input/event* whose key bitmap has KEY_POWER, rescanned every few
+    /// seconds.
     #[arg(long = "key-device")]
     key_devices: Vec<PathBuf>,
+    /// Read only these event devices for the camera switch. Default: every
+    /// /dev/input/event* with one of its keys (F13-F17, from the gpio-key
+    /// overlays), rescanned every few seconds.
+    #[arg(long = "switch-device")]
+    switch_devices: Vec<PathBuf>,
+    /// How long a camera-switch contact must be the only one closed to
+    /// count. An example value: tune it on the fitted switch (H32).
+    #[arg(long, default_value_t = 30)]
+    switch_debounce_ms: u64,
     /// Where sysfs is (for tests).
     #[arg(long, default_value = "/sys")]
     sysfs: PathBuf,
@@ -43,11 +58,30 @@ struct Args {
     dry_run: bool,
 }
 
+/// What a set of devices is read for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Role {
+    PowerKey,
+    Switch,
+}
+
+impl Role {
+    fn codes(self) -> Vec<u16> {
+        match self {
+            Role::PowerKey => vec![KEY_POWER],
+            Role::Switch => Direction::keycodes().to_vec(),
+        }
+    }
+}
+
 /// What a reader thread reports.
 enum Msg {
-    Opened(PathBuf),
+    Opened(Role, PathBuf),
+    /// A power-key press.
     Press(PathBuf),
-    Gone(PathBuf, String),
+    /// A camera-switch contact closed (`true`) or opened.
+    Contact(Direction, bool),
+    Gone(Role, PathBuf, String),
 }
 
 const TICK: Duration = Duration::from_secs(1);
@@ -55,26 +89,38 @@ const RESCAN: Duration = Duration::from_secs(5);
 
 /// One thread per device: a blocking read never holds up the runtime or the
 /// process's exit.
-fn spawn_reader(path: PathBuf, tx: mpsc::Sender<Msg>) {
+fn spawn_reader(role: Role, path: PathBuf, tx: mpsc::Sender<Msg>) {
     std::thread::spawn(move || {
-        let why = match read_presses(&path, &tx) {
+        let why = match read_events(role, &path, &tx) {
             Ok(()) => "closed".to_string(),
             Err(e) => e.to_string(),
         };
-        let _ = tx.blocking_send(Msg::Gone(path, why));
+        let _ = tx.blocking_send(Msg::Gone(role, path, why));
     });
 }
 
-fn read_presses(path: &Path, tx: &mpsc::Sender<Msg>) -> std::io::Result<()> {
+fn read_events(role: Role, path: &Path, tx: &mpsc::Sender<Msg>) -> std::io::Result<()> {
     let mut f = std::fs::File::open(path)?;
-    if tx.blocking_send(Msg::Opened(path.to_path_buf())).is_err() {
+    if tx
+        .blocking_send(Msg::Opened(role, path.to_path_buf()))
+        .is_err()
+    {
         return Ok(());
     }
     let mut buf = [0u8; EVENT_SIZE];
     loop {
         f.read_exact(&mut buf)?;
-        if Event::parse(&buf).is_power_press()
-            && tx.blocking_send(Msg::Press(path.to_path_buf())).is_err()
+        let event = Event::parse(&buf);
+        let msg = match role {
+            Role::PowerKey => event
+                .is_power_press()
+                .then(|| Msg::Press(path.to_path_buf())),
+            Role::Switch => Direction::from_keycode(event.code)
+                .zip(event.key_change())
+                .map(|(d, closed)| Msg::Contact(d, closed)),
+        };
+        if let Some(msg) = msg
+            && tx.blocking_send(msg).is_err()
         {
             return Ok(());
         }
@@ -82,21 +128,36 @@ fn read_presses(path: &Path, tx: &mpsc::Sender<Msg>) -> std::io::Result<()> {
 }
 
 struct Devices {
+    role: Role,
     fixed: Vec<PathBuf>,
     sysfs: PathBuf,
     /// Readers started and not yet gone.
     started: HashSet<PathBuf>,
-    /// Readers that opened their device.
-    open: HashSet<PathBuf>,
+    /// Readers that opened their device, with the role's keys each has.
+    open: HashMap<PathBuf, Vec<u16>>,
     /// The last error logged per device, so a device that keeps failing
     /// is logged once, not every rescan.
     last_error: HashMap<PathBuf, String>,
 }
 
 impl Devices {
+    fn new(role: Role, fixed: Vec<PathBuf>, sysfs: PathBuf) -> Self {
+        Self {
+            role,
+            fixed,
+            sysfs,
+            started: HashSet::new(),
+            open: HashMap::new(),
+            last_error: HashMap::new(),
+        }
+    }
+
     fn candidates(&self) -> Vec<PathBuf> {
         if self.fixed.is_empty() {
-            find_power_keys(&self.sysfs)
+            find_keys(&self.sysfs, &self.role.codes())
+                .into_iter()
+                .map(|(path, _)| path)
+                .collect()
         } else {
             self.fixed.clone()
         }
@@ -105,32 +166,73 @@ impl Devices {
     fn rescan(&mut self, tx: &mpsc::Sender<Msg>) {
         for path in self.candidates() {
             if self.started.insert(path.clone()) {
-                spawn_reader(path, tx.clone());
+                spawn_reader(self.role, path, tx.clone());
             }
         }
     }
 
-    /// Whether a key device is open, once every started reader has
-    /// answered; `None` while one hasn't.
+    fn opened(&mut self, path: PathBuf) {
+        let keys = device_keys(&self.sysfs, &path, &self.role.codes());
+        self.last_error.remove(&path);
+        self.open.insert(path, keys);
+    }
+
+    fn gone(&mut self, path: &Path, why: String) {
+        if self.last_error.get(path) != Some(&why) {
+            eprintln!("[power-manager] {}: {why}", path.display());
+            self.last_error.insert(path.to_path_buf(), why);
+        }
+        self.started.remove(path);
+        self.open.remove(path);
+    }
+
+    /// Whether a device is open, once every started reader has answered;
+    /// `None` while one hasn't.
     fn settled(&self) -> Option<bool> {
         (self.started.len() == self.open.len()).then_some(!self.open.is_empty())
     }
+
+    /// The switch contacts an open device has. A device given with
+    /// `--switch-device` whose keys sysfs can't tell counts as all five.
+    fn contacts(&self) -> Vec<Direction> {
+        let keys: HashSet<u16> = self.open.values().flatten().copied().collect();
+        let unknown = !self.fixed.is_empty() && self.open.values().any(Vec::is_empty);
+        Direction::ALL
+            .into_iter()
+            .filter(|d| unknown || keys.contains(&d.keycode()))
+            .collect()
+    }
 }
 
-fn describe(policy: &Policy, devices: &Devices) -> String {
-    let keys = devices.open.len();
-    match policy.state() {
+fn names(directions: &[Direction]) -> String {
+    if directions.is_empty() {
+        return "none".to_string();
+    }
+    directions
+        .iter()
+        .map(|d| d.name())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn describe(policy: &Policy, keys: &Devices, switch: &Devices) -> String {
+    let n = keys.open.len();
+    let power = match policy.state() {
         State::Starting => format!(
-            "boot window: power key ignored until {} s after boot ({keys} key device(s))",
+            "boot window: power key ignored until {} s after boot ({n} key device(s))",
             policy.boot_window().as_secs()
         ),
-        State::Running => format!("running: the power key shuts down ({keys} key device(s))"),
+        State::Running => format!("running: the power key shuts down ({n} key device(s))"),
         State::Fault => {
             "FAULT: no power-key device can be read: no clean shutdown, HARDOFF will cut power"
                 .to_string()
         }
         State::ShuttingDown => "shutting down".to_string(),
-    }
+    };
+    format!(
+        "{power}; camera switch: {} of 5 contacts",
+        switch.contacts().len()
+    )
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -155,19 +257,24 @@ async fn main() -> ExitCode {
     let window = Duration::from_secs(args.boot_key_ignore_s);
     let mut policy = Policy::new(window);
     let (tx, mut rx) = mpsc::channel(32);
-    let mut devices = Devices {
-        fixed: args.key_devices.clone(),
-        sysfs: args.sysfs.clone(),
-        started: HashSet::new(),
-        open: HashSet::new(),
-        last_error: HashMap::new(),
-    };
-    devices.rescan(&tx);
+    let mut keys = Devices::new(Role::PowerKey, args.key_devices.clone(), args.sysfs.clone());
+    let mut switch = Devices::new(
+        Role::Switch,
+        args.switch_devices.clone(),
+        args.sysfs.clone(),
+    );
+    keys.rescan(&tx);
+    switch.rescan(&tx);
     let mut had_key = true; // what the policy assumes until told otherwise
-    if devices.started.is_empty() {
+    if keys.started.is_empty() {
         eprintln!("[power-manager] no power-key device found");
         policy.handle(Input::KeyDeviceLost, uptime::since_boot());
         had_key = false;
+    }
+    if switch.started.is_empty() {
+        eprintln!(
+            "[power-manager] no camera-switch device found (the gpio-key overlays in config.txt): the switch isn't read"
+        );
     }
     eprintln!(
         "[power-manager] {}s after boot; presses before {}s are ignored{}",
@@ -179,10 +286,12 @@ async fn main() -> ExitCode {
             ""
         }
     );
-    if let Err(e) = notifier.ready(&describe(&policy, &devices)) {
+    if let Err(e) = notifier.ready(&describe(&policy, &keys, &switch)) {
         eprintln!("[power-manager] systemd READY not sent: {e}");
     }
 
+    let start = Instant::now();
+    let mut debouncer = Debouncer::new(Duration::from_millis(args.switch_debounce_ms));
     let mut tick = tokio::time::interval(TICK);
     let mut rescan = tokio::time::interval(RESCAN);
     let mut term = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
@@ -193,35 +302,52 @@ async fn main() -> ExitCode {
         }
     };
     let mut last_status = String::new();
+    let mut last_contacts: Option<Vec<Direction>> = None;
 
     loop {
+        let switch_due = debouncer.deadline();
         let input = tokio::select! {
             _ = tick.tick() => {
                 heartbeat.beat();
                 Some(Input::Tick)
             }
             _ = rescan.tick() => {
-                devices.rescan(&tx);
+                keys.rescan(&tx);
+                switch.rescan(&tx);
                 None
             }
+            () = async {
+                match switch_due {
+                    Some(due) => tokio::time::sleep_until(start + due).await,
+                    None => std::future::pending().await,
+                }
+            } => None,
             Some(msg) = rx.recv() => match msg {
-                Msg::Opened(path) => {
-                    eprintln!("[power-manager] reading the power key on {}", path.display());
-                    devices.last_error.remove(&path);
-                    devices.open.insert(path);
+                Msg::Opened(role, path) => {
+                    let what = match role {
+                        Role::PowerKey => "the power key",
+                        Role::Switch => "the camera switch",
+                    };
+                    eprintln!("[power-manager] reading {what} on {}", path.display());
+                    match role {
+                        Role::PowerKey => keys.opened(path),
+                        Role::Switch => switch.opened(path),
+                    }
                     None
                 }
                 Msg::Press(path) => {
                     eprintln!("[power-manager] power key on {} at {:.1} s after boot", path.display(), uptime::since_boot().as_secs_f64());
                     Some(Input::Key)
                 }
-                Msg::Gone(path, why) => {
-                    if devices.last_error.get(&path) != Some(&why) {
-                        eprintln!("[power-manager] {}: {why}", path.display());
-                        devices.last_error.insert(path.clone(), why);
+                Msg::Contact(direction, closed) => {
+                    debouncer.contact(direction, closed, start.elapsed());
+                    None
+                }
+                Msg::Gone(role, path, why) => {
+                    match role {
+                        Role::PowerKey => keys.gone(&path, why),
+                        Role::Switch => switch.gone(&path, why),
                     }
-                    devices.started.remove(&path);
-                    devices.open.remove(&path);
                     None
                 }
             },
@@ -231,8 +357,29 @@ async fn main() -> ExitCode {
             }
         };
 
+        if let Some(direction) = debouncer.poll(start.elapsed()) {
+            // Camera-manager (Phase 6.6) takes these; until then, the log.
+            eprintln!("[power-manager] camera switch: {}", direction.name());
+        }
+
+        if switch.settled().is_some() {
+            let contacts = switch.contacts();
+            if last_contacts.as_ref() != Some(&contacts) {
+                let missing: Vec<Direction> = Direction::ALL
+                    .into_iter()
+                    .filter(|d| !contacts.contains(d))
+                    .collect();
+                eprintln!(
+                    "[power-manager] camera switch contacts readable: {}; missing: {}",
+                    names(&contacts),
+                    names(&missing)
+                );
+                last_contacts = Some(contacts);
+            }
+        }
+
         // Key device lost or back, once every reader has answered.
-        let device_input = match devices.settled() {
+        let device_input = match keys.settled() {
             Some(have) if have != had_key => {
                 had_key = have;
                 Some(if have {
@@ -276,7 +423,7 @@ async fn main() -> ExitCode {
             }
         }
 
-        let status = describe(&policy, &devices);
+        let status = describe(&policy, &keys, &switch);
         if status != last_status {
             let _ = notifier.status(&status);
             last_status = status;

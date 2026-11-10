@@ -47,8 +47,11 @@ Priority, highest first:
 
    - Allowed at any speed (owner). `manual_max_speed` is an optional limit,
      off by default.
-   - A contact must be closed for `switch_debounce_ms` (default 30 ms, an
-     example) to count.
+   - A contact must be the only one closed for `switch_debounce_ms` (default
+     30 ms, an example) to count, once per closure. power-manager does this
+     before passing the move on
+     ([ADR-0025](adr/0025-camera-switch-through-gpio-key.md)); camera-manager
+     maps it to a camera and latches it.
    - Moving the switch during reverse records the choice; it shows once
      reverse ends.
 

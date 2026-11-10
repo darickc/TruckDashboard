@@ -67,7 +67,10 @@ which the Pi 5 doesn't have. Part, mounting place and cable length: **TODO**
 | Press | BCM17 | 11 | No camera |
 | Common | GND | 34 or 39 | — |
 
-- The pins are configuration in power-manager, and proposed: they avoid the
+- The pins are proposed, and set in `agl/boot/config-f250.txt`: one
+  `gpio-key` overlay per contact, with the internal pull-up, keys F13–F17
+  ([ADR-0025](../architecture/adr/0025-camera-switch-through-gpio-key.md)).
+  They avoid the
   DAC8x's **BCM18–27** and **BCM5**
   ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md); leave BCM5
   unconnected), the I2C pins and the UART. Header access with the DAC8x
@@ -117,7 +120,7 @@ limit is to be checked (H25).
 | 6 | Pi at full load: `vcgencmd get_throttled` | `0x0` | |
 | 7 | ACC wire on the truck: key on, crank, run, key off, door open | Record the voltage at each step (H22) | |
 | 8 | Each switch line with a meter, Pi powered, switch at rest | 3.3 V on each GPIO, nothing above 3.3 V | |
-| 9 | Each switch direction in turn | Only its own line reads 0 V; once power-manager reads the switch, `journalctl -u f250-power-manager` logs that direction | |
+| 9 | Each switch direction in turn | Only its own line reads 0 V, and `journalctl -u f250-power-manager` logs `camera switch: left` (`right`, `back`, `forward`, `press`) once per press. At start-up it logs `camera switch contacts readable: left, right, back, forward, press` | |
 | 10 | Parked draw after HARDOFF | Well under 1 mA (documented claim) | |
 
 Signed off by: _____ Date: _____

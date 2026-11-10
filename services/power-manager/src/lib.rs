@@ -21,13 +21,19 @@
 //! `ExecStopPost` (run as root) calls `systemctl poweroff`. The service itself
 //! needs no privileges.
 //!
-//! Not in this slice of 6.7: the camera switch (ADR-0024), day/night and the
-//! backlight.
+//! It also reads the camera switch ([`camera_switch`]; ADR-0024, ADR-0025):
+//! five contacts the kernel turns into keys, debounced here, and logged until
+//! camera-manager (Phase 6.6) takes the moves.
 //!
-//! Status: unit-tested `[SIM]`, and `[BENCH]` on the Pi 5 with its own button
-//! (bench-log 2026-11-09): presses after the window power off, a press inside
-//! it is ignored. The DCDC-USB's PSW on J2 isn't wired yet.
+//! Not in this slice of 6.7: day/night and the backlight.
+//!
+//! Status: the power key is unit-tested `[SIM]`, and `[BENCH]` on the Pi 5
+//! with its own button (bench-log 2026-11-09): presses after the window power
+//! off, a press inside it is ignored. The DCDC-USB's PSW on J2 isn't wired
+//! yet. The camera switch is `[SIM]` only: the `gpio-key` overlays haven't run
+//! on the Pi.
 
+pub mod camera_switch;
 pub mod evdev;
 pub mod policy;
 pub mod uptime;

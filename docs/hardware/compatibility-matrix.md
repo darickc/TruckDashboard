@@ -181,6 +181,15 @@ against its own pin labels when it arrives.
 | Temperature, durability | Not stated | U | — |
 | Bench check | Pin labels, a meter on each line at the Pi (wiring checks 8–9), feel by hand | — | [wiring](../wiring/power-and-inputs.md#camera-switch) |
 
+How the Pi reads it ([ADR-0025](../architecture/adr/0025-camera-switch-through-gpio-key.md)):
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| `gpio-key` overlay | Parameters `gpio`, `keycode`, `gpio_pull` (integer: 0 off, 1 down, 2 up; default up), `active_low` (default 1), `label`, `autorepeat`. **Default key 116, `KEY_POWER`** | V | [overlay README and source](https://github.com/raspberrypi/linux/tree/rpi-6.12.y/arch/arm/boot/dts/overlays), `rpi-6.12.y`, read 2026-11-09 |
+| In the AGL image | `overlays/gpio-key.dtbo` in the boot partition of `agl-f250-22.0.1-288d091`, 1428 bytes, the same overrides | V | image files, 2026-11-09 |
+| `gpio-keys` driver | In the AGL kernel: the Pi 5's power button uses it | T | bench-log 2026-11-09 |
+| Pull-up on the Pi 5 (RP1) | The overlay sets `brcm,pull`; that it takes effect on RP1 isn't confirmed | U | — wiring check 8 |
+
 ## CarPiHAT PRO 5 (TJD; sold by The Pi Hut, TPH-106064, and Core Electronics)
 
 > **Not used** ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md),

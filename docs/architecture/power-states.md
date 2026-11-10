@@ -4,7 +4,9 @@ Status: the power-key part is implemented in `services/power-manager`
 (Phase 6.7): the state machine below, unit-tested transition by transition,
 and **[BENCH]** on the Pi 5 with its own button (bench-log 2026-11-09). The
 DCDC-USB's PSW on J2 isn't wired yet. The
-camera switch, day/night and the backlight are still design.
+camera switch is read and debounced, **[SIM]** only
+([ADR-0025](adr/0025-camera-switch-through-gpio-key.md)). Day/night and the
+backlight are still design.
 The electrical behaviour is unverified until it is measured on the bench and in
 the truck (Phase 7).
 

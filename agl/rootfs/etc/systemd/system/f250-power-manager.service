@@ -2,7 +2,9 @@
 # Reads the power key (the DCDC-USB's PSW pulse on J2, or the Pi 5's own
 # button): a press inside the boot window is the supply's ON pulse and is
 # ignored; any later press powers the Pi off. logind ignores the key
-# (logind.conf.d/50-f250-power-key.conf).
+# (logind.conf.d/50-f250-power-key.conf). It also reads the camera switch:
+# the gpio-key overlays in config.txt make its contacts keys F13-F17 on input
+# devices (ADR-0025); each debounced move is logged. [SIM] only so far.
 #
 # The service has no privileges. To power off it exits with status 42, and
 # ExecStopPost (`+`: as root, outside the sandbox) runs `systemctl poweroff`.
