@@ -1457,3 +1457,32 @@ rebuilding anything, and keeps the status bar and critical alerts visible.
 Not shown: glass-to-glass latency, GPU load, three cameras, hiding and
 showing the window without restarting the pipeline (needs a gRPC client), or
 what happens to touches on the camera window.
+
+## 2026-11-09 — Camera rendering spike: glass-to-glass latency of option B [BENCH]
+
+Hardware: as before; the webcam aimed at the Mac's monitor, in a dim room
+Image: AGL 22.0.1, `agl-f250` @ 6114c52, the test activation area in the
+dashboard's `config.toml` as in the entry before
+Setup: `tools/dev/latency-clock.html` full-screen on the Mac (a millisecond
+clock redrawn every display frame, 60 Hz). The webcam filmed it; the Pi
+showed the camera with `v4l2src ! image/jpeg,640x480,30/1 ! jpegdec !
+videoconvert ! waylandsink` in the activation area. The owner photographed
+the Mac and the Pi together with a phone, three times. The Pi reset once
+while being moved (power lost: the previous boot's journal ends with no
+shutdown); everything came back by itself and the camera was restarted.
+
+Result (latency = the Mac's clock minus the clock in the camera picture):
+
+    photo 1   Mac 153.976-153.996 (two clock frames in one exposure),
+              Pi 153.89x                              ->  80-105 ms
+    photo 2   Mac 156.426-156.44x, Pi 156.3?? (last two digits smeared)
+                                                      ->  27-145 ms
+    photo 3   Mac 158.726, Pi 158.6?? (smeared)       ->  27-126 ms
+
+Verdict: about 90 ms glass to glass (one readable photo), and under about
+145 ms in all three. Possibly a little more: the phone's rolling shutter
+reads the Pi (lower in the frame) slightly after the Mac, which makes these
+numbers low by up to its readout time. The webcam's long exposure in dim
+light smears the digits; more light on the clock would sharpen them. This
+is a 30 fps webcam through MJPEG; a truck camera or a capture device will
+differ and needs its own measurement.

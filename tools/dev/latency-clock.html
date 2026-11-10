@@ -1,0 +1,54 @@
+<!doctype html>
+<!--
+  Glass-to-glass latency clock for camera tests (ADR-0009).
+
+  Open this full-screen on a computer or phone. Point the camera under test
+  at it, so the clock also shows on the head unit's screen. Then photograph
+  this clock and the head unit's screen together with a third camera (a
+  phone). Latency = this clock minus the clock in the camera picture.
+
+  The clock redraws once per display frame (16.7 ms at 60 Hz), so one photo
+  is only good to about +-17 ms (plus the camera's exposure). Take at least
+  five photos and use the median. The bars underneath step once per display
+  frame and help read a blurred digit.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Latency Clock</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; }
+  body { display: flex; flex-direction: column; align-items: center;
+         justify-content: center; gap: 4vh; font-family: ui-monospace, Menlo, monospace; }
+  #ms { font-size: min(22vw, 40vh); font-weight: 700; letter-spacing: 0.02em;
+        font-variant-numeric: tabular-nums; line-height: 1; }
+  #bars { display: grid; grid-template-columns: repeat(10, 1fr); gap: 1vw; width: 80vw; }
+  #bars div { height: 6vh; background: #222; }
+  #bars div.on { background: #fff; }
+  p { margin: 0; color: #888; font-size: 2.2vh; }
+</style>
+</head>
+<body>
+<div id="ms">0.000</div>
+<div id="bars"></div>
+<p>seconds.milliseconds since this page opened · bars step once per display frame</p>
+<script>
+  const ms = document.getElementById('ms');
+  const bars = document.getElementById('bars');
+  for (let i = 0; i < 10; i++) bars.appendChild(document.createElement('div'));
+  const t0 = performance.now();
+  let frame = 0;
+  function tick(now) {
+    const t = (now - t0) / 1000;
+    ms.textContent = (t % 1000).toFixed(3).padStart(7, '0');
+    bars.children[(frame + 9) % 10].className = '';
+    bars.children[frame % 10].className = 'on';
+    frame++;
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>

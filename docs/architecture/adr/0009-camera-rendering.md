@@ -1,8 +1,8 @@
 # ADR 0009 — Camera rendering chosen by a measured spike
 
 - **Status:** Proposed. Decided in Phase 6 after measurement. The spike has
-  started: option B measured on the bench (2026-11-09, below); latency and
-  option A still to do
+  started: option B measured on the bench (2026-11-09, below), about 90 ms
+  glass to glass; the owner's verdict on that, and option A, still to do
 - **Date:** 2026-11-01
 
 ## Context
@@ -70,7 +70,10 @@ camera-manager daemon.
 
 **Still to do before deciding:**
 
-1. Glass-to-glass latency for B (LED or stopwatch, filmed with a phone:
-   needs the owner).
+1. ~~Glass-to-glass latency for B.~~ About 90 ms with the webcam (one
+   readable photo of three; all three under about 145 ms), measured with
+   [`tools/dev/latency-clock.html`](../../../tools/dev/latency-clock.html)
+   (bench-log 2026-11-09, "glass-to-glass latency"). Whether that is
+   acceptable is the owner's call.
 2. Whether A is worth building for comparison: it changes the dashboard's
    renderer from Vulkan to GL.
