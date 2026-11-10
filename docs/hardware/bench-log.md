@@ -1359,3 +1359,41 @@ about the ADR-0009 rendering choice, latency, CPU, three cameras on the USB
 bus, or a truck camera (this webcam is a bench stand-in). Before camera-manager
 can use GStreamer, the image needs at least the V4L2 and JPEG plugins
 (gst-plugins-good) and a sink, and the service needs the `video` group.
+
+## 2026-11-09 — GStreamer camera pipelines on image 6114c52 [BENCH]
+
+Hardware: as in the entry before: Pi 5 on the bench, the 7" DSI touchscreen,
+the Logitech C250 webcam on USB 2.0
+Image: AGL 22.0.1, `agl-f250` from meta-f250 @ 6114c52
+(`/etc/f250-release`), flashed fresh by the owner; the dashboard running
+(`f250-dashboard.service`, simulated data)
+Setup: none on the image. Pipelines run from SSH; the `waylandsink` one as
+`agl-driver` (in `video`) with `XDG_RUNTIME_DIR=/run/user/1001
+WAYLAND_DISPLAY=wayland-0`. Screen captured with `agl-screenshooter`.
+
+Result:
+
+    elements  v4l2src, jpegdec, videoconvert, videoscale, appsink,
+              waylandsink, fpsdisplaysink, videotestsrc all present
+              (gst-inspect-1.0 --exists); multifilesink is not (not needed)
+    v4l2-ctl  --list-devices: "UVC Camera (046d:0804)" on /dev/video0
+              (+ /dev/video1 metadata); the Pi's ISP (pispbe) on video20-35
+    MJPEG     v4l2src ! image/jpeg,640x480,30/1 ! jpegdec ! videoconvert !
+              BGRA ! fakesink: 300 buffers in 10.46 s (~29 fps), rc 0
+    YUYV      v4l2src ! video/x-raw,YUY2,640x480,30/1 ! videoconvert !
+              BGRA ! fakesink: 300 buffers in 10.21 s (~29 fps), rc 0
+    frame     v4l2src num-buffers=1 ! image/jpeg ! filesink: a real
+              picture (the ceiling light), 16 kB
+    screen    ... jpegdec ! videoconvert ! waylandsink: agl-compositor made
+              the camera window the active app. It covered the whole
+              800x480 screen, the dashboard's status bar included, with the
+              640x480 picture centred and black bars left and right. When
+              the pipeline ended, the dashboard came back by itself
+
+Verdict: works — the image can capture, decode and show a UVC camera with
+GStreamer alone. Seen in screenshots, not timed: no latency or CPU figure
+yet (the CPU sample failed to catch the pipeline). As a plain xdg-shell app,
+the camera window hides every dashboard alert while it is up, so this is not
+yet an acceptable way to show it: the ADR-0009 spike still has to choose
+between an `agl-shell` surface with alerts drawn on it and a Flutter texture
+fed through `appsink`.

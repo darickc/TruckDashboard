@@ -99,4 +99,7 @@ that keeps alerts visible with acceptable latency.
 - **A UVC webcam works on the AGL image** (Logitech C250, 640×480 at ~30 fps
   in YUYV and MJPEG; [bench-log](../hardware/bench-log.md) 2026-11-09). The
   images from `6114c52` carry `v4l2src`, `jpegdec`, `appsink` and
-  `waylandsink` for the ADR-0009 spike; no pipeline has run on them yet.
+  `waylandsink`. On them the webcam decodes at ~29 fps, and a bare
+  `waylandsink` window goes full-screen over the dashboard and hides its
+  alerts until it closes (bench-log 2026-11-09). That rules out a plain
+  xdg-shell window; the ADR-0009 spike decides between the two options above.
