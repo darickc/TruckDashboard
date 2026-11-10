@@ -1327,3 +1327,35 @@ MX+ needs 12 V on its OBD pins), and an incoming pairing attempt against
 Verdict: ADR-0023 and the power key work on the Pi. A TV remote over
 HDMI-CEC could also power the Pi off, as it would through logind; there is
 no HDMI display in the truck.
+
+## 2026-11-09 — A USB webcam (UVC) on image 288d091 [BENCH]
+
+Hardware: Pi 5 on the bench; Logitech Webcam C250 (`046d:0804`), plugged in
+while running, on a USB 2.0 port (bus 3, high-speed)
+Image: AGL 22.0.1, `agl-f250` from meta-f250 @ 288d091
+(`/etc/f250-release`)
+Setup: none. The image has only the GStreamer core (`gstreamer1.0` 1.28.5:
+no `v4l2src`, no decoders, no video sinks) and no `v4l2-ctl`, so the check
+used a throw-away Python script driving the V4L2 ioctls directly (format
+enumeration, `S_FMT`, four mmap buffers, `STREAMON`, 90 frames), run as root
+and removed afterwards.
+
+Result:
+
+    dmesg     uvcvideo 3-2:1.0: Found UVC 1.00 device <unnamed> (046d:0804)
+              (plus its microphone as a USB audio device)
+    nodes     /dev/video0 capture (root:video 0660), /dev/video1 metadata
+    formats   YUYV and MJPG, each at 640x480, 640x400, 640x360, 352x288,
+              320x240, 176x144, 160x120; 30/25/20/15/10/5 fps
+    MJPG      640x480: 90 frames, first after 388 ms, 26.8 fps over the run
+              by driver timestamps (the 384 ms start-up gap included),
+              13.6 kB per frame; a real picture (the ceiling and its fan)
+    YUYV      640x480: 90 frames, first after 156 ms, 28.9 fps, 614400
+              bytes per frame, luma 71-240
+
+Verdict: works — a UVC camera needs no vendor driver on the AGL kernel, and
+streams 640x480 at about 30 fps in both formats. It does not prove anything
+about the ADR-0009 rendering choice, latency, CPU, three cameras on the USB
+bus, or a truck camera (this webcam is a bench stand-in). Before camera-manager
+can use GStreamer, the image needs at least the V4L2 and JPEG plugins
+(gst-plugins-good) and a sink, and the service needs the `video` group.
