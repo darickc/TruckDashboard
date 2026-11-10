@@ -194,17 +194,30 @@ async fn back_starts_the_rear_camera_and_goes_live_on_frames() {
 }
 
 #[tokio::test]
-async fn forward_closes_the_camera_and_kills_its_pipeline() {
+async fn press_closes_the_camera_and_kills_its_pipeline() {
     let mut r = rig("close", &[(Camera::Rear, "frames")]);
     r.mv(Move::Back).await;
     r.until(SOON, "live", |v| feed(v) == pb::FeedState::Live)
         .await;
     let pid = r.pid("frames").expect("pipeline started");
     assert!(alive(&pid));
-    let v = r.mv(Move::Forward).await;
+    let v = r.mv(Move::Press).await;
     assert_eq!(cam(&v), pb::Camera::Unspecified);
     // The reply comes after the pipeline was stopped and reaped.
-    assert!(!alive(&pid), "pipeline {pid} still running after Forward");
+    assert!(!alive(&pid), "pipeline {pid} still running after Press");
+    r.finish().await;
+}
+
+#[tokio::test]
+async fn forward_shows_the_front_camera() {
+    let mut r = rig("front", &[(Camera::Front, "frames")]);
+    let v = r.mv(Move::Forward).await;
+    assert_eq!(cam(&v), pb::Camera::Front);
+    r.until(SOON, "front live", |v| {
+        cam(v) == pb::Camera::Front && feed(v) == pb::FeedState::Live
+    })
+    .await;
+    assert!(r.pid("frames").is_some());
     r.finish().await;
 }
 

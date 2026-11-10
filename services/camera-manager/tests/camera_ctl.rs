@@ -94,7 +94,13 @@ fn moves_and_views_by_hand() {
         std::thread::sleep(Duration::from_millis(50));
     }
 
+    // Forward is the front camera, which this run has no device for.
     let o = ctl(&to, &["move", "forward"]);
+    assert!(stdout(&o).starts_with("front (switch), "), "{}", stdout(&o));
+    let v = stdout(&ctl(&to, &["view"]));
+    assert!(v.contains("no front camera configured"), "{v}");
+
+    let o = ctl(&to, &["move", "press"]);
     assert_eq!(stdout(&o), "no camera; reverse off");
 }
 

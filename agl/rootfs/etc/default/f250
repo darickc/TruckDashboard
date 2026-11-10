@@ -35,12 +35,17 @@ BOOT_KEY_IGNORE_S=30
 # CAMERA_MANAGER  power-manager: where camera-switch moves go (camera-manager's
 #            f250.camera.v1 API). Default unix:/run/f250-camera/camera.sock,
 #            set in the unit. Set it empty to only log the moves.
-# CAMERA_LEFT, CAMERA_RIGHT, CAMERA_REAR  camera-manager: each camera's V4L2
-#            device. Prefer /dev/v4l/by-id/... (ls -l /dev/v4l/by-id) over
-#            /dev/videoN, which can change between boots. Empty: the camera
-#            shows as unavailable when chosen. The bench webcam (a stand-in,
-#            not a truck camera) was /dev/video0 (bench-log 2026-11-09).
+# CAMERA_FRONT, CAMERA_LEFT, CAMERA_RIGHT, CAMERA_REAR  camera-manager: each
+#            camera's V4L2 device. Use /dev/v4l/by-path/...-video-index0
+#            (ls -l /dev/v4l/by-path): it names the USB port, so a camera's
+#            role follows the port it is plugged into, and identical cameras
+#            (which share a by-id name) stay apart. Not /dev/videoN, which
+#            can change between boots. Empty: the camera shows as unavailable
+#            when chosen. The switch: forward front, left, right, back rear,
+#            press closes. The bench webcam (a stand-in, not a truck camera)
+#            was /dev/video0 (bench-log 2026-11-09).
 #            After editing: systemctl restart f250-camera-manager
+CAMERA_FRONT=
 CAMERA_LEFT=
 CAMERA_RIGHT=
 CAMERA_REAR=

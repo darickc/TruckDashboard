@@ -107,6 +107,7 @@ CameraView viewFromPb(pb.View v) {
     pb.Camera.CAMERA_LEFT => CameraId.left,
     pb.Camera.CAMERA_RIGHT => CameraId.right,
     pb.Camera.CAMERA_REAR => CameraId.rear,
+    pb.Camera.CAMERA_FRONT => CameraId.front,
     _ => null,
   };
   return CameraView(

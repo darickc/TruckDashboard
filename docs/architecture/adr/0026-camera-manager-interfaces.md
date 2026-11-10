@@ -82,7 +82,8 @@ dashboard never touches cameras, and camera-manager owns the V4L2 devices
      (mode 0770) is open to power-manager. `video` for the cameras.
    - Not bound to the compositor: a compositor restart ends the pipeline,
      and decision 4 restarts it.
-   - Cameras come from `CAMERA_LEFT`, `CAMERA_RIGHT` and `CAMERA_REAR` in
+   - Cameras come from `CAMERA_FRONT` (added 2026-11-10, ADR-0024 amended),
+     `CAMERA_LEFT`, `CAMERA_RIGHT` and `CAMERA_REAR` in
      `/etc/default/f250` (`camera-start`), all empty by default: no truck
      camera is chosen yet.
    - Sandboxed like the dashboard (ADR-0021), with two exceptions said in

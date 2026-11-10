@@ -429,6 +429,7 @@ pub fn pb_camera(c: Camera) -> pb::Camera {
         Camera::Left => pb::Camera::Left,
         Camera::Right => pb::Camera::Right,
         Camera::Rear => pb::Camera::Rear,
+        Camera::Front => pb::Camera::Front,
     }
 }
 

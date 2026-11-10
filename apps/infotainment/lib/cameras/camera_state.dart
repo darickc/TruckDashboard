@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 /// What camera-manager shows, as the dashboard needs it (f250.camera.v1,
 /// ADR-0026). The dashboard never touches a camera: camera-manager runs the
 /// pipelines and its own window; this is only what it reports.
-enum CameraId { left, right, rear }
+enum CameraId { front, left, right, rear }
 
 /// Why the camera is up.
 enum CameraReason { reverse, cameraSwitch }
@@ -114,6 +114,7 @@ abstract class CameraSource {
 }
 
 String cameraName(CameraId c) => switch (c) {
+      CameraId.front => 'Front camera',
       CameraId.left => 'Left camera',
       CameraId.right => 'Right camera',
       CameraId.rear => 'Rear camera',

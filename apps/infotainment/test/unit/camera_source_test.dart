@@ -138,6 +138,7 @@ void main() {
             feed: FeedState.live,
             reverse: ReverseStatus.engaged,
             blockedBySpeed: true));
+    expect(viewFromPb(pb.View(camera: pb.Camera.CAMERA_FRONT)).camera, CameraId.front);
     // A camera with no feed state yet reads as starting, never live.
     expect(viewFromPb(pb.View(camera: pb.Camera.CAMERA_RIGHT)).feed, FeedState.starting);
     for (final m in SwitchMove.values) {
@@ -151,8 +152,7 @@ void main() {
       (SwitchMove.left, CameraId.left),
       (SwitchMove.right, CameraId.right),
       (SwitchMove.back, CameraId.rear),
-      (SwitchMove.forward, null),
-      (SwitchMove.back, CameraId.rear),
+      (SwitchMove.forward, CameraId.front),
       (SwitchMove.press, null),
     ]) {
       final v = await sim.move(move);

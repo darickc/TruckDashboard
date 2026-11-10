@@ -122,6 +122,7 @@ pub fn describe_view(view: &pb::View) -> String {
         Ok(pb::Camera::Left) => "left camera",
         Ok(pb::Camera::Right) => "right camera",
         Ok(pb::Camera::Rear) => "rear camera",
+        Ok(pb::Camera::Front) => "front camera",
         _ => return "dashboard".to_string(),
     };
     let feed = match pb::FeedState::try_from(view.feed) {

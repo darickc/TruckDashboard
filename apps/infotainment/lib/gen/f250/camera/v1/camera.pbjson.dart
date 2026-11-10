@@ -23,13 +23,14 @@ const Camera$json = {
     {'1': 'CAMERA_LEFT', '2': 1},
     {'1': 'CAMERA_RIGHT', '2': 2},
     {'1': 'CAMERA_REAR', '2': 3},
+    {'1': 'CAMERA_FRONT', '2': 4},
   ],
 };
 
 /// Descriptor for `Camera`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List cameraDescriptor = $convert.base64Decode(
     'CgZDYW1lcmESFgoSQ0FNRVJBX1VOU1BFQ0lGSUVEEAASDwoLQ0FNRVJBX0xFRlQQARIQCgxDQU'
-    '1FUkFfUklHSFQQAhIPCgtDQU1FUkFfUkVBUhAD');
+    '1FUkFfUklHSFQQAhIPCgtDQU1FUkFfUkVBUhADEhAKDENBTUVSQV9GUk9OVBAE');
 
 @$core.Deprecated('Use switchMoveDescriptor instead')
 const SwitchMove$json = {

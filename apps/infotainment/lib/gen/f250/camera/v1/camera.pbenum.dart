@@ -24,15 +24,20 @@ class Camera extends $pb.ProtobufEnum {
   static const Camera CAMERA_REAR =
       Camera._(3, _omitEnumNames ? '' : 'CAMERA_REAR');
 
+  /// Added 2026-11-10: the switch's forward move shows it by default.
+  static const Camera CAMERA_FRONT =
+      Camera._(4, _omitEnumNames ? '' : 'CAMERA_FRONT');
+
   static const $core.List<Camera> values = <Camera>[
     CAMERA_UNSPECIFIED,
     CAMERA_LEFT,
     CAMERA_RIGHT,
     CAMERA_REAR,
+    CAMERA_FRONT,
   ];
 
   static final $core.List<Camera?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 3);
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
   static Camera? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

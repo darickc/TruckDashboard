@@ -56,11 +56,13 @@ turn signal is on.
    | Left | Left camera |
    | Right | Right camera |
    | Back | Rear camera |
-   | Forward | No camera: back to the previous screen |
+   | Forward | No camera: back to the previous screen. **Amended 2026-11-10 (owner): the front camera** |
    | Press | No camera: back to the previous screen |
 
    The choice is latched until the next move. Forward has its own input so a
-   forward camera can take it later.
+   forward camera can take it later. *2026-11-10: it did. The owner added a
+   front camera (to be recorded with the rear, like a dashcam; recording is
+   a later ADR), and press is now the only way back to the previous screen.*
 2. **A digital switch, not an analog joystick module.** The usual hobby
    joystick is two potentiometers, and the Pi 5 has no ADC. Each switch
    contact closes to ground on its own GPIO, at the Pi's 3.3 V. It is a

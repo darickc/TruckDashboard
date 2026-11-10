@@ -269,7 +269,7 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       power-manager sends each switch move to `Move` `[SIM]` (ADR-0026 decision 6): never blocking, with a
       timeout, dropping moves older than 1 s; 6 tests against a fake camera-manager, and both binaries end to
       end on the Mac. Packaged `[SIM]` (ADR-0026 decision 7): `f250-camera-manager.service` (agl-driver, group
-      f250, video; sandboxed), `camera-start` with `CAMERA_LEFT/RIGHT/REAR` in `/etc/default/f250`, the socket
+      f250, video; sandboxed), `camera-start` with `CAMERA_FRONT/LEFT/RIGHT/REAR` (by-path names) in `/etc/default/f250`, the socket
       at `/run/f250-camera/camera.sock`, the activation area (y 96–416) in the bundle's `config.toml`, and
       `camera-ctl` for moves by hand; in `make deploy` and both images, checked by `make agl-test`. Not yet run on
       the Pi ([agl.md](setup/agl.md) check 14). Dashboard camera mode `[SIM]`: on any tab while camera-manager
@@ -277,8 +277,11 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       the window says starting / unavailable and why, and Left/Rear/Right/Close replace the nav bar; the Cameras
       tab picks a camera and reports reverse and the speed limit; no camera is claimed without camera-manager.
       12 widget tests (geometry pinned to the activation area), the gRPC client against a fake server, and the
-      real camera-manager binary end to end; checked in the browser with the simulated source. Still to do:
-      truck cameras and the reverse decoder
+      real camera-manager binary end to end; checked in the browser with the simulated source. A front
+      camera `[SIM]` (owner, 2026-11-10; ADR-0024 amended): forward shows it, press closes, on the switch, the
+      dashboard's Front button and the Cameras tab. Still to do: truck cameras, the reverse decoder, recording
+      the front and rear (an ADR first: GStreamer in-process, segments, retention settings, data drive only),
+      and camera assignment in a settings screen
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
       presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later

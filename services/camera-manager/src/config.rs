@@ -21,8 +21,10 @@ pub struct Config {
     #[arg(long, default_value = "unix:/tmp/f250/camera.sock")]
     pub listen: String,
 
-    /// A camera and its V4L2 device, e.g. rear=/dev/v4l/by-id/usb-...-video-index0.
-    /// Names: left, right, rear. Repeat for each camera. A camera with no
+    /// A camera and its V4L2 device, e.g.
+    /// rear=/dev/v4l/by-path/platform-...-usb-0:1:1.0-video-index0 (by-path
+    /// follows the USB port, so identical cameras stay apart). Names: front,
+    /// left, right, rear. Repeat for each camera. A camera with no
     /// device shows as unavailable when chosen.
     #[arg(long = "camera", value_name = "NAME=DEVICE", value_parser = parse_camera)]
     pub cameras: Vec<(Camera, String)>,
@@ -107,6 +109,7 @@ pub fn camera_name(c: Camera) -> &'static str {
         Camera::Left => "left",
         Camera::Right => "right",
         Camera::Rear => "rear",
+        Camera::Front => "front",
     }
 }
 
@@ -118,7 +121,12 @@ fn parse_camera(s: &str) -> Result<(Camera, String), String> {
         "left" => Camera::Left,
         "right" => Camera::Right,
         "rear" => Camera::Rear,
-        _ => return Err(format!("unknown camera {name:?}: use left, right or rear")),
+        "front" => Camera::Front,
+        _ => {
+            return Err(format!(
+                "unknown camera {name:?}: use front, left, right or rear"
+            ));
+        }
     };
     if device.is_empty() {
         return Err(format!("no device for {name}"));
@@ -138,14 +146,17 @@ mod tests {
             "rear=/dev/video0",
             "--camera",
             "left=/dev/video2",
+            "--camera",
+            "front=/dev/video4",
         ])
         .expect("valid");
         let s = c.settings();
+        assert_eq!(s.device(Camera::Front), Some("/dev/video4"));
         assert_eq!(s.device(Camera::Rear), Some("/dev/video0"));
         assert_eq!(s.device(Camera::Left), Some("/dev/video2"));
         assert_eq!(s.device(Camera::Right), None);
 
-        for bad in ["front=/dev/video0", "rear", "rear="] {
+        for bad in ["top=/dev/video0", "rear", "rear="] {
             assert!(
                 Config::try_parse_from(["camera-manager", "--camera", bad]).is_err(),
                 "{bad} accepted"

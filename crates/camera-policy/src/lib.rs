@@ -47,10 +47,12 @@ pub enum Camera {
     Left,
     Right,
     Rear,
+    /// Added 2026-11-10 (owner): a front camera, forward on the switch.
+    Front,
 }
 
 impl Camera {
-    pub const ALL: [Camera; 3] = [Camera::Left, Camera::Right, Camera::Rear];
+    pub const ALL: [Camera; 4] = [Camera::Left, Camera::Right, Camera::Rear, Camera::Front];
 
     const fn bit(self) -> u8 {
         1 << self as u8
@@ -111,7 +113,9 @@ impl Default for Config {
             left: Choice::Camera(Camera::Left),
             right: Choice::Camera(Camera::Right),
             back: Choice::Camera(Camera::Rear),
-            forward: Choice::Off,
+            // Forward shows the front camera and press closes (owner,
+            // 2026-11-10; until then forward closed too).
+            forward: Choice::Camera(Camera::Front),
             press: Choice::Off,
         }
     }
@@ -532,11 +536,11 @@ mod tests {
     }
 
     #[test]
-    fn forward_during_reverse_returns_to_the_previous_screen_after_it() {
+    fn press_during_reverse_returns_to_the_previous_screen_after_it() {
         let mut p = auto();
         p.handle(Input::Switch(Move::Left), ms(0));
         reverse(&mut p, true, 1000, 1200);
-        p.handle(Input::Switch(Move::Forward), ms(1300));
+        p.handle(Input::Switch(Move::Press), ms(1300));
         reverse(&mut p, false, 1400, 3500);
         assert_eq!(p.view().camera, None);
     }
@@ -656,14 +660,37 @@ mod tests {
     }
 
     #[test]
-    fn forward_and_press_return_to_the_previous_screen() {
-        for m in [Move::Forward, Move::Press] {
+    fn press_returns_to_the_previous_screen() {
+        let mut p = auto();
+        p.handle(Input::Switch(Move::Right), ms(0));
+        let v = p.handle(Input::Switch(Move::Press), ms(100));
+        assert_eq!(v.camera, None);
+        assert_eq!(v.why, None);
+    }
+
+    #[test]
+    fn each_direction_picks_its_camera_by_default() {
+        for (m, c) in [
+            (Move::Left, Camera::Left),
+            (Move::Right, Camera::Right),
+            (Move::Back, Camera::Rear),
+            (Move::Forward, Camera::Front),
+        ] {
             let mut p = auto();
-            p.handle(Input::Switch(Move::Right), ms(0));
-            let v = p.handle(Input::Switch(m), ms(100));
-            assert_eq!(v.camera, None, "{m:?}");
-            assert_eq!(v.why, None);
+            let v = p.handle(Input::Switch(m), ms(0));
+            assert_eq!(v.camera, Some(c), "{m:?}");
+            assert_eq!(v.why, Some(Why::Switch), "{m:?}");
         }
+    }
+
+    #[test]
+    fn reverse_overrides_the_front_camera_and_it_comes_back_after() {
+        let mut p = auto();
+        p.handle(Input::Switch(Move::Forward), ms(0));
+        let v = reverse(&mut p, true, 1000, 1200);
+        assert_eq!(v.camera, Some(Camera::Rear));
+        reverse(&mut p, false, 1300, 3500);
+        assert_eq!(p.view().camera, Some(Camera::Front));
     }
 
     #[test]

@@ -3,6 +3,7 @@
 //! view as camera-manager reports it.
 //!
 //!   camera-ctl move back          # as if the switch moved back; prints the view
+//!   camera-ctl move press         # close the camera (forward is the front camera)
 //!   camera-ctl view               # the view now
 //!   camera-ctl watch              # every change, until Ctrl-C
 //!   camera-ctl --to unix:/tmp/f250/camera.sock view

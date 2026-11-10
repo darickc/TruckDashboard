@@ -93,10 +93,11 @@ void main() {
     final cams = FakeCameras(up(rearLive));
     await Harness.start(tester, cameras: cams);
     for (final (key, move) in [
+      ('camera-front', SwitchMove.forward),
       ('camera-left', SwitchMove.left),
       ('camera-rear', SwitchMove.back),
       ('camera-right', SwitchMove.right),
-      ('camera-close', SwitchMove.forward),
+      ('camera-close', SwitchMove.press),
     ]) {
       await tester.tap(find.byKey(ValueKey(key)));
       await tester.pump();
@@ -145,6 +146,22 @@ void main() {
     expect(h.textOf('camera-area-detail'), contains("If you can read this, it isn't showing"));
     final area = tester.widget<Container>(find.byKey(const ValueKey('camera-area')));
     expect(area.color, Colors.black);
+  });
+
+  testWidgets('the front camera opens from the Cameras tab and its button', (tester) async {
+    final h = await Harness.start(tester);
+    await h.goTo(AppTab.cameras);
+    await tester.tap(find.byKey(const ValueKey('cameras-open-front')));
+    await tester.pump();
+    expectCameraMode(tester, 'front');
+    expect(h.textOf('camera-strip-name'), 'Front camera');
+    expect(find.text('FRONT CAMERA'), findsOneWidget);
+    final front = tester.widget<TapTarget>(find.byKey(const ValueKey('camera-front')));
+    expect(front.selected, isTrue);
+    await tester.tap(find.byKey(const ValueKey('camera-rear')));
+    await tester.pump();
+    expect(h.textOf('camera-strip-name'), 'Rear camera');
+    await tester.pump(const Duration(seconds: 1)); // the simulated start
   });
 
   testWidgets('reverse is marked as reverse', (tester) async {
@@ -217,7 +234,7 @@ void main() {
 
   testWidgets('camera buttons are at least 60×60', (tester) async {
     await Harness.start(tester, cameras: FakeCameras(up(rearLive)));
-    for (final key in ['camera-left', 'camera-rear', 'camera-right', 'camera-close']) {
+    for (final key in ['camera-front', 'camera-left', 'camera-rear', 'camera-right', 'camera-close']) {
       final size = tester.getSize(find.byKey(ValueKey(key)));
       expect(size.width, greaterThanOrEqualTo(kMinTouch), reason: key);
       expect(size.height, greaterThanOrEqualTo(kMinTouch), reason: key);

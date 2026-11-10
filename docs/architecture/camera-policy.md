@@ -57,7 +57,8 @@ Priority, highest first:
    |---|---|
    | Left / Right | That side's camera |
    | Back | Rear camera |
-   | Forward / Press | No camera: back to the previous screen |
+   | Forward | Front camera (owner, 2026-11-10; until then no camera) |
+   | Press | No camera: back to the previous screen |
 
    - Allowed at any speed (owner). `manual_max_speed` is an optional limit,
      off by default. Set, it hides a chosen camera while the speed is above
@@ -113,8 +114,14 @@ picture.
   vendor driver.
 - CVBS and AHD need capture hardware whose Linux driver works on the AGL kernel
   (6.18). Choose by working driver support, **not** advertised resolution.
-- Up to three cameras at once means checking USB bandwidth. MJPEG or H.264
-  output is preferred.
+- Up to four cameras (front, left, right, rear) means checking USB bandwidth.
+  MJPEG or H.264 output is preferred; a camera that sends H.264 itself would
+  let the front and rear be recorded without the Pi encoding (the Pi 5 has no
+  hardware H.264 encoder).
+- Assign each camera by USB port: `CAMERA_FRONT`, `CAMERA_LEFT`,
+  `CAMERA_RIGHT`, `CAMERA_REAR` in `/etc/default/f250`, each a
+  `/dev/v4l/by-path/...-video-index0` name. Identical cameras share a by-id
+  name, so by-id can't tell them apart; by-path follows the port.
 - **A UVC webcam works on the AGL image** (Logitech C250, 640×480 at ~30 fps
   in YUYV and MJPEG; [bench-log](../hardware/bench-log.md) 2026-11-09). The
   images from `6114c52` carry `v4l2src`, `jpegdec`, `appsink` and

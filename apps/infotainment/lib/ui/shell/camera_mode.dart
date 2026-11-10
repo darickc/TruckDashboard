@@ -126,8 +126,9 @@ class CameraArea extends StatelessWidget {
   }
 }
 
-/// The nav bar's place while a camera shows: the other cameras and Close,
-/// sent to camera-manager as switch moves. They do what the switch does.
+/// The nav bar's place while a camera shows: every camera and Close, sent to
+/// camera-manager as switch moves. They do what the switch does (forward
+/// front, left, back rear, right; press closes).
 class CameraControls extends StatelessWidget {
   const CameraControls({super.key, required this.view});
 
@@ -167,13 +168,15 @@ class CameraControls extends StatelessWidget {
       color: p.surface,
       padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
       child: Row(children: [
+        button('camera-front', 'Front', Icons.arrow_upward_rounded, SwitchMove.forward,
+            selected: view.camera == CameraId.front),
         button('camera-left', 'Left', Icons.arrow_back_rounded, SwitchMove.left,
             selected: view.camera == CameraId.left),
         button('camera-rear', 'Rear', Icons.arrow_downward_rounded, SwitchMove.back,
             selected: view.camera == CameraId.rear),
         button('camera-right', 'Right', Icons.arrow_forward_rounded, SwitchMove.right,
             selected: view.camera == CameraId.right),
-        button('camera-close', 'Close', Icons.close_rounded, SwitchMove.forward),
+        button('camera-close', 'Close', Icons.close_rounded, SwitchMove.press),
       ]),
     );
   }

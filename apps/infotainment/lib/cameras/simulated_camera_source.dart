@@ -6,8 +6,8 @@ import 'camera_state.dart';
 
 /// Stands in for camera-manager in the browser preview and with the in-app
 /// simulator. It follows camera-manager's default switch mapping
-/// (crates/camera-policy: left, right, back pick a camera; forward and press
-/// close it) and reports the feed starting, then live after [startDelay]
+/// (crates/camera-policy: forward, left, right and back pick a camera; press
+/// closes it) and reports the feed starting, then live after [startDelay]
 /// (0.62 s on the bench, bench-log 2026-11-09). There is no picture: the
 /// status says simulated, and the dashboard says so on screen.
 class SimulatedCameraSource implements CameraSource {
@@ -50,6 +50,7 @@ class SimulatedCameraSource implements CameraSource {
       case SwitchMove.back:
         _show(CameraId.rear);
       case SwitchMove.forward:
+        _show(CameraId.front);
       case SwitchMove.press:
         _live?.cancel();
         _set(CameraView.none);

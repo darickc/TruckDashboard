@@ -36,6 +36,7 @@ class CamerasScreen extends StatelessWidget {
                 height: 76,
                 child: Row(children: [
                   for (final (camera, move, icon) in const [
+                    (CameraId.front, SwitchMove.forward, Icons.arrow_upward_rounded),
                     (CameraId.left, SwitchMove.left, Icons.arrow_back_rounded),
                     (CameraId.rear, SwitchMove.back, Icons.arrow_downward_rounded),
                     (CameraId.right, SwitchMove.right, Icons.arrow_forward_rounded),
@@ -50,7 +51,9 @@ class CamerasScreen extends StatelessWidget {
                           child: Column(mainAxisSize: MainAxisSize.min, children: [
                             Icon(icon, size: 28, color: p.text),
                             const SizedBox(height: 2),
-                            Text(cameraName(camera),
+                            Text(cameraName(camera).split(' ').first,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                     fontSize: 18, fontWeight: FontWeight.w700, color: p.text)),
                           ]),
@@ -75,7 +78,7 @@ class CamerasScreen extends StatelessWidget {
                     'Hidden above the speed limit; it shows again when slower.'),
             ],
             _line(p, Icons.gamepad_outlined,
-                'The camera switch does the same. Forward or press closes the camera.'),
+                'The camera switch does the same: forward front, back rear. Press closes.'),
             const Spacer(),
             Text('Not a safety system. Always use the mirrors.',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.advisory)),

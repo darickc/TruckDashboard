@@ -2,9 +2,11 @@
 # ExecStart of f250-camera-manager.service on AGL: camera-manager with the
 # cameras from /etc/default/f250.
 #
-#   CAMERA_LEFT, CAMERA_RIGHT, CAMERA_REAR   V4L2 device of each camera, e.g.
-#       /dev/v4l/by-id/usb-...-video-index0 (stable across reboots, unlike
-#       /dev/videoN). Empty: that camera shows as unavailable when chosen.
+#   CAMERA_FRONT, CAMERA_LEFT, CAMERA_RIGHT, CAMERA_REAR   V4L2 device of each
+#       camera, e.g. /dev/v4l/by-path/platform-...-usb-0:1:1.0-video-index0.
+#       by-path follows the USB port, so identical cameras stay apart and a
+#       camera keeps its role across reboots (unlike /dev/videoN). Empty:
+#       that camera shows as unavailable when chosen.
 #   CAMERA_CAPS   caps and decoder after v4l2src; empty: camera-manager's
 #       default (the bench webcam's 640x480 MJPEG, ADR-0026).
 #
@@ -15,7 +17,7 @@ SOCK="${F250_CAMERA_SOCK:-/run/f250-camera/camera.sock}"
 BIN="${F250_CAMERA_BIN:-/opt/f250/bin/camera-manager}"
 
 args=(--listen "unix:$SOCK")
-for pair in left:CAMERA_LEFT right:CAMERA_RIGHT rear:CAMERA_REAR; do
+for pair in front:CAMERA_FRONT left:CAMERA_LEFT right:CAMERA_RIGHT rear:CAMERA_REAR; do
   name="${pair%%:*}"
   var="${pair#*:}"
   dev="${!var:-}"

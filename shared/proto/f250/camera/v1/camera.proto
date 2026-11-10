@@ -19,6 +19,8 @@ enum Camera {
   CAMERA_LEFT = 1;
   CAMERA_RIGHT = 2;
   CAMERA_REAR = 3;
+  // Added 2026-11-10: the switch's forward move shows it by default.
+  CAMERA_FRONT = 4;
 }
 
 enum SwitchMove {
