@@ -23,8 +23,7 @@
 //!
 //! Which camera a move shows, and latching it, is camera-manager's policy
 //! ([camera-policy.md](../../../docs/architecture/camera-policy.md)).
-//! Passing moves to it comes with camera-manager (Phase 6.6); until then they
-//! are logged.
+//! [`camera_link`](crate::camera_link) passes the moves to it.
 
 use std::time::Duration;
 

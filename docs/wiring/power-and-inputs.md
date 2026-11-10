@@ -120,7 +120,7 @@ limit is to be checked (H25).
 | 6 | Pi at full load: `vcgencmd get_throttled` | `0x0` | |
 | 7 | ACC wire on the truck: key on, crank, run, key off, door open | Record the voltage at each step (H22) | |
 | 8 | Each switch line with a meter, Pi powered, switch at rest | 3.3 V on each GPIO, nothing above 3.3 V | |
-| 9 | Each switch direction in turn | Only its own line reads 0 V, and `journalctl -u f250-power-manager` logs `camera switch: left` (`right`, `back`, `forward`, `press`) once per press. At start-up it logs `camera switch contacts readable: left, right, back, forward, press` | |
+| 9 | Each switch direction in turn | Only its own line reads 0 V, and `journalctl -u f250-power-manager` logs one `camera switch: left` line (`right`, `back`, `forward`, `press`) per press, followed by the view camera-manager answered with, or why it didn't take the move (camera-manager not running is fine for this check). At start-up it logs `camera switch contacts readable: left, right, back, forward, press` | |
 | 10 | Parked draw after HARDOFF | Well under 1 mA (documented claim) | |
 
 Signed off by: _____ Date: _____

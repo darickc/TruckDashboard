@@ -4,7 +4,10 @@
 # ignored; any later press powers the Pi off. logind ignores the key
 # (logind.conf.d/50-f250-power-key.conf). It also reads the camera switch:
 # the gpio-key overlays in config.txt make its contacts keys F13-F17 on input
-# devices (ADR-0025); each debounced move is logged. [SIM] only so far.
+# devices (ADR-0025); each debounced move goes to camera-manager's Move call
+# on CAMERA_MANAGER (ADR-0026), and what became of it is logged. Calls time
+# out; a missing camera-manager never holds up the power key. [SIM] only so
+# far.
 #
 # The service has no privileges. To power off it exits with status 42, and
 # ExecStopPost (`+`: as root, outside the sandbox) runs `systemctl poweroff`.
@@ -29,8 +32,9 @@ Group=f250
 # comes from base-passwd).
 SupplementaryGroups=input
 Environment=BOOT_KEY_IGNORE_S=30
+Environment=CAMERA_MANAGER=unix:/run/f250/camera.sock
 EnvironmentFile=-/etc/default/f250
-ExecStart=/opt/f250/bin/power-manager --boot-key-ignore-s ${BOOT_KEY_IGNORE_S}
+ExecStart=/opt/f250/bin/power-manager --boot-key-ignore-s ${BOOT_KEY_IGNORE_S} --camera-manager ${CAMERA_MANAGER}
 ExecStopPost=+/opt/f250/libexec/power-manager-stopped
 SuccessExitStatus=42
 Restart=on-failure
@@ -40,6 +44,9 @@ RestartSec=2
 # - no PrivateDevices: it reads /dev/input (DeviceAllow below)
 # - no ProcSubset=pid: the boot window is measured from /proc/uptime
 # - no PrivateUsers: the input group must stay mapped
+# AF_UNIX is enough for camera-manager's socket. Connecting needs no write
+# access under ProtectSystem=strict: the recorder reaches the gateway's
+# socket the same way.
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 ProtectSystem=strict

@@ -56,6 +56,22 @@ dashboard never touches cameras, and camera-manager owns the V4L2 devices
    default, so camera-manager doesn't connect to the gateway. When either is
    switched on, it subscribes to the gateway's snapshots; it never asks the
    gateway to transmit.
+6. **power-manager passes each switch move to `Move`** (added 2026-11-10,
+   `services/power-manager/src/camera_link.rs`). The power key comes first,
+   so the link can never hold up power-manager's loop:
+   - Sending never waits: moves go into a queue of four, and a move that
+     finds it full is dropped and logged.
+   - One task makes the calls, each with a timeout (`--camera-call-timeout-ms`,
+     1000 ms, an example).
+   - A move that waited longer than `--camera-move-max-age-ms` (1000 ms, an
+     example) is dropped, not sent, so the camera never changes long after
+     the switch moved.
+   - A failed move isn't retried: the driver moves the switch again.
+   - The connection is lazy, so either service can start first or restart.
+   - power-manager logs what became of each move: the view camera-manager
+     answered with, or why it wasn't taken.
+   - `CAMERA_MANAGER` in the unit (default `unix:/run/f250/camera.sock`) says
+     where; set it empty to only log the moves.
 
 ## Options considered for the pipeline
 
@@ -79,9 +95,14 @@ dashboard never touches cameras, and camera-manager owns the V4L2 devices
   (`waylandsink` sets none) and agl-shell's gRPC; revisit if the start time
   bothers the owner.
 - One camera at a time. A split view would need more.
-- Not in this step: power-manager calling `Move`, the dashboard's camera
-  view, the activation area in the dashboard's `config.toml`, the systemd
-  unit and the image. They follow in Phase 6.6.
+- Not in this step: the dashboard's camera view, the activation area in the
+  dashboard's `config.toml`, camera-manager's systemd unit and the image.
+  They follow in Phase 6.6. Until camera-manager's unit is in the image,
+  power-manager logs each move as not taken.
+- Decision 6 is `[SIM]`: six tests against a fake camera-manager on a unix
+  socket (delivery, absent, restart, slow, old moves, a full queue), and
+  both real binaries end to end on the Mac with switch events written into
+  a FIFO and a fake `gst-launch`.
 
 ## Revisit if
 

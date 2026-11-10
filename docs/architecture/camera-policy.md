@@ -66,9 +66,11 @@ Priority, highest first:
      camera".
    - A contact must be the only one closed for `switch_debounce_ms` (default
      30 ms, an example) to count, once per closure. power-manager does this
-     before passing the move on
-     ([ADR-0025](adr/0025-camera-switch-through-gpio-key.md)); camera-manager
-     maps it to a camera and latches it.
+     before passing the move to camera-manager's `Move` call
+     ([ADR-0025](adr/0025-camera-switch-through-gpio-key.md),
+     [ADR-0026](adr/0026-camera-manager-interfaces.md) decision 6), which maps
+     it to a camera and latches it. A move that can't be delivered within
+     about a second is dropped, never applied late.
    - Moving the switch during reverse records the choice; it shows once
      reverse ends.
 

@@ -49,8 +49,10 @@ forbids `unsafe` code, and it has no `libc` dependency.
    (`--switch-debounce-ms`, 30 ms, an example): a contact counts once it has
    been the only one closed for that long, once per closure. Two closed
    together (a diagonal) count as neither.
-5. Moves are logged until camera-manager exists (Phase 6.6). Mapping a move
-   to a camera and latching it are camera-manager's policy
+5. power-manager passes each move to camera-manager's `Move` call and logs
+   what became of it ([ADR-0026](0026-camera-manager-interfaces.md)
+   decision 6; until 2026-11-10 moves were only logged). Mapping a move to a
+   camera and latching it are camera-manager's policy
    ([camera-policy.md](../camera-policy.md)); power-manager only conditions
    the input.
 

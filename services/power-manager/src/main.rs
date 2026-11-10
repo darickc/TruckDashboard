@@ -1,9 +1,9 @@
 //! `power-manager`: shut the Pi down on the DCDC-USB's PSW pulse (the power
 //! key), except in the boot window. Pulse-only (ADR-0013); see the library
 //! docs for the rules. It also reads the camera switch (ADR-0024, ADR-0025)
-//! and logs each move.
+//! and passes each move to camera-manager (ADR-0026).
 //!
-//!   power-manager --boot-key-ignore-s 30
+//!   power-manager --boot-key-ignore-s 30 --camera-manager unix:/run/f250/camera.sock
 //!   power-manager --dry-run --key-device /dev/input/event0    # bench: log, don't power off
 //!
 //! Powering off is an exit with status 42; the unit's `ExecStopPost` (as root)
@@ -18,6 +18,7 @@ use std::time::Duration;
 use clap::Parser;
 use f250_sd_notify::{Heartbeat, Notifier, run_watchdog};
 use power_manager::POWER_OFF_EXIT;
+use power_manager::camera_link::{self, Link, LinkConfig, NotQueued, Outcome};
 use power_manager::camera_switch::{Debouncer, Direction};
 use power_manager::evdev::{EVENT_SIZE, Event, KEY_POWER, device_keys, find_keys};
 use power_manager::policy::{Action, Input, Policy, State};
@@ -50,6 +51,18 @@ struct Args {
     /// count. An example value: tune it on the fitted switch (H32).
     #[arg(long, default_value_t = 30)]
     switch_debounce_ms: u64,
+    /// camera-manager's API (unix:PATH or tcp:HOST:PORT), which takes the
+    /// camera switch's moves. Without it the moves are only logged.
+    #[arg(long, value_name = "ENDPOINT")]
+    camera_manager: Option<String>,
+    /// How long a call to camera-manager may take, connecting included. An
+    /// example value.
+    #[arg(long, default_value_t = 1000)]
+    camera_call_timeout_ms: u64,
+    /// A move still waiting to be sent after this long is dropped, so the
+    /// camera never changes long after the switch moved. An example value.
+    #[arg(long, default_value_t = 1000)]
+    camera_move_max_age_ms: u64,
     /// Where sysfs is (for tests).
     #[arg(long, default_value = "/sys")]
     sysfs: PathBuf,
@@ -235,6 +248,23 @@ fn describe(policy: &Policy, keys: &Devices, switch: &Devices) -> String {
     )
 }
 
+fn log_outcome(direction: Direction, outcome: Outcome) {
+    let name = direction.name();
+    match outcome {
+        Outcome::Delivered(view) => eprintln!(
+            "[power-manager] camera switch: {name} → {}",
+            camera_link::describe_view(&view)
+        ),
+        Outcome::Failed(why) => {
+            eprintln!("[power-manager] camera switch: {name}: camera-manager didn't take it: {why}")
+        }
+        Outcome::TooOld(waited) => eprintln!(
+            "[power-manager] camera switch: {name}: dropped after waiting {} ms",
+            waited.as_millis()
+        ),
+    }
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
     let args = Args::parse();
@@ -276,6 +306,32 @@ async fn main() -> ExitCode {
             "[power-manager] no camera-switch device found (the gpio-key overlays in config.txt): the switch isn't read"
         );
     }
+    let camera = match &args.camera_manager {
+        None => {
+            eprintln!("[power-manager] no --camera-manager: camera-switch moves are only logged");
+            None
+        }
+        Some(endpoint) => {
+            let cfg = LinkConfig {
+                endpoint: endpoint.clone(),
+                call_timeout: Duration::from_millis(args.camera_call_timeout_ms),
+                max_age: Duration::from_millis(args.camera_move_max_age_ms),
+            };
+            match Link::spawn(cfg, log_outcome) {
+                Ok(link) => {
+                    eprintln!(
+                        "[power-manager] camera-switch moves go to camera-manager at {endpoint}"
+                    );
+                    Some(link)
+                }
+                Err(e) => {
+                    // The power key matters more than the switch: run on.
+                    eprintln!("[power-manager] {e}: camera-switch moves are only logged");
+                    None
+                }
+            }
+        }
+    };
     eprintln!(
         "[power-manager] {}s after boot; presses before {}s are ignored{}",
         uptime::since_boot().as_secs(),
@@ -358,8 +414,21 @@ async fn main() -> ExitCode {
         };
 
         if let Some(direction) = debouncer.poll(start.elapsed()) {
-            // Camera-manager (Phase 6.6) takes these; until then, the log.
-            eprintln!("[power-manager] camera switch: {}", direction.name());
+            match &camera {
+                None => eprintln!("[power-manager] camera switch: {}", direction.name()),
+                // The outcome is logged when the call ends (log_outcome).
+                Some(link) => match link.send(direction) {
+                    Ok(()) => {}
+                    Err(NotQueued::QueueFull) => eprintln!(
+                        "[power-manager] camera switch: {}: dropped, camera-manager is behind",
+                        direction.name()
+                    ),
+                    Err(NotQueued::Closed) => eprintln!(
+                        "[power-manager] camera switch: {}: dropped, the camera-manager link stopped",
+                        direction.name()
+                    ),
+                },
+            }
         }
 
         if switch.settled().is_some() {

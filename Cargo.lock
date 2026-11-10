@@ -961,8 +961,13 @@ name = "power-manager"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "f250-proto",
  "f250-sd-notify",
+ "hyper-util",
  "tokio",
+ "tokio-stream",
+ "tonic",
+ "tower",
 ]
 
 [[package]]

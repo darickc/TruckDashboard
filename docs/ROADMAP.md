@@ -266,7 +266,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       serves `f250.camera.v1` (`WatchView`, `Move`), runs one `gst-launch-1.0` pipeline for the camera on screen,
       counts frames through `identity`, and kills the pipeline (closing its window) when frames stop, retrying
       with a backoff. 11 end-to-end tests against a fake `gst-launch`. Frame counting is UNVERIFIED on the Pi.
-      Still to do: power-manager sending `Move`, the systemd unit and the images, the activation area in the
+      power-manager sends each switch move to `Move` `[SIM]` (ADR-0026 decision 6): never blocking, with a
+      timeout, dropping moves older than 1 s; 6 tests against a fake camera-manager, and both binaries end to
+      end on the Mac. Still to do: camera-manager's systemd unit and the images, the activation area in the
       dashboard's config, the UI's camera view and indicators, truck cameras, and the reverse decoder
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
@@ -275,9 +277,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       `[BENCH]` 2026-11-09 with the Pi's own button: power off after the window, a press at 12 s ignored.
       Camera switch read `[SIM]` ([ADR-0025](architecture/adr/0025-camera-switch-through-gpio-key.md)): five `gpio-key`
       overlays (pull-ups, keys F13–F17) in `config-f250.txt`; power-manager finds them by key bitmap, debounces
-      (`--switch-debounce-ms`, only one contact closed, once per closure) and logs each move. `make agl-test` checks
-      every line names its key (the overlay's default is `KEY_POWER`). Not yet on the Pi (wiring checks 8–9), and
-      passing moves to camera-manager comes with 6.6. Still to do: day/night, backlight dimming, the hardware
+      (`--switch-debounce-ms`, only one contact closed, once per closure) and sends each move to camera-manager
+      (`CAMERA_MANAGER`, ADR-0026). `make agl-test` checks every line names its key (the overlay's default is
+      `KEY_POWER`). Not yet on the Pi (wiring checks 8–9). Still to do: day/night, backlight dimming, the hardware
       watchdog, and the dashboard's Power button becoming Restart once the DCDC-USB is installed
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]

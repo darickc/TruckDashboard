@@ -22,8 +22,9 @@
 //! needs no privileges.
 //!
 //! It also reads the camera switch ([`camera_switch`]; ADR-0024, ADR-0025):
-//! five contacts the kernel turns into keys, debounced here, and logged until
-//! camera-manager (Phase 6.6) takes the moves.
+//! five contacts the kernel turns into keys, debounced here, and passed to
+//! camera-manager's `Move` call ([`camera_link`]; ADR-0026). A slow or
+//! missing camera-manager never holds up the power key.
 //!
 //! Not in this slice of 6.7: day/night and the backlight.
 //!
@@ -31,8 +32,9 @@
 //! with its own button (bench-log 2026-11-09): presses after the window power
 //! off, a press inside it is ignored. The DCDC-USB's PSW on J2 isn't wired
 //! yet. The camera switch is `[SIM]` only: the `gpio-key` overlays haven't run
-//! on the Pi.
+//! on the Pi, and the link to camera-manager is tested against a fake server.
 
+pub mod camera_link;
 pub mod camera_switch;
 pub mod evdev;
 pub mod policy;

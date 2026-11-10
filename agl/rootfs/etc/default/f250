@@ -32,3 +32,6 @@ DATA_DRIVE=0
 #            once H21 measures the ON pulse; keep it shorter than the
 #            supply's OFFDELAY. After editing: systemctl restart f250-power-manager
 BOOT_KEY_IGNORE_S=30
+# CAMERA_MANAGER  power-manager: where camera-switch moves go (camera-manager's
+#            f250.camera.v1 API). Default unix:/run/f250/camera.sock, set in
+#            the unit. Set it empty to only log the moves.
