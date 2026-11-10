@@ -471,9 +471,13 @@ check "images start from the compositor image, not the demo" "grep -qx 'require 
 for i in agl-f250 agl-f250-release; do
   check "$i uses the shared base" "grep -qx 'require agl-f250-base.inc' $IMG/$i.bb"
 done
-for p in f250-system f250-services f250-dashboard weston-ini-conf-flutter bluez5 avahi-daemon rsync; do
+for p in f250-system f250-services f250-dashboard weston-ini-conf-flutter bluez5 avahi-daemon rsync \
+         gstreamer1.0-plugins-good-video4linux2 gstreamer1.0-plugins-good-jpeg \
+         gstreamer1.0-plugins-base-videoconvertscale gstreamer1.0-plugins-base-app \
+         gstreamer1.0-plugins-bad-waylandsink; do
   check "base installs $p" "grep -qx '    $p \\\\' $IMG/agl-f250-base.inc"
 done
+check "camera bench tools only in the dev image" "grep -qx '    v4l-utils \\\\' $IMG/agl-f250.bb && ! grep -q 'v4l-utils\\|videotestsrc\\|debugutilsbad' $IMG/agl-f250-base.inc $IMG/agl-f250-release.bb"
 for feat in allow-empty-password empty-root-password allow-root-login tools-debug tools-profile package-management; do
   check "release drops $feat" "sed -n '/^IMAGE_FEATURES:remove/,/^\"/p' $IMG/agl-f250-release.bb | grep -qx '    $feat \\\\'"
 done

@@ -7,3 +7,11 @@ require agl-f250-base.inc
 SUMMARY = "F-250 head unit image, development (AGL Flutter)"
 
 IMAGE_FEATURES += "package-management"
+
+# Camera bench tools (Phase 6.6): v4l2-ctl and friends, a test pattern
+# source, and fpsdisplaysink for measuring the ADR-0009 pipelines.
+IMAGE_INSTALL += " \
+    v4l-utils \
+    gstreamer1.0-plugins-base-videotestsrc \
+    gstreamer1.0-plugins-bad-debugutilsbad \
+"

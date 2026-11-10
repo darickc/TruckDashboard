@@ -26,6 +26,11 @@ IMAGE_INSTALL += " \
     f250-system \
     f250-services \
     f250-dashboard \
+    gstreamer1.0-plugins-good-video4linux2 \
+    gstreamer1.0-plugins-good-jpeg \
+    gstreamer1.0-plugins-base-videoconvertscale \
+    gstreamer1.0-plugins-base-app \
+    gstreamer1.0-plugins-bad-waylandsink \
 "
 
 # weston-ini-conf-flutter: the compositor's configuration for flutter-auto
@@ -34,6 +39,14 @@ IMAGE_INSTALL += " \
 # (DejaVu) draws it. bluez5: the gateway reaches the MX+ over RFCOMM. rsync:
 # `make deploy` copies with it. avahi-daemon: the Pi answers as
 # raspberrypi5.local (the demo image got avahi only through PipeWire).
+#
+# GStreamer for the cameras (Phase 6.6, camera-policy.md): v4l2src for UVC
+# cameras, jpegdec for their MJPEG, videoconvert/videoscale, and the two
+# sinks the ADR-0009 spike compares: appsink (frames into a Flutter texture)
+# and waylandsink (a surface of its own). The spike's loser leaves the image.
+# The image had only the GStreamer core until then; a UVC webcam already
+# streamed through uvcvideo (bench-log 2026-11-09). Names from the 22.0.1
+# demo image's manifest.
 
 # root's SSH key, from the build host (agl-build.sh puts the file's path in
 # site.conf). Root logs in with it; the release image has no other way in
