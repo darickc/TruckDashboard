@@ -270,7 +270,7 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       timeout, dropping moves older than 1 s; 6 tests against a fake camera-manager, and both binaries end to
       end on the Mac. Packaged `[SIM]` (ADR-0026 decision 7): `f250-camera-manager.service` (agl-driver, group
       f250, video; sandboxed), `camera-start` with `CAMERA_FRONT/LEFT/RIGHT/REAR` (by-path names) in `/etc/default/f250`, the socket
-      at `/run/f250-camera/camera.sock`, the activation area (y 96–416) in the bundle's `config.toml`, and
+      at `/run/f250-camera/camera.sock`, the activation area (x 220, y 44, 580×435 since 2026-11-10: buttons on the left, alerts in the status bar) in the bundle's `config.toml`, and
       `camera-ctl` for moves by hand; in `make deploy` and both images, checked by `make agl-test`. `[BENCH]`
       2026-11-10 with two webcams ([agl.md](setup/agl.md) check 14): live in 0.7 s through the service and its
       sandbox, the picture in the activation area under the dashboard's camera mode, frame counting verified, a

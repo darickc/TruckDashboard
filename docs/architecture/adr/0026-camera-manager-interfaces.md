@@ -96,7 +96,8 @@ dashboard never touches cameras, and camera-manager owns the V4L2 devices
      at run time) and no `ProcSubset=pid` (orc reads `/proc/cpuinfo`).
      Devices: `char-video4linux` only.
    - The dashboard bundle's `config.toml` sets the activation area
-     (ADR-0009): y 96–416, from the dashboard's layout constants; `make
+     (ADR-0009): x 220, y 44, 580×435 since 2026-11-10 (y 96–416 before),
+     from the dashboard's layout constants; `make
      agl-test` checks the two agree.
    - `camera-ctl` (`move back`, `view`, `watch`) sends moves and shows the
      view by hand, for the bench before the switch is wired.

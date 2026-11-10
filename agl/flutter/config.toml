@@ -12,13 +12,20 @@ height = 480
 fullscreen = true
 
 # Where agl-compositor puts every other app's window: camera-manager's camera
-# windows (ADR-0009). Below the status bar (0-44) and the alert banner
-# (44-96), above the nav bar (416-480), so both stay visible over a camera:
-# kStatusBarHeight + kAlertBannerHeight = 96, 480 - 96 - kNavBarHeight = 320
-# (apps/infotainment/lib/ui/theme.dart; make agl-test checks they agree).
-# [BENCH] 2026-11-09 with these numbers (bench-log, rendering spike).
+# windows (ADR-0009). Right of the camera buttons (x 0-220) and below the
+# status bar (y 0-44), which an alert takes over while a camera shows, so
+# alerts stay visible: x = kCameraControlsWidth, y = kStatusBarHeight, the
+# rest of the 800x480 screen less one row (apps/infotainment/lib/ui/theme.dart;
+# make agl-test checks they agree). A 4:3 picture fills it at 580x435. Owner,
+# 2026-11-10: a bigger picture (until then y 96, 800x320, 427x320 for 4:3).
+#
+# One row short of the bottom on purpose: agl-compositor 0.0.24 ignored an
+# area whose bottom edge was the screen's (y 44 + height 436 = 480; also
+# 0/44/800/436) and showed the camera full-screen over the status bar and
+# the buttons. Height 435 is honoured; a right edge at the screen's (x 220 +
+# width 580 = 800) is too. Why: not looked into. [BENCH] 2026-11-10.
 [window_activation_area]
-x = 0
-y = 96
-width = 800
-height = 320
+x = 220
+y = 44
+width = 580
+height = 435

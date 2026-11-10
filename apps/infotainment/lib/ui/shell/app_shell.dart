@@ -21,7 +21,8 @@ import 'status_bar.dart';
 /// The alert banner sits *above* the screen area, outside any screen, so no
 /// screen can hide it. While camera-manager shows a camera, the shell
 /// switches to camera mode (camera_mode.dart) on every tab: the camera's
-/// window covers y 96–416 whatever the dashboard shows.
+/// window covers x 220–800, y 44–480 whatever the dashboard shows, and an
+/// alert takes the status bar's place above it.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -69,19 +70,22 @@ class _AppShellState extends State<AppShell> {
 
   Widget _cameraMode(AppServices s, CameraView view, bool simulated) {
     return Column(children: [
-      const StatusBar(),
-      // The strip is always 52 high here, so the camera area stays where the
-      // compositor puts the window: an alert takes it over, never moves it.
+      // Always 44 high, so the camera area stays where the compositor puts
+      // the window: an alert takes the status bar's place, never moves it.
       SizedBox(
-        height: kAlertBannerHeight,
+        height: kStatusBarHeight,
         child: ListenableBuilder(
           listenable: s.store,
           builder: (context, _) =>
-              s.store.alerts.isEmpty ? CameraStrip(view: view) : const AlertBanner(),
+              s.store.alerts.isEmpty ? const StatusBar() : const AlertBanner(compact: true),
         ),
       ),
-      Expanded(child: CameraArea(view: view, simulated: simulated)),
-      CameraControls(view: view),
+      Expanded(
+        child: Row(children: [
+          CameraControls(view: view),
+          Expanded(child: CameraArea(view: view, simulated: simulated)),
+        ]),
+      ),
     ]);
   }
 

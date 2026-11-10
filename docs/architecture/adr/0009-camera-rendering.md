@@ -30,6 +30,11 @@ its status bar and alert-banner strip, with `[window_activation_area]` in its
 1. **Alerts stay visible by layout.** The status bar and the alert banner's
    strip (y 0–96 at 800×480 today) are never covered. The camera is never
    drawn over them, and they are never drawn over the camera.
+   *Amended 2026-11-10 (owner: a bigger picture):* the strip is gone from
+   camera mode. The window is x 220–800, y 44–479 (580×435, a full 4:3
+   picture); the buttons are a column on the left; an active alert takes
+   the status bar's place (y 0–44) above the window. Alerts are still
+   never covered. [BENCH] on the Pi.
 2. **The camera runs in camera-manager's process,** not the dashboard's. A
    camera or pipeline crash can't take the dashboard down.
 3. **flutter-auto stays as AGL ships it** (Vulkan, no extra plugins).
@@ -51,8 +56,10 @@ needed.
   (`make agl-test`), [SIM] until the next image or deploy.*
 - While a camera shows, the dashboard keeps the alert banner's strip
   reserved even with no alert, and says on screen which camera is showing
-  and why (reverse, the switch). *Done 2026-11-10, [SIM]: camera mode in the
-  dashboard ([camera-policy.md](../camera-policy.md#rendering-adr-0009-accepted-2026-11-09)).*
+  and why (reverse, the switch). *Done 2026-11-10: camera mode in the
+  dashboard ([camera-policy.md](../camera-policy.md#rendering-adr-0009-accepted-2026-11-09));
+  the same day the strip gave way to a bigger picture (decision 1): the
+  highlighted button and the status chip say which camera and why.*
 - camera-manager hides and shows its window with agl-shell's gRPC
   `DeactivateApp`/`ActivateApp` (127.0.0.1:14005) or by closing it, without
   restarting the camera if that is fast enough. Not built or measured yet.

@@ -10,6 +10,13 @@ const kStatusBarHeight = 44.0;
 const kNavBarHeight = 64.0;
 const kAlertBannerHeight = 52.0;
 
+/// Camera mode's button column (shell/camera_mode.dart). The camera window
+/// fills the rest below the status bar: x 220, y 44, 580×435, the
+/// activation area in agl/flutter/config.toml (one row short of the bottom:
+/// the compositor ignores an area that reaches it). make agl-test checks
+/// they agree. 580×435 is a 4:3 picture.
+const kCameraControlsWidth = 220.0;
+
 /// Minimum touch target: 60 px ≈ 11 mm on this panel (docs/safety/assumptions.md).
 const kMinTouch = 60.0;
 

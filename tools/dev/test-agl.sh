@@ -432,15 +432,16 @@ check "camera-manager: watchdog" "grep -qx 'Type=notify' $CM && grep -qx 'Watchd
 check "camera-manager: stops its own pipeline, never a 90 s hang" "grep -qx 'KillMode=mixed' $CM && grep -qx 'TimeoutStopSec=10' $CM"
 check "camera-manager: deployed and built into the image" "grep -q -- '-p camera-manager' tools/dev/deploy.sh && grep -q '/target/release/camera-manager' tools/dev/deploy.sh && grep -q -- '-p camera-manager' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'power-manager camera-manager camera-ctl; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q '/target/release/camera-ctl' tools/dev/deploy.sh"
 check "camera-manager: the image has gst-launch-1.0 (gstreamer1.0)" "grep -qx '    gstreamer1.0 \\\\' agl/meta-f250/recipes-platform/images/agl-f250-base.inc"
-# The camera window's area (ADR-0009) must match the dashboard's layout: below
-# the status bar and alert banner, above the nav bar.
+# The camera window's area (ADR-0009) must match the dashboard's camera mode:
+# right of the button column, below the status bar (where alerts show), and
+# one row short of the bottom: the compositor ignores an area that reaches it
+# (config.toml says more).
 th=apps/infotainment/lib/ui/theme.dart
 sb="$(sed -n 's/^const kStatusBarHeight = \([0-9]*\)\.0;$/\1/p' $th)"
-ab="$(sed -n 's/^const kAlertBannerHeight = \([0-9]*\)\.0;$/\1/p' $th)"
-nb="$(sed -n 's/^const kNavBarHeight = \([0-9]*\)\.0;$/\1/p' $th)"
-check "activation area: theme constants read" "[[ -n '$sb' && -n '$ab' && -n '$nb' ]]"
+cw="$(sed -n 's/^const kCameraControlsWidth = \([0-9]*\)\.0;$/\1/p' $th)"
+check "activation area: theme constants read" "[[ -n '$sb' && -n '$cw' ]]"
 sed -n '/^\[window_activation_area\]$/,$p' agl/flutter/config.toml | grep -v '^#' >"$T/area.toml"
-check "activation area below the alert banner, above the nav bar" "in_order '$T/area.toml' '[window_activation_area]' 'x = 0' 'y = $((sb + ab))' 'width = 800' 'height = $((480 - sb - ab - nb))'"
+check "activation area right of the camera buttons, below the status bar" "in_order '$T/area.toml' '[window_activation_area]' 'x = $cw' 'y = $sb' 'width = $((800 - cw))' 'height = $((480 - sb - 1))'"
 check "recorder has no network or devices" "grep -qx 'PrivateNetwork=yes' $U/f250-recorder.service && grep -qx 'PrivateDevices=yes' $U/f250-recorder.service && grep -qx 'RestrictAddressFamilies=AF_UNIX' $U/f250-recorder.service"
 check "dashboard reaches only the GPU" "grep -qx 'DevicePolicy=closed' $U/f250-dashboard.service && [[ \"\$(grep -c '^DeviceAllow=' $U/f250-dashboard.service)\" == 1 ]] && grep -qx 'DeviceAllow=char-drm rw' $U/f250-dashboard.service"
 check "dashboard has no network" "grep -qx 'PrivateNetwork=yes' $U/f250-dashboard.service && grep -qx 'RestrictAddressFamilies=AF_UNIX' $U/f250-dashboard.service"

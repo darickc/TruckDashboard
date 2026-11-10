@@ -37,10 +37,16 @@ CameraStatus up(CameraView view) => CameraStatus(link: CameraLink.up, view: view
 const rearLive = CameraView(
     camera: CameraId.rear, reason: CameraReason.cameraSwitch, feed: FeedState.live);
 
-/// The camera area must be exactly where the compositor puts camera-manager's
-/// window (agl/flutter/config.toml: x 0, y 96, 800×320; make agl-test checks
-/// that file against the same constants).
-const cameraWindow = Rect.fromLTWH(0, 96, 800, 320);
+/// The camera area must cover where the compositor puts camera-manager's
+/// window (agl/flutter/config.toml: x 220, y 44, 580×435, one row short of
+/// the bottom; make agl-test checks that file against the same constants).
+const cameraWindow = Rect.fromLTWH(220, 44, 580, 436);
+
+/// The status bar, or the alert bar in its place: always above the window.
+const topBar = Rect.fromLTWH(0, 0, 800, 44);
+
+bool selected(WidgetTester tester, String key) =>
+    tester.widget<TapTarget>(find.byKey(ValueKey(key))).selected;
 
 void main() {
   setUpAll(loadTestAssets);
@@ -49,7 +55,8 @@ void main() {
 
   void expectCameraMode(WidgetTester tester, String why) {
     expect(rectOf(tester, 'camera-area'), cameraWindow, reason: why);
-    expect(rectOf(tester, 'camera-controls'), const Rect.fromLTWH(0, 416, 800, 64), reason: why);
+    expect(rectOf(tester, 'camera-controls'), const Rect.fromLTWH(0, 44, 220, 436), reason: why);
+    expect(find.byKey(const ValueKey('camera-strip')), findsNothing, reason: '$why: no strip');
     expect(find.byKey(const ValueKey('nav-home')), findsNothing, reason: '$why: nav bar replaced');
     expect(tester.takeException(), isNull, reason: why);
   }
@@ -64,9 +71,8 @@ void main() {
     await tester.pump();
     expectCameraMode(tester, 'starting');
     expect(h.textOf('camera-area-title'), 'Starting rear camera…');
-    expect(h.textOf('camera-strip-name'), 'Rear camera');
-    expect(rectOf(tester, 'camera-strip'), const Rect.fromLTWH(0, 44, 800, 52));
     expect(find.text('REAR CAMERA'), findsOneWidget, reason: 'status bar chip');
+    expect(selected(tester, 'camera-rear'), isTrue);
 
     await tester.pump(const Duration(milliseconds: 700));
     expectCameraMode(tester, 'live');
@@ -79,7 +85,8 @@ void main() {
     await h.services.cameras.move(SwitchMove.left);
     await tester.pump();
     expectCameraMode(tester, 'from gauges');
-    expect(h.textOf('camera-strip-name'), 'Left camera');
+    expect(find.text('LEFT CAMERA'), findsOneWidget);
+    expect(selected(tester, 'camera-left'), isTrue);
 
     // Close goes back to the tab the driver was on.
     await tester.tap(find.byKey(const ValueKey('camera-close')));
@@ -109,7 +116,8 @@ void main() {
     expect(left.selected, isFalse);
   });
 
-  testWidgets('an alert takes the strip, the camera area never moves', (tester) async {
+  testWidgets('an alert takes the status bar, above the camera; the area never moves',
+      (tester) async {
     final h = await Harness.start(tester, scenario: 'link_loss', cameras: FakeCameras(up(rearLive)));
     await h.advance(const Duration(seconds: 5));
     expect(find.byKey(const ValueKey('alert-banner')), findsNothing);
@@ -118,11 +126,12 @@ void main() {
     await h.advance(const Duration(seconds: 95));
     expect(find.byKey(const ValueKey('alert-banner')), findsOneWidget);
     expect(h.textOf('alert-title'), 'Vehicle data lost');
-    expect(rectOf(tester, 'alert-banner'), const Rect.fromLTWH(0, 44, 800, 52));
-    expect(find.byKey(const ValueKey('camera-strip')), findsNothing);
+    expect(rectOf(tester, 'alert-banner'), topBar);
+    expect(rectOf(tester, 'alert-banner').overlaps(cameraWindow), isFalse);
     expectCameraMode(tester, 'with alert');
-    // The camera stays named in the status bar.
-    expect(find.text('REAR CAMERA'), findsOneWidget);
+    // The camera stays marked by its button; the simulated data by SIM.
+    expect(selected(tester, 'camera-rear'), isTrue);
+    expect(find.text('SIM'), findsOneWidget);
   });
 
   testWidgets('an unavailable camera says why and to use the mirrors', (tester) async {
@@ -154,13 +163,12 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('cameras-open-front')));
     await tester.pump();
     expectCameraMode(tester, 'front');
-    expect(h.textOf('camera-strip-name'), 'Front camera');
     expect(find.text('FRONT CAMERA'), findsOneWidget);
     final front = tester.widget<TapTarget>(find.byKey(const ValueKey('camera-front')));
     expect(front.selected, isTrue);
     await tester.tap(find.byKey(const ValueKey('camera-rear')));
     await tester.pump();
-    expect(h.textOf('camera-strip-name'), 'Rear camera');
+    expect(find.text('REAR CAMERA'), findsOneWidget);
     await tester.pump(const Duration(seconds: 1)); // the simulated start
   });
 
@@ -171,7 +179,8 @@ void main() {
             reason: CameraReason.reverse,
             feed: FeedState.live,
             reverse: ReverseStatus.engaged))));
-    expect(find.byKey(const ValueKey('camera-strip-reverse')), findsOneWidget);
+    expect(find.text('REVERSE'), findsOneWidget);
+    expect(selected(tester, 'camera-rear'), isTrue);
   });
 
   testWidgets('without camera-manager the dashboard claims no camera', (tester) async {

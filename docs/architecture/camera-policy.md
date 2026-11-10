@@ -86,22 +86,26 @@ the screen or app that was showing before reverse.
 ## Rendering ([ADR-0009](adr/0009-camera-rendering.md), accepted 2026-11-09)
 
 camera-manager shows the camera in its own `waylandsink` window. The
-dashboard's `config.toml` sets an activation area below its status bar and
-alert-banner strip, and agl-compositor keeps every app window inside it, so
-alerts stay visible above the camera. About 90 ms glass to glass with a USB
-webcam, 5 % of one core [BENCH]. The dashboard keeps the banner strip
-reserved while a camera shows, and the "Camera unavailable" panel is the
-dashboard's, drawn in the same area when camera-manager reports no frames.
+dashboard's `config.toml` sets an activation area right of its camera
+buttons and below its status bar, and agl-compositor keeps every app window
+inside it, so alerts stay visible above the camera. About 90 ms glass to
+glass with a USB webcam, 5 % of one core [BENCH]. The "Camera unavailable"
+panel is the dashboard's, drawn in the same area when camera-manager reports
+no frames.
 
-The dashboard's side ([SIM], `apps/infotainment/lib/ui/shell/camera_mode.dart`):
-while camera-manager reports a camera, every tab gives way to camera mode.
+The dashboard's side (`apps/infotainment/lib/ui/shell/camera_mode.dart`,
+[BENCH] 2026-11-10): while camera-manager reports a camera, every tab gives
+way to camera mode (owner, 2026-11-10: the biggest picture, no camera strip).
 
-| Rows (px) | What |
+| Region (px) | What |
 |---|---|
-| 0–44 | Status bar, with the camera's name (it stays named under an alert) |
-| 44–96 | The camera strip: which camera and why (SWITCH or REVERSE). An active alert takes the strip; it never moves the camera area |
-| 96–416 | The camera area, under camera-manager's window: "Starting…", "unavailable" with camera-manager's reason, or, while live, a note that shows only if the window isn't there |
-| 416–480 | Left, Rear, Right and Close in place of the nav bar: the same moves as the switch |
+| y 0–44, full width | Status bar, with the camera's name (or REVERSE). While an alert is active it takes this bar's place, with a SIM mark on simulated data: above the camera, never under it |
+| y 44–480, x 0–220 | Front, Left, Rear, Right and Close, about 85 px tall each: the same moves as the switch. The current camera's button is highlighted |
+| y 44–479, x 220–800 | The camera window, 580×435 (a 4:3 picture fills it). Under it, the dashboard's area: "Starting…", "unavailable" with camera-manager's reason, or, while live, a note that shows only if the window isn't there |
+
+The window stops one row short of the bottom: agl-compositor 0.0.24 ignored
+an activation area reaching the screen's bottom edge and showed the camera
+full-screen ([bench-log](../hardware/bench-log.md) 2026-11-10).
 
 Without camera-manager (the stream drops) the dashboard claims no camera:
 it shows its screens and a CAMERAS OFFLINE chip. The browser preview and the

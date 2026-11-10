@@ -1595,3 +1595,36 @@ estimate (94 Mbit/s, 42 GB/hour at 1080p): recording it as-is costs no CPU
 but a 250 GB budget would hold about 3 hours of front and rear. Showing a
 1080p camera costs about 42 % of one core to decode, so a camera's display
 stream should be small.
+
+## 2026-11-10 — A bigger camera picture: buttons on the left, alerts in the status bar [BENCH]
+
+Hardware and image: as in the entry before (two webcams, `agl-f250` @
+6114c52 with `make deploy`)
+Setup: the owner asked for a bigger picture: the camera buttons as a column
+on the left, no camera strip. Camera mode now: the status bar (or an
+active alert in its place) at y 0–44; Front/Left/Rear/Right/Close in x
+0–220; the camera window right of them. Each activation area below was set
+in the bundle's `config.toml` and the compositor restarted (the dashboard
+comes back with it); the rear camera was then shown and screenshotted
+
+Result:
+
+    x/y/width/height      bottom edge   window
+    220/44/580/436        480           ignored: the camera full-screen over
+                                        the status bar and the buttons
+    0/44/800/436          480           ignored, the same
+    220/96/580/320        416           honoured: right of the buttons
+    220/44/580/435        479           honoured: the picture fills 580x435
+    220/44/580/420        464           honoured
+
+    final     220/44/580/435 in agl/flutter/config.toml, deployed: the rear
+              webcam fills the right side; the buttons and status bar stay
+              uncovered; with the gateway on ficm_sag the critical
+              "FICM low" alert, with its SIM mark, took the status bar
+              above the live picture
+
+Verdict: agl-compositor 0.0.24 ignores an activation area whose bottom edge
+is the screen's (y + height = 480), though a right edge at the screen's
+(x + width = 800) is fine; why is not looked into. One row short works.
+A 4:3 picture is now 580x435 instead of 427x320 (1.85 times the area),
+and alerts still show above a live camera.

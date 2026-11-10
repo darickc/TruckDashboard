@@ -27,8 +27,17 @@ Color linkColor(LinkState s, Palette p) => switch (s) {
 List<Widget> _cameraChip(CameraStatus c, Palette p) {
   final camera = c.camera;
   final (String? text, Color color) = switch (c.link) {
-    CameraLink.up when camera != null =>
-      ('${camera.name.toUpperCase()} CAMERA', c.view?.feed == FeedState.unavailable ? p.critical : p.accent),
+    CameraLink.up when camera != null => (
+        // Reverse always shows the rear camera; the word says why.
+        c.view?.reason == CameraReason.reverse
+            ? 'REVERSE'
+            : '${camera.name.toUpperCase()} CAMERA',
+        c.view?.feed == FeedState.unavailable
+            ? p.critical
+            : c.view?.reason == CameraReason.reverse
+                ? p.advisory
+                : p.accent
+      ),
     CameraLink.down => ('CAMERAS OFFLINE', p.advisory),
     _ => (null, p.textDim),
   };
