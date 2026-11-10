@@ -149,7 +149,8 @@ sections "Power button", "Power supply", "Universal Serial Bus (USB)" and
 |---|---|---|---|
 | J2 | "Located between the RTC battery connector and the board edge." Takes a **normally-open momentary switch bridging the two pads**. Briefly closing it does the same as the onboard power button | V | Power button |
 | J2 pad polarity, debounce | Not documented | U | — measure ([H21](open-questions.md)) |
-| Press while running | Raspberry Pi OS Lite: one press starts a shutdown. With the desktop, a menu appears (press again, or press twice quickly). On AGL, logind's `HandlePowerKey` decides; power-manager sets it to `ignore` and handles the key itself | V (RPi OS) / U (AGL) | Power button |
+| Press while running | Raspberry Pi OS Lite: one press starts a shutdown. With the desktop, a menu appears (press again, or press twice quickly). On AGL, logind's `HandlePowerKey` decides; power-manager sets it to `ignore` and handles the key itself | V (RPi OS) / T (AGL) | Power button; bench-log 2026-11-09 |
+| Input device on AGL 22.0.1 | `pwr_button` (`/dev/input/event4` on the bench), `KEY_POWER`. The HDMI ports' CEC inputs (`vc4-hdmi-0/1`) report `KEY_POWER` too | T | bench-log 2026-11-09 |
 | Press while halted but powered | "Restarts the board" | V | Power button |
 | Press and hold | Forces a hard shutdown. **No duration is given** | V / U (duration) | Power button |
 | Boots when power is applied | Stated for the first power-up. The docs don't say so for later power-ups. `WAIT_FOR_POWER_BUTTON` (default 0) with `POWER_OFF_ON_HALT=1` would instead wait for the button | V / U | Power button, bootloader config |

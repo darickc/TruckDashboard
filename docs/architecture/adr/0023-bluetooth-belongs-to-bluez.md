@@ -1,8 +1,9 @@
 # ADR 0023 — Bluetooth belongs to BlueZ, not connman
 
-- **Status:** Accepted ([SIM] only: `tools/dev/test-agl.sh`, and read against
-  the connman 2.0 and BlueZ 5.86 sources of the 22.0.1 build. Not yet run on
-  the Pi)
+- **Status:** Accepted. [BENCH] 2026-11-09 on image 288d091: connmand runs
+  without its Bluetooth plugin, the controller is unblocked, powered, not
+  discoverable and not pairable, and Wi-Fi still joins and rejoins the
+  hotspot (bench-log). Not yet: pairing the MX+
 - **Date:** 2026-11-09
 - **Refines:** [ADR-0021](0021-trimmed-dev-and-release-images.md)
 
@@ -85,9 +86,9 @@ The drop-in takes effect at the next reboot.
 
 - `connmanctl technologies` no longer lists Bluetooth. Turn Bluetooth on or
   off with `bluetoothctl power on|off`.
-- The release image's Bluetooth is powered but not discoverable. Whether
-  BlueZ accepts an incoming pairing with no agent registered is
-  **UNVERIFIED**. Phase 6.1's controlled pairing window decides that policy.
+- Bluetooth is powered but not discoverable. With no agent registered,
+  `bluetoothctl show` reports `Pairable: no` ([BENCH] 2026-11-09); whether
+  that refuses an incoming pairing attempt is still **UNVERIFIED**. Phase 6.1's controlled pairing window decides that policy.
   Until then, pair the MX+ from the Pi (`bluetoothctl`, outgoing), as on
   Raspberry Pi OS.
 - When connman is upgraded, check its `ExecStart` again: the drop-in

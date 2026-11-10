@@ -1,8 +1,9 @@
 # Power management
 
 Status: the power-key part is implemented in `services/power-manager`
-(Phase 6.7) **[SIM]**: the state machine below, unit-tested transition by
-transition, and smoke-tested with a fake key device. Not yet run on the Pi. The
+(Phase 6.7): the state machine below, unit-tested transition by transition,
+and **[BENCH]** on the Pi 5 with its own button (bench-log 2026-11-09). The
+DCDC-USB's PSW on J2 isn't wired yet. The
 camera switch, day/night and the backlight are still design.
 The electrical behaviour is unverified until it is measured on the bench and in
 the truck (Phase 7).

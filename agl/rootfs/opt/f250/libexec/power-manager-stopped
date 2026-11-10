@@ -7,7 +7,7 @@
 # off; a crash or a `systemctl stop` doesn't. The same pattern as
 # dashboard-stopped (its Power button).
 #
-# Status: [SIM] (tools/dev/test-agl.sh).
+# Status: [BENCH] (bench-log 2026-11-09).
 set -u
 POWER_OFF_EXIT=42
 if [[ "${EXIT_CODE:-}" == exited && "${EXIT_STATUS:-}" == "$POWER_OFF_EXIT" ]]; then

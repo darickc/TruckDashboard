@@ -1268,3 +1268,62 @@ Not covered: the truck's answers to the gateway's own physical polls (only
 `obd-console raw` has had them so far, VERIFICATION_LOG 2026-11-08) and a
 drive. To go back: `PINNED=functional` in `/etc/default/f250`, or restore
 the `*.df61324` files.
+
+## 2026-11-09 — Image 288d091: Bluetooth on, make deploy onto a built image, the power key [BENCH]
+
+Hardware: the bench Pi 5 and 7" DSI panel, Ethernet and the owner's phone
+hotspot. No CAN adapter, no MX+ powered, no vehicle.
+Image: `build/agl/agl-f250-22.0.1-288d091.wic` (the development image),
+flashed by the owner. Checked over SSH from the dev Mac as root (key auth;
+the re-flashed card's new host key cleared with `ssh-keygen -R`).
+
+Result:
+    first boot     f250-grow-root grew root to 6.9 GB (5.8 GB free);
+                   `systemctl is-system-running`: running
+    --check        all checks passed (0 warnings), with the new Bluetooth
+                   section and power-manager's binary and unit
+    Bluetooth      connmand runs `-n --noplugin=bluetooth`; rfkill0
+                   (bluetooth) soft=0 hard=0; `bluetoothctl show`: Powered
+                   yes, PowerState on, Discoverable no, Pairable no
+                   (ADR-0023). systemd-rfkill keeps a state file per switch
+    Wi-Fi          `connmanctl enable wifi` + `scan wifi`: 10 networks. The
+                   owner joined the hotspot (wlan0 10.238.106.42); it
+                   rejoined by itself after each of the three reboots below
+    make deploy    `SKIP_BUILD=1 make deploy PI=raspberrypi5.local` onto the
+                   built image (first time on a meta-f250 image): all eight
+                   stage1-setup steps, no errors; the only change was
+                   config.toml (rsync --delete removes it, step 6 puts it
+                   back, same content). Services, dashboard and --check fine
+                   afterwards.
+                   **Found:** 139 files under /opt/f250 and the bundle were
+                   owned by the Mac's uid/gid (561676754): rsync -a as root
+                   keeps the sender's numeric owner; `rpm -V
+                   f250-dashboard` flagged them. Fixed in deploy.sh (-rlpt,
+                   then chown root:root); a second deploy left 0 such files
+    power-manager  reads three KEY_POWER devices: event0 and event2
+                   (vc4-hdmi-0/1, the HDMI ports' CEC inputs) and event4
+                   (`pwr_button`, the Pi 5's button). Boot window measured
+                   from /proc/uptime inside the sandbox ("7s after boot")
+      dry run      `power-manager --dry-run --boot-key-ignore-s 0` (service
+                   stopped): three presses of the onboard button logged on
+                   event4 at 105.3, 125.4 and 128.2 s
+      power off    a press at 279 s: "power off: power key after the boot
+                   window", power-manager-stopped "power off: the power key,
+                   after the boot window", systemd-shutdown synced and
+                   powered off (journalctl -b -1)
+      boot window  booted with the button; a press at 12.2 s after boot:
+                   "ignored: inside the boot window (the supply's ON
+                   pulse)"; the Pi stayed on
+    dashboard      its Power tab (confirm) powered off through
+                   dashboard-stopped, as before: "power off: requested from
+                   the dashboard"
+
+Not covered: the DCDC-USB's PSW pulse on J2 (not bought; the onboard
+button stands in for it, which the Raspberry Pi docs say J2 duplicates),
+pairing the MX+ and the `obdlink` transports in the gateway's sandbox (the
+MX+ needs 12 V on its OBD pins), and an incoming pairing attempt against
+`Pairable: no`.
+
+Verdict: ADR-0023 and the power key work on the Pi. A TV remote over
+HDMI-CEC could also power the Pi off, as it would through logind; there is
+no HDMI display in the truck.

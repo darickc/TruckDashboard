@@ -12,7 +12,8 @@
 # overridden in /etc/default/f250. Keep it shorter than the DCDC-USB's
 # OFFDELAY, or a quick key cycle's off-pulse is ignored.
 #
-# Status: [SIM]. Not yet run on the Pi.
+# Status: [BENCH] on image 288d091 with the Pi's own button (bench-log
+# 2026-11-09). The DCDC-USB's PSW on J2 isn't wired yet.
 [Unit]
 Description=F-250 power manager (power key, pulse-only)
 

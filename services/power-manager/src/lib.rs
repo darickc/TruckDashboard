@@ -24,8 +24,9 @@
 //! Not in this slice of 6.7: the camera switch (ADR-0024), day/night and the
 //! backlight.
 //!
-//! Status: `[SIM]`. The policy, the event parsing and the device discovery are
-//! unit-tested; nothing has run on the Pi.
+//! Status: unit-tested `[SIM]`, and `[BENCH]` on the Pi 5 with its own button
+//! (bench-log 2026-11-09): presses after the window power off, a press inside
+//! it is ignored. The DCDC-USB's PSW on J2 isn't wired yet.
 
 pub mod evdev;
 pub mod policy;

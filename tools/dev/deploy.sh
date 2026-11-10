@@ -18,8 +18,8 @@
 #   /usr/share/flutter/f250_infotainment/<flutter>/release/
 #                               flutter_assets, libapp.so, flutter-version
 #
-# Status: the build [SIM] (run on the Mac); the copy and setup not yet run
-# against the AGL image.
+# Status: [BENCH] against the prebuilt image (bench-log 2026-11-06) and a
+# meta-f250 image (2026-11-09).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -100,17 +100,22 @@ deploy() {
     || die "$PI runs Flutter engine $ver; the bundle was built with $(cat "$OUT/bundle/flutter-version")"
 
   say "Copy to $PI"
+  # -rlpt is -a without owner, group and devices: run as root on the Pi, -a
+  # kept the Mac's numeric user and group on every file (seen 2026-11-09, 139
+  # files on a meta-f250 image). The chown below also repairs earlier deploys.
+  RSYNC=(-rlpt)
   ssh "$PI" "mkdir -p /opt/f250/bin /opt/f250/share/agl /opt/f250/share/data /usr/share/flutter/$APP_ID/$ver/release"
-  rsync -a "$OUT/bin/" "$PI:/opt/f250/bin/"
-  rsync -a tools/pi/can.sh "$PI:/opt/f250/bin/f250-can"
-  rsync -a agl/scripts/storage.sh "$PI:/opt/f250/bin/f250-storage"
+  rsync "${RSYNC[@]}" "$OUT/bin/" "$PI:/opt/f250/bin/"
+  rsync "${RSYNC[@]}" tools/pi/can.sh "$PI:/opt/f250/bin/f250-can"
+  rsync "${RSYNC[@]}" agl/scripts/storage.sh "$PI:/opt/f250/bin/f250-storage"
   # The gateway's runtime data (agl/rootfs/opt/f250/libexec/gateway-start).
-  rsync -a --delete shared/signals/ "$PI:/opt/f250/share/data/signals/"
-  rsync -a --delete simulator/powerstroke/scenarios/ "$PI:/opt/f250/share/data/scenarios/"
-  rsync -a apps/infotainment/assets/config/warning_rules.json "$PI:/opt/f250/share/data/"
-  rsync -a --delete agl/ "$PI:/opt/f250/share/agl/"
+  rsync "${RSYNC[@]}" --delete shared/signals/ "$PI:/opt/f250/share/data/signals/"
+  rsync "${RSYNC[@]}" --delete simulator/powerstroke/scenarios/ "$PI:/opt/f250/share/data/scenarios/"
+  rsync "${RSYNC[@]}" apps/infotainment/assets/config/warning_rules.json "$PI:/opt/f250/share/data/"
+  rsync "${RSYNC[@]}" --delete agl/ "$PI:/opt/f250/share/agl/"
   # --delete removes the engine links and config.toml; stage1-setup puts them back.
-  rsync -a --delete "$OUT/bundle/" "$PI:/usr/share/flutter/$APP_ID/$ver/release/"
+  rsync "${RSYNC[@]}" --delete "$OUT/bundle/" "$PI:/usr/share/flutter/$APP_ID/$ver/release/"
+  ssh "$PI" "chown -R root:root /opt/f250/bin /opt/f250/share /usr/share/flutter/$APP_ID/$ver/release"
 
   say "Set up (agl/scripts/stage1-setup.sh)"
   ssh -t "$PI" /opt/f250/share/agl/scripts/stage1-setup.sh

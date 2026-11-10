@@ -228,7 +228,8 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       Bluetooth was off: connman held the controller rfkill-blocked. Fixed `[SIM]`
       ([ADR-0023](architecture/adr/0023-bluetooth-belongs-to-bluez.md)): connman runs without its Bluetooth plugin
       and BlueZ powers the controller; `stage1-setup.sh` clears the saved block and `--check` reports it.
-      Not yet on the Pi.
+      `[BENCH]` 2026-11-09 on 288d091: powered, not discoverable, Wi-Fi unaffected. MX+ pairing still to do.
+      `make deploy` onto a meta-f250 image `[BENCH]` 2026-11-09 (it left the Mac's uid on files; fixed)
       Root fills the card on the first boot ([ADR-0022](architecture/adr/0022-grow-root-on-first-boot.md):
       `f250-grow-root.service`, sfdisk + partx + systemd-growfs). `[BENCH]` 2026-11-08: the release image from
       7f9fa37 grew root from 851 MB to 7.0 GB (6.2 GB free) on the 7.3 GB card on its first boot, and changed
@@ -258,8 +259,8 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
       presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later
-      press (exit 42, `ExecStopPost` as root). Sandboxed unit, watchdog, in `make deploy` and both images. Not yet
-      on the Pi. Still to do: the camera switch (ADR-0024), day/night, backlight dimming, the hardware watchdog, and the
+      press (exit 42, `ExecStopPost` as root). Sandboxed unit, watchdog, in `make deploy` and both images.
+      `[BENCH]` 2026-11-09 with the Pi's own button: power off after the window, a press at 12 s ignored. Still to do: the camera switch (ADR-0024), day/night, backlight dimming, the hardware watchdog, and the
       dashboard's Power button becoming Restart once the DCDC-USB is installed
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]

@@ -10,6 +10,10 @@ recorder and dashboard on it. No Yocto build.
 > Not run yet: checks 10–11 (they wait for the DAC8x and NVMe HATs), the data
 > drive, and the fallback procedure in section 6. Record each step that works
 > on the Pi in the bench log.
+>
+> **2026-11-09 (image 288d091):** check 13 (power key) passes **[BENCH]**, and
+> check 12's Bluetooth half does: powered, not discoverable. Pairing the MX+
+> still waits for 12 V on its OBD pins ([bench-log](../hardware/bench-log.md)).
 
 > **⚠ Vehicle bus:** the stock AGL image puts any CAN interface in normal mode
 > at 500 kbit/s, so the adapter would ACK on the truck's bus, and it runs a
@@ -65,9 +69,9 @@ Flash either one the same way. It already has the services, the dashboard and
 Stage 1's settings, so skip section 4: after the first boot (which grows
 root to fill the card, [ADR-0022](../architecture/adr/0022-grow-root-on-first-boot.md)),
 `/opt/f250/share/agl/scripts/stage1-setup.sh --check` passes with nothing
-deployed **[BENCH]** (bench-log 2026-11-08). The paths are Stage 1's, so
-`make deploy` should update it in place, but that hasn't been tried on a
-meta-f250 image: it reruns `stage1-setup.sh` over the image's files.
+deployed **[BENCH]** (bench-log 2026-11-08). `make deploy` updates it in
+place **[BENCH]** (2026-11-09); it reruns `stage1-setup.sh` over the image's
+files.
 
 ## 3. First boot and SSH
 
