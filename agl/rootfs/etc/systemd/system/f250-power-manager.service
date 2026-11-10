@@ -32,7 +32,7 @@ Group=f250
 # comes from base-passwd).
 SupplementaryGroups=input
 Environment=BOOT_KEY_IGNORE_S=30
-Environment=CAMERA_MANAGER=unix:/run/f250/camera.sock
+Environment=CAMERA_MANAGER=unix:/run/f250-camera/camera.sock
 EnvironmentFile=-/etc/default/f250
 ExecStart=/opt/f250/bin/power-manager --boot-key-ignore-s ${BOOT_KEY_IGNORE_S} --camera-manager ${CAMERA_MANAGER}
 ExecStopPost=+/opt/f250/libexec/power-manager-stopped

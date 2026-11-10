@@ -47,7 +47,8 @@ needed.
 
 - The activation area in `agl/flutter/config.toml`, sized from the dashboard's
   layout constants, and a test that the two agree. Changing it needs a
-  compositor restart (the dashboard never restarts alone).
+  compositor restart (the dashboard never restarts alone). *Done 2026-11-10
+  (`make agl-test`), [SIM] until the next image or deploy.*
 - While a camera shows, the dashboard keeps the alert banner's strip
   reserved even with no alert, and says on screen which camera is showing
   and why (reverse, the switch).
@@ -57,7 +58,8 @@ needed.
 - camera-manager's window must set an app id the compositor can address;
   plain `gst-launch` sets none.
 - camera-manager needs the `video` group and the Wayland socket of the
-  compositor's user (`agl-driver`), like the dashboard.
+  compositor's user (`agl-driver`), like the dashboard. *Done 2026-11-10 in
+  its unit ([ADR-0026](0026-camera-manager-interfaces.md) decision 7), [SIM].*
 
 **Accepted costs:**
 

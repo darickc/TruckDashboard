@@ -123,7 +123,7 @@ in Phase 5.
 | `f250-power-manager.service` | `f250`, plus the `input` group (and `gpio` with the camera switch) | Handles the power key (logind `HandlePowerKey=ignore`), pulse-only. Powers off by exiting 42 to a root `ExecStopPost`. `WatchdogSec` |
 | `f250-vehicle-gateway.service` | dedicated, CAN access | Socket at `/run/f250/vehicle.sock`. Transmit is disabled unless config opts in |
 | `f250-recorder.service` | dedicated | Writes `/var/lib/f250/` only |
-| `f250-camera-manager.service` | dedicated, `video` group | |
+| `f250-camera-manager.service` | `agl-driver` (the compositor's Wayland socket), group `f250`, plus `video` | Socket at `/run/f250-camera/camera.sock`. One `gst-launch-1.0` window at a time in the dashboard's activation area (ADR-0009, ADR-0026). `WatchdogSec` |
 | `f250-audio-manager.service` | dedicated, `bluetooth`/`audio` | |
 | `can0` setup | systemd-networkd `.network` or a oneshot unit | Brings the interface up **listen-only** by default |
 | Flutter app | AGL applaunchd template | Launched by agl-compositor / applaunchd |

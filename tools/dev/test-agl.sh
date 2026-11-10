@@ -88,8 +88,8 @@ check "journald drop-in installed"     "cmp -s agl/rootfs/etc/systemd/journald.c
 check "journal directory created"      "[[ -d '$R/var/lib/journal' && -g '$R/var/lib/journal' ]]"
 check "journal mount enabled, then started" "in_order '$L' 'systemctl enable var-volatile-log-journal.mount' 'systemctl start var-volatile-log-journal.mount' 'systemctl restart systemd-journald.service' 'journalctl --flush'"
 check "compositor drop-in installed"   "cmp -s agl/rootfs/etc/systemd/system/agl-compositor.service.d/50-f250.conf '$R/etc/systemd/system/agl-compositor.service.d/50-f250.conf'"
-check "enables our services"           "has_line '$L' 'systemctl enable f250-gateway.service f250-recorder.service f250-power-manager.service f250-dashboard.service'"
-check "restarts the power manager"     "has_line '$L' 'systemctl restart f250-gateway.service f250-recorder.service f250-power-manager.service'"
+check "enables our services"           "has_line '$L' 'systemctl enable f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service f250-dashboard.service'"
+check "restarts the power and camera managers" "has_line '$L' 'systemctl restart f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service'"
 check "config.txt keeps the original"  "cmp -s '$T/config.orig' '$R/boot/config.txt.agl-orig'"
 check "config.txt has one f250 block"  "[[ \$(count '$R/boot/config.txt' '# >>> f250') == 1 ]]"
 check "config.txt enables the DSI panel" "has_line '$R/boot/config.txt' 'dtoverlay=vc4-kms-dsi-7inch,dsi0'"
@@ -104,6 +104,8 @@ check "DATA_DRIVE off by default"      "has_line '$R/etc/default/f250' 'DATA_DRI
 check "fstab untouched when off"       "! grep -q f250 '$R/etc/fstab'"
 check "no mount when off"              "! grep -q 'var-lib-f250-storage' '$L'"
 check "recorder-start installed"       "[[ -x '$R/opt/f250/libexec/recorder-start' ]]"
+check "camera-start installed"         "[[ -x '$R/opt/f250/libexec/camera-start' && -f '$R/etc/systemd/system/f250-camera-manager.service' ]]"
+check "camera devices empty by default" "has_line '$R/etc/default/f250' 'CAMERA_LEFT=' && has_line '$R/etc/default/f250' 'CAMERA_RIGHT=' && has_line '$R/etc/default/f250' 'CAMERA_REAR='"
 check "grow-root installed, never enabled by Stage 1" "[[ -x '$R/opt/f250/libexec/grow-root' ]] && ! grep -q 'f250-grow-root' '$L'"
 check "units installed"                "[[ -f '$R/etc/systemd/system/f250-gateway.service' && -f '$R/etc/systemd/system/f250-dashboard.service' ]]"
 check "logind drop-in installed"       "[[ -f '$R/etc/systemd/logind.conf.d/50-f250-power-key.conf' ]]"
@@ -159,8 +161,8 @@ if setup "$R6" --check >"$T/check-before.out" 2>&1; then fail "--check passed be
 check "--check flags the CAN provider" "grep -q 'kuksa-can-provider.service is not masked' '$T/check-before.out'"
 check "--check flags normal-mode can0" "grep -q 'NORMAL mode' '$T/check-before.out'"
 check "--check changes nothing"        "[[ ! -s '$R6/.test/sys.log' && ! -e '$R6/etc/systemd/network/60-canbus-can.network' ]]"
-for b in vehicle-gateway recorder obd-console power-manager f250-can f250-storage; do printf '#!/bin/sh\n' >"$R/opt/f250/bin/$b"; chmod +x "$R/opt/f250/bin/$b"; done
-for u in f250-gateway f250-recorder f250-power-manager f250-dashboard; do echo enabled >"$R/.test/unit-$u.service"; done
+for b in vehicle-gateway recorder obd-console power-manager camera-manager camera-ctl f250-can f250-storage; do printf '#!/bin/sh\n' >"$R/opt/f250/bin/$b"; chmod +x "$R/opt/f250/bin/$b"; done
+for u in f250-gateway f250-recorder f250-power-manager f250-camera-manager f250-dashboard; do echo enabled >"$R/.test/unit-$u.service"; done
 echo enabled >"$R/.test/unit-var-volatile-log-journal.mount"; : >"$R/.test/mounted-journal"
 mkdir -p "$R/opt/f250/share/data/signals"; echo '{}' >"$R/opt/f250/share/data/warning_rules.json"
 if setup "$R" --check >"$T/check-after.out" 2>&1; then ok; else fail "--check after setup: $(grep FAIL "$T/check-after.out")"; fi
@@ -195,9 +197,9 @@ touch "$R7/.test/mounted-storage"
 setup "$R7" >/dev/null 2>&1 || fail "apply (DATA_DRIVE=1, mounted) exited non-zero"
 check "mounted: owned by f250"         "has_line '$R7/.test/sys.log' 'chown f250:f250 /var/lib/f250/storage' && has_line '$R7/.test/sys.log' 'chmod 0750 /var/lib/f250/storage'"
 check "mounted: no second mount"       "! grep -q 'systemctl start var-lib' '$R7/.test/sys.log'"
-for b in vehicle-gateway recorder obd-console power-manager f250-can f250-storage; do printf '#!/bin/sh\n' >"$R7/opt/f250/bin/$b"; chmod +x "$R7/opt/f250/bin/$b"; done
+for b in vehicle-gateway recorder obd-console power-manager camera-manager camera-ctl f250-can f250-storage; do printf '#!/bin/sh\n' >"$R7/opt/f250/bin/$b"; chmod +x "$R7/opt/f250/bin/$b"; done
 for u in kuksa-can-provider can-dev-helper; do echo masked >"$R7/.test/unit-$u.service"; done
-for u in f250-gateway f250-recorder f250-power-manager f250-dashboard; do echo enabled >"$R7/.test/unit-$u.service"; done
+for u in f250-gateway f250-recorder f250-power-manager f250-camera-manager f250-dashboard; do echo enabled >"$R7/.test/unit-$u.service"; done
 echo enabled >"$R7/.test/unit-var-volatile-log-journal.mount"; : >"$R7/.test/mounted-journal"
 echo disabled >"$R7/.test/unit-flutter-ics-homescreen.service"; rm -f "$R7/.test/ip-can0"
 mkdir -p "$R7/opt/f250/share/data/signals"; echo '{}' >"$R7/opt/f250/share/data/warning_rules.json"
@@ -285,6 +287,16 @@ rec() { env -i PATH="$PATH" F250_RECORDER_BIN="$RSTUB" STATE_DIRECTORY=/var/lib/
 check "SD card by default"   "[[ \"\$(rec)\" == 'run --gateway unix:/run/f250/vehicle.sock --db /var/lib/f250/telemetry.sqlite' ]]"
 check "data drive"           "[[ \"\$(rec DATA_DRIVE=1 F250_TEST_MOUNTED=1)\" == 'run --gateway unix:/run/f250/vehicle.sock --db /var/lib/f250/storage/telemetry.sqlite' ]]"
 check "no drive: refuses, never the SD" "! rec DATA_DRIVE=1 F250_TEST_MOUNTED=0 >'$T/rec.out' && [[ ! -s '$T/rec.out' ]]"
+
+echo "camera-start"
+CSTUB="$T/camera-manager"
+printf '#!/bin/sh\necho "$@"\n' >"$CSTUB"; chmod +x "$CSTUB"
+cam() { env -i PATH="$PATH" F250_CAMERA_BIN="$CSTUB" "$@" bash agl/rootfs/opt/f250/libexec/camera-start 2>/dev/null; }
+check "no cameras: only the socket" "[[ \"\$(cam)\" == '--listen unix:/run/f250-camera/camera.sock' ]]"
+check "empty settings: no cameras" "[[ \"\$(cam CAMERA_LEFT= CAMERA_RIGHT= CAMERA_REAR= CAMERA_CAPS=)\" == '--listen unix:/run/f250-camera/camera.sock' ]]"
+check "each camera named"   "[[ \"\$(cam CAMERA_REAR=/dev/video0 CAMERA_LEFT=/dev/v4l/by-id/usb-x-video-index0)\" == '--listen unix:/run/f250-camera/camera.sock --camera left=/dev/v4l/by-id/usb-x-video-index0 --camera rear=/dev/video0' ]]"
+check "caps passed as one argument" "[[ \"\$(env -i PATH=\"\$PATH\" F250_CAMERA_BIN=/bin/echo CAMERA_CAPS='video/x-raw,width=640 ! videoscale' bash agl/rootfs/opt/f250/libexec/camera-start 2>/dev/null)\" == '--listen unix:/run/f250-camera/camera.sock --caps video/x-raw,width=640 ! videoscale' ]]"
+check "a device with a space refused" "! cam 'CAMERA_REAR=/dev/video 0' >/dev/null"
 
 echo "grow-root"
 # A fake sysfs for the card: <disk sectors> then partitions as <n>:<start>:<size>
@@ -384,15 +396,20 @@ check "mount point agrees everywhere" "grep -q '^STORAGE=/var/lib/f250/storage$'
 check "drive label agrees"     "grep -q '^DRIVE_LABEL=f250-data$' '$SETUP' && grep -q '^LABEL=f250-data$' '$STORAGE_TOOL'"
 # Sandbox (ADR-0021): each service has the settings measured on the bench.
 U=agl/rootfs/etc/systemd/system
-for unit in f250-gateway f250-recorder f250-power-manager f250-dashboard; do
+for unit in f250-gateway f250-recorder f250-power-manager f250-dashboard f250-camera-manager; do
   for line in 'NoNewPrivileges=yes' 'CapabilityBoundingSet=' 'ProtectSystem=strict' 'PrivateTmp=yes' \
               'ProtectKernelTunables=yes' 'ProtectKernelModules=yes' 'ProtectKernelLogs=yes' \
               'ProtectControlGroups=yes' 'ProtectClock=yes' 'ProtectHostname=yes' 'ProtectProc=invisible' \
               'RestrictNamespaces=yes' 'RestrictSUIDSGID=yes' 'RestrictRealtime=yes' 'LockPersonality=yes' \
-              'MemoryDenyWriteExecute=yes' 'SystemCallArchitectures=native' 'SystemCallFilter=@system-service' \
+              'SystemCallArchitectures=native' 'SystemCallFilter=@system-service' \
               'SystemCallFilter=~@privileged @resources' 'IPAddressDeny=any'; do
     check "$unit: $line" "grep -qxF '$line' $U/$unit.service"
   done
+done
+# Every service but camera-manager: GStreamer's orc writes code at run time
+# (f250-camera-manager.service says why; UNVERIFIED that it needs to).
+for unit in f250-gateway f250-recorder f250-power-manager f250-dashboard; do
+  check "$unit: MemoryDenyWriteExecute=yes" "grep -qxF 'MemoryDenyWriteExecute=yes' $U/$unit.service"
 done
 check "gateway reaches only USB serial devices" "grep -qx 'DevicePolicy=closed' $U/f250-gateway.service && [[ \"\$(grep -c '^DeviceAllow=' $U/f250-gateway.service)\" == 1 ]] && grep -qx 'DeviceAllow=char-ttyUSB rw' $U/f250-gateway.service"
 check "gateway keeps its adapter families" "grep -qx 'RestrictAddressFamilies=AF_UNIX AF_CAN AF_BLUETOOTH AF_INET AF_INET6 AF_NETLINK' $U/f250-gateway.service"
@@ -405,8 +422,29 @@ check "power-manager: input group mapped (no PrivateUsers)" "! grep -q '^Private
 check "power-manager: no network" "grep -qx 'PrivateNetwork=yes' $PM && grep -qx 'RestrictAddressFamilies=AF_UNIX' $PM"
 check "power-manager: boot window default and setting agree" "grep -qx 'Environment=BOOT_KEY_IGNORE_S=30' $PM && grep -qx 'BOOT_KEY_IGNORE_S=30' agl/rootfs/etc/default/f250 && grep -q 'default_value_t = 30' services/power-manager/src/main.rs"
 check "power-manager: the settings reach the binary" "grep -qx 'ExecStart=/opt/f250/bin/power-manager --boot-key-ignore-s \${BOOT_KEY_IGNORE_S} --camera-manager \${CAMERA_MANAGER}' $PM"
-check "power-manager: switch moves go to camera-manager's socket (ADR-0026)" "grep -qx 'Environment=CAMERA_MANAGER=unix:/run/f250/camera.sock' $PM"
-check "power-manager: deployed and built into the image" "grep -q -- '-p power-manager' tools/dev/deploy.sh && grep -q '/target/release/power-manager' tools/dev/deploy.sh && grep -q -- '-p power-manager' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'obd-console power-manager; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb"
+check "power-manager: switch moves go to camera-manager's socket (ADR-0026)" "grep -qx 'Environment=CAMERA_MANAGER=unix:/run/f250-camera/camera.sock' $PM"
+check "power-manager: deployed and built into the image" "grep -q -- '-p power-manager' tools/dev/deploy.sh && grep -q '/target/release/power-manager' tools/dev/deploy.sh && grep -q -- '-p power-manager' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'obd-console power-manager camera-manager camera-ctl; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb"
+CM=$U/f250-camera-manager.service
+check "camera-manager: starts via its wrapper" "grep -qx 'ExecStart=/opt/f250/libexec/camera-start' $CM"
+check "camera-manager: power-manager's socket is camera-manager's" "grep -q 'F250_CAMERA_SOCK:-/run/f250-camera/camera.sock' agl/rootfs/opt/f250/libexec/camera-start && grep -qx 'RuntimeDirectory=f250-camera' $CM && grep -qx 'Environment=CAMERA_MANAGER=unix:/run/f250-camera/camera.sock' $PM"
+check "camera-manager: agl-driver (Wayland), group f250 (the socket), video" "grep -qx 'User=agl-driver' $CM && grep -qx 'Group=f250' $CM && grep -qx 'SupplementaryGroups=video' $CM && grep -qx 'UMask=0007' $CM && grep -qx 'RuntimeDirectoryMode=0750' $CM"
+check "camera-manager: the compositor's Wayland socket" "grep -qx 'Environment=XDG_RUNTIME_DIR=/run/user/1001' $CM && grep -qx 'Environment=WAYLAND_DISPLAY=wayland-0' $CM && grep -qx 'ProtectHome=read-only' $CM && grep -qx 'After=agl-compositor.service' $CM"
+check "camera-manager: not bound to the compositor (it retries)" "! grep -q '^BindsTo=' $CM && ! grep -q '^PartOf=' $CM && grep -qx 'Restart=on-failure' $CM"
+check "camera-manager: reaches only cameras" "grep -qx 'DevicePolicy=closed' $CM && [[ \"\$(grep -c '^DeviceAllow=' $CM)\" == 1 ]] && grep -qx 'DeviceAllow=char-video4linux rw' $CM"
+check "camera-manager: no network" "grep -qx 'PrivateNetwork=yes' $CM && grep -qx 'RestrictAddressFamilies=AF_UNIX' $CM"
+check "camera-manager: GStreamer's registry in its cache" "grep -qx 'CacheDirectory=f250-camera' $CM && grep -qx 'Environment=XDG_CACHE_HOME=/var/cache/f250-camera' $CM && ! grep -q '^ReadWritePaths=' $CM"
+check "camera-manager: watchdog" "grep -qx 'Type=notify' $CM && grep -qx 'WatchdogSec=30' $CM"
+check "camera-manager: deployed and built into the image" "grep -q -- '-p camera-manager' tools/dev/deploy.sh && grep -q '/target/release/camera-manager' tools/dev/deploy.sh && grep -q -- '-p camera-manager' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'power-manager camera-manager camera-ctl; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q '/target/release/camera-ctl' tools/dev/deploy.sh"
+check "camera-manager: the image has gst-launch-1.0 (gstreamer1.0)" "grep -qx '    gstreamer1.0 \\\\' agl/meta-f250/recipes-platform/images/agl-f250-base.inc"
+# The camera window's area (ADR-0009) must match the dashboard's layout: below
+# the status bar and alert banner, above the nav bar.
+th=apps/infotainment/lib/ui/theme.dart
+sb="$(sed -n 's/^const kStatusBarHeight = \([0-9]*\)\.0;$/\1/p' $th)"
+ab="$(sed -n 's/^const kAlertBannerHeight = \([0-9]*\)\.0;$/\1/p' $th)"
+nb="$(sed -n 's/^const kNavBarHeight = \([0-9]*\)\.0;$/\1/p' $th)"
+check "activation area: theme constants read" "[[ -n '$sb' && -n '$ab' && -n '$nb' ]]"
+sed -n '/^\[window_activation_area\]$/,$p' agl/flutter/config.toml | grep -v '^#' >"$T/area.toml"
+check "activation area below the alert banner, above the nav bar" "in_order '$T/area.toml' '[window_activation_area]' 'x = 0' 'y = $((sb + ab))' 'width = 800' 'height = $((480 - sb - ab - nb))'"
 check "recorder has no network or devices" "grep -qx 'PrivateNetwork=yes' $U/f250-recorder.service && grep -qx 'PrivateDevices=yes' $U/f250-recorder.service && grep -qx 'RestrictAddressFamilies=AF_UNIX' $U/f250-recorder.service"
 check "dashboard reaches only the GPU" "grep -qx 'DevicePolicy=closed' $U/f250-dashboard.service && [[ \"\$(grep -c '^DeviceAllow=' $U/f250-dashboard.service)\" == 1 ]] && grep -qx 'DeviceAllow=char-drm rw' $U/f250-dashboard.service"
 check "dashboard has no network" "grep -qx 'PrivateNetwork=yes' $U/f250-dashboard.service && grep -qx 'RestrictAddressFamilies=AF_UNIX' $U/f250-dashboard.service"
@@ -461,7 +499,7 @@ for unit in agl/rootfs/etc/systemd/system/*.service agl/rootfs/etc/systemd/syste
     check "image enables $name for $tgt" "grep -qx '    f250_wants $tgt $name' '$SYSBB'"
   done
 done
-check "units stage1 enables have [Install]" "for u in f250-gateway f250-recorder f250-power-manager f250-dashboard; do grep -q '^WantedBy=' agl/rootfs/etc/systemd/system/\$u.service || exit 1; done"
+check "units stage1 enables have [Install]" "for u in f250-gateway f250-recorder f250-power-manager f250-camera-manager f250-dashboard; do grep -q '^WantedBy=' agl/rootfs/etc/systemd/system/\$u.service || exit 1; done"
 check "static IDs for f250"            "grep -qx 'f250::950:950:F-250 head unit services:/var/lib/f250:/bin/false' $M/files/f250-passwd && grep -qx 'f250::950:' $M/files/f250-group"
 check "agl-driver joins f250"          "grep -qx 'GROUPMEMS_PARAM:\${PN} = \"-a agl-driver -g f250\"' $M/recipes-config/agl-users/agl-users_%.bbappend"
 CM=$M/recipes-connectivity/connman
@@ -491,7 +529,7 @@ for pair in candump:can-utils lsusb:usbutils mkfs.ext4:e2fsprogs-mke2fs blkid:ut
   cmd=${pair%%:*}; pkg=${pair#*:}
   check "f250-system pulls in $pkg ($cmd)" "grep -A2 '^RDEPENDS' '$SYSBB' | grep -qw '$pkg'"
 done
-check "services: the binaries deploy.sh builds" "grep -q -- '-p vehicle-gateway -p recorder -p obd-console -p power-manager --features vehicle-gateway/rfcomm' $M/recipes-f250/f250-services/f250-services.bb && grep -q -- '-p vehicle-gateway --features rfcomm' tools/dev/deploy.sh"
+check "services: the binaries deploy.sh builds" "grep -q -- '-p vehicle-gateway -p recorder -p obd-console -p power-manager -p camera-manager --features vehicle-gateway/rfcomm' $M/recipes-f250/f250-services/f250-services.bb && grep -q -- '-p vehicle-gateway --features rfcomm' tools/dev/deploy.sh"
 check "dashboard: deploy.sh's defines"  "grep -q -- '-DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock' $M/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -q -- '--dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:\$SOCK' tools/dev/deploy.sh"
 check "dashboard: bundle name is the app's" "grep -qx 'PUBSPEC_APPNAME = \"f250_infotainment\"' $M/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -qx 'name: f250_infotainment' apps/infotainment/pubspec.yaml && grep -q '^APP_ID=f250_infotainment$' '$SETUP'"
 check "layer builds a commit, not the tree" "grep -q 'F250_ALLOW_DIRTY' agl/scripts/agl-build.sh && grep -q 'F250_SRCREV = \"\$rev\"' agl/scripts/agl-build.sh"

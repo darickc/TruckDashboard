@@ -228,7 +228,7 @@ mod tests {
     #[tokio::test]
     async fn a_bad_endpoint_is_refused_at_start() {
         let cfg = LinkConfig {
-            endpoint: "/run/f250/camera.sock".into(),
+            endpoint: "/run/f250-camera/camera.sock".into(),
             call_timeout: Duration::from_millis(100),
             max_age: Duration::from_secs(1),
         };

@@ -10,3 +10,15 @@ window_type = "BG"
 width = 800
 height = 480
 fullscreen = true
+
+# Where agl-compositor puts every other app's window: camera-manager's camera
+# windows (ADR-0009). Below the status bar (0-44) and the alert banner
+# (44-96), above the nav bar (416-480), so both stay visible over a camera:
+# kStatusBarHeight + kAlertBannerHeight = 96, 480 - 96 - kNavBarHeight = 320
+# (apps/infotainment/lib/ui/theme.dart; make agl-test checks they agree).
+# [BENCH] 2026-11-09 with these numbers (bench-log, rendering spike).
+[window_activation_area]
+x = 0
+y = 96
+width = 800
+height = 320

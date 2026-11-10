@@ -1,8 +1,8 @@
 # ADR 0026 — camera-manager runs one `gst-launch` pipeline at a time and serves `f250.camera.v1`
 
 - **Status:** Accepted. [SIM] only: the daemon runs on the Mac against a fake
-  `gst-launch`. Frame counting through `identity` (decision 3) is
-  UNVERIFIED on the Pi
+  `gst-launch`, and its unit (decision 7) hasn't run on the Pi. Frame
+  counting through `identity` (decision 3) is UNVERIFIED on the Pi
 - **Date:** 2026-11-09
 - **Builds on:** [ADR-0009](0009-camera-rendering.md) (a camera window in an
   activation area), [ADR-0024](0024-camera-selection-switch-and-can-reverse.md)
@@ -20,8 +20,10 @@ dashboard never touches cameras, and camera-manager owns the V4L2 devices
 
 ## Decision
 
-1. **An API, `f250.camera.v1`,** on `unix:/run/f250/camera.sock`
-   ([camera.proto](../../../shared/proto/f250/camera/v1/camera.proto)):
+1. **An API, `f250.camera.v1`,** on `unix:/run/f250-camera/camera.sock`
+   ([camera.proto](../../../shared/proto/f250/camera/v1/camera.proto)). Not
+   in the gateway's `/run/f250`: only the `f250` user writes there, and
+   camera-manager runs as `agl-driver` (decision 7):
    - `WatchView`: the view now, then again on every change: which camera and
      why, the feed's state (starting, live, unavailable and why), the
      reverse status and whether the speed limit hides the choice.
@@ -70,8 +72,28 @@ dashboard never touches cameras, and camera-manager owns the V4L2 devices
    - The connection is lazy, so either service can start first or restart.
    - power-manager logs what became of each move: the view camera-manager
      answered with, or why it wasn't taken.
-   - `CAMERA_MANAGER` in the unit (default `unix:/run/f250/camera.sock`) says
+   - `CAMERA_MANAGER` in the unit (default `unix:/run/f250-camera/camera.sock`) says
      where; set it empty to only log the moves.
+
+7. **Packaged like the other services** (added 2026-11-10):
+   `f250-camera-manager.service`, in `make deploy` and both images.
+   - User `agl-driver`, as the dashboard: its windows need the compositor's
+     Wayland socket in `/run/user/1001`. Group `f250`, so the API socket
+     (mode 0770) is open to power-manager. `video` for the cameras.
+   - Not bound to the compositor: a compositor restart ends the pipeline,
+     and decision 4 restarts it.
+   - Cameras come from `CAMERA_LEFT`, `CAMERA_RIGHT` and `CAMERA_REAR` in
+     `/etc/default/f250` (`camera-start`), all empty by default: no truck
+     camera is chosen yet.
+   - Sandboxed like the dashboard (ADR-0021), with two exceptions said in
+     the unit: no `MemoryDenyWriteExecute` (GStreamer's orc compiles code
+     at run time) and no `ProcSubset=pid` (orc reads `/proc/cpuinfo`).
+     Devices: `char-video4linux` only.
+   - The dashboard bundle's `config.toml` sets the activation area
+     (ADR-0009): y 96–416, from the dashboard's layout constants; `make
+     agl-test` checks the two agree.
+   - `camera-ctl` (`move back`, `view`, `watch`) sends moves and shows the
+     view by hand, for the bench before the switch is wired.
 
 ## Options considered for the pipeline
 
@@ -95,10 +117,15 @@ dashboard never touches cameras, and camera-manager owns the V4L2 devices
   (`waylandsink` sets none) and agl-shell's gRPC; revisit if the start time
   bothers the owner.
 - One camera at a time. A split view would need more.
-- Not in this step: the dashboard's camera view, the activation area in the
-  dashboard's `config.toml`, camera-manager's systemd unit and the image.
-  They follow in Phase 6.6. Until camera-manager's unit is in the image,
-  power-manager logs each move as not taken.
+- Not in this step: the dashboard's camera view and indicators (Phase 6.6).
+  Until a camera device is set in `/etc/default/f250`, every camera shows
+  as unavailable when chosen.
+- Decision 7 is `[SIM]`: `make agl-test` checks the unit, `camera-start`
+  and the activation area; nothing has run on the Pi. To check on the
+  bench ([agl.md](../../setup/agl.md) check 14): the socket's owner and
+  mode, power-manager reaching it, a `waylandsink` window from inside the
+  sandbox, the GStreamer registry in `/var/cache/f250-camera`, and whether
+  orc works with `MemoryDenyWriteExecute=yes` after all.
 - Decision 6 is `[SIM]`: six tests against a fake camera-manager on a unix
   socket (delivery, absent, restart, slow, old moves, a full queue), and
   both real binaries end to end on the Mac with switch events written into

@@ -2,7 +2,7 @@
 //!
 //! Examples:
 //!   camera-manager --camera rear=/dev/video0          # unix:/tmp/f250/camera.sock
-//!   camera-manager --listen unix:/run/f250/camera.sock \
+//!   camera-manager --listen unix:/run/f250-camera/camera.sock \
 //!       --camera rear=/dev/v4l/by-id/usb-046d_0804-video-index0
 
 use camera_manager::config::{Config, camera_name};

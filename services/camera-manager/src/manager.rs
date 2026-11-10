@@ -376,48 +376,52 @@ impl Manager {
     }
 
     fn log_view(&self) {
-        let v = self.view_tx.borrow();
-        let camera = pb::Camera::try_from(v.camera).unwrap_or(pb::Camera::Unspecified);
-        let line = if camera == pb::Camera::Unspecified {
-            "no camera".to_string()
-        } else {
-            let reason = pb::Reason::try_from(v.reason).unwrap_or(pb::Reason::Unspecified);
-            let feed = pb::FeedState::try_from(v.feed).unwrap_or(pb::FeedState::Unspecified);
-            let mut s = format!(
-                "{} ({}), {}",
-                camera
-                    .as_str_name()
-                    .trim_start_matches("CAMERA_")
-                    .to_lowercase(),
-                reason
-                    .as_str_name()
-                    .trim_start_matches("REASON_")
-                    .to_lowercase(),
-                feed.as_str_name()
-                    .trim_start_matches("FEED_STATE_")
-                    .to_lowercase()
-            );
-            if !v.feed_detail.is_empty() {
-                s.push_str(": ");
-                s.push_str(&v.feed_detail);
-            }
-            s
-        };
-        let reverse =
-            pb::ReverseStatus::try_from(v.reverse).unwrap_or(pb::ReverseStatus::Unspecified);
-        eprintln!(
-            "[camera] view: {line}; reverse {}{}",
-            reverse
-                .as_str_name()
-                .trim_start_matches("REVERSE_STATUS_")
-                .to_lowercase(),
-            if v.blocked_by_speed {
-                "; hidden by the speed limit"
-            } else {
-                ""
-            }
-        );
+        eprintln!("[camera] view: {}", describe_view(&self.view_tx.borrow()));
     }
+}
+
+/// A view as one line, for the service's log and `camera-ctl`:
+/// `rear (switch), live; reverse off`.
+pub fn describe_view(v: &pb::View) -> String {
+    let camera = pb::Camera::try_from(v.camera).unwrap_or(pb::Camera::Unspecified);
+    let line = if camera == pb::Camera::Unspecified {
+        "no camera".to_string()
+    } else {
+        let reason = pb::Reason::try_from(v.reason).unwrap_or(pb::Reason::Unspecified);
+        let feed = pb::FeedState::try_from(v.feed).unwrap_or(pb::FeedState::Unspecified);
+        let mut s = format!(
+            "{} ({}), {}",
+            camera
+                .as_str_name()
+                .trim_start_matches("CAMERA_")
+                .to_lowercase(),
+            reason
+                .as_str_name()
+                .trim_start_matches("REASON_")
+                .to_lowercase(),
+            feed.as_str_name()
+                .trim_start_matches("FEED_STATE_")
+                .to_lowercase()
+        );
+        if !v.feed_detail.is_empty() {
+            s.push_str(": ");
+            s.push_str(&v.feed_detail);
+        }
+        s
+    };
+    let reverse = pb::ReverseStatus::try_from(v.reverse).unwrap_or(pb::ReverseStatus::Unspecified);
+    format!(
+        "{line}; reverse {}{}",
+        reverse
+            .as_str_name()
+            .trim_start_matches("REVERSE_STATUS_")
+            .to_lowercase(),
+        if v.blocked_by_speed {
+            "; hidden by the speed limit"
+        } else {
+            ""
+        }
+    )
 }
 
 pub fn pb_camera(c: Camera) -> pb::Camera {

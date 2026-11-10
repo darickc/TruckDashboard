@@ -15,11 +15,19 @@ path = "src/lib.rs"
 name = "camera-manager"
 path = "src/main.rs"
 
+# Moves and the view by hand, for the bench and development.
+[[bin]]
+name = "camera-ctl"
+path = "src/bin/camera-ctl.rs"
+
 [dependencies]
 f250-camera-policy = { path = "../../crates/camera-policy" }
 f250-proto = { path = "../../crates/proto" }
 f250-sd-notify = { path = "../../crates/sd-notify", features = ["tokio"] }
 tonic = "0.14"
+# camera-ctl's client over a unix socket, as the recorder does.
+tower = { version = "0.5", features = ["util"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 tokio-stream = { version = "0.1", features = ["net", "sync"] }
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "signal", "process", "fs"] }

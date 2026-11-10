@@ -155,6 +155,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 | 11 | NVMe (once the HAT is fitted) | Uncomment `dtparam=pciex1`, deploy, reboot; `lspci` lists the drive's controller; `f250-storage status` shows `nvme0n1` and its health. Then [the data drive](#data-drive-nvme-hat-or-usb-ssd) | H31 |
 | 12 | Bluetooth and the MX+ | After a reboot, `--check` has no Bluetooth warnings; `bluetoothctl show` says `Powered: yes`, `Discoverable: no`. Then [pair the MX+](#bluetooth-and-the-mx) and run `TRANSPORT=obdlink` in the gateway's sandbox | ADR-0023, ADR-0021 §10 |
 | 13 | Power key ([power-manager](../architecture/power-states.md), pulse-only) | `journalctl -u f250-power-manager -b` shows "reading the power key on /dev/input/eventN". Press the Pi's power button within 30 s of power-on: "ignored: inside the boot window". Press it later: "power off: power key after the boot window", and the Pi halts cleanly (`journalctl -b -1` after the next boot). The DCDC-USB's PSW on J2 is the same press once it is wired (H21) | ADR-0013 |
+| 14 | Camera ([camera-manager](../architecture/adr/0026-camera-manager-interfaces.md)) | Plug in a UVC webcam; `ls -l /dev/v4l/by-id/`; set `CAMERA_REAR=` to its `...-video-index0` path in `/etc/default/f250`; `systemctl restart f250-camera-manager`. `ls -l /run/f250-camera/` shows `camera.sock` as `agl-driver f250`, `srwxrwx---`. `camera-ctl move back`: the picture appears between the alert banner and the nav bar (y 96–416), and `camera-ctl view` says `rear (switch), live` within a second or two (if it never goes live while the picture moves, the frame count is wrong: ADR-0026 decision 3). `camera-ctl move forward` closes it. `ls /var/cache/f250-camera/gstreamer-1.0/` has the registry. `journalctl -u f250-camera-manager -b` | ADR-0009, ADR-0026 |
 
 If something fails, collect the evidence before changing anything:
 
@@ -349,8 +350,10 @@ known-good reference: the panel, touch and dashboard worked on it on
   watchdog: `Type=notify`, `WatchdogSec=60` and `30`, keep-alives only while
   their loops make progress ([diagnostic-recovery.md](../architecture/diagnostic-recovery.md)).
 - Booting from NVMe: see [the data drive](#data-drive-nvme-hat-or-usb-ssd).
-- The rest of the power-manager: the camera switch, day/night and the
-  backlight. Its first part handles the power key: after the boot window
+- The rest of the power-manager: day/night and the backlight. It reads the
+  camera switch and passes moves to camera-manager [SIM], but the switch
+  isn't wired yet; `camera-ctl` stands in for it (check 14). Its first part
+  handles the power key: after the boot window
   (`BOOT_KEY_IGNORE_S`, 30 s), pressing the Pi's button powers it off, as the
   DCDC-USB's PSW pulse will. The dashboard's *Power* button still shuts down
   too, until the DCDC-USB is installed (ADR-0013 decision 5).

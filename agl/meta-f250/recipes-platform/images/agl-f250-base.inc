@@ -26,6 +26,7 @@ IMAGE_INSTALL += " \
     f250-system \
     f250-services \
     f250-dashboard \
+    gstreamer1.0 \
     gstreamer1.0-plugins-good-video4linux2 \
     gstreamer1.0-plugins-good-jpeg \
     gstreamer1.0-plugins-base-videoconvertscale \
@@ -42,7 +43,9 @@ IMAGE_INSTALL += " \
 # GStreamer for the cameras (Phase 6.6, camera-policy.md): v4l2src for UVC
 # cameras, jpegdec for their MJPEG, videoconvert/videoscale, and waylandsink:
 # camera-manager shows each camera in a window of its own (ADR-0009, accepted
-# 2026-11-09). appsink, the Flutter-texture option's sink, left with that
+# 2026-11-09). gstreamer1.0 holds gst-launch-1.0, which camera-manager runs
+# (ADR-0026); the plugins already pull it in, named here because the service
+# depends on the tool itself. appsink, the Flutter-texture option's sink, left with that
 # decision. Names from the 22.0.1 demo image's manifest.
 
 # root's SSH key, from the build host (agl-build.sh puts the file's path in

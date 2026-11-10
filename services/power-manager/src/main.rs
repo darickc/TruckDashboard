@@ -3,7 +3,7 @@
 //! docs for the rules. It also reads the camera switch (ADR-0024, ADR-0025)
 //! and passes each move to camera-manager (ADR-0026).
 //!
-//!   power-manager --boot-key-ignore-s 30 --camera-manager unix:/run/f250/camera.sock
+//!   power-manager --boot-key-ignore-s 30 --camera-manager unix:/run/f250-camera/camera.sock
 //!   power-manager --dry-run --key-device /dev/input/event0    # bench: log, don't power off
 //!
 //! Powering off is an exit with status 42; the unit's `ExecStopPost` (as root)

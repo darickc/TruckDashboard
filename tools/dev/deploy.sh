@@ -12,7 +12,8 @@
 # the AGL image has no toolchain.
 #
 # What lands on the Pi:
-#   /opt/f250/bin/              vehicle-gateway, recorder, obd-console, power-manager, f250-can, f250-storage
+#   /opt/f250/bin/              vehicle-gateway, recorder, obd-console, power-manager, camera-manager,
+#                               camera-ctl, f250-can, f250-storage
 #   /opt/f250/share/agl/        this repo's agl/ (scripts, rootfs, boot config)
 #   /opt/f250/share/data/       signal registry, warning rules, scenarios
 #   /usr/share/flutter/f250_infotainment/<flutter>/release/
@@ -63,9 +64,9 @@ build() {
     "$IMAGE" bash -euo pipefail -c '
       cd /src
       cargo build -q --release --locked -p vehicle-gateway --features rfcomm
-      cargo build -q --release --locked -p recorder -p obd-console -p power-manager
+      cargo build -q --release --locked -p recorder -p obd-console -p power-manager -p camera-manager
       mkdir -p /out/bin
-      cp /target/release/vehicle-gateway /target/release/recorder /target/release/obd-console /target/release/power-manager /out/bin/
+      cp /target/release/vehicle-gateway /target/release/recorder /target/release/obd-console /target/release/power-manager /target/release/camera-manager /target/release/camera-ctl /out/bin/
 
       for d in apps/infotainment simulator/powerstroke; do
         mkdir -p "/work/$d"

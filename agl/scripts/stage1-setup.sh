@@ -58,7 +58,7 @@ APP_ID=f250_infotainment
 CAN_IF="${CAN_IF:-can0}"
 DEMO_HOMESCREEN=flutter-ics-homescreen.service
 CAN_UNITS=(kuksa-can-provider.service can-dev-helper.service)
-F250_UNITS=(f250-gateway.service f250-recorder.service f250-power-manager.service f250-dashboard.service)
+F250_UNITS=(f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service f250-dashboard.service)
 COMPOSITOR=agl-compositor.service
 COMPOSITOR_DROPIN=etc/systemd/system/agl-compositor.service.d/50-f250.conf
 CONNMAN_DROPIN=etc/systemd/system/connman.service.d/50-f250.conf
@@ -276,7 +276,7 @@ check() {
   else
     bad "no dashboard bundle in $bundle (make deploy)"
   fi
-  for d in vehicle-gateway recorder obd-console power-manager f250-can f250-storage; do
+  for d in vehicle-gateway recorder obd-console power-manager camera-manager camera-ctl f250-can f250-storage; do
     [[ -x "$ROOT/opt/f250/bin/$d" ]] && ok "/opt/f250/bin/$d" || bad "/opt/f250/bin/$d missing (make deploy)"
   done
   if [[ -d "$ROOT/opt/f250/share/data/signals" && -f "$ROOT/opt/f250/share/data/warning_rules.json" ]]; then
@@ -497,7 +497,7 @@ apply() {
     sys systemctl disable "$DEMO_HOMESCREEN"; echo "  disabled $DEMO_HOMESCREEN"
   fi
   sys systemctl enable "${F250_UNITS[@]}"
-  sys systemctl restart f250-gateway.service f250-recorder.service f250-power-manager.service
+  sys systemctl restart f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service
   # agl-compositor 0.0.24 takes one homescreen client per run: a second one
   # (a restarted dashboard, or ours after the demo's) makes it abort. Stop
   # the clients (the compositor survives that), then restart it, and the

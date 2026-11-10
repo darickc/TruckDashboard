@@ -192,9 +192,11 @@ dependencies = [
  "f250-camera-policy",
  "f250-proto",
  "f250-sd-notify",
+ "hyper-util",
  "tokio",
  "tokio-stream",
  "tonic",
+ "tower",
 ]
 
 [[package]]

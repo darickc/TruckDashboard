@@ -1,0 +1,89 @@
+# Camera manager on AGL (Phase 6.6, ADR-0009, ADR-0026). Shows the camera the
+# policy picks as a gst-launch-1.0 pipeline whose waylandsink window
+# agl-compositor confines to the dashboard's activation area (y 96-416 in
+# agl/flutter/config.toml), below the status bar and the alert banner. Serves
+# f250.camera.v1 on /run/f250-camera/camera.sock; power-manager sends the
+# camera switch's moves there. Cameras: CAMERA_LEFT, CAMERA_RIGHT and
+# CAMERA_REAR in /etc/default/f250 (camera-start). A camera with no device
+# shows as unavailable when chosen.
+#
+# User agl-driver, as the dashboard: the windows need the compositor's
+# Wayland socket in /run/user/1001, which only agl-driver can reach. Group
+# f250, so the API socket (group f250, mode 0770 from UMask) is open to
+# power-manager. /run/f250 is the gateway's and only f250 writes there, so
+# this socket has a directory of its own. `video` for /dev/video*.
+#
+# Not bound to the compositor: a compositor restart ends the running
+# pipeline, and camera-manager marks the camera unavailable and restarts the
+# pipeline after a backoff (ADR-0026 decision 4).
+#
+# Status: [SIM]. The daemon is tested on the Mac against a fake gst-launch;
+# this unit and its sandbox haven't run on the Pi. To check on the bench:
+# the socket's owner and mode, a waylandsink window from inside the sandbox,
+# the GStreamer registry in the cache directory, and the frame count
+# (ADR-0026 decision 3, UNVERIFIED).
+[Unit]
+Description=F-250 camera manager
+After=agl-compositor.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=30
+User=agl-driver
+Group=f250
+SupplementaryGroups=video
+EnvironmentFile=-/etc/default/f250
+Environment=XDG_RUNTIME_DIR=/run/user/1001
+Environment=WAYLAND_DISPLAY=wayland-0
+ExecStart=/opt/f250/libexec/camera-start
+Restart=on-failure
+RestartSec=2
+UMask=0007
+RuntimeDirectory=f250-camera
+RuntimeDirectoryMode=0750
+
+# Sandbox (ADR-0021), like the dashboard's, except:
+# - Devices: V4L2 cameras only. waylandsink hands the compositor shared
+#   memory, not GPU buffers (UNVERIFIED on the image: add char-drm only if
+#   the bench shows it needs the GPU).
+# - No MemoryDenyWriteExecute: GStreamer's videoconvert runs orc, which
+#   compiles its inner loops into executable memory at run time. Whether it
+#   falls back cleanly without that is UNVERIFIED; try it on the bench.
+# - No ProcSubset=pid: orc reads /proc/cpuinfo for the CPU's features.
+# - Writes: only the cache directory, where GStreamer keeps its plugin
+#   registry (XDG_CACHE_HOME); without it every pipeline start rescans the
+#   plugins. The real home stays read-only; ProtectHome=yes would hide
+#   /run/user and the Wayland socket. agl-driver shares IPC with the
+#   compositor and the dashboard, so no RemoveIPC=.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=read-only
+CacheDirectory=f250-camera
+CacheDirectoryMode=0700
+Environment=XDG_CACHE_HOME=/var/cache/f250-camera
+PrivateTmp=yes
+PrivateNetwork=yes
+DevicePolicy=closed
+DeviceAllow=char-video4linux rw
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+
+[Install]
+WantedBy=graphical.target
