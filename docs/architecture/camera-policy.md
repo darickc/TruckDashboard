@@ -98,5 +98,5 @@ that keeps alerts visible with acceptable latency.
   output is preferred.
 - **A UVC webcam works on the AGL image** (Logitech C250, 640×480 at ~30 fps
   in YUYV and MJPEG; [bench-log](../hardware/bench-log.md) 2026-11-09). The
-  `agl-f250` image has no GStreamer V4L2 plugin yet: the ADR-0009 spike must
-  add it (gst-plugins-good) and a sink to the image first.
+  images from `6114c52` carry `v4l2src`, `jpegdec`, `appsink` and
+  `waylandsink` for the ADR-0009 spike; no pipeline has run on them yet.
