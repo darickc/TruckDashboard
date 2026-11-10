@@ -6,6 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let files = [
         "f250/vehicle/v1/vehicle.proto",
         "f250/vehicle/v1/diagnostics.proto",
+        "f250/camera/v1/camera.proto",
     ];
     for f in files {
         println!("cargo:rerun-if-changed={root}/{f}");

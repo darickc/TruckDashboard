@@ -3,7 +3,8 @@
 Status: the policy is implemented in `crates/camera-policy` and unit-tested
 **[SIM]** (Phase 6.6). Rendering is decided ([ADR-0009](adr/0009-camera-rendering.md)):
 a camera window in an activation area, about 90 ms with a USB webcam
-**[BENCH]**. No camera-manager daemon or truck camera exists yet, and the
+**[BENCH]**. `services/camera-manager` runs it **[SIM]**
+([ADR-0026](adr/0026-camera-manager-interfaces.md)). No truck camera exists yet, and the
 reverse decoder isn't verified.
 
 > **Not a safety system.** This camera system can be unavailable while booting,
@@ -77,7 +78,7 @@ the screen or app that was showing before reverse.
 | Situation | Result |
 |---|---|
 | A camera is missing or has failed | Show a "Camera unavailable" panel in its slot, never a frozen frame, and log it. A camera counts as unavailable until its pipeline reports frames |
-| A frame is stale (no new frame for more than `frame_timeout_ms`) | Same panel. Freezing the last frame is not allowed |
+| A frame is stale (no new frame for `--frame-timeout-ms`, 1000 ms, an example) | Same panel. camera-manager kills the pipeline, which closes its window: freezing the last frame is not allowed |
 
 ## Rendering ([ADR-0009](adr/0009-camera-rendering.md), accepted 2026-11-09)
 

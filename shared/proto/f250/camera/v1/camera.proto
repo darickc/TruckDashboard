@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+// Which camera is on screen, served by services/camera-manager
+// (docs/architecture/adr/0026-camera-manager-interfaces.md). The dashboard
+// draws around the camera's window from this; it never opens a camera
+// itself. power-manager sends the camera switch's moves here.
+package f250.camera.v1;
+
+service CameraService {
+  // The view now, then again each time it changes. A client that loses the
+  // stream must assume the camera state is unknown.
+  rpc WatchView(WatchViewRequest) returns (stream WatchViewResponse);
+  // One debounced move of the camera switch (or an on-screen equivalent).
+  rpc Move(MoveRequest) returns (MoveResponse);
+}
+
+enum Camera {
+  CAMERA_UNSPECIFIED = 0;
+  CAMERA_LEFT = 1;
+  CAMERA_RIGHT = 2;
+  CAMERA_REAR = 3;
+}
+
+enum SwitchMove {
+  SWITCH_MOVE_UNSPECIFIED = 0;
+  SWITCH_MOVE_LEFT = 1;
+  SWITCH_MOVE_RIGHT = 2;
+  SWITCH_MOVE_BACK = 3;
+  SWITCH_MOVE_FORWARD = 4;
+  SWITCH_MOVE_PRESS = 5;
+}
+
+// Why a camera is on screen.
+enum Reason {
+  REASON_UNSPECIFIED = 0;
+  REASON_REVERSE = 1;
+  REASON_SWITCH = 2;
+}
+
+// The reverse signal, for the dashboard's indicator.
+enum ReverseStatus {
+  REVERSE_STATUS_UNSPECIFIED = 0;
+  // Automatic reverse is switched off in camera-manager's configuration.
+  REVERSE_STATUS_OFF = 1;
+  // Stale, invalid or never received: must be shown as unknown.
+  REVERSE_STATUS_UNKNOWN = 2;
+  REVERSE_STATUS_NOT_ENGAGED = 3;
+  REVERSE_STATUS_ENGAGED = 4;
+}
+
+// The chosen camera's feed.
+enum FeedState {
+  FEED_STATE_UNSPECIFIED = 0;
+  // The pipeline is starting and hasn't delivered a frame yet.
+  FEED_STATE_STARTING = 1;
+  // Frames are arriving; the camera's window is on screen.
+  FEED_STATE_LIVE = 2;
+  // No frames (no device, a failed pipeline, frames stopped). The window is
+  // closed; the dashboard shows "Camera unavailable" in its place.
+  FEED_STATE_UNAVAILABLE = 3;
+}
+
+message View {
+  // The camera on screen. Unset (CAMERA_UNSPECIFIED): no camera, the
+  // dashboard shows the screen it showed before.
+  Camera camera = 1;
+  Reason reason = 2;
+  // Meaningful only while `camera` is set.
+  FeedState feed = 3;
+  // Why the feed is unavailable, for the log and a detail line on screen.
+  string feed_detail = 4;
+  ReverseStatus reverse = 5;
+  // A camera is chosen, but the speed limit (or an unknown speed) hides it.
+  bool blocked_by_speed = 6;
+}
+
+message WatchViewRequest {}
+
+message WatchViewResponse {
+  View view = 1;
+}
+
+message MoveRequest {
+  SwitchMove move = 1;
+  // Who sent it ("power-manager", "dashboard"), for the log.
+  string source = 2;
+}
+
+message MoveResponse {
+  // The view right after the move.
+  View view = 1;
+}

@@ -85,8 +85,8 @@ flowchart LR
   ACC -- DCDC-USB: power, PSW pulse --> PWR
   GW -- gRPC f250.vehicle.v1 --> UI
   GW --> REC
-  PWR --> CAM
-  CAM --> UI
+  PWR -- gRPC f250.camera.v1 Move --> CAM
+  CAM -- gRPC f250.camera.v1 view; its own window --> UI
   AUD --> UI
   ESP[ESP32 aux I/O<br/>EGT · volume knob] -- USB serial --> GW
 ```
@@ -134,7 +134,7 @@ x86_64 PC. See
 | [`apps/infotainment/`](apps/infotainment/README.md) | Flutter touchscreen UI |
 | [`simulator/powerstroke/`](simulator/powerstroke/README.md) | Scenario simulator and scenario files |
 | `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto`, `sd-notify` (systemd readiness and watchdog), `camera-policy` (which camera shows) |
-| `services/` | `vehicle-gateway`, `recorder` |
+| `services/` | `vehicle-gateway`, `recorder`, `power-manager`, `camera-manager` (the camera on screen, `f250.camera.v1`) |
 | `tools/obd-console/` | Diagnostics console for the gateway |
 | [`shared/proto/`](shared/proto/f250/vehicle/v1/vehicle.proto) | Versioned gRPC API |
 | [`agl/`](agl/README.md) | AGL Stage 1: release pin, boot config, files and scripts installed on the Pi. `meta-f250` comes in Phase 5.4 |

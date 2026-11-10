@@ -12,6 +12,7 @@ members = [
     "services/vehicle-gateway",
     "services/recorder",
     "services/power-manager",
+    "services/camera-manager",
     "tools/obd-console",
     "tools/can-monitor",
 ]

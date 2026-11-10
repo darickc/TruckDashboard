@@ -261,9 +261,13 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       Automatic reverse is off by default until the `230` decoder is verified. Rendering decided (ADR-0009,
       owner 2026-11-09): camera-manager's own `waylandsink` window, kept below the alert banner by an
       agl-compositor activation area; about 90 ms glass to glass and 5 % of one core with a USB webcam
-      `[BENCH]`; the images carry the GStreamer camera plugins (`6114c52`). Still to do: the daemon (window,
-      show/hide over agl-shell gRPC), the activation area in the dashboard's config, truck cameras, the reverse
-      decoder in the gateway, moves from power-manager, and the UI's camera view and indicators
+      `[BENCH]`; the images carry the GStreamer camera plugins (`6114c52`).
+      Daemon `[SIM]` ([ADR-0026](architecture/adr/0026-camera-manager-interfaces.md)): `services/camera-manager`
+      serves `f250.camera.v1` (`WatchView`, `Move`), runs one `gst-launch-1.0` pipeline for the camera on screen,
+      counts frames through `identity`, and kills the pipeline (closing its window) when frames stop, retrying
+      with a backoff. 11 end-to-end tests against a fake `gst-launch`. Frame counting is UNVERIFIED on the Pi.
+      Still to do: power-manager sending `Move`, the systemd unit and the images, the activation area in the
+      dashboard's config, the UI's camera view and indicators, truck cameras, and the reverse decoder
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
       presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later

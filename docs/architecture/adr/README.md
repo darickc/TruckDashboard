@@ -34,5 +34,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0023](0023-bluetooth-belongs-to-bluez.md) | Bluetooth belongs to BlueZ, not connman | Accepted ([SIM] only) |
 | [0024](0024-camera-selection-switch-and-can-reverse.md) | Cameras: a 5-way switch picks the view, reverse comes from CAN; no opto board | Accepted (owner; reverse decoder not yet verified) |
 | [0025](0025-camera-switch-through-gpio-key.md) | The camera switch is read through the kernel's `gpio-key` overlay | Accepted ([SIM] only) |
+| [0026](0026-camera-manager-interfaces.md) | camera-manager runs one `gst-launch` pipeline at a time and serves `f250.camera.v1` | Accepted ([SIM] only) |
 
 New ADRs use the next number and the same headings.

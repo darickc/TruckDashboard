@@ -8,3 +8,9 @@ pub mod vehicle {
         tonic::include_proto!("f250.vehicle.v1");
     }
 }
+
+pub mod camera {
+    pub mod v1 {
+        tonic::include_proto!("f250.camera.v1");
+    }
+}
