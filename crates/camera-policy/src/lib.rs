@@ -23,7 +23,7 @@
 //! - If reverse goes unknown **while the rear view is up** (the last thing
 //!   known is that the truck is in reverse), the rear view stays, with the
 //!   unknown warning, until the signal comes back or the driver moves the
-//!   switch. Dropping the rear camera mid-reverse because of a CAN glitch
+//!   switch (owner's decision, 2026-11-09). Dropping the rear camera mid-reverse because of a CAN glitch
 //!   would be worse than keeping it; the switch is the way out.
 //! - A camera with no recent frames is reported down by its pipeline; the
 //!   view still selects it and [`View::camera_unavailable`] makes the UI show

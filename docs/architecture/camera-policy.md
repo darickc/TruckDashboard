@@ -43,7 +43,8 @@ Priority, highest first:
      there is no automatic rear view, and the UI shows that reverse is
      unknown. It is never treated as "not in reverse" silently.
    - If reverse goes unknown **while the rear view is up**, and the last
-     sample said reverse, the rear view stays, with the unknown warning,
+     sample said reverse, the rear view stays (owner, 2026-11-09), with the
+     unknown warning,
      until the signal comes back or the switch moves. Any move then takes
      over at once. Dropping the rear camera mid-reverse on a CAN glitch would
      be worse than keeping it, and the switch is the way out. If the last
