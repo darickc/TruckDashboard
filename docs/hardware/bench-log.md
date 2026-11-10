@@ -1576,6 +1576,14 @@ about 100 kB to about 400 kB over its first 5 s, so short runs read low:
     decode + scale to the 427x320 window, 1080p     45.5
     record + decode through a tee, 1080p            40.9
 
+    touch      the owner tapped the screen (after the shutdown fix): Cameras
+               tab Rear, then the camera bar's Front, Rear, Front, Right
+               and Close. Every tap reached camera-manager as "(from
+               dashboard)"; Right gave "no right camera configured"; Close
+               (press) closed it. A switch between cameras took about 1 s
+               from the tap: ~0.2 s to stop the old pipeline, 0.65-0.95 s
+               to the new camera's first frame
+
 Not measured: x264 encoding (no `x264enc` on the image), Matroska segments
 and the power-pull test (no `matroska` or `multifile` plugins on the image).
 
