@@ -259,6 +259,18 @@ Chosen 2026-11-04, not bought yet
 | Jack-to-channel mapping | Not documented | U | — find with a test tone |
 | AGL kernel support | The Vimba 22.0.1 image ships `hifiberry-dac8x.dtbo` and the modules the overlay uses (`snd-soc-rpi-simple-soundcard`, `snd-soc-pcm5102a`), plus `snd-soc-hifiberry-studio-dac8x`. Not tested; which driver binds is checked on the image with `aplay -l` | V (manifest) / U (works) | [22.0.1 manifest](https://download.automotivelinux.org/AGL/release/vimba/22.0.1/raspberrypi5/deploy/images/raspberrypi5/agl-ivi-demo-flutter-raspberrypi5.manifest), 2026-11-06 |
 
+## Cameras and video
+
+Researched 2026-11-10 for front and rear recording
+([ADR-0027](../architecture/adr/0027-front-and-rear-recording.md)).
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| H.264 encoding on the Pi 5 | No hardware H.264 encoder (and no H.264 decoder; HEVC decode only). libx264 in software on the four A76 cores does 1080p30 in real time, per Raspberry Pi's white paper: one stream, nothing else said about the load. Not measured here | V | [Raspberry Pi white paper RP-010033-WP](https://pip-assets.raspberrypi.com/categories/685-app-notes-guides-whitepapers/documents/RP-010033-WP-1-H.264%20encoding%20performance%20on%20Raspberry%20Pi%205_series%20computers.pdf) |
+| USB layout of the Pi 5 | RP1 has two xHCI controllers, each with one USB 3 and one USB 2 port (5 Gbit/s per controller) | V | [Raspberry Pi docs: I/O controllers](https://www.raspberrypi.com/documentation/computers/io-controllers.html) |
+| Several UVC cameras on one USB 2 bus | Isochronous video gets at most about 80 % of a Hi-Speed bus (≈384 Mbit/s), and `uvcvideo` reserves by each camera's declared maximum payload, so two cameras can fail to start ("No space left on device") even when their real traffic fits | F | [The Good Penguin](https://www.thegoodpenguin.co.uk/?p=251) |
+| Recording plugins on our image | `matroska` and `multifile` (`splitmuxsink`) are not in the `6114c52` manifest; no `x264enc` either | V | `agl-f250-22.0.1-6114c52.manifest` |
+
 ## 2007 F-250 6.0L diagnostic network
 
 | Item | Finding | Status | Source |
