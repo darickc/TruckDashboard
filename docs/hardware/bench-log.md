@@ -1397,3 +1397,63 @@ the camera window hides every dashboard alert while it is up, so this is not
 yet an acceptable way to show it: the ADR-0009 spike still has to choose
 between an `agl-shell` surface with alerts drawn on it and a Flutter texture
 fed through `appsink`.
+
+## 2026-11-09 — Camera rendering spike (ADR-0009): a camera window in an activation area [BENCH]
+
+Hardware: as before: Pi 5, the 7" DSI touchscreen, the Logitech C250 webcam
+Image: AGL 22.0.1, `agl-f250` from meta-f250 @ 6114c52; dashboard and
+gateway running, simulated data
+Setup (bench only, restored afterwards): a `[window_activation_area]` table
+(x 0, y 96, width 800, height 320) appended to the dashboard bundle's
+`config.toml`, then `systemctl restart agl-compositor` (never the dashboard
+alone: bench-log 2026-11-06). For the alert check, `/etc/default/f250` set
+to `SCENARIO=ficm_sag START=300`. Pipelines run as `agl-driver` as in the
+entry before. Both files were put back and the compositor and gateway
+restarted; `config.toml` has no activation area again.
+
+What the image offers (read on the Pi and in the pinned sources:
+ivi-homescreen `dd6d9224`, ivi-homescreen-plugins `2163242e`, agl-compositor
+`05cf370a`):
+
+    renderer   flutter-auto draws with Vulkan (log: VK_KHR_wayland_surface,
+               V3D device 55701c33): meta-agl-flutter's
+               flutter-auto_aglflutter.inc swaps the EGL backend for Vulkan
+               on raspberrypi5 when the distro has vulkan
+    textures   its external textures are GL only ("kFlutterDesktopGpuSurface
+               TypeGlTexture2D is only supported at this time"; pixel buffers
+               "not implemented")
+    plugins    compiled in: audioplayers_linux, go_router, nav_render_view,
+               desktop_window_linux, secure_storage (+ url_launcher,
+               rive_text per the recipe). Not video_player_linux, camera,
+               comp_surf. The camera plugin is marked WIP upstream
+    area       the background client's config.toml can set
+               [window_activation_area]; flutter-auto sends it with
+               agl_shell_set_activate_region, and app windows are placed
+               inside it
+    grpc       agl-shell-grpc-server listens on 127.0.0.1:14005:
+               Activate/DeactivateApp, SetAppFloat/Position/Scale and more
+
+Result:
+
+    placement  a plain waylandsink window opened inside the area: picture
+               letterboxed to 427x320 at (187, 96); the status bar (0-44)
+               and the nav bar (416-480) stayed visible and live
+    alert      with FICM main at ~44 V, the critical "FICM low" banner
+               (44-96) showed above the live picture (screenshot)
+    startup    first frame handed to the compositor 0.62 s after gst_init
+               (GST_DEBUG waylandsink "render buffer buffer: 0"); camera
+               open included, window creation included
+    CPU        10 s samples, /proc/<pid>/stat: gst-launch (v4l2src ! jpegdec
+               ! videoconvert ! waylandsink) 5.0 % of one core,
+               agl-compositor 1.2 % (0.4 % without the camera),
+               flutter-auto 3.0 % (5.0 % without); the whole Pi ~4 % busy
+    latency    not measured: the image has no GStreamer latency tracer, and
+               glass-to-glass needs a second camera (owner)
+    after      the dashboard came back by itself when the pipeline ended
+
+Verdict: option B (a separate camera process whose window the compositor
+confines to an area below the alert banner) works on this image without
+rebuilding anything, and keeps the status bar and critical alerts visible.
+Not shown: glass-to-glass latency, GPU load, three cameras, hiding and
+showing the window without restarting the pipeline (needs a gRPC client), or
+what happens to touches on the camera window.
