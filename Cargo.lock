@@ -341,6 +341,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "f250-recording"
+version = "0.1.0"
+
+[[package]]
 name = "f250-sd-notify"
 version = "0.1.0"
 dependencies = [

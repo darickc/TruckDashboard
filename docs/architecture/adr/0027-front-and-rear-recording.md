@@ -1,9 +1,11 @@
 # ADR 0027 — Front and rear cameras record like a dashcam, kept by retention settings
 
-- **Status:** Accepted (owner, 2026-11-10). Nothing built or measured: every
-  figure below is an estimate to check on the bench first (see "To
-  measure"). The retention values are recommendations until the drive is
-  chosen (H31)
+- **Status:** Accepted (owner, 2026-11-10). Built `[SIM]`: the rules for
+  names, retention and saved clips, and the on-drive store
+  (`crates/recording`, 2026-11-10). Not built: recording itself
+  (decisions 2–5) and its API. Nothing measured: every figure below is an
+  estimate to check on the bench first (see "To measure"). The retention
+  values are recommendations until the drive is chosen (H31)
 - **Date:** 2026-11-10
 - **Builds on:** [ADR-0026](0026-camera-manager-interfaces.md) (camera-manager),
   [ADR-0024](0024-camera-selection-switch-and-can-reverse.md) (the front
@@ -125,6 +127,7 @@ What constrains it:
    | `RECORD_SEGMENT_S` | 60 | 60 | Segment length |
    | `RECORD_SYNC_S` | 1 | 1 | How often the segment being written is forced to the drive (decision 5) |
    | `RECORD_UNCLEAN_PROTECT_MIN` | 5 | 5 | Minutes protected before an unclean stop; 0 turns it off (decision 8). Five covers the lead-up to a crash |
+   | `RECORD_CLIP_BEFORE_S`, `RECORD_CLIP_AFTER_S` | 120, 60 | 120, 60 | What "save clip" keeps around the segment being written (decision 8) |
 
    What that keeps at 2 hours of driving a day (estimates from the table
    below): with H.264 cameras, 14 days is 100–200 GB, so the age limit
@@ -134,10 +137,19 @@ What constrains it:
 
    Whichever limit bites first wins. The segment being written is never
    deleted. Deleting is whole segments, never a truncation.
+
+   **Age is only judged on a trusted clock.** While the clock isn't trusted
+   *now*, nothing is deleted by age: a clock that jumped forward must not
+   delete a week of video. Segments without a trusted time (decision 10)
+   are ordered by run and sequence, so a trusted segment that is too old
+   takes every segment recorded before it with it; one stamped in the
+   future is never old. Size and free space still apply on any clock.
 8. **Protected clips.** "Save clip" (a dashboard button only; no switch
    gesture, owner 2026-11-10) protects the current segment and the ones
    around it (2 minutes before and 1 after, recommendations) by moving them
-   to `video/protected/`. A saved clip of both cameras is about 0.25–0.5 GB
+   to `video/protected/`. A file being written is never moved: the finished
+   ones before it move at once, and the current one and the ones after it
+   move as each finishes, with the cap checked again each time. A saved clip of both cameras is about 0.25–0.5 GB
    with H.264 and 0.9–1.8 GB with MJPEG at 720p, so 25 GB holds roughly
    50–100 or 14–28 clips. Retention never deletes protected clips; they
    have their own cap (`RECORD_PROTECTED_MAX_GB`). When the cap is
@@ -153,8 +165,10 @@ What constrains it:
    crash recording isn't deleted by the next drive's retention pass. It
    needs no extra hardware and no crash detection. A camera-manager crash
    with the power still on counts too, which protects a few minutes that
-   didn't need it; that is the cheaper mistake. If the protected cap is
-   full, they stay unprotected and the dashboard says so.
+   didn't need it; that is the cheaper mistake. The cut segment is
+   partial, so one more segment than the minutes need is taken. If the
+   protected cap is short, the minutes closest to the stop are protected
+   first and the rest stay unprotected, and the dashboard says so.
 9. **Recording state is visible and never claimed.** `f250.camera.v1` gains a
    recording status per camera (recording, not recording and why, drive
    free space), and later the settings and "save clip" calls. The dashboard

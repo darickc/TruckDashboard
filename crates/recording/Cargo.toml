@@ -1,0 +1,15 @@
+[package]
+name = "f250-recording"
+version = "0.1.0"
+description = "Front and rear recording: segment names, retention and protected clips (ADR-0027). Pure rules plus a small on-drive store"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "recording"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

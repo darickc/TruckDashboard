@@ -282,7 +282,10 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       dashboard's Front button and the Cameras tab. Still to do: truck cameras, the reverse decoder, recording
       the front and rear ([ADR-0027](architecture/adr/0027-front-and-rear-recording.md), accepted 2026-11-10: GStreamer
       in-process with a tee per camera, the camera's own MJPEG or H.264 in one-minute Matroska segments, retention
-      by age, size and free space, protected clips, data drive only; bench measurements first; cameras: H33),
+      by age, size and free space, protected clips, data drive only; bench measurements first; cameras: H33;
+      the rules are built `[SIM]` in `crates/recording`: segment names with honest timestamps, the
+      settings and their recommendations, retention, "save clip", the minutes before an unclean stop,
+      and the on-drive store; 36 tests including a simulated month of driving),
       and camera assignment in a settings screen
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores

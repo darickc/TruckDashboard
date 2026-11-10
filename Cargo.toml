@@ -9,6 +9,7 @@ members = [
     "crates/proto",
     "crates/sd-notify",
     "crates/camera-policy",
+    "crates/recording",
     "services/vehicle-gateway",
     "services/recorder",
     "services/power-manager",

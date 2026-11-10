@@ -133,7 +133,7 @@ x86_64 PC. See
 | [`tools/dev/`](tools/dev/) | Development scripts: macOS setup, link checker |
 | [`apps/infotainment/`](apps/infotainment/README.md) | Flutter touchscreen UI |
 | [`simulator/powerstroke/`](simulator/powerstroke/README.md) | Scenario simulator and scenario files |
-| `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto`, `sd-notify` (systemd readiness and watchdog), `camera-policy` (which camera shows) |
+| `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto`, `sd-notify` (systemd readiness and watchdog), `camera-policy` (which camera shows), `recording` (dashcam retention and saved clips) |
 | `services/` | `vehicle-gateway`, `recorder`, `power-manager`, `camera-manager` (the camera on screen, `f250.camera.v1`) |
 | `tools/obd-console/` | Diagnostics console for the gateway |
 | [`shared/proto/`](shared/proto/f250/vehicle/v1/vehicle.proto) | Versioned gRPC API |
