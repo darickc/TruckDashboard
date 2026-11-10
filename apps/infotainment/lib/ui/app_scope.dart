@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../cameras/camera_state.dart';
+import '../cameras/simulated_camera_source.dart';
 import '../config/app_config.dart';
 import '../core/power.dart';
 import '../core/settings.dart';
@@ -18,9 +20,11 @@ class AppServices {
     required this.config,
     this.simulation,
     this.gateway,
+    CameraSource? cameras,
     this.power = const NoPowerControl(),
     this.refreshPeriod = const Duration(milliseconds: 250),
-  }) : assert((simulation == null) != (gateway == null), 'exactly one data source');
+  })  : cameras = cameras ?? SimulatedCameraSource(),
+        assert((simulation == null) != (gateway == null), 'exactly one data source');
 
   final TelemetryStore store;
   final AppSettings settings;
@@ -30,6 +34,9 @@ class AppServices {
 
   /// Vehicle gateway connection (Phase 3), or null.
   final GatewayConnection? gateway;
+
+  /// camera-manager (Phase 6.6, ADR-0026), or a simulation of it.
+  final CameraSource cameras;
 
   /// Whether, and how, the screen can shut the head unit down.
   final PowerControl power;

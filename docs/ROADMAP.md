@@ -272,8 +272,13 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       f250, video; sandboxed), `camera-start` with `CAMERA_LEFT/RIGHT/REAR` in `/etc/default/f250`, the socket
       at `/run/f250-camera/camera.sock`, the activation area (y 96–416) in the bundle's `config.toml`, and
       `camera-ctl` for moves by hand; in `make deploy` and both images, checked by `make agl-test`. Not yet run on
-      the Pi ([agl.md](setup/agl.md) check 14). Still to do: the UI's camera view and indicators, truck cameras,
-      and the reverse decoder
+      the Pi ([agl.md](setup/agl.md) check 14). Dashboard camera mode `[SIM]`: on any tab while camera-manager
+      reports a camera, the strip says which and why (an alert takes it, the area never moves), the area under
+      the window says starting / unavailable and why, and Left/Rear/Right/Close replace the nav bar; the Cameras
+      tab picks a camera and reports reverse and the speed limit; no camera is claimed without camera-manager.
+      12 widget tests (geometry pinned to the activation area), the gRPC client against a fake server, and the
+      real camera-manager binary end to end; checked in the browser with the simulated source. Still to do:
+      truck cameras and the reverse decoder
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
       presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later

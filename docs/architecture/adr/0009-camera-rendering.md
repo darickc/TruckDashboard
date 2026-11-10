@@ -51,7 +51,8 @@ needed.
   (`make agl-test`), [SIM] until the next image or deploy.*
 - While a camera shows, the dashboard keeps the alert banner's strip
   reserved even with no alert, and says on screen which camera is showing
-  and why (reverse, the switch).
+  and why (reverse, the switch). *Done 2026-11-10, [SIM]: camera mode in the
+  dashboard ([camera-policy.md](../camera-policy.md#rendering-adr-0009-accepted-2026-11-09)).*
 - camera-manager hides and shows its window with agl-shell's gRPC
   `DeactivateApp`/`ActivateApp` (127.0.0.1:14005) or by closing it, without
   restarting the camera if that is fast enough. Not built or measured yet.

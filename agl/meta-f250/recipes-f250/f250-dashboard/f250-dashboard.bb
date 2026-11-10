@@ -13,8 +13,9 @@ FLUTTER_APPLICATION_PATH = "apps/infotainment"
 PUBSPEC_APPNAME = "f250_infotainment"
 
 # The same defines as `make deploy` (tools/dev/deploy.sh): live data from the
-# gateway's socket. The socket path is the gateway unit's RuntimeDirectory.
-APP_AOT_EXTRA:append = " -DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock"
+# gateway's socket, the camera view from camera-manager's. The socket paths
+# are the units' RuntimeDirectory.
+APP_AOT_EXTRA:append = " -DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock -DCAMERAS=unix:/run/f250-camera/camera.sock"
 
 # flutter-auto's settings for the bundle: background surface, 800x480,
 # fullscreen. Installed as <bundle>/config.toml by the class.

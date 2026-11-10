@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../cameras/camera_state.dart';
 import '../app_scope.dart';
 import '../screens/cameras_screen.dart';
 import '../screens/diagnostics_screen.dart';
@@ -11,13 +12,16 @@ import '../screens/media_screen.dart';
 import '../screens/navigation_screen.dart';
 import '../theme.dart';
 import 'alert_banner.dart';
+import 'camera_mode.dart';
 import 'nav_bar.dart';
 import 'status_bar.dart';
 
 /// Status bar, alert banner, the active screen and the nav bar.
 ///
 /// The alert banner sits *above* the screen area, outside any screen, so no
-/// screen can hide it.
+/// screen can hide it. While camera-manager shows a camera, the shell
+/// switches to camera mode (camera_mode.dart) on every tab: the camera's
+/// window covers y 96–416 whatever the dashboard shows.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -52,7 +56,37 @@ class _AppShellState extends State<AppShell> {
     // with the debug "missing Material" underline.
     return Material(
       color: Palette.of(context).background,
-      child: Column(children: [
+      child: ValueListenableBuilder(
+        valueListenable: s.cameras.status,
+        builder: (context, cameras, _) {
+          final view = cameras.view;
+          if (cameras.camera != null && view != null) return _cameraMode(s, view, cameras.simulated);
+          return _screens(s);
+        },
+      ),
+    );
+  }
+
+  Widget _cameraMode(AppServices s, CameraView view, bool simulated) {
+    return Column(children: [
+      const StatusBar(),
+      // The strip is always 52 high here, so the camera area stays where the
+      // compositor puts the window: an alert takes it over, never moves it.
+      SizedBox(
+        height: kAlertBannerHeight,
+        child: ListenableBuilder(
+          listenable: s.store,
+          builder: (context, _) =>
+              s.store.alerts.isEmpty ? CameraStrip(view: view) : const AlertBanner(),
+        ),
+      ),
+      Expanded(child: CameraArea(view: view, simulated: simulated)),
+      CameraControls(view: view),
+    ]);
+  }
+
+  Widget _screens(AppServices s) {
+    return Column(children: [
         const StatusBar(),
         const AlertBanner(),
         Expanded(
@@ -75,7 +109,6 @@ class _AppShellState extends State<AppShell> {
           ),
         ),
         const NavBar(),
-      ]),
-    );
+      ]);
   }
 }

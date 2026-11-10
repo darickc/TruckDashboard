@@ -92,6 +92,21 @@ webcam, 5 % of one core [BENCH]. The dashboard keeps the banner strip
 reserved while a camera shows, and the "Camera unavailable" panel is the
 dashboard's, drawn in the same area when camera-manager reports no frames.
 
+The dashboard's side ([SIM], `apps/infotainment/lib/ui/shell/camera_mode.dart`):
+while camera-manager reports a camera, every tab gives way to camera mode.
+
+| Rows (px) | What |
+|---|---|
+| 0–44 | Status bar, with the camera's name (it stays named under an alert) |
+| 44–96 | The camera strip: which camera and why (SWITCH or REVERSE). An active alert takes the strip; it never moves the camera area |
+| 96–416 | The camera area, under camera-manager's window: "Starting…", "unavailable" with camera-manager's reason, or, while live, a note that shows only if the window isn't there |
+| 416–480 | Left, Rear, Right and Close in place of the nav bar: the same moves as the switch |
+
+Without camera-manager (the stream drops) the dashboard claims no camera:
+it shows its screens and a CAMERAS OFFLINE chip. The browser preview and the
+in-app simulator use a simulated camera-manager and say SIMULATED: no camera
+picture.
+
 ## Hardware selection criteria (Phase 6)
 
 - **Start with UVC USB cameras or UVC capture devices.** They use V4L2 with no

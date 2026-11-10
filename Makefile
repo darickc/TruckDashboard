@@ -149,7 +149,7 @@ endif
 ui-test: ## Flutter widget/unit tests (+ integration tests against the real gateway)
 ifneq ($(HAVE_APP),)
 ifneq ($(HAVE_CARGO),)
-	cargo build -q -p vehicle-gateway
+	cargo build -q -p vehicle-gateway -p camera-manager
 endif
 	cd $(APP_DIR) && $(FLUTTER) test -r expanded
 else

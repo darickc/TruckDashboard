@@ -35,12 +35,15 @@ void main() {
 
   testWidgets('placeholders say they are not implemented', (tester) async {
     final h = await Harness.start(tester);
-    for (final tab in [AppTab.media, AppTab.navigation, AppTab.cameras]) {
+    for (final tab in [AppTab.media, AppTab.navigation]) {
       await h.goTo(tab);
       expect(find.textContaining('not implemented yet'), findsOneWidget, reason: tab.name);
     }
+    // Cameras is implemented (camera_mode_test.dart); it still says what it
+    // isn't.
     await h.goTo(AppTab.cameras);
-    expect(find.textContaining('not a safety camera'), findsOneWidget);
+    expect(find.textContaining('not implemented yet'), findsNothing);
+    expect(find.textContaining('Not a safety system'), findsOneWidget);
   });
 
   testWidgets('scenario switch from Developer resets data', (tester) async {

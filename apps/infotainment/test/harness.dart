@@ -1,3 +1,5 @@
+import 'package:f250_infotainment/cameras/camera_state.dart';
+import 'package:f250_infotainment/cameras/simulated_camera_source.dart';
 import 'package:f250_infotainment/config/app_config.dart';
 import 'package:f250_infotainment/core/clock.dart';
 import 'package:f250_infotainment/core/power.dart';
@@ -36,7 +38,8 @@ class Harness {
   static Future<Harness> start(WidgetTester tester,
       {String scenario = 'drive_cycle',
       DayNight theme = DayNight.night,
-      PowerControl power = const NoPowerControl()}) async {
+      PowerControl power = const NoPowerControl(),
+      CameraSource? cameras}) async {
     tester.view.physicalSize = const Size(800, 480);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -56,6 +59,7 @@ class Harness {
       settings: AppSettings(theme: theme),
       config: testConfig,
       simulation: sim,
+      cameras: cameras ?? SimulatedCameraSource(),
       power: power,
       refreshPeriod: null,
     );

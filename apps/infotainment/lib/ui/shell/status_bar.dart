@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../cameras/camera_state.dart';
 import '../../telemetry/telemetry_store.dart';
 import '../app_scope.dart';
 import '../presentation.dart';
@@ -20,6 +21,21 @@ Color linkColor(LinkState s, Palette p) => switch (s) {
       LinkState.down => p.critical,
     };
 
+/// The camera on screen (it stays named when an alert takes the camera
+/// strip), or camera-manager being unreachable. Nothing while it is
+/// connecting or idle.
+List<Widget> _cameraChip(CameraStatus c, Palette p) {
+  final camera = c.camera;
+  final (String? text, Color color) = switch (c.link) {
+    CameraLink.up when camera != null =>
+      ('${camera.name.toUpperCase()} CAMERA', c.view?.feed == FeedState.unavailable ? p.critical : p.accent),
+    CameraLink.down => ('CAMERAS OFFLINE', p.advisory),
+    _ => (null, p.textDim),
+  };
+  if (text == null) return const [];
+  return [Pill(text, key: const ValueKey('camera-chip'), color: color), const SizedBox(width: 10)];
+}
+
 /// Always-visible strip: data source, link health, clock. Nothing here is
 /// tappable; it is for glancing.
 class StatusBar extends StatelessWidget {
@@ -29,7 +45,7 @@ class StatusBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     return ListenableBuilder(
-      listenable: s.store,
+      listenable: Listenable.merge([s.store, s.cameras.status]),
       builder: (context, _) {
         final p = Palette.of(context);
         final link = s.store.link;
@@ -64,6 +80,7 @@ class StatusBar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 13, color: p.textDim)),
             ),
+            ..._cameraChip(s.cameras.status.value, p),
             Text(clock,
                 key: const ValueKey('status-clock'),
                 style: TextStyle(
