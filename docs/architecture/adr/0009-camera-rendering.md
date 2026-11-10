@@ -70,8 +70,9 @@ camera-manager daemon.
 
 **Still to do before deciding:**
 
-1. ~~Glass-to-glass latency for B.~~ About 90 ms with the webcam (one
-   readable photo of three; all three under about 145 ms), measured with
+1. ~~Glass-to-glass latency for B.~~ About 90 ms with the webcam (two
+   readable photos of five, 70-110 ms; all five under about 155 ms; the
+   webcam's long auto exposure in a dim room blurs the rest), measured with
    [`tools/dev/latency-clock.html`](../../../tools/dev/latency-clock.html)
    (bench-log 2026-11-09, "glass-to-glass latency"). Whether that is
    acceptable is the owner's call.

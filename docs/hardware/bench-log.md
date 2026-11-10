@@ -1467,7 +1467,7 @@ Setup: `tools/dev/latency-clock.html` full-screen on the Mac (a millisecond
 clock redrawn every display frame, 60 Hz). The webcam filmed it; the Pi
 showed the camera with `v4l2src ! image/jpeg,640x480,30/1 ! jpegdec !
 videoconvert ! waylandsink` in the activation area. The owner photographed
-the Mac and the Pi together with a phone, three times. The Pi reset once
+the Mac and the Pi together with a phone, five times. The Pi reset once
 while being moved (power lost: the previous boot's journal ends with no
 shutdown); everything came back by itself and the camera was restarted.
 
@@ -1478,9 +1478,23 @@ Result (latency = the Mac's clock minus the clock in the camera picture):
     photo 2   Mac 156.426-156.44x, Pi 156.3?? (last two digits smeared)
                                                       ->  27-145 ms
     photo 3   Mac 158.726, Pi 158.6?? (smeared)       ->  27-126 ms
+    photo 4   Mac 349.679-349.699, Pi tenths caught changing 5 -> 6
+              (~349.60)                               ->  70-110 ms
+    photo 5   Mac 353.035-353.055, Pi 352.9?? (hundredths ~5-8)
+                                                      ->  60-100 ms
+                                                          (bound 45-155)
 
-Verdict: about 90 ms glass to glass (one readable photo), and under about
-145 ms in all three. Possibly a little more: the phone's rolling shutter
+    why smeared  the webcam's auto exposure had picked 40.6 ms
+              (exposure_time_absolute 406) with exposure_dynamic_framerate
+              on: one frame spans 2-3 clock updates, and the frame rate may
+              drop below 30 fps in the dim room. Set to manual 8 ms, gain
+              255, dynamic framerate off: the digits came out sharp in a
+              screenshot, but the owner saw the picture turn "very choppy",
+              cause not looked into. No photos were taken that way. The
+              webcam was set back to aperture-priority auto exposure.
+
+Verdict: about 90 ms glass to glass: the two readable photos give 80-105 ms
+and 70-110 ms, and all five are under about 155 ms. Possibly a little more: the phone's rolling shutter
 reads the Pi (lower in the frame) slightly after the Mac, which makes these
 numbers low by up to its readout time. The webcam's long exposure in dim
 light smears the digits; more light on the clock would sharpen them. This
