@@ -397,7 +397,7 @@ check "drive label agrees"     "grep -q '^DRIVE_LABEL=f250-data$' '$SETUP' && gr
 # Sandbox (ADR-0021): each service has the settings measured on the bench.
 U=agl/rootfs/etc/systemd/system
 for unit in f250-gateway f250-recorder f250-power-manager f250-dashboard f250-camera-manager; do
-  for line in 'NoNewPrivileges=yes' 'CapabilityBoundingSet=' 'ProtectSystem=strict' 'PrivateTmp=yes' \
+  for line in 'NoNewPrivileges=yes' 'MemoryDenyWriteExecute=yes' 'CapabilityBoundingSet=' 'ProtectSystem=strict' 'PrivateTmp=yes' \
               'ProtectKernelTunables=yes' 'ProtectKernelModules=yes' 'ProtectKernelLogs=yes' \
               'ProtectControlGroups=yes' 'ProtectClock=yes' 'ProtectHostname=yes' 'ProtectProc=invisible' \
               'RestrictNamespaces=yes' 'RestrictSUIDSGID=yes' 'RestrictRealtime=yes' 'LockPersonality=yes' \
@@ -405,11 +405,6 @@ for unit in f250-gateway f250-recorder f250-power-manager f250-dashboard f250-ca
               'SystemCallFilter=~@privileged @resources' 'IPAddressDeny=any'; do
     check "$unit: $line" "grep -qxF '$line' $U/$unit.service"
   done
-done
-# Every service but camera-manager: GStreamer's orc writes code at run time
-# (f250-camera-manager.service says why; UNVERIFIED that it needs to).
-for unit in f250-gateway f250-recorder f250-power-manager f250-dashboard; do
-  check "$unit: MemoryDenyWriteExecute=yes" "grep -qxF 'MemoryDenyWriteExecute=yes' $U/$unit.service"
 done
 check "gateway reaches only USB serial devices" "grep -qx 'DevicePolicy=closed' $U/f250-gateway.service && [[ \"\$(grep -c '^DeviceAllow=' $U/f250-gateway.service)\" == 1 ]] && grep -qx 'DeviceAllow=char-ttyUSB rw' $U/f250-gateway.service"
 check "gateway keeps its adapter families" "grep -qx 'RestrictAddressFamilies=AF_UNIX AF_CAN AF_BLUETOOTH AF_INET AF_INET6 AF_NETLINK' $U/f250-gateway.service"
@@ -434,6 +429,7 @@ check "camera-manager: reaches only cameras" "grep -qx 'DevicePolicy=closed' $CM
 check "camera-manager: no network" "grep -qx 'PrivateNetwork=yes' $CM && grep -qx 'RestrictAddressFamilies=AF_UNIX' $CM"
 check "camera-manager: GStreamer's registry in its cache" "grep -qx 'CacheDirectory=f250-camera' $CM && grep -qx 'Environment=XDG_CACHE_HOME=/var/cache/f250-camera' $CM && ! grep -q '^ReadWritePaths=' $CM"
 check "camera-manager: watchdog" "grep -qx 'Type=notify' $CM && grep -qx 'WatchdogSec=30' $CM"
+check "camera-manager: stops its own pipeline, never a 90 s hang" "grep -qx 'KillMode=mixed' $CM && grep -qx 'TimeoutStopSec=10' $CM"
 check "camera-manager: deployed and built into the image" "grep -q -- '-p camera-manager' tools/dev/deploy.sh && grep -q '/target/release/camera-manager' tools/dev/deploy.sh && grep -q -- '-p camera-manager' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'power-manager camera-manager camera-ctl; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q '/target/release/camera-ctl' tools/dev/deploy.sh"
 check "camera-manager: the image has gst-launch-1.0 (gstreamer1.0)" "grep -qx '    gstreamer1.0 \\\\' agl/meta-f250/recipes-platform/images/agl-f250-base.inc"
 # The camera window's area (ADR-0009) must match the dashboard's layout: below

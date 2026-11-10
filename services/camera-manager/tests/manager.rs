@@ -232,6 +232,29 @@ async fn press_closes_the_camera_and_kills_its_pipeline() {
 }
 
 #[tokio::test]
+async fn shutdown_stops_the_pipeline_and_ends_the_loop_while_clients_remain() {
+    // The API keeps command senders alive, so the loop can't wait for the
+    // channel to close (bench-log 2026-11-10: a stop hung until SIGKILL).
+    let mut r = rig("shutdown", &[(Camera::Rear, "frames")]);
+    r.mv(Move::Back).await;
+    r.until(SOON, "live", |v| feed(v) == pb::FeedState::Live)
+        .await;
+    let pid = r.pid("frames").expect("started");
+    let mut view = r.view.clone();
+    let still_open = r.cmds.clone();
+    r.cmds.send(Command::Shutdown).await.expect("loop running");
+    tokio::time::timeout(Duration::from_secs(5), &mut r.done)
+        .await
+        .expect("loop stopped")
+        .expect("no panic");
+    assert!(!alive(&pid), "the pipeline (and its window) must be gone");
+    // The view sender went with the loop: WatchView streams end.
+    assert!(view.changed().await.is_err());
+    drop(still_open);
+    let _ = std::fs::remove_dir_all(&r.dir);
+}
+
+#[tokio::test]
 async fn forward_shows_the_front_camera() {
     let mut r = rig("front", &[(Camera::Front, "frames")]);
     let v = r.mv(Move::Forward).await;

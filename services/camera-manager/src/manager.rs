@@ -28,6 +28,11 @@ pub enum Command {
         source: String,
         reply: oneshot::Sender<pb::View>,
     },
+    /// Stop: the pipeline is stopped (never restarted) and [`Manager::run`]
+    /// returns. Its view sender goes with it, which ends every `WatchView`
+    /// stream, so the server's graceful shutdown can finish (bench-log
+    /// 2026-11-10: without this, a stop hung until systemd's SIGKILL).
+    Shutdown,
 }
 
 enum Feed {
@@ -109,7 +114,8 @@ impl Manager {
         self.heartbeat.clone()
     }
 
-    /// Runs until the command channel closes, then stops any pipeline.
+    /// Runs until [`Command::Shutdown`] or the command channel closes, then
+    /// stops any pipeline.
     pub async fn run(mut self, mut cmds: mpsc::Receiver<Command>) {
         let Some(mut events) = self.events_rx.take() else {
             return;
@@ -120,8 +126,8 @@ impl Manager {
             let wake = self.next_wake(Instant::now());
             tokio::select! {
                 c = cmds.recv() => match c {
+                    Some(Command::Shutdown) | None => break,
                     Some(c) => self.command(c).await,
-                    None => break,
                 },
                 Some(e) = events.recv() => self.event(e).await,
                 () = tokio::time::sleep_until(wake) => self.tick().await,
@@ -161,6 +167,8 @@ impl Manager {
                 self.publish();
                 let _ = reply.send(self.api_view());
             }
+            // Handled in run().
+            Command::Shutdown => {}
         }
     }
 

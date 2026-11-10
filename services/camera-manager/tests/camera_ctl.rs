@@ -130,3 +130,53 @@ fn errors_are_plain_and_fail() {
     let o = ctl("unix:/x", &["move", "up"]);
     assert!(!o.status.success(), "clap refuses an unknown direction");
 }
+
+#[test]
+fn sigterm_stops_promptly_with_a_live_camera_and_a_watcher() {
+    // The bench (2026-11-10): a stop with a live pipeline and the dashboard
+    // watching hung until systemd's SIGKILL. SIGTERM goes to camera-manager
+    // only, as with KillMode=mixed.
+    let (mut svc, to) = start("sigterm");
+    let mut watcher = Command::new(env!("CARGO_BIN_EXE_camera-ctl"))
+        .args(["--to", &to, "watch"])
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .expect("watch");
+    assert!(ctl(&to, &["move", "back"]).status.success());
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while stdout(&ctl(&to, &["view"])) != "rear (switch), live; reverse off" {
+        assert!(Instant::now() < deadline, "never live");
+        std::thread::sleep(Duration::from_millis(50));
+    }
+
+    let pid = svc.child.id().to_string();
+    let stopped_at = Instant::now();
+    assert!(
+        Command::new("kill")
+            .args(["-TERM", &pid])
+            .status()
+            .expect("kill")
+            .success()
+    );
+    let status = loop {
+        if let Some(s) = svc.child.try_wait().expect("wait") {
+            break s;
+        }
+        assert!(
+            stopped_at.elapsed() < Duration::from_secs(3),
+            "camera-manager still running 3 s after SIGTERM"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    assert!(
+        status.success(),
+        "clean exit, not the 5 s guard: {status:?}"
+    );
+
+    // The watcher's stream ended with it.
+    let end = Instant::now() + Duration::from_secs(3);
+    while watcher.try_wait().expect("wait").is_none() {
+        assert!(Instant::now() < end, "WatchView stream never ended");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}

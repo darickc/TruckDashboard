@@ -6,13 +6,16 @@
 //!       --camera rear=/dev/v4l/by-id/usb-046d_0804-video-index0
 
 use camera_manager::config::{Config, camera_name};
-use camera_manager::manager::Manager;
+use camera_manager::manager::{Command, Manager};
 use camera_manager::server::Api;
 use clap::Parser;
 use f250_proto::camera::v1::camera_service_server::CameraServiceServer;
 use f250_sd_notify::{Notifier, run_watchdog};
 use tokio::sync::mpsc;
 use tonic::transport::Server;
+
+/// How long a stop may take before camera-manager exits regardless.
+const STOP_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,11 +42,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
     let manager_done = tokio::spawn(manager.run(cmd_rx));
 
+    let stop_cmds = cmd_tx.clone();
     let router = Server::builder().add_service(CameraServiceServer::new(Api::new(cmd_tx, view)));
 
     let stopping = notifier.clone();
-    // SIGTERM (systemd) and Ctrl-C both stop the server; the loop then stops
-    // the running pipeline, which closes its window.
+    // SIGTERM (systemd) and Ctrl-C: the loop stops the pipeline (closing its
+    // window) and returns, which ends every WatchView stream; then the
+    // server's graceful shutdown can finish. A stuck stop is cut short so
+    // shutdown never waits on camera-manager (the unit's TimeoutStopSec is
+    // the last resort).
     let shutdown = async move {
         let mut term =
             tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).ok();
@@ -53,6 +60,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         eprintln!("[camera] shutting down");
         let _ = stopping.stopping();
+        let _ = stop_cmds.send(Command::Shutdown).await;
+        tokio::spawn(async {
+            tokio::time::sleep(STOP_GRACE).await;
+            eprintln!(
+                "[camera] still stopping after {} s: exiting anyway",
+                STOP_GRACE.as_secs()
+            );
+            std::process::exit(1);
+        });
     };
     let ready = |at: String| {
         eprintln!("[camera] listening on {at}");
