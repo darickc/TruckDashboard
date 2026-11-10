@@ -63,7 +63,7 @@ What constrains it:
    - The no-frozen-frame rule stays: no frames for `--frame-timeout-ms` →
      the display branch is removed, its window closes, and the view says
      unavailable. A recording branch that stops getting frames marks the
-     recording failed (decision 8) and the pipeline restarts with backoff.
+     recording failed (decision 9) and the pipeline restarts with backoff.
    - What is lost: a GStreamer crash now takes camera-manager down with it.
      systemd restarts it (`Restart=on-failure`, the watchdog), and the
      dashboard already shows no camera while it is gone (rule 4).
@@ -83,16 +83,32 @@ What constrains it:
    cameras also offer MJPEG on a second stream, which the display branch can
    use instead.
 4. **One-minute segments in Matroska** (`splitmuxsink`, `matroskamux`).
-   Segment length is a setting (60 s, an example). A power cut loses at most
-   the segment being written, and Matroska stays playable up to its last
-   complete cluster; both are to be shown by pulling the power on the bench.
-   On a clean stop (SIGTERM at shutdown) each pipeline gets an end-of-stream
-   so the last segment is finished.
-5. **Recordings live only on the data drive**, in
+   Segment length is a setting (60 s, an example). On a clean stop (SIGTERM
+   at shutdown) each pipeline gets an end-of-stream so the last segment is
+   finished.
+5. **Video reaches the drive every second** (owner, 2026-11-10). In a crash
+   the power can go with no warning (a torn cable or fuse; the DCDC-USB's
+   OFFDELAY covers only the ignition), and those last seconds are the ones
+   that matter. Left to itself, Linux keeps written data in memory for up
+   to about 30 s before writing it out, so a power cut would lose the
+   crash. So:
+   - the muxer closes a Matroska cluster at least every second
+     (`max-cluster-duration`), so each second is complete data, and
+   - camera-manager calls `fdatasync` on the segment being written every
+     `RECORD_SYNC_S` (1 s, an example).
+
+   A power cut then loses about the last second. The cut segment has no
+   ending (no cues): it plays up to the last synced cluster, and seeking in
+   it may not work. At 1–7 MB/s per camera this is light work for an NVMe
+   drive. A drive that ignores the flush command would still lose its own
+   cache; drives with power-loss protection don't. Which property names
+   and defaults GStreamer 1.28 has here, and what a sync costs, are
+   UNVERIFIED until the bench.
+6. **Recordings live only on the data drive**, in
    `/var/lib/f250/storage/video/<camera>/`. With no drive mounted, nothing
    records, the Cameras tab says why, and the SD card is never used, as the
    recorder already does with `DATA_DRIVE=1`.
-6. **Retention: oldest first, by settings that are examples, not
+7. **Retention: oldest first, by settings that are examples, not
    recommendations.** A pass runs before each new segment and once a minute:
 
    | Setting | Example | Meaning |
@@ -102,30 +118,44 @@ What constrains it:
    | `RECORD_MIN_FREE_GB` | 20 | Always leave this much free on the drive (telemetry shares it) |
    | `RECORD_MAX_SEGMENTS` | 0 (off) | At most this many segments per camera |
    | `RECORD_SEGMENT_S` | 60 | Segment length |
+   | `RECORD_SYNC_S` | 1 | How often the segment being written is forced to the drive (decision 5) |
+   | `RECORD_UNCLEAN_PROTECT_MIN` | 3 | Minutes protected before an unclean stop; 0 turns it off (decision 8) |
 
    Whichever limit bites first wins. The segment being written is never
    deleted. Deleting is whole segments, never a truncation.
-7. **Protected clips.** "Save clip" (a dashboard button; a switch gesture
+8. **Protected clips.** "Save clip" (a dashboard button; a switch gesture
    later, if the switch allows one) protects the current segment and the
    ones around it (2 minutes before and 1 after, examples) by moving them to
    `video/protected/`. Retention never deletes protected clips; they have
    their own cap (`RECORD_PROTECTED_MAX_GB`, example 20). When the cap is
    full, a new save is refused and says so, rather than deleting an older
    saved clip.
-8. **Recording state is visible and never claimed.** `f250.camera.v1` gains a
+
+   **After an unclean stop, the last minutes are protected by themselves**
+   (owner, 2026-11-10, "maybe": a setting, on by default). camera-manager
+   writes a clean-stop marker after it has finished its segments at
+   shutdown. If the marker is missing when it starts (power cut, crash),
+   the segments from the last `RECORD_UNCLEAN_PROTECT_MIN` minutes of the
+   previous run (3, an example) are protected before retention runs, so a
+   crash recording isn't deleted by the next drive's retention pass. It
+   needs no extra hardware and no crash detection. A camera-manager crash
+   with the power still on counts too, which protects a few minutes that
+   didn't need it; that is the cheaper mistake. If the protected cap is
+   full, they stay unprotected and the dashboard says so.
+9. **Recording state is visible and never claimed.** `f250.camera.v1` gains a
    recording status per camera (recording, not recording and why, drive
    free space), and later the settings and "save clip" calls. The dashboard
    shows a REC indicator per camera only while camera-manager reports it.
    A recorded camera that stops recording raises an advisory alert ("Front
    camera not recording: no frames"), so a dead dashcam isn't discovered
    after the incident it missed.
-9. **Timestamps are labelled by what the clock knows.** Each segment's name
+10. **Timestamps are labelled by what the clock knows.** Each segment's name
    carries the boot number and a sequence (`b0042-s00317`), and the wall
    time only when the clock is trusted (`timedatectl` says synchronized, or
    the RTC is set: H20). An index file per camera records both. A segment
    recorded on an untrusted clock is never named with a wrong date as if it
    were right (CLAUDE.md rule 4, applied to time).
-10. **Settings live in `/etc/default/f250` for now** (`RECORD_CAMERAS=front,rear`
+11. **Settings live in `/etc/default/f250` for now** (`RECORD_CAMERAS=front,rear`
     and the table above), read by `camera-start`. A settings screen (the
     dashboard, through camera-manager's API, as camera assignment will) comes
     later.
@@ -143,7 +173,16 @@ What constrains it:
 3. **Keep `gst-launch`, with the display window always open and hidden.**
    Hiding needs agl-shell to address the window, and `waylandsink` sets no
    app id (ADR-0009). Not possible today.
-4. **Re-encode everything to H.264 on the Pi.** Smallest files from any
+4. **Hold-up power and crash detection** (not chosen, owner 2026-11-10).
+   A supercapacitor or small UPS with a power-fail signal would let the Pi
+   finish its segments and shut down cleanly after the supply is lost, and
+   an accelerometer (or deceleration from the wheel speeds) could protect a
+   clip at the moment of a crash. Both are new hardware or unverified
+   signals; decisions 5 and 8 cover the main loss without them. A
+   purpose-built dashcam (G-sensor, supercapacitor) stays the better
+   primary record if crash footage matters; this one is a second copy, like
+   the rest of the camera system, which is not a safety system.
+5. **Re-encode everything to H.264 on the Pi.** Smallest files from any
    camera, but at least one core per 1080p stream on a Pi that also draws
    the dashboard. Kept as an option, not the default.
 
@@ -183,12 +222,18 @@ MJPEG bitrates depend heavily on the scene and the camera's quality setting.
 2. `x264enc` at 720p30 and 1080p30 (`ultrafast`, `superfast`): CPU while the
    dashboard runs.
 3. Two cameras at once, on one USB controller and on two.
-4. Pull the power mid-segment: is the cut segment playable, and up to where?
+4. Pull the power mid-segment, several times: is the cut segment playable,
+   and how close to the cut does it reach (the goal: within about 1 s,
+   decision 5)? Then the next start: are the last minutes protected
+   (decision 8)?
 5. A clean shutdown: is the last segment finished within the shutdown time?
 
 ## Open for the owner
 
 - Accept the move to gstreamer-rs (decision 2)?
+- Settled 2026-11-10: sync every second (decision 5) and protect the minutes
+  before an unclean stop (decision 8); no hold-up power or crash sensor
+  (option 4).
 - The retention examples (7 days, 200 GB, 20 GB free): replace with your
   numbers, or keep as examples until the drive is chosen (H31).
 - Should "save clip" also have a switch gesture (e.g. a long press), once
