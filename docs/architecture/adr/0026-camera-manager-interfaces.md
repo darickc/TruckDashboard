@@ -1,8 +1,10 @@
 # ADR 0026 — camera-manager runs one `gst-launch` pipeline at a time and serves `f250.camera.v1`
 
-- **Status:** Accepted. [SIM] only: the daemon runs on the Mac against a fake
-  `gst-launch`, and its unit (decision 7) hasn't run on the Pi. Frame
-  counting through `identity` (decision 3) is UNVERIFIED on the Pi.
+- **Status:** Accepted. [BENCH] 2026-11-10 on the Pi with two webcams
+  ([bench-log](../../hardware/bench-log.md)): the unit and its sandbox
+  (decision 7), frame counting through `identity` (decision 3, one line per
+  frame on GStreamer 1.28.5), the no-frozen-frame rule (decision 4), and
+  a stop with a camera live (fixed that day: it hung until SIGKILL).
   [ADR-0027](0027-front-and-rear-recording.md) (accepted 2026-11-10) will
   supersede decision 3 and narrow decision 2 to unrecorded cameras once
   recording is built

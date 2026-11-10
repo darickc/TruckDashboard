@@ -242,13 +242,39 @@ What constrains it:
 
 MJPEG bitrates depend heavily on the scene and the camera's quality setting.
 
+### Measured 2026-11-10 [BENCH] (two webcams, a desk scene; [bench-log](../../hardware/bench-log.md))
+
+| Camera, MJPEG as it comes | Mbit/s | GB/hour | Record CPU | Decode-for-display CPU |
+|---|---|---|---|---|
+| Logitech C920 (`08e5`) 1920×1080 | 93.7 | 42.1 | 0.1 % | 41.8 % of one core |
+| C920 1280×720 | 85.2 | 38.3 | 0.1 % | 31.7 % |
+| C920 640×480 | 34.5 | 15.5 | — | — |
+| Logitech C250 640×480 | 6.4 | 2.9 | 0.1 % | 5.2 % (with the window) |
+
+- **C920-class MJPEG is two to three times the estimate above.** Front
+  and rear at 1080p would be about 84 GB/hour: the 512 GB drive's 250 GB
+  budget holds about 3 hours, the 1 TB drive's 550 GB about 6.5. The age
+  limit would never decide; the size limit would, within a day or two of
+  driving. This makes H.264 cameras (H33) or encoding on the Pi (not
+  measured: no `x264enc` on the image) much more important than assumed.
+- **Recording as-is costs no CPU; showing does.** Decoding a 1080p MJPEG
+  stream for the window takes about 42 % of one core. A camera's display
+  branch should use a small stream (a second, lower mode, or scaling in
+  the camera), and camera-manager needs caps per camera: today one
+  `--caps` applies to every camera.
+- **Two cameras on one USB 2 bus work:** C920 1080p and C250 480p together,
+  both at 30 fps, about 98 Mbit/s combined, no bandwidth errors.
+- Neither webcam offers H.264; the newer C920 (`08e5`) dropped it.
+
 ### To measure on the bench before building (webcam first, then the chosen cameras)
 
 1. CPU and write rate: MJPEG as it comes into Matroska segments, 640×480 and
    the camera's highest MJPEG mode, with and without the display branch.
+   *Done for MJPEG to a file (above); Matroska waits for the plugins.*
 2. `x264enc` at 720p30 and 1080p30 (`ultrafast`, `superfast`): CPU while the
    dashboard runs.
-3. Two cameras at once, on one USB controller and on two.
+3. Two cameras at once, on one USB controller and on two. *One controller
+   done (above).*
 4. Pull the power mid-segment, several times: is the cut segment playable,
    and how close to the cut does it reach (the goal: within about 1 s,
    decision 5)? Then the next start: are the last minutes protected

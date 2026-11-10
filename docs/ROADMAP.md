@@ -271,8 +271,11 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       end on the Mac. Packaged `[SIM]` (ADR-0026 decision 7): `f250-camera-manager.service` (agl-driver, group
       f250, video; sandboxed), `camera-start` with `CAMERA_FRONT/LEFT/RIGHT/REAR` (by-path names) in `/etc/default/f250`, the socket
       at `/run/f250-camera/camera.sock`, the activation area (y 96–416) in the bundle's `config.toml`, and
-      `camera-ctl` for moves by hand; in `make deploy` and both images, checked by `make agl-test`. Not yet run on
-      the Pi ([agl.md](setup/agl.md) check 14). Dashboard camera mode `[SIM]`: on any tab while camera-manager
+      `camera-ctl` for moves by hand; in `make deploy` and both images, checked by `make agl-test`. `[BENCH]`
+      2026-11-10 with two webcams ([agl.md](setup/agl.md) check 14): live in 0.7 s through the service and its
+      sandbox, the picture in the activation area under the dashboard's camera mode, frame counting verified, a
+      killed pipeline shows "unavailable" and recovers, an alert takes the strip over a live camera; a stop that
+      hung 90 s was found and fixed (0.08 s now); MemoryDenyWriteExecute on. Dashboard camera mode `[SIM]`: on any tab while camera-manager
       reports a camera, the strip says which and why (an alert takes it, the area never moves), the area under
       the window says starting / unavailable and why, and Left/Rear/Right/Close replace the nav bar; the Cameras
       tab picks a camera and reports reverse and the speed limit; no camera is claimed without camera-manager.

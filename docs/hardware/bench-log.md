@@ -1500,3 +1500,90 @@ numbers low by up to its readout time. The webcam's long exposure in dim
 light smears the digits; more light on the clock would sharpen them. This
 is a 30 fps webcam through MJPEG; a truck camera or a capture device will
 differ and needs its own measurement.
+
+## 2026-11-10 — camera-manager as a service, two webcams, and recording numbers [BENCH]
+
+Hardware: Pi 5 on the bench, the 7" DSI touchscreen, two USB webcams on the
+same RP1 controller (`xhci-hcd.1`, its USB 2 bus): the Logitech C250
+(`046d:0804`, port 2) and a Logitech C920 HD Pro (`046d:08e5`, port 1). The
+USB CAN adapter is on the other controller
+Image: AGL 22.0.1, `agl-f250` @ 6114c52, with `make deploy` of `acbce44`,
+then again with the shutdown fix (`fix(camera-manager)` below)
+Setup: `/etc/default/f250` gained `CAMERA_FRONT` (C920) and `CAMERA_REAR`
+(C250) by USB port (`/dev/v4l/by-path/platform-xhci-hcd.1-usb-0:1:1.0-video-index0`
+and `...usb-0:2:1.0...`); the file before that is kept as
+`/etc/default/f250.before-cameras`. Moves sent with `camera-ctl`; the
+switch isn't wired. Screenshots with `agl-screenshooter`. Measurements with
+`gst-launch-1.0` by hand while camera-manager had no camera up. The room
+scene (a desk, a ring light) is not a road: MJPEG sizes depend on the scene
+
+Result, camera-manager (agl.md check 14):
+
+    service    f250-camera-manager active; /run/f250-camera/camera.sock is
+               agl-driver:f250 srwxrwx---; power-manager logs "camera-switch
+               moves go to camera-manager at unix:/run/f250-camera/camera.sock"
+    registry   GStreamer wrote /var/cache/f250-camera/gstreamer-1.0/
+               registry.aarch64.bin from inside the sandbox
+    frames     `gst-launch-1.0 -v ... identity name=f250_frames silent=false`
+               on GStreamer 1.28.5 prints exactly one
+               "f250_frames: last-message = chain" line per buffer (60 of
+               60): ADR-0026 decision 3 holds
+    rear       `camera-ctl move back`: live, first frame after 702 ms; the
+               C250's picture letterboxed in y 96-416 under the dashboard's
+               camera mode (status chip REAR CAMERA, the strip, the
+               Front/Left/Rear/Right/Close bar). Screenshot
+    front      `move forward`: the C920, live after 775 ms. `move press`:
+               no camera, no gst-launch left, the dashboard back on Home
+    killed     `pkill -9 -x gst-launch-1.0` while live: the window went at
+               once; the dashboard showed "Rear camera unavailable — the
+               pipeline ended. Use the mirrors." with the chip red; live
+               again 1.3 s later (backoff 1 s, then 284 ms to the first
+               frame)
+    alert      gateway on `ficm_sag` @ 300 s: the critical "FICM low" banner
+               took the 44-96 strip over the live picture; the camera area
+               didn't move; the chip still said REAR CAMERA. Scenario put
+               back to drive_cycle
+    MDWE       with a drop-in MemoryDenyWriteExecute=yes: live in 275 ms,
+               gst-launch 5.2 % of one core with and without it, no
+               GStreamer warnings (640x480 MJPEG display pipeline only)
+    stop       BUG: `systemctl restart` with a camera live hung 90 s and
+               ended in SIGKILL ("State 'stop-sigterm' timed out"). systemd's
+               SIGTERM also hit gst-launch; camera-manager took that for a
+               failure and restarted it, and the gRPC server waited forever
+               on the dashboard's WatchView stream. Fixed (a Shutdown
+               command, KillMode=mixed, TimeoutStopSec=10): the same restart
+               with a camera live now takes 0.08 s
+
+Result, recording numbers (ADR-0027 "To measure", items 1 and 3). Steady
+state is after the first 150 frames: the C920's MJPEG frames grow from
+about 100 kB to about 400 kB over its first 5 s, so short runs read low:
+
+    camera, MJPEG mode     fps    kB/frame   Mbit/s   GB/hour
+    C920 1920x1080         29.9   391        93.7     42.1
+    C920 1280x720          29.9   356        85.2     38.3
+    C920 640x480           29.9   144        34.5     15.5
+    C250 640x480           30.0    27         6.4      2.9
+
+    both at once   C920 1080p + C250 480p on the same USB 2 bus: both at
+                   29.9-30.0 fps, 91.8 + 6.2 Mbit/s, no errors in dmesg
+    H.264          neither camera offers it (`v4l2-ctl --list-formats-ext`:
+                   YUYV and MJPG only; the 08e5 C920 has no H.264)
+
+    CPU (% of one core, 10 s)                       
+    record MJPEG as it comes (filesink /dev/null)   0.1 (C920 1080p and C250)
+    decode for display, C920 1080p                  41.8
+    decode for display, C920 720p                   31.7
+    decode + scale to the 427x320 window, 1080p     45.5
+    record + decode through a tee, 1080p            40.9
+
+Not measured: x264 encoding (no `x264enc` on the image), Matroska segments
+and the power-pull test (no `matroska` or `multifile` plugins on the image).
+
+Verdict: camera-manager works as a service on the Pi with two cameras,
+including the no-frozen-frame rule and alerts over a live camera, and the
+frame count is verified. Its stop hung; that is fixed and measured. For
+recording, MJPEG from a C920-class camera is two to three times ADR-0027's
+estimate (94 Mbit/s, 42 GB/hour at 1080p): recording it as-is costs no CPU
+but a 250 GB budget would hold about 3 hours of front and rear. Showing a
+1080p camera costs about 42 % of one core to decode, so a camera's display
+stream should be small.
