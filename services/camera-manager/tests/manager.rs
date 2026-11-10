@@ -52,7 +52,30 @@ fn fake_dir(test: &str) -> PathBuf {
     let script = dir.join("gst-launch");
     std::fs::write(&script, FAKE).expect("write fake");
     std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    wait_until_executable(&script);
     dir
+}
+
+/// Runs a freshly written script once, retrying while Linux says "Text file
+/// busy" (ETXTBSY). Tests run in parallel: another test forking a child at
+/// the moment this one wrote the script leaves the write handle open in that
+/// child until it execs, and an exec in that window fails. Once one run
+/// succeeds no handle is left, so the test itself never sees the race.
+/// Only a test problem: camera-manager never writes gst-launch-1.0.
+fn wait_until_executable(script: &Path) {
+    for _ in 0..200 {
+        match std::process::Command::new(script)
+            .arg("device=probe")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+        {
+            Err(e) if e.raw_os_error() == Some(26) => std::thread::sleep(Duration::from_millis(10)),
+            Err(e) => panic!("fake gst-launch won't run: {e}"),
+            Ok(_) => return,
+        }
+    }
+    panic!("fake gst-launch stayed busy");
 }
 
 fn settings(dir: &Path, cameras: &[(Camera, &str)]) -> Settings {

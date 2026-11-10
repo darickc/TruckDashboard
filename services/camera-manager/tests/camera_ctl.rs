@@ -7,6 +7,7 @@ use std::process::{Child, Command, Output};
 use std::time::{Duration, Instant};
 
 const FAKE: &str = r#"#!/bin/sh
+case "$*" in *device=probe*) exit 0 ;; esac
 mark="/GstPipeline:pipeline0/GstIdentity:f250_frames: last-message = chain   ******* (f250_frames:sink) (614400 bytes)"
 while :; do echo "$mark"; sleep 0.02; done
 "#;
@@ -31,6 +32,14 @@ fn start(test: &str) -> (Service, String) {
     let gst = dir.join("gst");
     std::fs::write(&gst, FAKE).expect("fake");
     std::fs::set_permissions(&gst, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    // A parallel test forking at the moment the script was written can leave
+    // it busy for an instant (ETXTBSY on Linux): wait until it runs.
+    for _ in 0..200 {
+        match Command::new(&gst).arg("device=probe").output() {
+            Err(e) if e.raw_os_error() == Some(26) => std::thread::sleep(Duration::from_millis(10)),
+            _ => break,
+        }
+    }
     let sock = dir.join("c.sock");
     let child = Command::new(env!("CARGO_BIN_EXE_camera-manager"))
         .arg("--listen")
