@@ -2,7 +2,10 @@
 
 - **Status:** Accepted. [SIM] only: the daemon runs on the Mac against a fake
   `gst-launch`, and its unit (decision 7) hasn't run on the Pi. Frame
-  counting through `identity` (decision 3) is UNVERIFIED on the Pi
+  counting through `identity` (decision 3) is UNVERIFIED on the Pi.
+  [ADR-0027](0027-front-and-rear-recording.md) (accepted 2026-11-10) will
+  supersede decision 3 and narrow decision 2 to unrecorded cameras once
+  recording is built
 - **Date:** 2026-11-09
 - **Builds on:** [ADR-0009](0009-camera-rendering.md) (a camera window in an
   activation area), [ADR-0024](0024-camera-selection-switch-and-can-reverse.md)

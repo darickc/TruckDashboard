@@ -35,6 +35,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0024](0024-camera-selection-switch-and-can-reverse.md) | Cameras: a 5-way switch picks the view, reverse comes from CAN; no opto board | Accepted (owner; reverse decoder not yet verified) |
 | [0025](0025-camera-switch-through-gpio-key.md) | The camera switch is read through the kernel's `gpio-key` overlay | Accepted ([SIM] only) |
 | [0026](0026-camera-manager-interfaces.md) | camera-manager runs one `gst-launch` pipeline at a time and serves `f250.camera.v1` | Accepted ([SIM] only) |
-| [0027](0027-front-and-rear-recording.md) | Front and rear cameras record like a dashcam, kept by retention settings | Proposed (nothing measured yet) |
+| [0027](0027-front-and-rear-recording.md) | Front and rear cameras record like a dashcam, kept by retention settings | Accepted (owner; nothing built or measured yet) |
 
 New ADRs use the next number and the same headings.

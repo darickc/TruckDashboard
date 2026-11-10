@@ -1,14 +1,16 @@
 # ADR 0027 — Front and rear cameras record like a dashcam, kept by retention settings
 
-- **Status:** Proposed (2026-11-10). Nothing built or measured: every figure
-  below is an estimate to check on the bench first (see "To measure")
+- **Status:** Accepted (owner, 2026-11-10). Nothing built or measured: every
+  figure below is an estimate to check on the bench first (see "To
+  measure"). The retention values are recommendations until the drive is
+  chosen (H31)
 - **Date:** 2026-11-10
 - **Builds on:** [ADR-0026](0026-camera-manager-interfaces.md) (camera-manager),
   [ADR-0024](0024-camera-selection-switch-and-can-reverse.md) (the front
   camera, amended 2026-11-10), [ADR-0009](0009-camera-rendering.md) (a
   camera window in an activation area), [ADR-0016](0016-stage1-sideload-layout.md)
   and [ADR-0022](0022-grow-root-on-first-boot.md) (the `f250-data` drive)
-- **Amends:** ADR-0026 decisions 2 and 3, if accepted (below)
+- **Amends:** ADR-0026 decisions 2 and 3, once recording is built (Consequences)
 
 ## Context
 
@@ -108,26 +110,37 @@ What constrains it:
    `/var/lib/f250/storage/video/<camera>/`. With no drive mounted, nothing
    records, the Cameras tab says why, and the SD card is never used, as the
    recorder already does with `DATA_DRIVE=1`.
-7. **Retention: oldest first, by settings that are examples, not
-   recommendations.** A pass runs before each new segment and once a minute:
+7. **Retention: oldest first, by settings.** A pass runs before each new
+   segment and once a minute. The values are recommendations (2026-11-10)
+   for the two likely drive sizes, not measured requirements; the owner
+   sets them once the drive is chosen (H31):
 
-   | Setting | Example | Meaning |
-   |---|---|---|
-   | `RECORD_MAX_AGE_DAYS` | 7 | Delete segments older than this |
-   | `RECORD_MAX_GB` | 200 | Video (front and rear together) may use at most this |
-   | `RECORD_MIN_FREE_GB` | 20 | Always leave this much free on the drive (telemetry shares it) |
-   | `RECORD_MAX_SEGMENTS` | 0 (off) | At most this many segments per camera |
-   | `RECORD_SEGMENT_S` | 60 | Segment length |
-   | `RECORD_SYNC_S` | 1 | How often the segment being written is forced to the drive (decision 5) |
-   | `RECORD_UNCLEAN_PROTECT_MIN` | 3 | Minutes protected before an unclean stop; 0 turns it off (decision 8) |
+   | Setting | 512 GB drive | 1 TB drive | Meaning, and why this value |
+   |---|---|---|---|
+   | `RECORD_MAX_AGE_DAYS` | 14 | 14 | Delete segments older than this. Two weeks covers noticing an incident days later (a scrape, a claim), without keeping months of where the truck went |
+   | `RECORD_MAX_GB` | 250 | 550 | Front and rear video together. About half the drive: the rest is for telemetry, CAN logs, offline maps (6.5) and media |
+   | `RECORD_MIN_FREE_GB` | 50 | 100 | Always free on the drive, about 10 %: the SSD stays fast and the other writers never run out |
+   | `RECORD_PROTECTED_MAX_GB` | 25 | 50 | Saved clips (decision 8) |
+   | `RECORD_MAX_SEGMENTS` | 0 (off) | 0 (off) | Per camera. Age and size already cover it |
+   | `RECORD_SEGMENT_S` | 60 | 60 | Segment length |
+   | `RECORD_SYNC_S` | 1 | 1 | How often the segment being written is forced to the drive (decision 5) |
+   | `RECORD_UNCLEAN_PROTECT_MIN` | 5 | 5 | Minutes protected before an unclean stop; 0 turns it off (decision 8). Five covers the lead-up to a crash |
+
+   What that keeps at 2 hours of driving a day (estimates from the table
+   below): with H.264 cameras, 14 days is 100–200 GB, so the age limit
+   decides on either drive. With MJPEG at 720p, 250 GB holds 9–19 hours
+   (about 5–9 days) and 550 GB holds 20–42 hours (10–14 days): the size
+   limit decides.
 
    Whichever limit bites first wins. The segment being written is never
    deleted. Deleting is whole segments, never a truncation.
-8. **Protected clips.** "Save clip" (a dashboard button; a switch gesture
-   later, if the switch allows one) protects the current segment and the
-   ones around it (2 minutes before and 1 after, examples) by moving them to
-   `video/protected/`. Retention never deletes protected clips; they have
-   their own cap (`RECORD_PROTECTED_MAX_GB`, example 20). When the cap is
+8. **Protected clips.** "Save clip" (a dashboard button only; no switch
+   gesture, owner 2026-11-10) protects the current segment and the ones
+   around it (2 minutes before and 1 after, recommendations) by moving them
+   to `video/protected/`. A saved clip of both cameras is about 0.25–0.5 GB
+   with H.264 and 0.9–1.8 GB with MJPEG at 720p, so 25 GB holds roughly
+   50–100 or 14–28 clips. Retention never deletes protected clips; they
+   have their own cap (`RECORD_PROTECTED_MAX_GB`). When the cap is
    full, a new save is refused and says so, rather than deleting an older
    saved clip.
 
@@ -136,7 +149,7 @@ What constrains it:
    writes a clean-stop marker after it has finished its segments at
    shutdown. If the marker is missing when it starts (power cut, crash),
    the segments from the last `RECORD_UNCLEAN_PROTECT_MIN` minutes of the
-   previous run (3, an example) are protected before retention runs, so a
+   previous run (5, recommended) are protected before retention runs, so a
    crash recording isn't deleted by the next drive's retention pass. It
    needs no extra hardware and no crash detection. A camera-manager crash
    with the power still on counts too, which protects a few minutes that
@@ -228,16 +241,14 @@ MJPEG bitrates depend heavily on the scene and the camera's quality setting.
    (decision 8)?
 5. A clean shutdown: is the last segment finished within the shutdown time?
 
-## Open for the owner
+## Owner's decisions (2026-11-10)
 
-- Accept the move to gstreamer-rs (decision 2)?
-- Settled 2026-11-10: sync every second (decision 5) and protect the minutes
-  before an unclean stop (decision 8); no hold-up power or crash sensor
-  (option 4).
-- The retention examples (7 days, 200 GB, 20 GB free): replace with your
-  numbers, or keep as examples until the drive is chosen (H31).
-- Should "save clip" also have a switch gesture (e.g. a long press), once
-  the switch is chosen (H32)?
+- Accepted, including the move to gstreamer-rs (decision 2).
+- Sync every second (decision 5) and protect the minutes before an unclean
+  stop (decision 8); no hold-up power or crash sensor (option 4).
+- "Save clip" is a dashboard button only; no switch gesture.
+- Retention: the recommended values in decision 7, to be set for the drive
+  once it is chosen (H31).
 
 ## Revisit if
 

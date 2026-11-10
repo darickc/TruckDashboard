@@ -280,7 +280,7 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       real camera-manager binary end to end; checked in the browser with the simulated source. A front
       camera `[SIM]` (owner, 2026-11-10; ADR-0024 amended): forward shows it, press closes, on the switch, the
       dashboard's Front button and the Cameras tab. Still to do: truck cameras, the reverse decoder, recording
-      the front and rear ([ADR-0027](architecture/adr/0027-front-and-rear-recording.md), proposed 2026-11-10: GStreamer
+      the front and rear ([ADR-0027](architecture/adr/0027-front-and-rear-recording.md), accepted 2026-11-10: GStreamer
       in-process with a tee per camera, the camera's own MJPEG or H.264 in one-minute Matroska segments, retention
       by age, size and free space, protected clips, data drive only; bench measurements first; cameras: H33),
       and camera assignment in a settings screen

@@ -115,7 +115,7 @@ picture.
 - CVBS and AHD need capture hardware whose Linux driver works on the AGL kernel
   (6.18). Choose by working driver support, **not** advertised resolution.
 - Front and rear are to be recorded ([ADR-0027](adr/0027-front-and-rear-recording.md),
-  proposed): cameras that send H.264 themselves are preferred for those two
+  accepted): cameras that send H.264 themselves are preferred for those two
   (H33).
 - Up to four cameras (front, left, right, rear) means checking USB bandwidth.
   MJPEG or H.264 output is preferred; a camera that sends H.264 itself would
