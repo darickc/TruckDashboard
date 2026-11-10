@@ -473,7 +473,7 @@ for i in agl-f250 agl-f250-release; do
 done
 for p in f250-system f250-services f250-dashboard weston-ini-conf-flutter bluez5 avahi-daemon rsync \
          gstreamer1.0-plugins-good-video4linux2 gstreamer1.0-plugins-good-jpeg \
-         gstreamer1.0-plugins-base-videoconvertscale gstreamer1.0-plugins-base-app \
+         gstreamer1.0-plugins-base-videoconvertscale \
          gstreamer1.0-plugins-bad-waylandsink; do
   check "base installs $p" "grep -qx '    $p \\\\' $IMG/agl-f250-base.inc"
 done

@@ -1,9 +1,10 @@
 # Camera policy
 
 Status: the policy is implemented in `crates/camera-policy` and unit-tested
-**[SIM]** (Phase 6.6). No camera-manager daemon, pipeline or camera exists yet,
-and the reverse decoder isn't verified. Capture hardware, pipelines and latency
-are unverified until measured on the Pi 5.
+**[SIM]** (Phase 6.6). Rendering is decided ([ADR-0009](adr/0009-camera-rendering.md)):
+a camera window in an activation area, about 90 ms with a USB webcam
+**[BENCH]**. No camera-manager daemon or truck camera exists yet, and the
+reverse decoder isn't verified.
 
 > **Not a safety system.** This camera system can be unavailable while booting,
 > after a crash, or when the camera fails. The mirrors and normal reversing
@@ -78,15 +79,15 @@ the screen or app that was showing before reverse.
 | A camera is missing or has failed | Show a "Camera unavailable" panel in its slot, never a frozen frame, and log it. A camera counts as unavailable until its pipeline reports frames |
 | A frame is stale (no new frame for more than `frame_timeout_ms`) | Same panel. Freezing the last frame is not allowed |
 
-## Rendering (ADR-009, a spike in Phase 6)
+## Rendering ([ADR-0009](adr/0009-camera-rendering.md), accepted 2026-11-09)
 
-| Option | Pro | Con |
-|---|---|---|
-| Flutter texture fed by GStreamer | Critical alerts stay overlaid. One app | Embedder plugin support on flutter-auto must be confirmed. Copy cost |
-| GStreamer `waylandsink` surface raised through `agl-shell` | Lowest latency. Independent of the UI process | Alerts must be drawn by the camera surface or the compositor |
-
-Measure glass-to-glass latency and CPU on the Pi 5 for both. Choose the one
-that keeps alerts visible with acceptable latency.
+camera-manager shows the camera in its own `waylandsink` window. The
+dashboard's `config.toml` sets an activation area below its status bar and
+alert-banner strip, and agl-compositor keeps every app window inside it, so
+alerts stay visible above the camera. About 90 ms glass to glass with a USB
+webcam, 5 % of one core [BENCH]. The dashboard keeps the banner strip
+reserved while a camera shows, and the "Camera unavailable" panel is the
+dashboard's, drawn in the same area when camera-manager reports no frames.
 
 ## Hardware selection criteria (Phase 6)
 
@@ -99,7 +100,7 @@ that keeps alerts visible with acceptable latency.
 - **A UVC webcam works on the AGL image** (Logitech C250, 640×480 at ~30 fps
   in YUYV and MJPEG; [bench-log](../hardware/bench-log.md) 2026-11-09). The
   images from `6114c52` carry `v4l2src`, `jpegdec`, `appsink` and
-  `waylandsink`. On them the webcam decodes at ~29 fps, and a bare
-  `waylandsink` window goes full-screen over the dashboard and hides its
-  alerts until it closes (bench-log 2026-11-09). That rules out a plain
-  xdg-shell window; the ADR-0009 spike decides between the two options above.
+  `waylandsink`. On them the webcam decodes at ~29 fps. Without an
+  activation area, a `waylandsink` window goes full-screen over the dashboard
+  and hides its alerts (bench-log 2026-11-09), which is why ADR-0009 confines
+  it.

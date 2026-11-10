@@ -569,7 +569,7 @@ that decision chose.
    4. documentation of ODbL attribution, storage and limits, including **no heavy-vehicle or trailer guarantees**
 6. **6.6** **camera-manager**:
    - V4L2 and GStreamer pipelines
-   - the ADR-009 rendering spike
+   - rendering: a camera window of its own in an activation area (ADR-0009, decided 2026-11-09 by a measured spike)
    - the policy state machine (ADR-0024): reverse priority, then the 5-way switch's latched choice at any speed, restore the previous screen
    - camera-loss warnings, and a visible "reverse unknown" when the CAN reverse signal is stale
    - reverse from the gateway (HS-CAN broadcast `230`, once its decoder is verified); the switch from power-manager. No vehicle wire on GPIO

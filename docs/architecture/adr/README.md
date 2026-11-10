@@ -17,7 +17,7 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0006](0006-signal-registry-formula.md) | YAML signal registry with a safe formula grammar | Accepted |
 | [0007](0007-read-only-vehicle-access.md) | Read-only vehicle access by default | Accepted |
 | [0008](0008-crates-and-services.md) | Libraries in `crates/`, daemons in `services/` | Accepted |
-| [0009](0009-camera-rendering.md) | Camera rendering chosen by a measured spike | Proposed |
+| [0009](0009-camera-rendering.md) | Camera rendering chosen by a measured spike | Accepted |
 | [0010](0010-offline-maps-routing.md) | flutter_map + offline tiles; Valhalla routing | Proposed |
 | [0011](0011-mx-plus-trial-first.md) | MX+ truck trial before buying CAN hardware | Accepted |
 | [0012](0012-direct-can-usb-adapter.md) | Direct CAN through a USB CANable adapter, with our own single-frame ISO-TP | Accepted |
