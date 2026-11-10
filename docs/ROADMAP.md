@@ -255,7 +255,12 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
 - [ ] 6.3 Volume knob
 - [ ] 6.4 GPS
 - [ ] 6.5 Offline map, then routing, then the update workflow
-- [ ] 6.6 camera-manager and the ADR-0009 spike. Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
+- [~] 6.6 camera-manager and the ADR-0009 spike. Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
+      Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and
+      invalid reverse, the latched choice, moves during reverse, the optional speed limit, missing cameras).
+      Automatic reverse is off by default until the `230` decoder is verified. Still to do: the daemon, the
+      ADR-0009 rendering spike, pipelines, cameras, the reverse decoder in the gateway, moves from power-manager,
+      and the UI's camera view and indicators
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
       presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later

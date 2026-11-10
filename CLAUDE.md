@@ -68,7 +68,7 @@ project has.
 firmware/esp32/      PlatformIO firmware (C++17); auxiliary controller, ELM reference implementation
 shared/signals/      signal registry (YAML); imports/torque/exportedPIDs.csv
 shared/proto/        versioned gRPC/protobuf API (f250.<domain>.v1); `make proto` regenerates Dart
-crates/              Rust libraries: elm (MX+ client), telemetry, powerstroke-sim, proto
+crates/              Rust libraries: elm (MX+ client), telemetry, powerstroke-sim, proto, sd-notify, camera-policy
 services/            Rust daemons: vehicle-gateway, recorder, power-manager (camera/audio in Phase 6)
 apps/infotainment/   Flutter UI, 800×480 (simulated data source today)
 simulator/           Power Stroke scenarios (f250.scenario.v1) + Dart engine; Rust transport in Phase 3

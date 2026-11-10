@@ -1,8 +1,9 @@
 # Camera policy
 
-Status: **design**. The policy logic is pure and tested in simulation in Phase
-6. Capture hardware, pipelines and latency are unverified until measured on the
-Pi 5.
+Status: the policy is implemented in `crates/camera-policy` and unit-tested
+**[SIM]** (Phase 6.6). No camera-manager daemon, pipeline or camera exists yet,
+and the reverse decoder isn't verified. Capture hardware, pipelines and latency
+are unverified until measured on the Pi 5.
 
 > **Not a safety system.** This camera system can be unavailable while booting,
 > after a crash, or when the camera fails. The mirrors and normal reversing
@@ -29,14 +30,24 @@ The camera manager **never** asks the gateway to transmit anything.
 Priority, highest first:
 
 1. **Reverse** shows the rear camera.
+   - **Off by default** (`auto_reverse`) until the `230` decoder has its
+     VERIFICATION_LOG entry (ADR-0024 decision 4). Off, the indicator says so,
+     and the switch's Back is the way to see the rear camera.
    - Activates when reverse has been reported for at least `rev_debounce_ms`
      (default 150 ms, an example).
    - Stays up for `rev_hold_ms` after reverse clears (default 2000 ms, an
      example).
    - If the reverse signal is **stale or unknown** (no CAN adapter, gateway
-     down, decoder not yet verified), there is no automatic rear view, and the
-     UI shows that reverse is unknown. It is never treated as "not in reverse"
-     silently.
+     down, the gateway marks it invalid, or no sample for `rev_stale_ms`,
+     default 500 ms, an example: the broadcast comes about 31 times a second),
+     there is no automatic rear view, and the UI shows that reverse is
+     unknown. It is never treated as "not in reverse" silently.
+   - If reverse goes unknown **while the rear view is up**, and the last
+     sample said reverse, the rear view stays, with the unknown warning,
+     until the signal comes back or the switch moves. Any move then takes
+     over at once. Dropping the rear camera mid-reverse on a CAN glitch would
+     be worse than keeping it, and the switch is the way out. If the last
+     sample said reverse had ended, the hold runs out as usual.
 2. **The switch's choice**, latched until the next move:
 
    | Switch | Default (configuration) |
@@ -46,7 +57,10 @@ Priority, highest first:
    | Forward / Press | No camera: back to the previous screen |
 
    - Allowed at any speed (owner). `manual_max_speed` is an optional limit,
-     off by default.
+     off by default. Set, it hides a chosen camera while the speed is above
+     it **or unknown**, and the UI says why; the choice stays latched and
+     shows again when slow. It never hides reverse, and never blocks "no
+     camera".
    - A contact must be the only one closed for `switch_debounce_ms` (default
      30 ms, an example) to count, once per closure. power-manager does this
      before passing the move on
@@ -60,7 +74,7 @@ the screen or app that was showing before reverse.
 
 | Situation | Result |
 |---|---|
-| A camera is missing or has failed | Show a "Camera unavailable" panel in its slot, never a frozen frame, and log it |
+| A camera is missing or has failed | Show a "Camera unavailable" panel in its slot, never a frozen frame, and log it. A camera counts as unavailable until its pipeline reports frames |
 | A frame is stale (no new frame for more than `frame_timeout_ms`) | Same panel. Freezing the last frame is not allowed |
 
 ## Rendering (ADR-009, a spike in Phase 6)

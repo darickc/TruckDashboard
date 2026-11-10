@@ -8,6 +8,7 @@ members = [
     "crates/powerstroke-sim",
     "crates/proto",
     "crates/sd-notify",
+    "crates/camera-policy",
     "services/vehicle-gateway",
     "services/recorder",
     "services/power-manager",

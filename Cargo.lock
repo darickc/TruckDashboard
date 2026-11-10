@@ -308,6 +308,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "f250-camera-policy"
+version = "0.1.0"
+
+[[package]]
 name = "f250-elm"
 version = "0.1.0"
 

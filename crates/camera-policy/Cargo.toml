@@ -1,0 +1,15 @@
+[package]
+name = "f250-camera-policy"
+version = "0.1.0"
+description = "Which camera the head unit shows: reverse first, then the 5-way switch's latched choice (ADR-0024). Pure logic"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "camera_policy"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
