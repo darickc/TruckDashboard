@@ -26,16 +26,27 @@
 //! camera-manager's `Move` call ([`camera_link`]; ADR-0026). A slow or
 //! missing camera-manager never holds up the power key.
 //!
-//! Not in this slice of 6.7: day/night and the backlight.
+//! Day/night and the backlight ([`display`], ADR-0028): the sun's elevation
+//! from the wall clock and a configured location, the driver's Auto/Day/Night
+//! and per-mode brightness, the backlight ramped from a thread of its own
+//! ([`backlight`]), and the state served as `f250.power.v1` for the
+//! dashboard ([`display_server`]).
+//!
+//! Not in this slice of 6.7: the hardware watchdog, and the dashboard's Power
+//! button becoming Restart.
 //!
 //! Status: the power key is unit-tested `[SIM]`, and `[BENCH]` on the Pi 5
 //! with its own button (bench-log 2026-11-09): presses after the window power
 //! off, a press inside it is ignored. The DCDC-USB's PSW on J2 isn't wired
 //! yet. The camera switch is `[SIM]` only: the `gpio-key` overlays haven't run
 //! on the Pi, and the link to camera-manager is tested against a fake server.
+//! Day/night and the backlight are `[SIM]`: unit-tested against a fake sysfs.
 
+pub mod backlight;
 pub mod camera_link;
 pub mod camera_switch;
+pub mod display;
+pub mod display_server;
 pub mod evdev;
 pub mod policy;
 pub mod uptime;

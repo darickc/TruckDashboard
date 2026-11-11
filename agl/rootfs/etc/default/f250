@@ -45,6 +45,32 @@ DATA_DRIVE=0
 #            once H21 measures the ON pulse; keep it shorter than the
 #            supply's OFFDELAY. After editing: systemctl restart f250-power-manager
 BOOT_KEY_IGNORE_S=30
+# Day/night and the backlight (power-manager, ADR-0028). Every value is an
+#            example to tune. After editing: systemctl restart f250-power-manager
+# DISPLAY_LATITUDE, DISPLAY_LONGITUDE  where the truck is, in degrees (north
+#            and east positive; the United States has a negative longitude),
+#            for the sun's elevation. Two decimals is plenty. Empty: Auto
+#            can't follow the sun and shows DISPLAY_FALLBACK, saying why.
+#            GPS replaces these once it is fitted (Phase 6.4).
+# DISPLAY_NIGHT_BELOW_DEG  night once the sun is below this (empty: -3)
+# DISPLAY_HYSTERESIS_DEG   day again this far above it (empty: 1)
+# DISPLAY_FALLBACK         day | night: when Auto can't follow the sun (empty:
+#            day, so an alert is never too dim to read in daylight)
+# DISPLAY_TRUST_CLOCK      synchronized | always. synchronized (empty): the sun
+#            only while the system reports the clock synchronized (network
+#            time). always: trust it anyway, once the RTC cell holds the time
+#            across a parked night (H20). A clock before 2026 is never trusted.
+# DISPLAY_MIN_BRIGHTNESS_PCT  the backlight never goes below this (empty: 10)
+# DISPLAY_BACKLIGHT        the device under /sys/class/backlight (empty: the
+#            first; 10-0045 on the bench Pi), or none
+DISPLAY_LATITUDE=
+DISPLAY_LONGITUDE=
+DISPLAY_NIGHT_BELOW_DEG=
+DISPLAY_HYSTERESIS_DEG=
+DISPLAY_FALLBACK=
+DISPLAY_TRUST_CLOCK=
+DISPLAY_MIN_BRIGHTNESS_PCT=
+DISPLAY_BACKLIGHT=
 # CAMERA_MANAGER  power-manager: where camera-switch moves go (camera-manager's
 #            f250.camera.v1 API). Default unix:/run/f250-camera/camera.sock,
 #            set in the unit. Set it empty to only log the moves.

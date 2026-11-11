@@ -1,0 +1,46 @@
+#!/bin/bash
+# ExecStart of f250-power-manager.service on AGL: power-manager with the
+# settings from /etc/default/f250.
+#
+#   BOOT_KEY_IGNORE_S   seconds after boot in which the power key is ignored
+#       (the DCDC-USB's ON pulse). Default 30 (the unit), an example value.
+#   CAMERA_MANAGER      where camera-switch moves go. Empty: only logged.
+#   DISPLAY_LATITUDE, DISPLAY_LONGITUDE   where the truck is, for the sun
+#       (degrees; north and east positive). Both, or neither: without them
+#       Auto day/night uses the fallback and says so (ADR-0028).
+#   DISPLAY_NIGHT_BELOW_DEG, DISPLAY_HYSTERESIS_DEG, DISPLAY_FALLBACK,
+#   DISPLAY_TRUST_CLOCK, DISPLAY_MIN_BRIGHTNESS_PCT, DISPLAY_BACKLIGHT
+#       passed on only when set. power-manager reads every display value
+#       leniently: a bad one is logged and its default used, so a typo here
+#       never stops the power key from working.
+#
+# The display API is on /run/f250-power/power.sock (RuntimeDirectory) and the
+# driver's display settings in /var/lib/f250-power/display (StateDirectory).
+#
+# Status: [SIM] (make agl-test).
+set -euo pipefail
+
+BIN="${F250_POWER_BIN:-/opt/f250/bin/power-manager}"
+SOCK="${F250_POWER_SOCK:-/run/f250-power/power.sock}"
+STATE="${F250_POWER_STATE:-/var/lib/f250-power/display}"
+
+args=(--boot-key-ignore-s "${BOOT_KEY_IGNORE_S:-30}")
+if [[ -n "${CAMERA_MANAGER:-}" ]]; then
+  args+=(--camera-manager "$CAMERA_MANAGER")
+fi
+args+=(--display-listen "unix:$SOCK" --display-state "$STATE")
+# `--name=value`, so a negative number is never read as an option.
+for pair in latitude:DISPLAY_LATITUDE longitude:DISPLAY_LONGITUDE \
+  night-below-deg:DISPLAY_NIGHT_BELOW_DEG hysteresis-deg:DISPLAY_HYSTERESIS_DEG \
+  fallback:DISPLAY_FALLBACK trust-clock:DISPLAY_TRUST_CLOCK \
+  min-brightness-pct:DISPLAY_MIN_BRIGHTNESS_PCT backlight:DISPLAY_BACKLIGHT; do
+  opt="${pair%%:*}"
+  var="${pair#*:}"
+  val="${!var:-}"
+  if [[ -n "$val" ]]; then
+    args+=("--$opt=$val")
+  fi
+done
+
+echo "exec $BIN ${args[*]}" >&2
+exec "$BIN" "${args[@]}"

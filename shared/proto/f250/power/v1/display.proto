@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+// Day/night and the backlight, served by services/power-manager
+// (docs/architecture/adr/0028-day-night-and-backlight.md). power-manager
+// decides day or night and sets the backlight; the dashboard follows the
+// mode for its palette and never writes the backlight itself.
+package f250.power.v1;
+
+service DisplayService {
+  // The display state now, then again each time it changes. A client that
+  // loses the stream must not claim the display is being controlled.
+  rpc WatchDisplay(WatchDisplayRequest) returns (stream WatchDisplayResponse);
+  // Changes the driver's choice and/or a brightness. Unset fields (zero)
+  // leave that setting as it is.
+  rpc SetDisplay(SetDisplayRequest) returns (SetDisplayResponse);
+}
+
+enum DisplayMode {
+  DISPLAY_MODE_UNSPECIFIED = 0;
+  DISPLAY_MODE_DAY = 1;
+  DISPLAY_MODE_NIGHT = 2;
+}
+
+// The driver's setting.
+enum DisplayChoice {
+  DISPLAY_CHOICE_UNSPECIFIED = 0;
+  DISPLAY_CHOICE_AUTO = 1;
+  DISPLAY_CHOICE_DAY = 2;
+  DISPLAY_CHOICE_NIGHT = 3;
+}
+
+// What decided the mode.
+enum ModeBasis {
+  MODE_BASIS_UNSPECIFIED = 0;
+  // Auto, following the sun.
+  MODE_BASIS_SUN = 1;
+  // The driver chose Day or Night.
+  MODE_BASIS_MANUAL = 2;
+  // Auto, but the sun is unknown (`sun` says why): the configured fallback.
+  MODE_BASIS_FALLBACK = 3;
+}
+
+// Whether the sun's position is known, and if not, why.
+enum SunStatus {
+  SUN_STATUS_UNSPECIFIED = 0;
+  SUN_STATUS_KNOWN = 1;
+  // No latitude and longitude configured (DISPLAY_LATITUDE/LONGITUDE).
+  SUN_STATUS_NO_LOCATION = 2;
+  // The system doesn't report the clock synchronized.
+  SUN_STATUS_CLOCK_NOT_SYNCHRONIZED = 3;
+  // The clock reads before 2026: never set.
+  SUN_STATUS_CLOCK_NOT_SET = 4;
+}
+
+message Display {
+  DisplayMode mode = 1;
+  DisplayChoice choice = 2;
+  ModeBasis basis = 3;
+  SunStatus sun = 4;
+  // Degrees above the horizon; meaningful only while sun is KNOWN.
+  double sun_elevation_deg = 5;
+  // The driver's levels, in percent, and the floor neither goes below.
+  uint32 day_brightness_pct = 6;
+  uint32 night_brightness_pct = 7;
+  uint32 min_brightness_pct = 8;
+  // A backlight device was found (its name in `backlight`).
+  bool backlight_present = 9;
+  string backlight = 10;
+  // The level the backlight is being set to for the current mode, percent.
+  uint32 brightness_pct = 11;
+  // Why the backlight isn't following (none found, a write failed). Empty
+  // when it is.
+  string backlight_problem = 12;
+}
+
+message WatchDisplayRequest {}
+
+message WatchDisplayResponse {
+  Display display = 1;
+}
+
+message SetDisplayRequest {
+  // UNSPECIFIED: unchanged.
+  DisplayChoice choice = 1;
+  // 0: unchanged. Clamped to [min_brightness_pct, 100].
+  uint32 day_brightness_pct = 2;
+  uint32 night_brightness_pct = 3;
+  // Who sent it ("dashboard"), for the log.
+  string source = 4;
+}
+
+message SetDisplayResponse {
+  // The state right after the change.
+  Display display = 1;
+}

@@ -20,13 +20,11 @@
 //! - **The clean-stop marker**, last, at a clean shutdown.
 
 use std::collections::HashMap;
-use std::io::Read;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use f250_proto::camera::v1 as pb;
 use recording::protect::{self, ClipError};
@@ -60,8 +58,6 @@ impl PartialEq for Clock {
     }
 }
 
-pub const TIMESYNC_FILE: &str = "/run/systemd/timesync/synchronized";
-
 /// The system clock's synchronized flag, cached.
 #[derive(Debug, Clone, Default)]
 pub struct SystemClock {
@@ -71,40 +67,9 @@ pub struct SystemClock {
 impl SystemClock {
     /// Asks again (at most 2 s), caches and returns the answer.
     pub fn refresh(&self) -> bool {
-        let now = Path::new(TIMESYNC_FILE).exists() || timedatectl_synchronized();
+        let now = clock_sync::system_synchronized();
         self.synced.store(now, Ordering::Release);
         now
-    }
-}
-
-fn timedatectl_synchronized() -> bool {
-    let Ok(mut child) = Command::new("timedatectl")
-        .args(["show", "--property=NTPSynchronized", "--value"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-    else {
-        return false;
-    };
-    let deadline = std::time::Instant::now() + Duration::from_secs(2);
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) if status.success() => {
-                let mut out = String::new();
-                if let Some(mut so) = child.stdout.take() {
-                    let _ = so.read_to_string(&mut out);
-                }
-                return out.trim() == "yes";
-            }
-            Ok(Some(_)) | Err(_) => return false,
-            Ok(None) if std::time::Instant::now() >= deadline => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return false;
-            }
-            Ok(None) => std::thread::sleep(Duration::from_millis(20)),
-        }
     }
 }
 

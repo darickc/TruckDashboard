@@ -32,6 +32,7 @@ gstreamer = ["dep:gstreamer"]
 [dependencies]
 f250-camera-policy = { path = "../../crates/camera-policy" }
 f250-recording = { path = "../../crates/recording" }
+f250-clock-sync = { path = "../../crates/clock-sync" }
 # The data drive's free space (statvfs) for retention.
 rustix = { version = "1.1", features = ["fs"] }
 gstreamer = { version = "0.25", optional = true }

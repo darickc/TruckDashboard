@@ -1,7 +1,7 @@
 [package]
 name = "power-manager"
 version = "0.1.0"
-description = "Head unit power manager: the DCDC-USB's PSW pulse on the Pi 5 power key, pulse-only (ADR-0013)"
+description = "Head unit power manager: the DCDC-USB's PSW pulse on the Pi 5 power key, pulse-only (ADR-0013), the camera switch, and day/night with the backlight (ADR-0028)"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -18,6 +18,9 @@ path = "src/main.rs"
 [dependencies]
 f250-proto = { path = "../../crates/proto" }
 f250-sd-notify = { path = "../../crates/sd-notify", features = ["tokio"] }
+# Day/night and the backlight (ADR-0028).
+f250-daylight = { path = "../../crates/daylight" }
+f250-clock-sync = { path = "../../crates/clock-sync" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal", "sync", "fs", "io-util", "net"] }
 clap = { version = "4", features = ["derive"] }
 # The camera-manager client (camera_link): tonic over a unix socket, as the
@@ -25,9 +28,8 @@ clap = { version = "4", features = ["derive"] }
 tonic = "0.14"
 tower = { version = "0.5", features = ["util"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
-
-[dev-dependencies]
-tokio-stream = { version = "0.1", features = ["net"] }
+# The display API's server (WatchStream) and its unix listener.
+tokio-stream = { version = "0.1", features = ["net", "sync"] }
 
 [lints]
 workspace = true

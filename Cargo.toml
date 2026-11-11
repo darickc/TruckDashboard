@@ -10,6 +10,8 @@ members = [
     "crates/sd-notify",
     "crates/camera-policy",
     "crates/recording",
+    "crates/daylight",
+    "crates/clock-sync",
     "services/vehicle-gateway",
     "services/recorder",
     "services/power-manager",

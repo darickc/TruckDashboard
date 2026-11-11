@@ -1,0 +1,15 @@
+[package]
+name = "f250-daylight"
+version = "0.1.0"
+description = "Day or night for the head unit's display: the sun's elevation, the decision with its fallbacks, brightness levels and the ramp (ADR-0028). Pure logic"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "daylight"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

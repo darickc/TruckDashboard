@@ -5,6 +5,7 @@ import 'package:f250_infotainment/core/clock.dart';
 import 'package:f250_infotainment/core/power.dart';
 import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/data/simulation_controller.dart';
+import 'package:f250_infotainment/display/display_state.dart';
 import 'package:f250_infotainment/model/signal_catalog.dart';
 import 'package:f250_infotainment/telemetry/telemetry_store.dart';
 import 'package:f250_infotainment/ui/app.dart';
@@ -39,7 +40,8 @@ class Harness {
       {String scenario = 'drive_cycle',
       DayNight theme = DayNight.night,
       PowerControl power = const NoPowerControl(),
-      CameraSource? cameras}) async {
+      CameraSource? cameras,
+      DisplaySource? display}) async {
     tester.view.physicalSize = const Size(800, 480);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -56,10 +58,11 @@ class Harness {
       ..select(scenario);
     final services = AppServices(
       store: store,
-      settings: AppSettings(theme: theme),
+      settings: AppSettings(),
       config: testConfig,
       simulation: sim,
       cameras: cameras ?? SimulatedCameraSource(),
+      display: display ?? SimulatedDisplaySource(mode: theme),
       power: power,
       refreshPeriod: null,
     );

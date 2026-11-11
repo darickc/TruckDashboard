@@ -311,7 +311,17 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       overlays (pull-ups, keys F13–F17) in `config-f250.txt`; power-manager finds them by key bitmap, debounces
       (`--switch-debounce-ms`, only one contact closed, once per closure) and sends each move to camera-manager
       (`CAMERA_MANAGER`, ADR-0026). `make agl-test` checks every line names its key (the overlay's default is
-      `KEY_POWER`). Not yet on the Pi (wiring checks 8–9). Still to do: day/night, backlight dimming, the hardware
+      `KEY_POWER`). Not yet on the Pi (wiring checks 8–9).
+      Day/night and the backlight `[SIM]` ([ADR-0028](architecture/adr/0028-day-night-and-backlight.md), 2026-11-11):
+      `crates/daylight` (the sun's elevation, within 0.1° of an independent NOAA implementation; Auto/Day/Night with
+      hysteresis; brightness levels and the ramp), Auto only on a configured location (`DISPLAY_LATITUDE/LONGITUDE`) and
+      a synchronized clock (`crates/clock-sync`, now shared with camera-manager), otherwise the Day fallback with the
+      reason on screen. power-manager ramps the backlight from its own thread (never below 10 %), keeps the driver's
+      choice and levels in `/var/lib/f250-power/display`, and serves `f250.power.v1` on `/run/f250-power/power.sock`;
+      `power-start` wrapper, udev rule for `brightness`, `ProtectKernelTunables` dropped for it. Tests: the logic, the
+      writer against a fake sysfs, the real binary end to end; the dashboard's theme follows it (Developer → Display:
+      Auto/Day/Night, brightness, why Auto can't run; 22 Flutter tests). Not on the Pi yet: the udev rule, the sandbox
+      write, the ramp on the panel ([agl.md](setup/agl.md) check 15). Still to do: the hardware
       watchdog, and the dashboard's Power button becoming Restart once the DCDC-USB is installed
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]

@@ -10,6 +10,8 @@ import 'core/power.dart';
 import 'core/settings.dart';
 import 'data/gateway_connection.dart';
 import 'data/simulation_controller.dart';
+import 'display/display_connection.dart';
+import 'display/display_state.dart';
 import 'model/signal_catalog.dart';
 import 'telemetry/telemetry_store.dart';
 import 'ui/app.dart';
@@ -26,6 +28,12 @@ const _gateway = String.fromEnvironment('GATEWAY', defaultValue: 'unix:/tmp/f250
 /// gateway.
 const _cameras = String.fromEnvironment('CAMERAS', defaultValue: 'auto');
 
+/// Day/night and the backlight: `sim` (no power-manager: Day or Night by
+/// hand, nothing dimmed) or power-manager's endpoint
+/// (`unix:/run/f250-power/power.sock` on the Pi). Default: `sim`; only the
+/// Pi runs power-manager.
+const _power = String.fromEnvironment('POWER', defaultValue: 'sim');
+
 /// In-app simulator start point (`make ui-web SCENARIO=eot_ect_freeze START=110`).
 const _scenario = String.fromEnvironment('SCENARIO', defaultValue: 'drive_cycle');
 const _startSeconds = int.fromEnvironment('SIM_START_S');
@@ -38,6 +46,7 @@ Future<void> main() async {
             source: _source,
             gateway: _gateway,
             cameras: _cameras,
+            power: _power,
             scenario: _scenario,
             startAt: const Duration(seconds: _startSeconds))));
   } catch (e) {
@@ -50,6 +59,7 @@ Future<AppServices> createServices(
   String source = 'sim',
   String gateway = 'unix:/tmp/f250/vehicle.sock',
   String cameras = 'auto',
+  String power = 'sim',
   String scenario = 'drive_cycle',
   Duration startAt = Duration.zero,
 }) async {
@@ -68,6 +78,10 @@ Future<AppServices> createServices(
       ? SimulatedCameraSource()
       : connectCameraManager(GatewayEndpoint.parse(camerasAt));
   cameraSource.start();
+  final DisplaySource display = power == 'sim'
+      ? SimulatedDisplaySource()
+      : connectPowerManager(GatewayEndpoint.parse(power));
+  display.start();
   switch (source) {
     case 'gateway':
       final connection = GatewayConnection.create(store, GatewayEndpoint.parse(gateway))..start();
@@ -77,6 +91,7 @@ Future<AppServices> createServices(
           config: config,
           gateway: connection,
           cameras: cameraSource,
+          display: display,
           power: PowerControl.forPlatform());
     case 'sim':
       final scenarios = await SimulationController.loadAll(bundle);
@@ -90,6 +105,7 @@ Future<AppServices> createServices(
           config: config,
           simulation: simulation,
           cameras: cameraSource,
+          display: display,
           power: PowerControl.forPlatform());
     default:
       throw FormatException('VEHICLE_SOURCE must be sim or gateway, got "$source"');

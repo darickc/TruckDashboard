@@ -423,6 +423,9 @@ apply() {
     install_file "$f" "$ROOT/$rel" "$mode" || true
   done < <(find "$HERE/rootfs" -type f | sort)
   sys systemctl daemon-reload
+  # The backlight rule (ADR-0028) applies at boot; apply it now as well.
+  sys udevadm control --reload || true
+  sys udevadm trigger --subsystem-match=backlight --action=add || true
 
   # Persistent journal: /var/log is tmpfs, so the journal lives in
   # $JOURNAL_DIR, bind-mounted at its place ($JOURNAL_MOUNT).

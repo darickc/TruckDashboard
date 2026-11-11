@@ -86,7 +86,7 @@ flowchart TB
 | `crates/sd-notify` | Rust | 5 | systemd notify protocol (`READY`, `STATUS`, `WATCHDOG`) and the progress-gated watchdog the daemons use |
 | `services/vehicle-gateway` | Rust | 3–4 | Transports (simulated, SocketCAN, OBDLink), scheduler, recovery, health, API |
 | `services/recorder` | Rust | 3 | Telemetry and event persistence, retention, export |
-| `services/power-manager` | Rust | 6 | Power state machine, GPIO ownership, backlight, day/night. Not the amplifier remote, which is on ACC (ADR-0014) |
+| `services/power-manager` | Rust | 6 | Power state machine, GPIO ownership, backlight, day/night (ADR-0028; serves `f250.power.v1`). Not the amplifier remote, which is on ACC (ADR-0014) |
 | `services/camera-manager` | Rust | 6 | Camera selection policy, capture pipelines |
 | `services/audio-manager` | Rust | 6 | Pairing window, A2DP sink policy, AVRCP, volume limits |
 | navigation backend | Rust + Valhalla | 6 | Position, routing (ADR-010) |

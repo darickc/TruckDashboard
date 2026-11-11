@@ -190,6 +190,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "f250-camera-policy",
+ "f250-clock-sync",
  "f250-proto",
  "f250-recording",
  "f250-sd-notify",
@@ -337,6 +338,14 @@ dependencies = [
 
 [[package]]
 name = "f250-camera-policy"
+version = "0.1.0"
+
+[[package]]
+name = "f250-clock-sync"
+version = "0.1.0"
+
+[[package]]
+name = "f250-daylight"
 version = "0.1.0"
 
 [[package]]
@@ -1143,6 +1152,8 @@ name = "power-manager"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "f250-clock-sync",
+ "f250-daylight",
  "f250-proto",
  "f250-sd-notify",
  "hyper-util",

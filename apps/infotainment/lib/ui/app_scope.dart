@@ -7,6 +7,7 @@ import '../core/power.dart';
 import '../core/settings.dart';
 import '../data/gateway_connection.dart';
 import '../data/simulation_controller.dart';
+import '../display/display_state.dart';
 import '../telemetry/calibration.dart';
 import '../telemetry/telemetry_store.dart';
 import 'banner_alerts.dart';
@@ -22,9 +23,11 @@ class AppServices {
     this.simulation,
     this.gateway,
     CameraSource? cameras,
+    DisplaySource? display,
     this.power = const NoPowerControl(),
     this.refreshPeriod = const Duration(milliseconds: 250),
   })  : cameras = cameras ?? SimulatedCameraSource(),
+        display = display ?? SimulatedDisplaySource(),
         assert((simulation == null) != (gateway == null), 'exactly one data source');
 
   final TelemetryStore store;
@@ -38,6 +41,10 @@ class AppServices {
 
   /// camera-manager (Phase 6.6, ADR-0026), or a simulation of it.
   final CameraSource cameras;
+
+  /// Day/night and the backlight: power-manager (Phase 6.7, ADR-0028), or a
+  /// simulation of it. Its mode picks the palette.
+  final DisplaySource display;
 
   /// Whether, and how, the screen can shut the head unit down.
   final PowerControl power;

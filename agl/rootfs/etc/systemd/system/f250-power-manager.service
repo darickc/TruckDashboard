@@ -9,6 +9,15 @@
 # out; a missing camera-manager never holds up the power key. [SIM] only so
 # far.
 #
+# Day/night and the backlight (ADR-0028): from the sun at DISPLAY_LATITUDE /
+# DISPLAY_LONGITUDE on a synchronized clock, or the driver's Day/Night; the
+# backlight under /sys/class/backlight is ramped to the level for the mode.
+# The dashboard follows over f250.power.v1 on /run/f250-power/power.sock
+# (group f250, mode 0770 from UMask; agl-driver is in group f250). The
+# driver's choice and levels are kept in /var/lib/f250-power/display. Write
+# access to `brightness` comes from udev (rules.d/60-f250-backlight.rules).
+# [SIM] only so far.
+#
 # The service has no privileges. To power off it exits with status 42, and
 # ExecStopPost (`+`: as root, outside the sandbox) runs `systemctl poweroff`.
 # A crash or a `systemctl stop` doesn't power off.
@@ -20,7 +29,7 @@
 # Status: [BENCH] on image 288d091 with the Pi's own button (bench-log
 # 2026-11-09). The DCDC-USB's PSW on J2 isn't wired yet.
 [Unit]
-Description=F-250 power manager (power key, pulse-only)
+Description=F-250 power manager (power key, pulse-only; camera switch; day/night and backlight)
 
 [Service]
 Type=notify
@@ -34,16 +43,24 @@ SupplementaryGroups=input
 Environment=BOOT_KEY_IGNORE_S=30
 Environment=CAMERA_MANAGER=unix:/run/f250-camera/camera.sock
 EnvironmentFile=-/etc/default/f250
-ExecStart=/opt/f250/bin/power-manager --boot-key-ignore-s ${BOOT_KEY_IGNORE_S} --camera-manager ${CAMERA_MANAGER}
+ExecStart=/opt/f250/libexec/power-start
 ExecStopPost=+/opt/f250/libexec/power-manager-stopped
 SuccessExitStatus=42
 Restart=on-failure
 RestartSec=2
+UMask=0007
+RuntimeDirectory=f250-power
+RuntimeDirectoryMode=0750
+StateDirectory=f250-power
+StateDirectoryMode=0750
 
 # Sandbox (ADR-0021), like the recorder's, except:
 # - no PrivateDevices: it reads /dev/input (DeviceAllow below)
 # - no ProcSubset=pid: the boot window is measured from /proc/uptime
 # - no PrivateUsers: the input group must stay mapped
+# - no ProtectKernelTunables: it would make all of /sys read-only, and the
+#   backlight's `brightness` is written there (ADR-0028 decision 6). File
+#   permissions still confine it: udev gives group f250 that one file
 # AF_UNIX is enough for camera-manager's socket. Connecting needs no write
 # access under ProtectSystem=strict: the recorder reaches the gateway's
 # socket the same way.
@@ -55,7 +72,6 @@ PrivateTmp=yes
 PrivateNetwork=yes
 DevicePolicy=closed
 DeviceAllow=char-input r
-ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes
 ProtectControlGroups=yes

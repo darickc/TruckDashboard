@@ -6,7 +6,9 @@ and **[BENCH]** on the Pi 5 with its own button (bench-log 2026-11-09). The
 DCDC-USB's PSW on J2 isn't wired yet. The
 camera switch is read and debounced, **[SIM]** only
 ([ADR-0025](adr/0025-camera-switch-through-gpio-key.md)). Day/night and the
-backlight are still design.
+backlight are built and **[SIM]** only
+([ADR-0028](adr/0028-day-night-and-backlight.md)): nothing has dimmed the
+Pi's panel through power-manager yet.
 The electrical behaviour is unverified until it is measured on the bench and in
 the truck (Phase 7).
 
@@ -150,11 +152,29 @@ the default until a bench test shows it does.
 
 ## Day/night and brightness
 
-- Inputs, in order of preference. There is no illumination wire
-  ([ADR-0013](adr/0013-dcdc-usb-power-supply.md)).
-  1. a sun-position calculation from GPS time and location
-  2. a manual override
-- Backlight: the original 7" display's backlight is regulator-based. Find it
-  under `/sys/class/backlight/` on the Pi 5 at runtime; don't hard-code the
-  path. A udev rule grants the power-manager write access.
-- Brightness changes are ramped.
+Decided in [ADR-0028](adr/0028-day-night-and-backlight.md); built **[SIM]**.
+There is no illumination wire ([ADR-0013](adr/0013-dcdc-usb-power-supply.md)).
+
+- **The driver's choice**: Auto, Day or Night, and a brightness for each of
+  day and night. Kept in `/var/lib/f250-power/display` across key cycles.
+- **Auto** follows the sun's elevation, from the wall clock and
+  `DISPLAY_LATITUDE` / `DISPLAY_LONGITUDE` (GPS replaces these in 6.4).
+  Night below −3°, day again above −2° (examples). Auto runs only with a
+  location and a clock the system reports synchronized (or
+  `DISPLAY_TRUST_CLOCK=always` once the RTC cell holds the time, H20);
+  otherwise it shows the fallback, Day, and says why on screen.
+- **Backlight**: found under `/sys/class/backlight/` at runtime (`10-0045` on
+  the bench Pi), never below 10 % (example), ramped over 1 s from a thread of
+  its own so a slow I2C write can't hold up the power key. A udev rule
+  (`60-f250-backlight.rules`) grants group f250 write access to `brightness`.
+- **The dashboard** follows the mode for its palette over `f250.power.v1` on
+  `/run/f250-power/power.sock`. It never writes the backlight.
+
+| Setting (`/etc/default/f250`) | Default (an example) |
+|---|---|
+| `DISPLAY_LATITUDE`, `DISPLAY_LONGITUDE` | empty: Auto unavailable |
+| `DISPLAY_NIGHT_BELOW_DEG` / `DISPLAY_HYSTERESIS_DEG` | −3 / 1 |
+| `DISPLAY_FALLBACK` | day |
+| `DISPLAY_TRUST_CLOCK` | synchronized |
+| `DISPLAY_MIN_BRIGHTNESS_PCT` | 10 |
+| `DISPLAY_BACKLIGHT` | the first device |

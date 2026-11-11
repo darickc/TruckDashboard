@@ -156,6 +156,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 | 12 | Bluetooth and the MX+ | After a reboot, `--check` has no Bluetooth warnings; `bluetoothctl show` says `Powered: yes`, `Discoverable: no`. Then [pair the MX+](#bluetooth-and-the-mx) and run `TRANSPORT=obdlink` in the gateway's sandbox | ADR-0023, ADR-0021 §10 |
 | 13 | Power key ([power-manager](../architecture/power-states.md), pulse-only) | `journalctl -u f250-power-manager -b` shows "reading the power key on /dev/input/eventN". Press the Pi's power button within 30 s of power-on: "ignored: inside the boot window". Press it later: "power off: power key after the boot window", and the Pi halts cleanly (`journalctl -b -1` after the next boot). The DCDC-USB's PSW on J2 is the same press once it is wired (H21) | ADR-0013 |
 | 14 | Camera ([camera-manager](../architecture/adr/0026-camera-manager-interfaces.md)) | Plug in a UVC webcam; `ls -l /dev/v4l/by-path/`; set `CAMERA_REAR=` to its `...-video-index0` path in `/etc/default/f250`; `systemctl restart f250-camera-manager`. `ls -l /run/f250-camera/` shows `camera.sock` as `agl-driver f250`, `srwxrwx---`. `camera-ctl move back`: the picture appears right of the camera buttons, below the status bar (x 220–800, y 44–479), and `camera-ctl view` says `rear (switch), live` within a second or two (if it never goes live while the picture moves, the frame count is wrong: ADR-0026 decision 3). `camera-ctl move press` closes it (forward is the front camera). `ls /var/cache/f250-camera/gstreamer-1.0/` has the registry. `journalctl -u f250-camera-manager -b` | ADR-0009, ADR-0026 |
+| 15 | Day/night and the backlight ([power-manager](../architecture/adr/0028-day-night-and-backlight.md)) | After `make deploy`: `ls -l /sys/class/backlight/10-0045/brightness` is group `f250`, `-rw-rw-r--` (the udev rule); `ls -l /run/f250-power/` shows `power.sock` as `f250 f250`, `srwxrwx---`. `journalctl -u f250-power-manager -b` shows "display: backlight 10-0045 (max 255)" and, with no location set, "auto unavailable (no location configured)". Dashboard → Diagnostics → Developer → Display: **Night** dims the panel over about a second (`cat .../brightness` reads 102) and switches the palette; **Day** brings back 255; repeated −10 % stops at 26 (10 %). `systemctl restart f250-power-manager` keeps the choice (`cat /var/lib/f250-power/display`). Then set `DISPLAY_LATITUDE`/`DISPLAY_LONGITUDE`, join Wi-Fi so `timedatectl` says `System clock synchronized: yes`, choose **Auto**: the screen says "by the sun" with the elevation. Record `systemd-analyze security f250-power-manager` (ProtectKernelTunables is off) | ADR-0028 |
 
 If something fails, collect the evidence before changing anything:
 
@@ -359,7 +360,9 @@ known-good reference: the panel, touch and dashboard worked on it on
   watchdog: `Type=notify`, `WatchdogSec=60` and `30`, keep-alives only while
   their loops make progress ([diagnostic-recovery.md](../architecture/diagnostic-recovery.md)).
 - Booting from NVMe: see [the data drive](#data-drive-nvme-hat-or-usb-ssd).
-- The rest of the power-manager: day/night and the backlight. It reads the
+- The rest of the power-manager: the hardware watchdog, and the dashboard's
+  *Power* button becoming Restart. Day/night and the backlight are built
+  [SIM] (check 15). It reads the
   camera switch and passes moves to camera-manager [SIM], but the switch
   isn't wired yet; `camera-ctl` stands in for it (check 14). Its first part
   handles the power key: after the boot window

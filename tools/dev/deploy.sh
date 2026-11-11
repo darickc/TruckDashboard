@@ -33,6 +33,7 @@ FLUTTER_VERSION="$(sed -n 's/.*"flutter": *"\([^"]*\)".*/\1/p' .fvmrc)"
 RUST_TOOLCHAIN="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
 SOCK=/run/f250/vehicle.sock
 CAMERA_SOCK=/run/f250-camera/camera.sock
+POWER_SOCK=/run/f250-power/power.sock
 
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 die() { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
@@ -61,7 +62,7 @@ build() {
     -v "$PWD":/src:ro -v "$PWD/$OUT":/out \
     -v f250-arm64-cargo:/usr/local/cargo/registry -v f250-arm64-target:/target \
     -v f250-arm64-pub:/root/.pub-cache -v f250-arm64-work:/work \
-    -e CARGO_TARGET_DIR=/target -e FLUTTER_VERSION="$FLUTTER_VERSION" -e SOCK="$SOCK" -e CAMERA_SOCK="$CAMERA_SOCK" \
+    -e CARGO_TARGET_DIR=/target -e FLUTTER_VERSION="$FLUTTER_VERSION" -e SOCK="$SOCK" -e CAMERA_SOCK="$CAMERA_SOCK" -e POWER_SOCK="$POWER_SOCK" \
     "$IMAGE" bash -euo pipefail -c '
       cd /src
       cargo build -q --release --locked -p vehicle-gateway --features rfcomm
@@ -79,7 +80,7 @@ build() {
       flutter pub get >/dev/null
       flutter build linux --release \
         --dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:$SOCK \
-        --dart-define=CAMERAS=unix:$CAMERA_SOCK
+        --dart-define=CAMERAS=unix:$CAMERA_SOCK --dart-define=POWER=unix:$POWER_SOCK
       b=build/linux/arm64/release/bundle
       mkdir -p /out/bundle/lib /out/bundle/data
       cp "$b/lib/libapp.so" /out/bundle/lib/

@@ -105,6 +105,8 @@ check "fstab untouched when off"       "! grep -q f250 '$R/etc/fstab'"
 check "no mount when off"              "! grep -q 'var-lib-f250-storage' '$L'"
 check "recorder-start installed"       "[[ -x '$R/opt/f250/libexec/recorder-start' ]]"
 check "camera-start installed"         "[[ -x '$R/opt/f250/libexec/camera-start' && -f '$R/etc/systemd/system/f250-camera-manager.service' ]]"
+check "power-start and the backlight rule installed" "[[ -x '$R/opt/f250/libexec/power-start' && -f '$R/etc/udev/rules.d/60-f250-backlight.rules' ]]"
+check "the backlight rule applied at once" "has_line '$L' 'udevadm trigger --subsystem-match=backlight --action=add'"
 check "camera devices empty by default" "has_line '$R/etc/default/f250' 'CAMERA_FRONT=' && has_line '$R/etc/default/f250' 'CAMERA_LEFT=' && has_line '$R/etc/default/f250' 'CAMERA_RIGHT=' && has_line '$R/etc/default/f250' 'CAMERA_REAR='"
 check "grow-root installed, never enabled by Stage 1" "[[ -x '$R/opt/f250/libexec/grow-root' ]] && ! grep -q 'f250-grow-root' '$L'"
 check "units installed"                "[[ -f '$R/etc/systemd/system/f250-gateway.service' && -f '$R/etc/systemd/system/f250-dashboard.service' ]]"
@@ -367,6 +369,19 @@ check "off by default in /etc/default/f250" "has_line agl/rootfs/etc/default/f25
 CU=agl/rootfs/etc/systemd/system/f250-can-auto.service
 check "can-auto unit: root, settings file, the script" "grep -qx 'EnvironmentFile=-/etc/default/f250' $CU && grep -qx 'ExecStart=/opt/f250/libexec/can-auto' $CU && ! grep -q '^User=' $CU && [[ -x $CA ]]"
 
+echo "power-start"
+PSTUB="$T/power-manager"
+printf '#!/bin/sh\necho "$@"\n' >"$PSTUB"; chmod +x "$PSTUB"
+pm() { env -i PATH="$PATH" F250_POWER_BIN="$PSTUB" "$@" bash agl/rootfs/opt/f250/libexec/power-start 2>/dev/null; }
+PBASE='--display-listen unix:/run/f250-power/power.sock --display-state /var/lib/f250-power/display'
+check "nothing set: the boot window default, the display API" "[[ \"\$(pm)\" == \"--boot-key-ignore-s 30 $PBASE\" ]]"
+check "empty display settings: none passed" "[[ \"\$(pm BOOT_KEY_IGNORE_S=30 CAMERA_MANAGER=unix:/run/f250-camera/camera.sock DISPLAY_LATITUDE= DISPLAY_LONGITUDE= DISPLAY_FALLBACK= DISPLAY_BACKLIGHT=)\" == \"--boot-key-ignore-s 30 --camera-manager unix:/run/f250-camera/camera.sock $PBASE\" ]]"
+check "display settings passed as --name=value (negatives safe)" "[[ \"\$(pm DISPLAY_LATITUDE=39.74 DISPLAY_LONGITUDE=-104.99 DISPLAY_NIGHT_BELOW_DEG=-4 DISPLAY_HYSTERESIS_DEG=1 DISPLAY_FALLBACK=night DISPLAY_TRUST_CLOCK=always DISPLAY_MIN_BRIGHTNESS_PCT=15 DISPLAY_BACKLIGHT=10-0045)\" == \"--boot-key-ignore-s 30 $PBASE --latitude=39.74 --longitude=-104.99 --night-below-deg=-4 --hysteresis-deg=1 --fallback=night --trust-clock=always --min-brightness-pct=15 --backlight=10-0045\" ]]"
+check "no camera-manager: moves only logged" "! pm CAMERA_MANAGER= | grep -q -- --camera-manager"
+DF=agl/rootfs/etc/default/f250
+check "display settings empty by default (no location shipped)" "has_line $DF 'DISPLAY_LATITUDE=' && has_line $DF 'DISPLAY_LONGITUDE=' && has_line $DF 'DISPLAY_TRUST_CLOCK=' && has_line $DF 'DISPLAY_MIN_BRIGHTNESS_PCT='"
+check "the wrapper's options exist in power-manager" "for o in latitude longitude night_below_deg hysteresis_deg fallback trust_clock min_brightness_pct backlight display_listen display_state; do grep -q \"^    \$o: Option<\" services/power-manager/src/main.rs || exit 1; done"
+
 echo "camera-start"
 CSTUB="$T/camera-manager"
 printf '#!/bin/sh\necho "$@"\n' >"$CSTUB"; chmod +x "$CSTUB"
@@ -483,13 +498,17 @@ check "drive label agrees"     "grep -q '^DRIVE_LABEL=f250-data$' '$SETUP' && gr
 U=agl/rootfs/etc/systemd/system
 for unit in f250-gateway f250-recorder f250-power-manager f250-dashboard f250-camera-manager; do
   for line in 'NoNewPrivileges=yes' 'MemoryDenyWriteExecute=yes' 'CapabilityBoundingSet=' 'ProtectSystem=strict' 'PrivateTmp=yes' \
-              'ProtectKernelTunables=yes' 'ProtectKernelModules=yes' 'ProtectKernelLogs=yes' \
+              'ProtectKernelModules=yes' 'ProtectKernelLogs=yes' \
               'ProtectControlGroups=yes' 'ProtectClock=yes' 'ProtectHostname=yes' 'ProtectProc=invisible' \
               'RestrictNamespaces=yes' 'RestrictSUIDSGID=yes' 'RestrictRealtime=yes' 'LockPersonality=yes' \
               'SystemCallArchitectures=native' 'SystemCallFilter=@system-service' \
               'SystemCallFilter=~@privileged @resources' 'IPAddressDeny=any'; do
     check "$unit: $line" "grep -qxF '$line' $U/$unit.service"
   done
+  # power-manager writes the backlight in /sys (ADR-0028 decision 6).
+  if [[ $unit != f250-power-manager ]]; then
+    check "$unit: ProtectKernelTunables=yes" "grep -qxF 'ProtectKernelTunables=yes' $U/$unit.service"
+  fi
 done
 check "gateway reaches only USB serial devices" "grep -qx 'DevicePolicy=closed' $U/f250-gateway.service && [[ \"\$(grep -c '^DeviceAllow=' $U/f250-gateway.service)\" == 1 ]] && grep -qx 'DeviceAllow=char-ttyUSB rw' $U/f250-gateway.service"
 check "gateway keeps its adapter families" "grep -qx 'RestrictAddressFamilies=AF_UNIX AF_CAN AF_BLUETOOTH AF_INET AF_INET6 AF_NETLINK' $U/f250-gateway.service"
@@ -501,7 +520,10 @@ check "power-manager: /proc/uptime visible (no ProcSubset=pid)" "! grep -q '^Pro
 check "power-manager: input group mapped (no PrivateUsers)" "! grep -q '^PrivateUsers=' $PM && ! grep -q '^PrivateDevices=' $PM"
 check "power-manager: no network" "grep -qx 'PrivateNetwork=yes' $PM && grep -qx 'RestrictAddressFamilies=AF_UNIX' $PM"
 check "power-manager: boot window default and setting agree" "grep -qx 'Environment=BOOT_KEY_IGNORE_S=30' $PM && grep -qx 'BOOT_KEY_IGNORE_S=30' agl/rootfs/etc/default/f250 && grep -q 'default_value_t = 30' services/power-manager/src/main.rs"
-check "power-manager: the settings reach the binary" "grep -qx 'ExecStart=/opt/f250/bin/power-manager --boot-key-ignore-s \${BOOT_KEY_IGNORE_S} --camera-manager \${CAMERA_MANAGER}' $PM"
+check "power-manager: starts via its wrapper" "grep -qx 'ExecStart=/opt/f250/libexec/power-start' $PM && grep -qx 'EnvironmentFile=-/etc/default/f250' $PM"
+check "power-manager: only the backlight in /sys (no ProtectKernelTunables, udev grants brightness)" "! grep -q '^ProtectKernelTunables=' $PM && grep -q 'chgrp f250 /sys%p/brightness' agl/rootfs/etc/udev/rules.d/60-f250-backlight.rules && grep -q 'chmod g+w /sys%p/brightness' agl/rootfs/etc/udev/rules.d/60-f250-backlight.rules && grep -q 'SUBSYSTEM==\"backlight\"' agl/rootfs/etc/udev/rules.d/60-f250-backlight.rules"
+check "power-manager: display socket and settings directories (group f250)" "grep -qx 'RuntimeDirectory=f250-power' $PM && grep -qx 'StateDirectory=f250-power' $PM && grep -qx 'UMask=0007' $PM && grep -qx 'RuntimeDirectoryMode=0750' $PM && grep -q 'F250_POWER_SOCK:-/run/f250-power/power.sock' agl/rootfs/opt/f250/libexec/power-start && grep -q 'F250_POWER_STATE:-/var/lib/f250-power/display' agl/rootfs/opt/f250/libexec/power-start"
+check "dashboard: power-manager's socket in deploy.sh and the image" "grep -q -- '-DPOWER=unix:/run/f250-power/power.sock' agl/meta-f250/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -q -- '--dart-define=POWER=unix:\$POWER_SOCK' tools/dev/deploy.sh && grep -q '^POWER_SOCK=/run/f250-power/power.sock$' tools/dev/deploy.sh"
 check "power-manager: switch moves go to camera-manager's socket (ADR-0026)" "grep -qx 'Environment=CAMERA_MANAGER=unix:/run/f250-camera/camera.sock' $PM"
 check "power-manager: deployed and built into the image" "grep -q -- '-p power-manager' tools/dev/deploy.sh && grep -q '/target/release/power-manager' tools/dev/deploy.sh && grep -q -- '-p power-manager' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'obd-console power-manager camera-manager camera-ctl; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb"
 CM=$U/f250-camera-manager.service

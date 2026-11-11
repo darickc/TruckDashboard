@@ -1,9 +1,11 @@
 //! `power-manager`: shut the Pi down on the DCDC-USB's PSW pulse (the power
 //! key), except in the boot window. Pulse-only (ADR-0013); see the library
 //! docs for the rules. It also reads the camera switch (ADR-0024, ADR-0025)
-//! and passes each move to camera-manager (ADR-0026).
+//! and passes each move to camera-manager (ADR-0026), and decides day or
+//! night and sets the backlight, served as `f250.power.v1` (ADR-0028).
 //!
-//!   power-manager --boot-key-ignore-s 30 --camera-manager unix:/run/f250-camera/camera.sock
+//!   power-manager --boot-key-ignore-s 30 --camera-manager unix:/run/f250-camera/camera.sock \
+//!       --display-listen unix:/run/f250-power/power.sock --latitude=39.74 --longitude=-104.99
 //!   power-manager --dry-run --key-device /dev/input/event0    # bench: log, don't power off
 //!
 //! Powering off is an exit with status 42; the unit's `ExecStopPost` (as root)
@@ -16,10 +18,14 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use clap::Parser;
+use f250_proto::power::v1 as pb;
 use f250_sd_notify::{Heartbeat, Notifier, run_watchdog};
 use power_manager::POWER_OFF_EXIT;
+use power_manager::backlight::{Device, Writer};
 use power_manager::camera_link::{self, Link, LinkConfig, NotQueued, Outcome};
 use power_manager::camera_switch::{Debouncer, Direction};
+use power_manager::display::{self, BacklightInfo, DisplayIo, DisplayState, RawSettings};
+use power_manager::display_server;
 use power_manager::evdev::{EVENT_SIZE, Event, KEY_POWER, device_keys, find_keys};
 use power_manager::policy::{Action, Input, Policy, State};
 use power_manager::uptime;
@@ -69,6 +75,53 @@ struct Args {
     /// Log a power-off instead of doing it (bench).
     #[arg(long)]
     dry_run: bool,
+
+    // Day/night and the backlight (ADR-0028). Every value is read leniently:
+    // a bad one is logged and its default used, so the display's settings
+    // can never stop the power key from working.
+    /// The display API (f250.power.v1): unix:PATH or tcp:HOST:PORT. Without
+    /// it day/night and the backlight still run; nothing can see or change
+    /// them.
+    #[arg(long, value_name = "ENDPOINT")]
+    display_listen: Option<String>,
+    /// Where the truck is, for the sun: degrees, north positive. With
+    /// --longitude, or not at all.
+    #[arg(long, allow_hyphen_values = true)]
+    latitude: Option<String>,
+    /// Degrees, east positive (the United States is negative).
+    #[arg(long, allow_hyphen_values = true)]
+    longitude: Option<String>,
+    /// Night once the sun is below this many degrees. Default -3, an
+    /// example value.
+    #[arg(long, allow_hyphen_values = true)]
+    night_below_deg: Option<String>,
+    /// Day again only this many degrees above the night threshold. Default
+    /// 1, an example value.
+    #[arg(long)]
+    hysteresis_deg: Option<String>,
+    /// day or night: the mode when Auto can't follow the sun. Default day,
+    /// an example value.
+    #[arg(long)]
+    fallback: Option<String>,
+    /// synchronized (default: the sun only on a clock the system reports
+    /// synchronized) or always.
+    #[arg(long)]
+    trust_clock: Option<String>,
+    /// The backlight never goes below this percentage. Default 10, an
+    /// example value.
+    #[arg(long)]
+    min_brightness_pct: Option<String>,
+    /// The device under /sys/class/backlight. Default: the first there;
+    /// `none`: no backlight.
+    #[arg(long)]
+    backlight: Option<String>,
+    /// How long a brightness change takes.
+    #[arg(long, default_value_t = 1000)]
+    brightness_ramp_ms: u64,
+    /// Where the driver's display settings are kept. Without it they last
+    /// until power-manager restarts.
+    #[arg(long, value_name = "PATH")]
+    display_state: Option<PathBuf>,
 }
 
 /// What a set of devices is read for.
@@ -265,6 +318,134 @@ fn log_outcome(direction: Direction, outcome: Outcome) {
     }
 }
 
+/// Starts day/night and the backlight: a task, the backlight's writer
+/// thread and, with --display-listen, the API. Nothing here can fail
+/// power-manager: every problem is logged and that part runs without it.
+fn start_display(args: &Args) {
+    let raw = RawSettings {
+        latitude: args.latitude.clone(),
+        longitude: args.longitude.clone(),
+        night_below_deg: args.night_below_deg.clone(),
+        hysteresis_deg: args.hysteresis_deg.clone(),
+        fallback: args.fallback.clone(),
+        trust_clock: args.trust_clock.clone(),
+        min_brightness_pct: args.min_brightness_pct.clone(),
+    };
+    let (settings, notes) = raw.resolve();
+    for n in notes {
+        eprintln!("[power-manager] display: {n}");
+    }
+    match settings.location {
+        Some(at) => eprintln!(
+            "[power-manager] display: location {:.3}, {:.3}; night below {}°",
+            at.latitude_deg(),
+            at.longitude_deg(),
+            settings.thresholds.night_below_deg
+        ),
+        None => eprintln!(
+            "[power-manager] display: no location (DISPLAY_LATITUDE/DISPLAY_LONGITUDE): Auto uses the {} fallback",
+            settings.fallback.name()
+        ),
+    }
+    let (prefs, notes) = display::load_prefs(args.display_state.as_deref());
+    for n in notes {
+        eprintln!("[power-manager] display: {n}");
+    }
+    let device = match args.backlight.as_deref().map(str::trim) {
+        Some("none") => Err("no backlight (--backlight none)".to_string()),
+        Some("") | None => Device::find(&args.sysfs, None),
+        Some(name) => Device::find(&args.sysfs, Some(name)),
+    };
+    let (reports_tx, reports_rx) = mpsc::channel(8);
+    let writer = match &device {
+        Ok(d) => {
+            eprintln!(
+                "[power-manager] display: backlight {} (max {})",
+                d.name(),
+                d.max()
+            );
+            Some(Writer::spawn(
+                d.clone(),
+                Duration::from_millis(args.brightness_ramp_ms),
+                Duration::from_millis(25),
+                move |r| {
+                    let _ = reports_tx.blocking_send(r);
+                },
+            ))
+        }
+        Err(e) => {
+            eprintln!("[power-manager] display: {e}: day/night still runs");
+            drop(reports_tx);
+            None
+        }
+    };
+    let state = DisplayState::new(
+        settings.location,
+        daylight::DayNight::new(settings.thresholds, settings.fallback),
+        settings.min_pct,
+        prefs,
+        device.map(|d| BacklightInfo {
+            name: d.name().to_string(),
+            max: d.max(),
+        }),
+    );
+    let io = DisplayIo {
+        clock_synchronized: std::sync::Arc::new(clock_sync::system_synchronized),
+        trust: settings.trust,
+        now_unix: std::sync::Arc::new(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0)
+        }),
+        state_file: args.display_state.clone(),
+        writer,
+        evaluate_every: display::EVALUATE_EVERY,
+    };
+    let (out, watch_rx) = tokio::sync::watch::channel(pb::Display::default());
+    let (cmds_tx, cmds_rx) = mpsc::channel(8);
+    tokio::spawn(display::run(state, io, cmds_rx, reports_rx, out));
+    match &args.display_listen {
+        None => eprintln!(
+            "[power-manager] display: no --display-listen: the dashboard can't see or change it"
+        ),
+        Some(listen) => {
+            let api = display_server::Api::new(cmds_tx, watch_rx);
+            let listen = listen.clone();
+            tokio::spawn(async move {
+                if let Err(e) = serve_display(&listen, api).await {
+                    eprintln!("[power-manager] display API on {listen}: {e}: not served");
+                }
+            });
+        }
+    }
+}
+
+async fn serve_display(listen: &str, api: display_server::Api) -> Result<(), String> {
+    use pb::display_service_server::DisplayServiceServer;
+    let router = tonic::transport::Server::builder().add_service(DisplayServiceServer::new(api));
+    if let Some(path) = listen.strip_prefix("unix:") {
+        let path = Path::new(path);
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+        }
+        let _ = std::fs::remove_file(path); // stale socket from a previous run
+        let listener = tokio::net::UnixListener::bind(path).map_err(|e| e.to_string())?;
+        eprintln!("[power-manager] display API on unix:{}", path.display());
+        let incoming = tokio_stream::wrappers::UnixListenerStream::new(listener);
+        router
+            .serve_with_incoming(incoming)
+            .await
+            .map_err(|e| e.to_string())
+    } else if let Some(addr) = listen.strip_prefix("tcp:") {
+        let addr: std::net::SocketAddr = addr.parse().map_err(|e| format!("{e}"))?;
+        eprintln!("[power-manager] display API on tcp:{addr}");
+        router.serve(addr).await.map_err(|e| e.to_string())
+    } else {
+        Err("must start with unix: or tcp:".to_string())
+    }
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> ExitCode {
     let args = Args::parse();
@@ -283,6 +464,8 @@ async fn main() -> ExitCode {
             "[power-manager] no /proc/uptime: the boot window counts from this process's start"
         );
     }
+
+    start_display(&args);
 
     let window = Duration::from_secs(args.boot_key_ignore_s);
     let mut policy = Policy::new(window);

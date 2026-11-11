@@ -1,0 +1,7 @@
+# power-manager (user f250) sets the panel's backlight for day/night
+# (ADR-0028): group f250 may write `brightness`, nothing else. On the Pi 5
+# with the original 7" display the device is 10-0045 (rpi_panel_attiny_regulator).
+# Applies at boot; after installing it on a running Pi:
+#   udevadm trigger --subsystem-match=backlight
+# Status: [SIM] only: not yet seen to apply on the Pi.
+ACTION=="add", SUBSYSTEM=="backlight", RUN+="/bin/chgrp f250 /sys%p/brightness", RUN+="/bin/chmod g+w /sys%p/brightness"

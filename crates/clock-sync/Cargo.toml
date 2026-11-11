@@ -1,0 +1,15 @@
+[package]
+name = "f250-clock-sync"
+version = "0.1.0"
+description = "Whether the system reports its wall clock synchronized (timedatectl's NTPSynchronized, or timesyncd's flag file)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "clock_sync"
+path = "src/lib.rs"
+
+[lints]
+workspace = true

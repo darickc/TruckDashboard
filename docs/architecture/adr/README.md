@@ -36,5 +36,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0025](0025-camera-switch-through-gpio-key.md) | The camera switch is read through the kernel's `gpio-key` overlay | Accepted ([SIM] only) |
 | [0026](0026-camera-manager-interfaces.md) | camera-manager runs one `gst-launch` pipeline at a time and serves `f250.camera.v1` | Accepted ([SIM] only) |
 | [0027](0027-front-and-rear-recording.md) | Front and rear cameras record like a dashcam, kept by retention settings | Accepted (owner; nothing built or measured yet) |
+| [0028](0028-day-night-and-backlight.md) | Day/night and the backlight belong to power-manager: the sun on a trusted clock, else a fallback | Accepted ([SIM] only) |
 
 New ADRs use the next number and the same headings.

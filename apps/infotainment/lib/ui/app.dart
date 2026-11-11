@@ -16,11 +16,11 @@ class InfotainmentApp extends StatelessWidget {
     return AppScope(
       services: services,
       child: ListenableBuilder(
-        listenable: services.settings,
+        listenable: services.display.status,
         builder: (context, _) => MaterialApp(
           title: 'F-250',
           debugShowCheckedModeBanner: false,
-          theme: buildTheme(services.settings.theme),
+          theme: buildTheme(services.display.status.value.mode),
           builder: (context, child) => PreviewFrame(child: child!),
           home: const AppShell(),
         ),
