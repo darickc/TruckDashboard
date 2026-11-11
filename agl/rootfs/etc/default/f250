@@ -11,6 +11,19 @@ TRANSPORT=sim
 TRANSMIT=0
 ADAPTER=rfcomm:00:04:3E:85:EA:FC
 CAN_IF=can0
+# CAN_AUTO_ACTIVE  0 | 1. 1: at boot, f250-can-auto puts can0 in listen-only
+#            mode and switches it to active only after hearing the truck's
+#            bus cleanly (CAN_AUTO_MIN_FRAMES frames in CAN_AUTO_LISTEN_S, no
+#            errors), then restarts the gateway; no laptop needed. 0: can0
+#            stays down until `f250-can listen|active` by hand (ADR-0007
+#            decision 1, amended 2026-11-10). Needs TRANSMIT=1 to poll, and the
+#            wiring checklist signed off.
+# CAN_AUTO_CAPTURE  1: once active, also capture every frame until shutdown,
+#            into /var/lib/f250/captures (SD card, ~270 MB an hour)
+CAN_AUTO_ACTIVE=0
+CAN_AUTO_CAPTURE=0
+CAN_AUTO_LISTEN_S=
+CAN_AUTO_MIN_FRAMES=
 # PINNED     can only. physical (empty: the default): EOT goes to 7E0 and trans
 #            temp to 7E1, so the other module never hears them. functional:
 #            both on 7DF, as on the 2026-11-08 drive (the fallback).

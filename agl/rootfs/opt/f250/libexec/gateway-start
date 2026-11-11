@@ -50,6 +50,16 @@ case "$TRANSPORT" in
   can)
     args+=(--can-if "$CAN_IF" --traffic-log "$TRAFFIC")
     [[ -n "${PINNED:-}" ]] && args+=(--can-pinned "$PINNED")
+    # CAN_AUTO_ACTIVE=1 (ADR-0007 amendment): until f250-can-auto has heard the
+    # bus cleanly and switched the interface to active, run passive (the
+    # adapter isn't opened); it restarts the gateway once active.
+    if [[ "$TRANSMIT" == 1 && "${CAN_AUTO_ACTIVE:-0}" == 1 ]]; then
+      if [[ ! -e "/sys/class/net/$CAN_IF" ]] || ! ip link show "$CAN_IF" 2>/dev/null | grep -q 'state UP' \
+         || ip -details link show "$CAN_IF" 2>/dev/null | grep -q LISTEN-ONLY; then
+        echo "CAN_AUTO_ACTIVE=1: $CAN_IF isn't active yet, so PASSIVE_ONLY until f250-can-auto has heard the bus" >&2
+        TRANSMIT=0
+      fi
+    fi
     if [[ "$TRANSMIT" == 1 ]]; then
       if [[ ! -e "/sys/class/net/$CAN_IF" ]]; then
         echo "$CAN_IF does not exist: plug in the CAN adapter, then 'f250-can active'" >&2; exit 1

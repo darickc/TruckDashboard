@@ -186,6 +186,15 @@ same rules as on Raspberry Pi OS apply: without `TRANSMIT=1` the gateway never
 opens the adapter (ADR-0007), and `TRANSPORT=can TRANSMIT=1` needs
 `f250-can active` first ([can.md](can.md)).
 
+**Without a laptop** (ADR-0007 amendment, 2026-11-10): set
+`CAN_AUTO_ACTIVE=1`. At every boot `f250-can-auto.service` puts `can0` in
+listen-only mode. It switches to active only after hearing the truck's bus
+cleanly for 30 s (at least 1000 frames, no errors), and then restarts the
+gateway. With the ignition off, or on the bench, it stays listen-only.
+`CAN_AUTO_CAPTURE=1` also records every frame until shutdown in
+`/var/lib/f250/captures`. See what it did with
+`journalctl -u f250-can-auto -b`.
+
 `f250-can` is `tools/pi/can.sh`; everything in [can.md](can.md) applies, run
 as root on the Pi (no `sudo` on AGL). The firmware `flash` command needs
 `dfu-util`, which the image doesn't have: flash from Raspberry Pi OS. The

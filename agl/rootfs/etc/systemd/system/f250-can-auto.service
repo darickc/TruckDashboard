@@ -1,0 +1,30 @@
+# CAN active without a laptop (ADR-0007 decision 1, amended 2026-11-10 by the
+# owner): /opt/f250/libexec/can-auto puts can0 in listen-only mode, waits until
+# it has heard the truck's bus cleanly for CAN_AUTO_LISTEN_S, then switches it
+# to active and restarts the gateway. Off unless CAN_AUTO_ACTIVE=1 in
+# /etc/default/f250: then it exits at once and CAN stays down at boot.
+#
+# Root: changing a CAN interface's mode needs CAP_NET_ADMIN, and the gateway
+# restart needs systemd. With CAN_AUTO_CAPTURE=1 it stays running as the
+# capture until shutdown; its stop (TERM) lets the capture finish its report.
+#
+# Status: [SIM]; on the Pi with no bus it stays listen-only. Not yet on the
+# truck.
+[Unit]
+Description=F-250 CAN: active after a clean listen (CAN_AUTO_ACTIVE)
+After=f250-gateway.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/f250
+ExecStart=/opt/f250/libexec/can-auto
+Restart=on-failure
+RestartSec=10
+KillMode=mixed
+TimeoutStopSec=10
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -32,7 +32,9 @@ project has.
 
    Agreement with Torque proves the transport works, not the scaling.
 3. **Read-only vehicle access (ADR-007).**
-   - Nothing transmits on the vehicle bus at boot.
+   - Nothing transmits on the vehicle bus at boot. The one exception is the
+     owner's `CAN_AUTO_ACTIVE=1`, and then only after a clean listen-only
+     check (ADR-0007 amendment, 2026-11-10).
    - Passive or listen-only is the default.
    - Diagnostic transmit needs an explicit config opt-in.
    - Write, control, flash, routine and DTC-clear services are refused in code.

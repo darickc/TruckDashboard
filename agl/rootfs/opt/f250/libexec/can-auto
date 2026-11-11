@@ -1,0 +1,115 @@
+#!/bin/bash
+# ExecStart of f250-can-auto.service: puts the CAN adapter in active mode by
+# itself, but only after it has heard the truck's bus cleanly in listen-only
+# mode (ADR-0007 decision 1, amended 2026-11-10 by the owner: no laptop on a
+# drive). Then restarts the gateway, which polls if TRANSMIT=1.
+#
+#   CAN_AUTO_ACTIVE=1    the owner's opt-in (/etc/default/f250). Anything else:
+#                        this does nothing and exits; CAN stays down at boot.
+#   CAN_AUTO_LISTEN_S    the listen-only window (30)
+#   CAN_AUTO_MIN_FRAMES  frames the window must hold (1000; the truck sends
+#                        ~712/s driving, CAN_CENSUS.md capture 3)
+#   CAN_AUTO_CAPTURE=1   once active, also capture every frame (f250-can
+#                        capture) into /var/lib/f250/captures until shutdown:
+#                        on the SD card, ~270 MB an hour at 712 frames/s
+#
+# "Clean" means, over the whole window, in listen-only (the adapter sends no
+# ACK and no error frame, so a wrong bitrate or bad wiring can't disturb the
+# bus while it is checked): at least CAN_AUTO_MIN_FRAMES frames received, the
+# controller ERROR-ACTIVE and both error counters 0 at the start and the end.
+# That is decision 2's "bitrate confirmed in listen-only mode", repeated on
+# every boot. No bus (the bench, ignition off): it stays listen-only and keeps
+# listening; it never goes active without the truck answering first.
+#
+# The wiring checklist and TRANSMIT=1 (decision 2) are still required; this
+# only replaces the person typing `f250-can active`.
+#
+# Status: [SIM] (make agl-test, with stand-ins for ip, f250-can and
+# systemctl); on the Pi with no bus: stays listen-only. Not yet on the truck.
+set -uo pipefail
+
+CAN_IF="${CAN_IF:-can0}"
+LISTEN_S="${CAN_AUTO_LISTEN_S:-30}"
+MIN_FRAMES="${CAN_AUTO_MIN_FRAMES:-1000}"
+STATE="${STATE_DIRECTORY:-/var/lib/f250}"
+CAN_BIN="${F250_CAN_BIN:-/opt/f250/bin/f250-can}"
+IP="${F250_IP:-ip}"
+SYSTEMCTL="${F250_SYSTEMCTL:-systemctl}"
+SYS_NET="${F250_SYS_NET:-/sys/class/net}"
+POLL_S="${F250_POLL_S:-5}"
+ONCE="${CAN_AUTO_ONCE:-0}"   # tests: one window, then exit 0 (active) or 3
+
+log() { echo "[can-auto] $*"; }
+
+# A system service has no HOME; f250-can keeps its data under DATA_DIR,
+# which defaults to ~/f250-data (bench-log 2026-11-10: "HOME: unbound
+# variable" on the first boot with this service).
+export HOME="${HOME:-/root}"
+export DATA_DIR="${DATA_DIR:-$STATE/captures}"
+
+if [[ "${CAN_AUTO_ACTIVE:-0}" != 1 ]]; then
+  log "CAN_AUTO_ACTIVE is not 1: CAN stays as it is (down at boot). Nothing to do"
+  exit 0
+fi
+
+# packets state rx_err tx_err, from `ip -details -statistics link show`
+counters() {
+  "$IP" -details -statistics link show "$CAN_IF" 2>/dev/null | awk '
+    /berr-counter/ { for (i = 1; i <= NF; i++) {
+                    if ($i == "state") st = $(i+1)
+                    if ($i == "tx" && $(i-1) == "(berr-counter") tx = $(i+1)
+                    if ($i == "rx" && $(i-2) == "tx") { rx = $(i+1); sub(/\)/, "", rx) } } }
+    /RX:/ { getline; pk = $2 }
+    /LISTEN-ONLY/ { lo = 1 }
+    END { printf "%s %s %s %s %s\n", pk + 0, st ? st : "?", rx + 0, tx + 0, lo ? "listen-only" : "normal" }'
+}
+
+while true; do
+  while [[ ! -e "$SYS_NET/$CAN_IF" ]]; do
+    log "no $CAN_IF yet (adapter unplugged?): waiting"
+    [[ "$ONCE" == 1 ]] && exit 3
+    sleep "$POLL_S"
+  done
+
+  read -r _ s _ _ m <<<"$(counters)"
+  if [[ "$m" == listen-only && "$s" != STOPPED ]]; then
+    :  # already listening: keep it, don't bounce the interface
+  elif ! "$CAN_BIN" listen >/dev/null 2>&1; then
+    log "couldn't put $CAN_IF in listen-only: retrying in ${POLL_S} s"
+    [[ "$ONCE" == 1 ]] && exit 3
+    sleep "$POLL_S"; continue
+  fi
+  read -r p0 s0 r0 t0 m0 <<<"$(counters)"
+  if [[ "$m0" != listen-only ]]; then
+    log "$CAN_IF isn't listen-only after 'listen': not going on"; exit 1
+  fi
+  log "$CAN_IF listen-only: listening ${LISTEN_S} s for the truck's bus"
+  sleep "$LISTEN_S"
+  read -r p1 s1 r1 t1 m1 <<<"$(counters)"
+  frames=$((p1 - p0))
+  if (( frames >= MIN_FRAMES )) && [[ "$s0" == ERROR-ACTIVE && "$s1" == ERROR-ACTIVE ]] \
+     && (( r0 == 0 && t0 == 0 && r1 == 0 && t1 == 0 )) && [[ "$m1" == listen-only ]]; then
+    log "clean: $frames frames in ${LISTEN_S} s, ERROR-ACTIVE, no errors"
+    break
+  fi
+  log "not clean: $frames frames (need $MIN_FRAMES), state $s0 -> $s1, rx errors $r0 -> $r1, tx errors $t0 -> $t1: staying listen-only"
+  [[ "$ONCE" == 1 ]] && exit 3
+done
+
+if ! YES=1 "$CAN_BIN" active >/dev/null 2>&1; then
+  log "'f250-can active' failed: $CAN_IF left as it is"; exit 1
+fi
+read -r _ s _ _ m <<<"$(counters)"
+log "$CAN_IF active ($m, $s): restarting the gateway"
+"$SYSTEMCTL" reset-failed f250-gateway.service >/dev/null 2>&1 || true
+"$SYSTEMCTL" restart f250-gateway.service || log "gateway restart failed"
+
+if [[ "${CAN_AUTO_CAPTURE:-0}" == 1 ]]; then
+  dir="$STATE/captures/$(date +%Y%m%d-%H%M%S)-auto"
+  log "capturing every frame to $dir until shutdown"
+  [[ "$ONCE" == 1 ]] && exit 0
+  # In the foreground of this service: its stop (shutdown) sends TERM, and
+  # the capture writes its counters and gap report before it ends.
+  CAPTURE_DIR="$dir" exec "$CAN_BIN" capture
+fi
+exit 0

@@ -1,6 +1,7 @@
 # ADR 0007 — Read-only vehicle access by default
 
-- **Status:** Accepted
+- **Status:** Accepted. Decision 1 amended 2026-11-10 (owner): see
+  "Amendment: active after a clean listen"
 - **Date:** 2026-11-01
 
 ## Context
@@ -17,7 +18,9 @@ actuator test. The owner requires initial communication to be read-only.
 
 ## Decision
 
-1. **At boot, nothing transmits.** CAN comes up in **listen-only** mode, and the
+1. **At boot, nothing transmits.** *(Amended 2026-11-10: with the owner's
+   `CAN_AUTO_ACTIVE=1`, CAN may go active by itself, but only after a clean
+   listen-only check; see the amendment below.)* CAN comes up in **listen-only** mode, and the
    gateway starts in `PASSIVE_ONLY`.
 2. Diagnostic transmit needs **both**:
    - `diagnostics.transmit_enabled: true` in the config
@@ -34,6 +37,33 @@ actuator test. The owner requires initial communication to be read-only.
    - actuator control
    - module configuration writes
    - safety-module interaction
+
+## Amendment: active after a clean listen (owner, 2026-11-10)
+
+The owner wants to drive without a laptop. Until now, `f250-can active` was
+typed over SSH on every drive. Options put to the owner: CAN active straight
+at boot; keep it manual; or active after a clean listen. He chose the last:
+
+- **An explicit opt-in:** `CAN_AUTO_ACTIVE=1` in `/etc/default/f250`, off
+  by default. Without it nothing changes: CAN stays down at boot.
+- **Listen first, every boot.** `f250-can-auto.service`
+  (`/opt/f250/libexec/can-auto`) puts `can0` in **listen-only** mode, where
+  the adapter sends neither ACKs nor error frames. It switches to active
+  only after a window (`CAN_AUTO_LISTEN_S`, 30 s) in which it received at
+  least `CAN_AUTO_MIN_FRAMES` frames (1000; the truck sends ~712/s), stayed
+  ERROR-ACTIVE, and kept both error counters at 0. That is decision 2's
+  "bitrate confirmed in listen-only mode", repeated each time. No bus (the
+  bench, ignition off), errors (a wrong bitrate) or error-passive: it stays
+  listen-only and keeps listening. It never goes active without the
+  truck's own traffic first.
+- Then it restarts the gateway, which polls only with **`TRANSMIT=1`**.
+  Decision 2's other conditions, the checklist and the allow-list, are
+  unchanged.
+
+So decision 1 now reads: at boot, nothing transmits until the bus has
+been heard cleanly, and only with the owner's opt-in. Optional:
+`CAN_AUTO_CAPTURE=1` also records every frame until shutdown, on the SD
+card.
 
 ## Consequences
 

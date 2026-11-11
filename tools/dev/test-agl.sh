@@ -88,7 +88,7 @@ check "journald drop-in installed"     "cmp -s agl/rootfs/etc/systemd/journald.c
 check "journal directory created"      "[[ -d '$R/var/lib/journal' && -g '$R/var/lib/journal' ]]"
 check "journal mount enabled, then started" "in_order '$L' 'systemctl enable var-volatile-log-journal.mount' 'systemctl start var-volatile-log-journal.mount' 'systemctl restart systemd-journald.service' 'journalctl --flush'"
 check "compositor drop-in installed"   "cmp -s agl/rootfs/etc/systemd/system/agl-compositor.service.d/50-f250.conf '$R/etc/systemd/system/agl-compositor.service.d/50-f250.conf'"
-check "enables our services"           "has_line '$L' 'systemctl enable f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service f250-dashboard.service'"
+check "enables our services"           "has_line '$L' 'systemctl enable f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service f250-dashboard.service f250-can-auto.service'"
 check "restarts the power and camera managers" "has_line '$L' 'systemctl restart f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service'"
 check "config.txt keeps the original"  "cmp -s '$T/config.orig' '$R/boot/config.txt.agl-orig'"
 check "config.txt has one f250 block"  "[[ \$(count '$R/boot/config.txt' '# >>> f250') == 1 ]]"
@@ -162,7 +162,7 @@ check "--check flags the CAN provider" "grep -q 'kuksa-can-provider.service is n
 check "--check flags normal-mode can0" "grep -q 'NORMAL mode' '$T/check-before.out'"
 check "--check changes nothing"        "[[ ! -s '$R6/.test/sys.log' && ! -e '$R6/etc/systemd/network/60-canbus-can.network' ]]"
 for b in vehicle-gateway recorder obd-console power-manager camera-manager camera-ctl f250-can f250-storage; do printf '#!/bin/sh\n' >"$R/opt/f250/bin/$b"; chmod +x "$R/opt/f250/bin/$b"; done
-for u in f250-gateway f250-recorder f250-power-manager f250-camera-manager f250-dashboard; do echo enabled >"$R/.test/unit-$u.service"; done
+for u in f250-gateway f250-recorder f250-power-manager f250-camera-manager f250-dashboard f250-can-auto; do echo enabled >"$R/.test/unit-$u.service"; done
 echo enabled >"$R/.test/unit-var-volatile-log-journal.mount"; : >"$R/.test/mounted-journal"
 mkdir -p "$R/opt/f250/share/data/signals"; echo '{}' >"$R/opt/f250/share/data/warning_rules.json"
 if setup "$R" --check >"$T/check-after.out" 2>&1; then ok; else fail "--check after setup: $(grep FAIL "$T/check-after.out")"; fi
@@ -200,7 +200,7 @@ check "mounted: camera-manager's video directory" "has_line '$R7/.test/sys.log' 
 check "mounted: no second mount"       "! grep -q 'systemctl start var-lib' '$R7/.test/sys.log'"
 for b in vehicle-gateway recorder obd-console power-manager camera-manager camera-ctl f250-can f250-storage; do printf '#!/bin/sh\n' >"$R7/opt/f250/bin/$b"; chmod +x "$R7/opt/f250/bin/$b"; done
 for u in kuksa-can-provider can-dev-helper; do echo masked >"$R7/.test/unit-$u.service"; done
-for u in f250-gateway f250-recorder f250-power-manager f250-camera-manager f250-dashboard; do echo enabled >"$R7/.test/unit-$u.service"; done
+for u in f250-gateway f250-recorder f250-power-manager f250-camera-manager f250-dashboard f250-can-auto; do echo enabled >"$R7/.test/unit-$u.service"; done
 echo enabled >"$R7/.test/unit-var-volatile-log-journal.mount"; : >"$R7/.test/mounted-journal"
 echo disabled >"$R7/.test/unit-flutter-ics-homescreen.service"; rm -f "$R7/.test/ip-can0"
 mkdir -p "$R7/opt/f250/share/data/signals"; echo '{}' >"$R7/opt/f250/share/data/warning_rules.json"
@@ -276,6 +276,7 @@ check "pinned: physical by default" "[[ \"\$(gw TRANSPORT=can PINNED=)\" != *--c
 check "pinned on 7DF"       "[[ \"\$(gw TRANSPORT=can PINNED=functional)\" == *' --can-pinned functional'* ]]"
 check "TRANSMIT=0 never transmits" "[[ \"\$(gw TRANSPORT=can TRANSMIT=0)\" != *--transmit* ]]"
 check "can transmit refused without the interface" "! gw TRANSPORT=can TRANSMIT=1 CAN_IF=f250-test-none >/dev/null"
+check "CAN_AUTO_ACTIVE: passive until the interface is active" "[[ \"\$(gw TRANSPORT=can TRANSMIT=1 CAN_AUTO_ACTIVE=1 CAN_IF=f250-test-none)\" == '--listen unix:/run/f250/vehicle.sock --transport can --signals /opt/f250/share/data/signals --warnings /opt/f250/share/data/warning_rules.json --can-if f250-test-none --traffic-log /var/lib/f250/traffic' ]]"
 check "enable and budget"   "[[ \"\$(gw TRANSPORT=sim ENABLE=rpm,trans_temp BUDGET_RPS=8)\" == *'--enable rpm,trans_temp --budget-rps 8' ]]"
 check "unknown transport refused" "! gw TRANSPORT=bogus >/dev/null"
 check "traffic on the data drive"  "[[ \"\$(gw TRANSPORT=can DATA_DRIVE=1 F250_TEST_MOUNTED=1)\" == *'--traffic-log /var/lib/f250/storage/traffic' ]]"
@@ -288,6 +289,54 @@ rec() { env -i PATH="$PATH" F250_RECORDER_BIN="$RSTUB" STATE_DIRECTORY=/var/lib/
 check "SD card by default"   "[[ \"\$(rec)\" == 'run --gateway unix:/run/f250/vehicle.sock --db /var/lib/f250/telemetry.sqlite' ]]"
 check "data drive"           "[[ \"\$(rec DATA_DRIVE=1 F250_TEST_MOUNTED=1)\" == 'run --gateway unix:/run/f250/vehicle.sock --db /var/lib/f250/storage/telemetry.sqlite' ]]"
 check "no drive: refuses, never the SD" "! rec DATA_DRIVE=1 F250_TEST_MOUNTED=0 >'$T/rec.out' && [[ ! -s '$T/rec.out' ]]"
+
+echo "can-auto"
+CA=agl/rootfs/opt/f250/libexec/can-auto
+CT="$T/can-auto"; mkdir -p "$CT/net/can0"
+# Stand-ins: ip prints the counters from files; f250-can sets the mode file.
+cat >"$CT/ip" <<'STUB'
+#!/bin/bash
+d="$(dirname "$0")"; n=$(( $(cat "$d/packets") ))
+[[ -f "$d/grow" ]] && echo $(( n + $(cat "$d/grow") )) >"$d/packets"
+lo=""; [[ "$(cat "$d/mode")" == listen ]] && lo="<LISTEN-ONLY> "
+printf '3: can0: <UP> mtu 16 state UP\n    can %sstate %s (berr-counter tx 0 rx %s) restart-ms 0\n    RX:  bytes packets errors\n        0 %s 0\n' "$lo" "$(cat "$d/state")" "$(cat "$d/rxerr")" "$n"
+STUB
+cat >"$CT/f250-can" <<'STUB'
+#!/bin/bash
+set -u; : "$HOME" "$DATA_DIR"   # as tools/pi/can.sh needs them
+d="$(dirname "$0")"; echo "$1" >>"$d/calls"
+case "$1" in listen) echo listen >"$d/mode" ;; active) [[ "${YES:-}" == 1 ]] && echo active >"$d/mode" ;; esac
+STUB
+printf '#!/bin/bash\necho "$@" >>"$(dirname "$0")/systemctl.log"\n' >"$CT/systemctl"
+chmod +x "$CT/ip" "$CT/f250-can" "$CT/systemctl"
+ca() { : >"$CT/calls"; : >"$CT/systemctl.log"; echo down >"$CT/mode"
+  env -i PATH="$PATH" F250_IP="$CT/ip" F250_CAN_BIN="$CT/f250-can" F250_SYSTEMCTL="$CT/systemctl" \
+    F250_SYS_NET="$CT/net" F250_POLL_S=0 CAN_AUTO_ONCE=1 CAN_AUTO_LISTEN_S=0 CAN_AUTO_MIN_FRAMES=100 \
+    STATE_DIRECTORY="$CT/state" "$@" bash "$CA" >"$CT/out" 2>&1 && echo 0 >"$CT/rc" || echo $? >"$CT/rc"; }
+echo 0 >"$CT/packets"; echo ERROR-ACTIVE >"$CT/state"; echo 0 >"$CT/rxerr"; echo 500 >"$CT/grow"
+ca
+check "off unless CAN_AUTO_ACTIVE=1: CAN untouched" "[[ \$(cat $CT/rc) == 0 && ! -s $CT/calls && \$(cat $CT/mode) == down ]]"
+ca CAN_AUTO_ACTIVE=1
+check "a clean listen: listen-only first, then active" "[[ \$(cat $CT/rc) == 0 && \"\$(paste -sd' ' $CT/calls)\" == 'listen active' && \$(cat $CT/mode) == active ]]"
+check "then the gateway restarts" "grep -qx 'restart f250-gateway.service' $CT/systemctl.log"
+echo 0 >"$CT/grow"
+ca CAN_AUTO_ACTIVE=1
+check "no frames (no bus): stays listen-only" "[[ \$(cat $CT/rc) == 3 && \$(cat $CT/mode) == listen && ! -s $CT/systemctl.log ]] && grep -q 'not clean: 0 frames' $CT/out"
+echo 500 >"$CT/grow"; echo 7 >"$CT/rxerr"
+ca CAN_AUTO_ACTIVE=1
+check "errors (a wrong bitrate): stays listen-only" "[[ \$(cat $CT/rc) == 3 && \$(cat $CT/mode) == listen ]]"
+echo 0 >"$CT/rxerr"; echo ERROR-PASSIVE >"$CT/state"
+ca CAN_AUTO_ACTIVE=1
+check "error-passive: stays listen-only" "[[ \$(cat $CT/rc) == 3 && \$(cat $CT/mode) == listen ]]"
+echo ERROR-ACTIVE >"$CT/state"; rmdir "$CT/net/can0"
+ca CAN_AUTO_ACTIVE=1
+check "no adapter: waits, touches nothing" "[[ \$(cat $CT/rc) == 3 && ! -s $CT/calls ]]"
+mkdir -p "$CT/net/can0"
+ca CAN_AUTO_ACTIVE=1 CAN_AUTO_CAPTURE=1
+check "capture asked for: says where" "grep -q 'capturing every frame to $CT/state/captures/' $CT/out"
+check "off by default in /etc/default/f250" "has_line agl/rootfs/etc/default/f250 'CAN_AUTO_ACTIVE=0' && has_line agl/rootfs/etc/default/f250 'CAN_AUTO_CAPTURE=0'"
+CU=agl/rootfs/etc/systemd/system/f250-can-auto.service
+check "can-auto unit: root, settings file, the script" "grep -qx 'EnvironmentFile=-/etc/default/f250' $CU && grep -qx 'ExecStart=/opt/f250/libexec/can-auto' $CU && ! grep -q '^User=' $CU && [[ -x $CA ]]"
 
 echo "camera-start"
 CSTUB="$T/camera-manager"
@@ -507,7 +556,7 @@ for unit in agl/rootfs/etc/systemd/system/*.service agl/rootfs/etc/systemd/syste
     check "image enables $name for $tgt" "grep -qx '    f250_wants $tgt $name' '$SYSBB'"
   done
 done
-check "units stage1 enables have [Install]" "for u in f250-gateway f250-recorder f250-power-manager f250-camera-manager f250-dashboard; do grep -q '^WantedBy=' agl/rootfs/etc/systemd/system/\$u.service || exit 1; done"
+check "units stage1 enables have [Install]" "for u in f250-gateway f250-recorder f250-power-manager f250-camera-manager f250-dashboard f250-can-auto; do grep -q '^WantedBy=' agl/rootfs/etc/systemd/system/\$u.service || exit 1; done"
 check "static IDs for f250"            "grep -qx 'f250::950:950:F-250 head unit services:/var/lib/f250:/bin/false' $M/files/f250-passwd && grep -qx 'f250::950:' $M/files/f250-group"
 check "agl-driver joins f250"          "grep -qx 'GROUPMEMS_PARAM:\${PN} = \"-a agl-driver -g f250\"' $M/recipes-config/agl-users/agl-users_%.bbappend"
 CM=$M/recipes-connectivity/connman

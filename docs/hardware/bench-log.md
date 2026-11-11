@@ -1788,3 +1788,38 @@ dashboard shows the link down. In the truck, after the wiring checklist,
 `YES=1 f250-can active` and a gateway restart. Wi-Fi was off and no
 hotspot saved on the fresh card: `connmanctl enable wifi` done; the owner
 joins the hotspot (agl.md "Wi-Fi: a phone hotspot").
+
+## 2026-11-10 — CAN active after a clean listen, no laptop (ADR-0007 amendment) [BENCH]
+
+The owner wants to drive without a laptop and chose, from three options,
+"active after a clean listen" (ADR-0007 decision 1 amended). Installed on
+the truck card (image f3bf43b) by copying this checkout's `agl/` and
+running stage1-setup.sh: `f250-can-auto.service`, `/opt/f250/libexec/can-auto`,
+and gateway-start's passive wait. `/etc/default/f250` gained
+`CAN_AUTO_ACTIVE=1` and `CAN_AUTO_CAPTURE=1` (with TRANSPORT=can TRANSMIT=1
+ENABLE=... from the entry before). Adapter plugged in; no bus on the bench
+
+Result, after a reboot:
+
+    first boot  BUG: "couldn't put can0 in listen-only" every 5 s. A system
+                service has no HOME and f250-can's DATA_DIR defaults to
+                ~/f250-data ("HOME: unbound variable"). Fixed: can-auto sets
+                HOME and DATA_DIR (/var/lib/f250/captures); agl-test's
+                stand-in now needs both
+    second boot all services active; the gateway "CAN_AUTO_ACTIVE=1: can0
+                isn't active yet, so PASSIVE_ONLY"; can0 LISTEN-ONLY,
+                ERROR-ACTIVE, berr-counter tx 0 rx 0; can-auto "not clean: 0
+                frames (need 1000) ... staying listen-only", every 30 s
+    no bounce   it no longer re-runs `f250-can listen` while already
+                listening: no can0 kernel messages over a window
+    earlier     with the gateway (--transmit) running against the listen-only
+                interface for a minute: TX 0 packets, error counters 0 (the
+                adapter can't send in listen-only), so its polls can't spoil
+                the check; the gateway now waits passive anyway
+
+Not yet run: the switch to active, which needs the truck's bus. agl-test
+covers it with stand-ins: a clean window goes active and restarts the
+gateway; no frames, errors, error-passive or no adapter stay listen-only.
+On the truck: Pi boot, then a 30 s listen, so polling starts about a
+minute after the Pi has power; `journalctl -u f250-can-auto -b` says what
+it did.
