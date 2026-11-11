@@ -441,6 +441,8 @@ check "camera-manager: stops its own pipeline, never a 90 s hang" "grep -qx 'Kil
 check "camera-manager: deploy builds it with GStreamer" "grep -q -- '-p camera-manager --features gstreamer' tools/dev/deploy.sh && grep -q 'libgstreamer1.0-dev' tools/dev/docker/arm64-build.Dockerfile"
 check "camera-manager: deployed and built into the image" "grep -q -- '-p camera-manager' tools/dev/deploy.sh && grep -q '/target/release/camera-manager' tools/dev/deploy.sh && grep -q -- '-p camera-manager' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'power-manager camera-manager camera-ctl; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q '/target/release/camera-ctl' tools/dev/deploy.sh"
 check "camera-manager: the image has gst-launch-1.0 (gstreamer1.0)" "grep -qx '    gstreamer1.0 \\\\' agl/meta-f250/recipes-platform/images/agl-f250-base.inc"
+check "camera-manager: the image can record (matroska, multifile)" "grep -qx '    gstreamer1.0-plugins-good-matroska \\\\' agl/meta-f250/recipes-platform/images/agl-f250-base.inc && grep -qx '    gstreamer1.0-plugins-good-multifile \\\\' agl/meta-f250/recipes-platform/images/agl-f250-base.inc"
+check "camera-manager: the recipe links GStreamer" "grep -q '^DEPENDS += \"gstreamer1.0 glib-2.0\"' agl/meta-f250/recipes-f250/f250-services/f250-services.bb"
 # The camera window's area (ADR-0009) must match the dashboard's camera mode:
 # right of the button column, below the status bar (where alerts show), and
 # one row short of the bottom: the compositor ignores an area that reaches it
@@ -535,7 +537,7 @@ for pair in candump:can-utils lsusb:usbutils mkfs.ext4:e2fsprogs-mke2fs blkid:ut
   cmd=${pair%%:*}; pkg=${pair#*:}
   check "f250-system pulls in $pkg ($cmd)" "grep -A2 '^RDEPENDS' '$SYSBB' | grep -qw '$pkg'"
 done
-check "services: the binaries deploy.sh builds" "grep -q -- '-p vehicle-gateway -p recorder -p obd-console -p power-manager -p camera-manager --features vehicle-gateway/rfcomm' $M/recipes-f250/f250-services/f250-services.bb && grep -q -- '-p vehicle-gateway --features rfcomm' tools/dev/deploy.sh"
+check "services: the binaries deploy.sh builds" "grep -q -- '-p vehicle-gateway -p recorder -p obd-console -p power-manager -p camera-manager --features vehicle-gateway/rfcomm,camera-manager/gstreamer' $M/recipes-f250/f250-services/f250-services.bb && grep -q -- '-p vehicle-gateway --features rfcomm' tools/dev/deploy.sh"
 check "dashboard: deploy.sh's defines"  "grep -q -- '-DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock -DCAMERAS=unix:/run/f250-camera/camera.sock' $M/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -q -- '--dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:\$SOCK' tools/dev/deploy.sh && grep -q -- '--dart-define=CAMERAS=unix:\$CAMERA_SOCK' tools/dev/deploy.sh && grep -q '^CAMERA_SOCK=/run/f250-camera/camera.sock$' tools/dev/deploy.sh"
 check "dashboard: bundle name is the app's" "grep -qx 'PUBSPEC_APPNAME = \"f250_infotainment\"' $M/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -qx 'name: f250_infotainment' apps/infotainment/pubspec.yaml && grep -q '^APP_ID=f250_infotainment$' '$SETUP'"
 check "layer builds a commit, not the tree" "grep -q 'F250_ALLOW_DIRTY' agl/scripts/agl-build.sh && grep -q 'F250_SRCREV = \"\$rev\"' agl/scripts/agl-build.sh"

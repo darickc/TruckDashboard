@@ -19,19 +19,18 @@ DEPENDS += "protobuf-native"
 # dependency on libsqlite3 follows from the binary's shared libraries.
 DEPENDS += "sqlite3"
 
+# camera-manager records front and rear with in-process GStreamer
+# (gstreamer-rs, ADR-0027 decision 2): its gstreamer feature links
+# libgstreamer-1.0 and GLib, found through pkg-config in the sysroot. The
+# runtime dependencies follow from the binary's shared libraries; the
+# recording plugins are in the image (agl-f250-base.inc).
+DEPENDS += "gstreamer1.0 glib-2.0"
+
 # The workspace also holds can-monitor, an offline analysis tool for the Mac;
 # build only what the head unit runs. The gateway gets the MX+ over RFCOMM
-# (pure Rust, no system library), as `make deploy` builds it.
-# camera-manager is built without its gstreamer feature here, so the image's
-# camera-manager shows cameras through gst-launch-1.0 and says it can't
-# record (ADR-0027 "As built"). TODO (Phase 6.6): add camera-manager/gstreamer
-# with DEPENDS += "gstreamer1.0", and to the image
-# gstreamer1.0-plugins-good-matroska and gstreamer1.0-plugins-good-multifile
-# (names from the build's deploy/rpm; they pull libgstriff-1.0-0 and
-# libgstpbutils-1.0-0); then build and check the image. `make deploy`
-# already builds it with GStreamer, and it records on the Pi with those
-# packages installed by hand (bench-log 2026-11-10).
-CARGO_BUILD_FLAGS:append = " -p vehicle-gateway -p recorder -p obd-console -p power-manager -p camera-manager --features vehicle-gateway/rfcomm"
+# (pure Rust, no system library), and camera-manager gets GStreamer, as
+# `make deploy` builds them.
+CARGO_BUILD_FLAGS:append = " -p vehicle-gateway -p recorder -p obd-console -p power-manager -p camera-manager --features vehicle-gateway/rfcomm,camera-manager/gstreamer"
 
 # The same layout as the Stage 1 sideload (ADR-0016), so the units in
 # agl/rootfs and `stage1-setup.sh --check` work unchanged.

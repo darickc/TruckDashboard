@@ -31,6 +31,8 @@ IMAGE_INSTALL += " \
     gstreamer1.0-plugins-good-jpeg \
     gstreamer1.0-plugins-base-videoconvertscale \
     gstreamer1.0-plugins-bad-waylandsink \
+    gstreamer1.0-plugins-good-matroska \
+    gstreamer1.0-plugins-good-multifile \
 "
 
 # weston-ini-conf-flutter: the compositor's configuration for flutter-auto
@@ -47,6 +49,11 @@ IMAGE_INSTALL += " \
 # (ADR-0026); the plugins already pull it in, named here because the service
 # depends on the tool itself. appsink, the Flutter-texture option's sink, left with that
 # decision. Names from the 22.0.1 demo image's manifest.
+#
+# Recording front and rear (ADR-0027): matroskamux (matroska) and
+# splitmuxsink (multifile), from gst-plugins-good. matroska pulls
+# libgstriff-1.0-0 and libgstpbutils-1.0-0. Names from the build's
+# deploy/rpm; [BENCH] 2026-11-10 installed by hand on 6114c52, recording.
 
 # root's SSH key, from the build host (agl-build.sh puts the file's path in
 # site.conf). Root logs in with it; the release image has no other way in
