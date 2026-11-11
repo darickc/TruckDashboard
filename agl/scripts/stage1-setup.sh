@@ -468,6 +468,9 @@ apply() {
     if storage_mounted; then
       sys chown f250:f250 "$STORAGE"
       sys chmod 0750 "$STORAGE"
+      # camera-manager's recordings (ADR-0027): it runs as agl-driver.
+      # Group f250 can read them; only camera-manager writes.
+      sys install -d -o agl-driver -g f250 -m 0750 "$STORAGE/video"
     fi
   else
     ((changed)) && echo "  /etc/fstab: removed the data drive (DATA_DRIVE is off)"

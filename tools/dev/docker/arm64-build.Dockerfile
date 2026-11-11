@@ -3,7 +3,8 @@
 # an arm64 container (fast on Apple Silicon; emulated on x86_64).
 #
 # Debian bookworm's glibc (2.36) is older than the AGL image's (2.43), so the
-# binaries run there. The Flutter SDK is the one in .fvmrc, which must match
+# binaries run there. camera-manager links GStreamer (libgstreamer-1.0.so.0,
+# 1.22 here, 1.28 on the image: the same ABI, newer). The Flutter SDK is the one in .fvmrc, which must match
 # the engine in the image (3.38.3, ADR-0001): an AOT snapshot (libapp.so)
 # only runs on the engine it was built for.
 FROM --platform=linux/arm64 rust:1-bookworm
@@ -11,6 +12,7 @@ FROM --platform=linux/arm64 rust:1-bookworm
 RUN apt-get update -qq \
  && apt-get install -y -qq --no-install-recommends \
       protobuf-compiler libdbus-1-dev pkg-config \
+      libgstreamer1.0-dev \
       clang cmake ninja-build libgtk-3-dev liblzma-dev \
       git curl unzip xz-utils rsync ca-certificates \
  && rm -rf /var/lib/apt/lists/*

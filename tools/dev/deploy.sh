@@ -65,7 +65,9 @@ build() {
     "$IMAGE" bash -euo pipefail -c '
       cd /src
       cargo build -q --release --locked -p vehicle-gateway --features rfcomm
-      cargo build -q --release --locked -p recorder -p obd-console -p power-manager -p camera-manager
+      cargo build -q --release --locked -p recorder -p obd-console -p power-manager
+      # In-process GStreamer, so it can record (ADR-0027 decision 2).
+      cargo build -q --release --locked -p camera-manager --features gstreamer
       mkdir -p /out/bin
       cp /target/release/vehicle-gateway /target/release/recorder /target/release/obd-console /target/release/power-manager /target/release/camera-manager /target/release/camera-ctl /out/bin/
 

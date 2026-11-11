@@ -22,6 +22,12 @@ DEPENDS += "sqlite3"
 # The workspace also holds can-monitor, an offline analysis tool for the Mac;
 # build only what the head unit runs. The gateway gets the MX+ over RFCOMM
 # (pure Rust, no system library), as `make deploy` builds it.
+# camera-manager is built without its gstreamer feature here, so the image's
+# camera-manager shows cameras through gst-launch-1.0 and says it can't
+# record (ADR-0027 "As built"). TODO (Phase 6.6): add camera-manager/gstreamer
+# with DEPENDS += "gstreamer1.0", and the matroska and multifile plugins to
+# the image, by the package names in the build's package list; then build
+# and check the image. `make deploy` already builds it with GStreamer.
 CARGO_BUILD_FLAGS:append = " -p vehicle-gateway -p recorder -p obd-console -p power-manager -p camera-manager --features vehicle-gateway/rfcomm"
 
 # The same layout as the Stage 1 sideload (ADR-0016), so the units in

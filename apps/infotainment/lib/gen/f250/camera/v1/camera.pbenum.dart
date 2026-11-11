@@ -164,5 +164,41 @@ class FeedState extends $pb.ProtobufEnum {
   const FeedState._(super.value, super.name);
 }
 
+/// One recorded camera's state (ADR-0027 decisions 1 and 9).
+class RecordingState extends $pb.ProtobufEnum {
+  static const RecordingState RECORDING_STATE_UNSPECIFIED =
+      RecordingState._(0, _omitEnumNames ? '' : 'RECORDING_STATE_UNSPECIFIED');
+
+  /// The camera is set to record and the pipeline is starting: no segment
+  /// has received a frame yet.
+  static const RecordingState RECORDING_STATE_STARTING =
+      RecordingState._(1, _omitEnumNames ? '' : 'RECORDING_STATE_STARTING');
+
+  /// Frames are reaching a segment on the data drive.
+  static const RecordingState RECORDING_STATE_RECORDING =
+      RecordingState._(2, _omitEnumNames ? '' : 'RECORDING_STATE_RECORDING');
+
+  /// Set to record but not recording: no drive, no device, the drive is
+  /// full, frames stopped, or this build can't record. `detail` says which.
+  /// The dashboard raises an advisory for it: a dead dashcam must not be
+  /// discovered after the incident it missed.
+  static const RecordingState RECORDING_STATE_NOT_RECORDING = RecordingState._(
+      3, _omitEnumNames ? '' : 'RECORDING_STATE_NOT_RECORDING');
+
+  static const $core.List<RecordingState> values = <RecordingState>[
+    RECORDING_STATE_UNSPECIFIED,
+    RECORDING_STATE_STARTING,
+    RECORDING_STATE_RECORDING,
+    RECORDING_STATE_NOT_RECORDING,
+  ];
+
+  static final $core.List<RecordingState?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static RecordingState? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const RecordingState._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');

@@ -196,6 +196,7 @@ touch "$R7/.test/mounted-storage"
 : >"$R7/.test/sys.log"
 setup "$R7" >/dev/null 2>&1 || fail "apply (DATA_DRIVE=1, mounted) exited non-zero"
 check "mounted: owned by f250"         "has_line '$R7/.test/sys.log' 'chown f250:f250 /var/lib/f250/storage' && has_line '$R7/.test/sys.log' 'chmod 0750 /var/lib/f250/storage'"
+check "mounted: camera-manager's video directory" "has_line '$R7/.test/sys.log' 'install -d -o agl-driver -g f250 -m 0750 /var/lib/f250/storage/video'"
 check "mounted: no second mount"       "! grep -q 'systemctl start var-lib' '$R7/.test/sys.log'"
 for b in vehicle-gateway recorder obd-console power-manager camera-manager camera-ctl f250-can f250-storage; do printf '#!/bin/sh\n' >"$R7/opt/f250/bin/$b"; chmod +x "$R7/opt/f250/bin/$b"; done
 for u in kuksa-can-provider can-dev-helper; do echo masked >"$R7/.test/unit-$u.service"; done
@@ -296,6 +297,12 @@ check "no cameras: only the socket" "[[ \"\$(cam)\" == '--listen unix:/run/f250-
 check "empty settings: no cameras" "[[ \"\$(cam CAMERA_FRONT= CAMERA_LEFT= CAMERA_RIGHT= CAMERA_REAR= CAMERA_CAPS=)\" == '--listen unix:/run/f250-camera/camera.sock' ]]"
 check "each camera named"   "[[ \"\$(cam CAMERA_REAR=/dev/video0 CAMERA_LEFT=/dev/v4l/by-path/usb-x-video-index0 CAMERA_FRONT=/dev/video2)\" == '--listen unix:/run/f250-camera/camera.sock --camera front=/dev/video2 --camera left=/dev/v4l/by-path/usb-x-video-index0 --camera rear=/dev/video0' ]]"
 check "caps passed as one argument" "[[ \"\$(env -i PATH=\"\$PATH\" F250_CAMERA_BIN=/bin/echo CAMERA_CAPS='video/x-raw,width=640 ! videoscale' bash agl/rootfs/opt/f250/libexec/camera-start 2>/dev/null)\" == '--listen unix:/run/f250-camera/camera.sock --caps video/x-raw,width=640 ! videoscale' ]]"
+check "no recording without the data drive" "[[ \"\$(cam CAMERA_FRONT=/dev/video0 CAMERA_REAR=/dev/video2 RECORD_CAMERAS=front,rear DATA_DRIVE=0)\" == '--listen unix:/run/f250-camera/camera.sock --camera front=/dev/video0 --camera rear=/dev/video2' ]]"
+check "records the cameras that have a device" "[[ \"\$(cam CAMERA_REAR=/dev/video2 RECORD_CAMERAS='front, rear' DATA_DRIVE=1)\" == '--listen unix:/run/f250-camera/camera.sock --camera rear=/dev/video2 --record rear --record-dir /var/lib/f250/storage/video --record-drive /var/lib/f250/storage' ]]"
+check "records front and rear" "[[ \"\$(cam CAMERA_FRONT=/dev/video0 CAMERA_REAR=/dev/video2 RECORD_CAMERAS=front,rear DATA_DRIVE=1 CAMERA_MEDIA=gstreamer)\" == '--listen unix:/run/f250-camera/camera.sock --camera front=/dev/video0 --camera rear=/dev/video2 --media gstreamer --record front,rear --record-dir /var/lib/f250/storage/video --record-drive /var/lib/f250/storage' ]]"
+check "left and right are never recorded" "! cam CAMERA_LEFT=/dev/video0 RECORD_CAMERAS=left DATA_DRIVE=1 >/dev/null"
+DF=agl/rootfs/etc/default/f250
+check "recording on by default for front and rear" "has_line $DF 'RECORD_CAMERAS=front,rear' && has_line $DF 'RECORD_MAX_GB=250' && has_line $DF 'RECORD_SYNC_S=1'"
 check "a device with a space refused" "! cam 'CAMERA_REAR=/dev/video 0' >/dev/null"
 
 echo "grow-root"
@@ -427,9 +434,11 @@ check "camera-manager: the compositor's Wayland socket" "grep -qx 'Environment=X
 check "camera-manager: not bound to the compositor (it retries)" "! grep -q '^BindsTo=' $CM && ! grep -q '^PartOf=' $CM && grep -qx 'Restart=on-failure' $CM"
 check "camera-manager: reaches only cameras" "grep -qx 'DevicePolicy=closed' $CM && [[ \"\$(grep -c '^DeviceAllow=' $CM)\" == 1 ]] && grep -qx 'DeviceAllow=char-video4linux rw' $CM"
 check "camera-manager: no network" "grep -qx 'PrivateNetwork=yes' $CM && grep -qx 'RestrictAddressFamilies=AF_UNIX' $CM"
-check "camera-manager: GStreamer's registry in its cache" "grep -qx 'CacheDirectory=f250-camera' $CM && grep -qx 'Environment=XDG_CACHE_HOME=/var/cache/f250-camera' $CM && ! grep -q '^ReadWritePaths=' $CM"
+check "camera-manager: GStreamer's registry in its cache" "grep -qx 'CacheDirectory=f250-camera' $CM && grep -qx 'Environment=XDG_CACHE_HOME=/var/cache/f250-camera' $CM"
+check "camera-manager: writes only the recordings, after the drive mounts" "[[ \"\$(grep '^ReadWritePaths=' $CM)\" == 'ReadWritePaths=-/var/lib/f250/storage/video' ]] && grep -qx 'After=var-lib-f250-storage.mount' $CM"
 check "camera-manager: watchdog" "grep -qx 'Type=notify' $CM && grep -qx 'WatchdogSec=30' $CM"
 check "camera-manager: stops its own pipeline, never a 90 s hang" "grep -qx 'KillMode=mixed' $CM && grep -qx 'TimeoutStopSec=10' $CM"
+check "camera-manager: deploy builds it with GStreamer" "grep -q -- '-p camera-manager --features gstreamer' tools/dev/deploy.sh && grep -q 'libgstreamer1.0-dev' tools/dev/docker/arm64-build.Dockerfile"
 check "camera-manager: deployed and built into the image" "grep -q -- '-p camera-manager' tools/dev/deploy.sh && grep -q '/target/release/camera-manager' tools/dev/deploy.sh && grep -q -- '-p camera-manager' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'power-manager camera-manager camera-ctl; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q '/target/release/camera-ctl' tools/dev/deploy.sh"
 check "camera-manager: the image has gst-launch-1.0 (gstreamer1.0)" "grep -qx '    gstreamer1.0 \\\\' agl/meta-f250/recipes-platform/images/agl-f250-base.inc"
 # The camera window's area (ADR-0009) must match the dashboard's camera mode:

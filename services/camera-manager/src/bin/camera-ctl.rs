@@ -1,11 +1,13 @@
 //! `camera-ctl`: talk to camera-manager's `f250.camera.v1` API by hand, for
-//! the bench and for development. A switch move without the switch, and the
-//! view as camera-manager reports it.
+//! the bench and for development. A switch move without the switch, the
+//! view as camera-manager reports it, and recording (ADR-0027).
 //!
 //!   camera-ctl move back          # as if the switch moved back; prints the view
 //!   camera-ctl move press         # close the camera (forward is the front camera)
 //!   camera-ctl view               # the view now
 //!   camera-ctl watch              # every change, until Ctrl-C
+//!   camera-ctl recording          # what is recording now (--watch: every change)
+//!   camera-ctl save-clip          # as the dashboard's Save clip button
 //!   camera-ctl --to unix:/tmp/f250/camera.sock view
 //!
 //! Without `--to` it uses the Pi's socket (/run/f250-camera/camera.sock) when
@@ -14,7 +16,7 @@
 use std::process::ExitCode;
 use std::time::Duration;
 
-use camera_manager::manager::describe_view;
+use camera_manager::manager::{describe_recording, describe_view};
 use clap::{Parser, Subcommand, ValueEnum};
 use f250_proto::camera::v1 as pb;
 use hyper_util::rt::TokioIo;
@@ -29,7 +31,7 @@ const TIMEOUT: Duration = Duration::from_secs(5);
 #[derive(Parser)]
 #[command(
     name = "camera-ctl",
-    about = "Send camera-switch moves to camera-manager and show its view"
+    about = "Send camera-switch moves to camera-manager, show its view and its recording, save a clip"
 )]
 struct Args {
     /// camera-manager's API: unix:PATH or tcp:HOST:PORT.
@@ -47,6 +49,14 @@ enum Cmd {
     View,
     /// The view now and every change, until interrupted.
     Watch,
+    /// What is recording now.
+    Recording {
+        /// Keep printing every change, until interrupted.
+        #[arg(long)]
+        watch: bool,
+    },
+    /// Save a clip, as the dashboard's button does. Exits 1 if refused.
+    SaveClip,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -150,6 +160,40 @@ async fn run(args: Args) -> Result<(), String> {
                 }
             }
             return Err("camera-manager ended the stream".into());
+        }
+        Cmd::Recording { watch } => {
+            let mut stream = client
+                .watch_recording(pb::WatchRecordingRequest {})
+                .await
+                .map_err(|s| format!("WatchRecording: {}", s.message()))?
+                .into_inner();
+            while let Some(item) = stream.next().await {
+                let r = item
+                    .map_err(|s| format!("WatchRecording: {}", s.message()))?
+                    .recording
+                    .unwrap_or_default();
+                println!("{}", describe_recording(&r));
+                if !watch {
+                    return Ok(());
+                }
+            }
+            return Err("camera-manager ended the stream".into());
+        }
+        Cmd::SaveClip => {
+            let r = tokio::time::timeout(
+                TIMEOUT,
+                client.save_clip(pb::SaveClipRequest {
+                    source: "camera-ctl".into(),
+                }),
+            )
+            .await
+            .map_err(|_| "no answer from camera-manager".to_string())?
+            .map_err(|s| format!("SaveClip: {}", s.message()))?
+            .into_inner();
+            println!("{}", r.detail);
+            if !r.saved {
+                return Err("not saved".into());
+            }
         }
     }
     Ok(())

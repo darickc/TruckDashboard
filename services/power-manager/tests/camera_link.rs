@@ -28,6 +28,23 @@ struct Fake {
 impl CameraService for Fake {
     type WatchViewStream =
         Pin<Box<dyn Stream<Item = Result<pb::WatchViewResponse, Status>> + Send>>;
+    type WatchRecordingStream =
+        Pin<Box<dyn Stream<Item = Result<pb::WatchRecordingResponse, Status>> + Send>>;
+
+    // power-manager only sends moves.
+    async fn watch_recording(
+        &self,
+        _: Request<pb::WatchRecordingRequest>,
+    ) -> Result<Response<Self::WatchRecordingStream>, Status> {
+        Err(Status::unimplemented("not in the fake"))
+    }
+
+    async fn save_clip(
+        &self,
+        _: Request<pb::SaveClipRequest>,
+    ) -> Result<Response<pb::SaveClipResponse>, Status> {
+        Err(Status::unimplemented("not in the fake"))
+    }
 
     async fn watch_view(
         &self,

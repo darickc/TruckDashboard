@@ -15,7 +15,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use camera_manager::config::Settings;
-use camera_manager::manager::{Command, Manager};
+use camera_manager::manager::{Command, Manager, Watches};
+use camera_manager::pipeline::LaunchMedia;
 use camera_manager::server::Api;
 use camera_policy::{Camera, Move};
 use f250_proto::camera::v1 as pb;
@@ -42,6 +43,7 @@ struct Rig {
     dir: PathBuf,
     cmds: mpsc::Sender<Command>,
     view: watch::Receiver<pb::View>,
+    recording: watch::Receiver<pb::Recording>,
     done: tokio::task::JoinHandle<()>,
 }
 
@@ -92,6 +94,7 @@ fn settings(dir: &Path, cameras: &[(Camera, &str)]) -> Settings {
         restart_min: Duration::from_millis(200),
         restart_max: Duration::from_millis(400),
         policy: camera_policy::Config::default(),
+        recording: None,
     }
 }
 
@@ -101,13 +104,18 @@ fn rig(test: &str, cameras: &[(Camera, &str)]) -> Rig {
 }
 
 fn rig_with(dir: PathBuf, s: Settings) -> Rig {
-    let (manager, view) = Manager::new(s);
+    let media = LaunchMedia {
+        program: s.gst_launch.clone(),
+        why_not_recording: "launch media".into(),
+    };
+    let (manager, w) = Manager::new(s, Box::new(media));
     let (cmds, rx) = mpsc::channel(8);
     let done = tokio::spawn(manager.run(rx));
     Rig {
         dir,
         cmds,
-        view,
+        view: w.view,
+        recording: w.recording,
         done,
     }
 }
@@ -385,7 +393,7 @@ async fn a_missing_gst_launch_is_unavailable_with_the_reason() {
 
 #[tokio::test]
 async fn stopping_the_loop_kills_the_running_pipeline() {
-    let mut r = rig("shutdown", &[(Camera::Rear, "frames")]);
+    let mut r = rig("loop-stop", &[(Camera::Rear, "frames")]);
     r.mv(Move::Back).await;
     r.until(SOON, "live", |v| feed(v) == pb::FeedState::Live)
         .await;
@@ -403,7 +411,13 @@ async fn stopping_the_loop_kills_the_running_pipeline() {
 #[tokio::test]
 async fn the_api_streams_views_and_takes_moves() {
     let r = rig("api", &[(Camera::Rear, "frames")]);
-    let api = Api::new(r.cmds.clone(), r.view.clone());
+    let api = Api::new(
+        r.cmds.clone(),
+        Watches {
+            view: r.view.clone(),
+            recording: r.recording.clone(),
+        },
+    );
     let mut stream = api
         .watch_view(tonic::Request::new(pb::WatchViewRequest {}))
         .await
@@ -449,6 +463,47 @@ async fn the_api_streams_views_and_takes_moves() {
         .await
         .expect_err("unspecified move rejected");
     assert_eq!(bad.code(), tonic::Code::InvalidArgument);
+    drop(api);
+    drop(stream);
+    r.finish().await;
+}
+
+#[tokio::test]
+async fn with_recording_off_the_api_says_so_and_refuses_to_save() {
+    let r = rig("recording-off", &[(Camera::Rear, "frames")]);
+    let api = Api::new(
+        r.cmds.clone(),
+        Watches {
+            view: r.view.clone(),
+            recording: r.recording.clone(),
+        },
+    );
+    let mut stream = api
+        .watch_recording(tonic::Request::new(pb::WatchRecordingRequest {}))
+        .await
+        .expect("stream")
+        .into_inner();
+    let first = stream
+        .next()
+        .await
+        .expect("item")
+        .expect("ok")
+        .recording
+        .expect("recording");
+    assert!(first.cameras.is_empty(), "nothing set to record: {first:?}");
+    let saved = api
+        .save_clip(tonic::Request::new(pb::SaveClipRequest {
+            source: "test".into(),
+        }))
+        .await
+        .expect("answered")
+        .into_inner();
+    assert!(!saved.saved);
+    assert!(
+        saved.detail.contains("recording is off"),
+        "{}",
+        saved.detail
+    );
     drop(api);
     drop(stream);
     r.finish().await;

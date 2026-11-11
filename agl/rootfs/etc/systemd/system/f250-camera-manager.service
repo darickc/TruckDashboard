@@ -19,6 +19,14 @@
 # pipeline, and camera-manager marks the camera unavailable and restarts the
 # pipeline after a backoff (ADR-0026 decision 4).
 #
+# Recording (ADR-0027): front and rear, into /var/lib/f250/storage/video on
+# the data drive only (RECORD_CAMERAS and DATA_DRIVE=1, camera-start). That
+# directory is the only place it writes besides its cache; stage1-setup.sh
+# makes it agl-driver:f250 on the drive. Ordered after the drive's mount so
+# a drive present at boot is writable here; one mounted later needs a
+# restart of this unit (the sandbox's view is fixed at start). Status:
+# [SIM]; not yet run on the Pi.
+#
 # Status: [BENCH] 2026-11-10 on image 6114c52 with two USB webcams
 # (bench-log): the socket is agl-driver:f250 0770, the windows show from
 # inside the sandbox in the activation area, GStreamer keeps its registry
@@ -26,6 +34,7 @@
 [Unit]
 Description=F-250 camera manager
 After=agl-compositor.service
+After=var-lib-f250-storage.mount
 
 [Service]
 Type=notify
@@ -57,9 +66,9 @@ RuntimeDirectoryMode=0750
 #   MJPEG display pipeline went live and used the same CPU (5.2 % of one
 #   core) with no GStreamer warnings. Only that pipeline was tried.
 # - No ProcSubset=pid: orc reads /proc/cpuinfo for the CPU's features.
-# - Writes: only the cache directory, where GStreamer keeps its plugin
-#   registry (XDG_CACHE_HOME); without it every pipeline start rescans the
-#   plugins. The real home stays read-only; ProtectHome=yes would hide
+# - Writes: the cache directory, where GStreamer keeps its plugin registry
+#   (XDG_CACHE_HOME; without it every pipeline start rescans the plugins),
+#   and the recordings' directory on the data drive (absent: skipped). The real home stays read-only; ProtectHome=yes would hide
 #   /run/user and the Wayland socket. agl-driver shares IPC with the
 #   compositor and the dashboard, so no RemoveIPC=.
 NoNewPrivileges=yes
@@ -70,6 +79,7 @@ MemoryDenyWriteExecute=yes
 CacheDirectory=f250-camera
 CacheDirectoryMode=0700
 Environment=XDG_CACHE_HOME=/var/cache/f250-camera
+ReadWritePaths=-/var/lib/f250/storage/video
 PrivateTmp=yes
 PrivateNetwork=yes
 DevicePolicy=closed

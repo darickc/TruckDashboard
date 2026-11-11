@@ -1,5 +1,6 @@
-//! The `f250.camera.v1` gRPC service. Thin: moves go to the control loop
-//! (crate::manager); the view comes from its watch channel.
+//! The `f250.camera.v1` gRPC service. Thin: moves and "save clip" go to
+//! the control loop (crate::manager); the view and the recording state come
+//! from its watch channels.
 
 use std::pin::Pin;
 
@@ -9,25 +10,41 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio_stream::{Stream, StreamExt, wrappers::WatchStream};
 use tonic::{Request, Response, Status};
 
-use crate::manager::{Command, move_from_pb};
+use crate::manager::{Command, Watches, move_from_pb};
 
 #[derive(Clone)]
 pub struct Api {
     cmds: mpsc::Sender<Command>,
     view: watch::Receiver<pb::View>,
+    recording: watch::Receiver<pb::Recording>,
 }
 
 impl Api {
-    pub fn new(cmds: mpsc::Sender<Command>, view: watch::Receiver<pb::View>) -> Self {
-        Api { cmds, view }
+    pub fn new(cmds: mpsc::Sender<Command>, watches: Watches) -> Self {
+        Api {
+            cmds,
+            view: watches.view,
+            recording: watches.recording,
+        }
     }
 }
 
 type ViewStream = Pin<Box<dyn Stream<Item = Result<pb::WatchViewResponse, Status>> + Send>>;
+type RecordingStream =
+    Pin<Box<dyn Stream<Item = Result<pb::WatchRecordingResponse, Status>> + Send>>;
+
+fn source_of(s: &str) -> String {
+    if s.trim().is_empty() {
+        "unnamed client".to_string()
+    } else {
+        s.chars().take(64).collect()
+    }
+}
 
 #[tonic::async_trait]
 impl CameraService for Api {
     type WatchViewStream = ViewStream;
+    type WatchRecordingStream = RecordingStream;
 
     async fn watch_view(
         &self,
@@ -47,11 +64,7 @@ impl CameraService for Api {
         let mv = move_from_pb(req.r#move).ok_or_else(|| {
             Status::invalid_argument("move must be LEFT, RIGHT, BACK, FORWARD or PRESS")
         })?;
-        let source = if req.source.trim().is_empty() {
-            "unnamed client".to_string()
-        } else {
-            req.source.chars().take(64).collect()
-        };
+        let source = source_of(&req.source);
         let (reply, rx) = oneshot::channel();
         self.cmds
             .send(Command::Move { mv, source, reply })
@@ -61,5 +74,33 @@ impl CameraService for Api {
             .await
             .map_err(|_| Status::unavailable("camera-manager loop stopped"))?;
         Ok(Response::new(pb::MoveResponse { view: Some(view) }))
+    }
+
+    async fn watch_recording(
+        &self,
+        _: Request<pb::WatchRecordingRequest>,
+    ) -> Result<Response<Self::WatchRecordingStream>, Status> {
+        let stream = WatchStream::new(self.recording.clone()).map(|recording| {
+            Ok(pb::WatchRecordingResponse {
+                recording: Some(recording),
+            })
+        });
+        Ok(Response::new(Box::pin(stream)))
+    }
+
+    async fn save_clip(
+        &self,
+        req: Request<pb::SaveClipRequest>,
+    ) -> Result<Response<pb::SaveClipResponse>, Status> {
+        let source = source_of(&req.into_inner().source);
+        let (reply, rx) = oneshot::channel();
+        self.cmds
+            .send(Command::SaveClip { source, reply })
+            .await
+            .map_err(|_| Status::unavailable("camera-manager loop stopped"))?;
+        let r = rx
+            .await
+            .map_err(|_| Status::unavailable("camera-manager loop stopped"))?;
+        Ok(Response::new(r))
     }
 }

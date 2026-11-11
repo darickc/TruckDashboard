@@ -44,7 +44,7 @@ fn start(test: &str) -> (Service, String) {
     let child = Command::new(env!("CARGO_BIN_EXE_camera-manager"))
         .arg("--listen")
         .arg(format!("unix:{}", sock.display()))
-        .arg("--gst-launch")
+        .args(["--media", "launch", "--gst-launch"])
         .arg(&gst)
         .args(["--camera", "rear=/dev/fake0", "--sink", "fakesink"])
         .stderr(std::process::Stdio::null())
@@ -111,6 +111,19 @@ fn moves_and_views_by_hand() {
 
     let o = ctl(&to, &["move", "press"]);
     assert_eq!(stdout(&o), "no camera; reverse off");
+}
+
+#[test]
+fn recording_and_save_clip_by_hand() {
+    // This service records nothing (no --record): it says so, and a save
+    // is refused with a failing exit.
+    let (_svc, to) = start("recording");
+    let o = ctl(&to, &["recording"]);
+    assert!(o.status.success(), "{o:?}");
+    assert_eq!(stdout(&o), "off");
+    let o = ctl(&to, &["save-clip"]);
+    assert!(!o.status.success());
+    assert!(stdout(&o).contains("recording is off"), "{}", stdout(&o));
 }
 
 #[test]

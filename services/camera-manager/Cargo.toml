@@ -1,7 +1,7 @@
 [package]
 name = "camera-manager"
 version = "0.1.0"
-description = "Runs the camera on screen as a gst-launch pipeline, applies the camera policy, and serves f250.camera.v1 (ADR-0026)"
+description = "Shows the camera the policy picks, records front and rear (ADR-0027), and serves f250.camera.v1 (ADR-0026)"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -20,8 +20,21 @@ path = "src/main.rs"
 name = "camera-ctl"
 path = "src/bin/camera-ctl.rs"
 
+[features]
+# In-process GStreamer (gstreamer-rs, ADR-0027 decision 2): one capture per
+# camera with a tee, recording front and rear in Matroska segments while the
+# display branch comes and goes. Needs GStreamer's development files
+# (libgstreamer1.0-dev), so it is off by default: the Mac has no GStreamer,
+# and without it camera-manager shows cameras through gst-launch-1.0 and
+# reports that it can't record. `make deploy` and `make linux-test` turn it on.
+gstreamer = ["dep:gstreamer"]
+
 [dependencies]
 f250-camera-policy = { path = "../../crates/camera-policy" }
+f250-recording = { path = "../../crates/recording" }
+# The data drive's free space (statvfs) for retention.
+rustix = { version = "1.1", features = ["fs"] }
+gstreamer = { version = "0.25", optional = true }
 f250-proto = { path = "../../crates/proto" }
 f250-sd-notify = { path = "../../crates/sd-notify", features = ["tokio"] }
 tonic = "0.14"
@@ -31,6 +44,9 @@ hyper-util = { version = "0.1", features = ["tokio"] }
 tokio-stream = { version = "0.1", features = ["net", "sync"] }
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "signal", "process", "fs"] }
+
+[dev-dependencies]
+f250-recording = { path = "../../crates/recording" }
 
 [lints]
 workspace = true

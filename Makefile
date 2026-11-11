@@ -98,11 +98,13 @@ else
 	$(call skip,rust-lint — no Cargo workspace yet (Phase 3))
 endif
 
-linux-test: ## Rust tests inside Linux (Docker), including Linux-only code
+linux-test: ## Rust tests inside Linux (Docker), including Linux-only code and camera-manager's GStreamer
 ifneq ($(HAVE_CARGO),)
 	docker run --rm -v "$(ROOT)":/src -w /src -e CARGO_TARGET_DIR=/tmp/target rust:1 bash -c \
-	  "apt-get update -qq && apt-get install -y -qq protobuf-compiler libdbus-1-dev pkg-config >/dev/null && \
-	   cargo test --workspace && cargo build -p vehicle-gateway --features rfcomm"
+	  "apt-get update -qq && apt-get install -y -qq protobuf-compiler libdbus-1-dev pkg-config \
+	     libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good >/dev/null && \
+	   cargo test --workspace && cargo build -p vehicle-gateway --features rfcomm && \
+	   cargo test -p camera-manager --features gstreamer"
 else
 	$(call skip,linux-test — no Cargo workspace yet (Phase 3))
 endif

@@ -51,6 +51,28 @@ class CameraServiceClient extends $grpc.Client {
     return $createUnaryCall(_$move, request, options: options);
   }
 
+  /// Front and rear recording (ADR-0027 decision 9, added 2026-11-10): the
+  /// state now, then again each time it changes. A client that loses the
+  /// stream must assume nothing is recording: it never shows REC on its own.
+  $grpc.ResponseStream<$0.WatchRecordingResponse> watchRecording(
+    $0.WatchRecordingRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createStreamingCall(
+        _$watchRecording, $async.Stream.fromIterable([request]),
+        options: options);
+  }
+
+  /// "Save clip" (ADR-0027 decision 8): protects the segment being written
+  /// and the minutes around it from retention. Refused, with a reason, when
+  /// nothing is recording or the saved clips are full.
+  $grpc.ResponseFuture<$0.SaveClipResponse> saveClip(
+    $0.SaveClipRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$saveClip, request, options: options);
+  }
+
   // method descriptors
 
   static final _$watchView =
@@ -62,6 +84,16 @@ class CameraServiceClient extends $grpc.Client {
       '/f250.camera.v1.CameraService/Move',
       ($0.MoveRequest value) => value.writeToBuffer(),
       $0.MoveResponse.fromBuffer);
+  static final _$watchRecording =
+      $grpc.ClientMethod<$0.WatchRecordingRequest, $0.WatchRecordingResponse>(
+          '/f250.camera.v1.CameraService/WatchRecording',
+          ($0.WatchRecordingRequest value) => value.writeToBuffer(),
+          $0.WatchRecordingResponse.fromBuffer);
+  static final _$saveClip =
+      $grpc.ClientMethod<$0.SaveClipRequest, $0.SaveClipResponse>(
+          '/f250.camera.v1.CameraService/SaveClip',
+          ($0.SaveClipRequest value) => value.writeToBuffer(),
+          $0.SaveClipResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('f250.camera.v1.CameraService')
@@ -83,6 +115,22 @@ abstract class CameraServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.MoveRequest.fromBuffer(value),
         ($0.MoveResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.WatchRecordingRequest,
+            $0.WatchRecordingResponse>(
+        'WatchRecording',
+        watchRecording_Pre,
+        false,
+        true,
+        ($core.List<$core.int> value) =>
+            $0.WatchRecordingRequest.fromBuffer(value),
+        ($0.WatchRecordingResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.SaveClipRequest, $0.SaveClipResponse>(
+        'SaveClip',
+        saveClip_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.SaveClipRequest.fromBuffer(value),
+        ($0.SaveClipResponse value) => value.writeToBuffer()));
   }
 
   $async.Stream<$0.WatchViewResponse> watchView_Pre($grpc.ServiceCall $call,
@@ -100,4 +148,21 @@ abstract class CameraServiceBase extends $grpc.Service {
 
   $async.Future<$0.MoveResponse> move(
       $grpc.ServiceCall call, $0.MoveRequest request);
+
+  $async.Stream<$0.WatchRecordingResponse> watchRecording_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.WatchRecordingRequest> $request) async* {
+    yield* watchRecording($call, await $request);
+  }
+
+  $async.Stream<$0.WatchRecordingResponse> watchRecording(
+      $grpc.ServiceCall call, $0.WatchRecordingRequest request);
+
+  $async.Future<$0.SaveClipResponse> saveClip_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.SaveClipRequest> $request) async {
+    return saveClip($call, await $request);
+  }
+
+  $async.Future<$0.SaveClipResponse> saveClip(
+      $grpc.ServiceCall call, $0.SaveClipRequest request);
 }

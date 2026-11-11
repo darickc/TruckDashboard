@@ -12,6 +12,14 @@ service CameraService {
   rpc WatchView(WatchViewRequest) returns (stream WatchViewResponse);
   // One debounced move of the camera switch (or an on-screen equivalent).
   rpc Move(MoveRequest) returns (MoveResponse);
+  // Front and rear recording (ADR-0027 decision 9, added 2026-11-10): the
+  // state now, then again each time it changes. A client that loses the
+  // stream must assume nothing is recording: it never shows REC on its own.
+  rpc WatchRecording(WatchRecordingRequest) returns (stream WatchRecordingResponse);
+  // "Save clip" (ADR-0027 decision 8): protects the segment being written
+  // and the minutes around it from retention. Refused, with a reason, when
+  // nothing is recording or the saved clips are full.
+  rpc SaveClip(SaveClipRequest) returns (SaveClipResponse);
 }
 
 enum Camera {
@@ -91,4 +99,76 @@ message MoveRequest {
 message MoveResponse {
   // The view right after the move.
   View view = 1;
+}
+
+// One recorded camera's state (ADR-0027 decisions 1 and 9).
+enum RecordingState {
+  RECORDING_STATE_UNSPECIFIED = 0;
+  // The camera is set to record and the pipeline is starting: no segment
+  // has received a frame yet.
+  RECORDING_STATE_STARTING = 1;
+  // Frames are reaching a segment on the data drive.
+  RECORDING_STATE_RECORDING = 2;
+  // Set to record but not recording: no drive, no device, the drive is
+  // full, frames stopped, or this build can't record. `detail` says which.
+  // The dashboard raises an advisory for it: a dead dashcam must not be
+  // discovered after the incident it missed.
+  RECORDING_STATE_NOT_RECORDING = 3;
+}
+
+message CameraRecording {
+  Camera camera = 1;
+  RecordingState state = 2;
+  // Why it isn't recording, or what it is waiting for.
+  string detail = 3;
+  // The segment being written (file name only), while recording.
+  string segment = 4;
+}
+
+message Recording {
+  // The cameras set to record (RECORD_CAMERAS), in that order. Empty:
+  // recording is off.
+  repeated CameraRecording cameras = 1;
+  // A data drive is mounted where recordings go. Without it nothing
+  // records and the SD card is never used (ADR-0027 decision 6).
+  bool drive_mounted = 2;
+  // Free space on the drive and the unprotected video on it, from the last
+  // retention pass; meaningful only while drive_mounted.
+  uint64 drive_free_bytes = 3;
+  uint64 recorded_bytes = 4;
+  // Saved clips and their cap (RECORD_PROTECTED_MAX_GB).
+  uint64 protected_bytes = 5;
+  uint64 protected_max_bytes = 6;
+  // Segments still to be moved into a saved clip as they finish.
+  uint32 clip_segments_pending = 7;
+  // The clock is trusted now (NTP synchronized): segment names carry the
+  // wall time, and the age limit applies.
+  bool clock_trusted = 8;
+  // Something the driver should know that isn't one camera's: the drive is
+  // full with nothing left to delete, or the minutes before an unclean stop
+  // didn't all fit in the saved clips. Empty when nothing is wrong.
+  string problem = 9;
+}
+
+message WatchRecordingRequest {}
+
+message WatchRecordingResponse {
+  Recording recording = 1;
+}
+
+message SaveClipRequest {
+  // Who asked ("dashboard"), for the log.
+  string source = 1;
+}
+
+message SaveClipResponse {
+  // False: nothing was protected, and `detail` says why.
+  bool saved = 1;
+  // What happened, in words for the screen.
+  string detail = 2;
+  // Finished segments moved into the saved clips now.
+  uint32 segments_protected = 3;
+  // Segments that will be moved as they finish (the one being written and
+  // the ones after it), across the cameras.
+  uint32 segments_to_come = 4;
 }

@@ -52,3 +52,38 @@ CAMERA_REAR=
 # CAMERA_CAPS  camera-manager: caps and decoder after v4l2src. Empty: the
 #            bench webcam's 640x480 MJPEG (ADR-0026).
 CAMERA_CAPS=
+# CAMERA_MEDIA  camera-manager: gstreamer (in-process; records) or launch
+#            (a gst-launch-1.0 child for the camera on screen; never records:
+#            the display path bench-tested on 2026-11-10). Empty: gstreamer
+#            when camera-manager was built with it (make deploy), else launch.
+CAMERA_MEDIA=
+# RECORD_CAMERAS  camera-manager: front and rear record like a dashcam
+#            (ADR-0027), only those with a device above, and only with
+#            DATA_DRIVE=1: video never goes to the SD card. Empty: no
+#            recording. Recordings: /var/lib/f250/storage/video.
+RECORD_CAMERAS=front,rear
+# Retention (ADR-0027 decision 7). Examples: the recommendations for a
+#            512 GB drive; for 1 TB, RECORD_MAX_GB=550, RECORD_MIN_FREE_GB=100,
+#            RECORD_PROTECTED_MAX_GB=50. Set them for the drive that is fitted
+#            (H31). Empty: the 512 GB recommendation.
+#   RECORD_MAX_AGE_DAYS      delete segments older than this (only judged on
+#                            an NTP-synchronized clock); 0: no age limit
+#   RECORD_MAX_GB            front and rear video together
+#   RECORD_MIN_FREE_GB       always this much free on the drive
+#   RECORD_PROTECTED_MAX_GB  saved clips; a save that doesn't fit is refused
+#   RECORD_MAX_SEGMENTS      per camera; 0: off
+#   RECORD_SEGMENT_S         segment length
+#   RECORD_SYNC_S            the segment being written goes to the drive this often
+#   RECORD_UNCLEAN_PROTECT_MIN  minutes protected before an unclean stop; 0: off
+#   RECORD_CLIP_BEFORE_S, RECORD_CLIP_AFTER_S  what "Save clip" keeps
+#            After editing: systemctl restart f250-camera-manager
+RECORD_MAX_AGE_DAYS=14
+RECORD_MAX_GB=250
+RECORD_MIN_FREE_GB=50
+RECORD_PROTECTED_MAX_GB=25
+RECORD_MAX_SEGMENTS=0
+RECORD_SEGMENT_S=60
+RECORD_SYNC_S=1
+RECORD_UNCLEAN_PROTECT_MIN=5
+RECORD_CLIP_BEFORE_S=120
+RECORD_CLIP_AFTER_S=60

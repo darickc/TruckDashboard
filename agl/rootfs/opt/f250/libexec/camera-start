@@ -8,13 +8,27 @@
 #       camera keeps its role across reboots (unlike /dev/videoN). Empty:
 #       that camera shows as unavailable when chosen.
 #   CAMERA_CAPS   caps and decoder after v4l2src; empty: camera-manager's
-#       default (the bench webcam's 640x480 MJPEG, ADR-0026).
+#       default (the bench webcam's 640x480 MJPEG, ADR-0026). The part before
+#       the first `!` is what the camera sends and what is recorded.
+#   CAMERA_MEDIA  gstreamer (in-process, records) or launch (gst-launch-1.0
+#       children, the bench-tested display path, no recording); empty:
+#       camera-manager's default for its build.
+#   RECORD_CAMERAS   cameras to record (ADR-0027): front, rear, or both,
+#       comma-separated. Passed on only for cameras that have a device, and
+#       only with DATA_DRIVE=1: recordings live on the data drive alone, so
+#       without one there is nothing to record and nothing to warn about.
+#       With DATA_DRIVE=1 and no drive mounted, camera-manager says the
+#       cameras aren't recording (the dashboard shows it).
+#   RECORD_MAX_AGE_DAYS ... RECORD_CLIP_AFTER_S   retention; camera-manager
+#       reads them from its environment (the unit's EnvironmentFile).
 #
-# Status: [SIM] (make agl-test). Not yet run on the Pi.
+# Status: [SIM] (make agl-test). The display path is [BENCH] (2026-11-10);
+# recording has not run on the Pi.
 set -euo pipefail
 
 SOCK="${F250_CAMERA_SOCK:-/run/f250-camera/camera.sock}"
 BIN="${F250_CAMERA_BIN:-/opt/f250/bin/camera-manager}"
+STORAGE="${F250_STORAGE:-/var/lib/f250/storage}"
 
 args=(--listen "unix:$SOCK")
 for pair in front:CAMERA_FRONT left:CAMERA_LEFT right:CAMERA_RIGHT rear:CAMERA_REAR; do
@@ -28,6 +42,26 @@ for pair in front:CAMERA_FRONT left:CAMERA_LEFT right:CAMERA_RIGHT rear:CAMERA_R
 done
 if [[ -n "${CAMERA_CAPS:-}" ]]; then
   args+=(--caps "$CAMERA_CAPS")
+fi
+if [[ -n "${CAMERA_MEDIA:-}" ]]; then
+  args+=(--media "$CAMERA_MEDIA")
+fi
+if [[ "${DATA_DRIVE:-0}" == 1 && -n "${RECORD_CAMERAS:-}" ]]; then
+  record=()
+  IFS=',' read -ra wanted <<<"$RECORD_CAMERAS"
+  for name in "${wanted[@]}"; do
+    name="${name// /}"
+    case "$name" in
+      front) [[ -n "${CAMERA_FRONT:-}" ]] && record+=(front) ;;
+      rear) [[ -n "${CAMERA_REAR:-}" ]] && record+=(rear) ;;
+      "") ;;
+      *) echo "RECORD_CAMERAS: $name isn't recorded (front and rear only)" >&2; exit 1 ;;
+    esac
+  done
+  if ((${#record[@]})); then
+    IFS=','; args+=(--record "${record[*]}"); unset IFS
+    args+=(--record-dir "$STORAGE/video" --record-drive "$STORAGE")
+  fi
 fi
 
 echo "exec $BIN ${args[*]}" >&2
