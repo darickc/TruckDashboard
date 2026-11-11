@@ -1857,3 +1857,25 @@ a 0-frame threshold (bench only, no bus) went listen-only → clean → active
 → gateway restarted with `--transmit` inside its sandbox, polling. Back to
 boot state afterwards (can0 listen-only, gateway passive, can-auto
 listening).
+
+## 2026-11-10 — "Not polling the truck" on screen, and can-auto checks the gateway [BENCH]
+
+`make deploy` of `8ce09d1` onto the truck card (f3bf43b): the gateway, the
+dashboard and agl/ now come from the deploy, not the image. No bus.
+
+    waiting    the gateway runs with --passive-reason; the banner reads
+               "Not polling the truck: The CAN adapter is down, waiting to
+               hear the truck's bus (CAN_AUTO_ACTIVE)", red, first, "+1 more"
+               (Vehicle data lost); Home's health line says the same.
+               Screenshot. Before this change the same state showed only
+               "Vehicle data lost", with the reason hidden
+    the chain  can-auto run by hand with a 0-frame threshold (bench only):
+               listen-only, clean, active, "the gateway is polling
+               (--transmit)" on the first try; the banner gone, the link
+               down for want of answers (no truck)
+    restored   can0 down, then f250-can-auto restarted: listen-only and
+               listening, the gateway passive with its reason
+
+On the truck: the banner should show for the first ~40 s after the Pi gets
+power, then clear as polling starts. If it stays, `journalctl -u
+f250-can-auto -b` has an error line.
