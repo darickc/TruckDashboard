@@ -299,8 +299,8 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       10 s segments, 1 s clusters (a copy of the open segment plays to ~0.75 s before the copy), retention, a
       saved clip, a clean stop in 356 ms, `kill -9` protecting the last minute, the no-drive advisory on screen,
       ~1 % of one core, the window live 37 ms after the move; the clock is now trusted from `timedatectl`
-      (timesyncd doesn't run on the image). In the Yocto images from `f3bf43b` (built 2026-11-10: camera-manager
-      with GStreamer, the four recording packages; not yet flashed). Still to do: a real drive and pulls of the power (ADR-0027 "To measure"), truck cameras (H33),
+      (timesyncd doesn't run on the image). In the Yocto images from `f3bf43b` (camera-manager
+      with GStreamer, the four recording packages): the development image flashed and recording `[BENCH]`. Still to do: a real drive and pulls of the power (ADR-0027 "To measure"), truck cameras (H33),
       per-camera caps, the reverse decoder, and camera assignment and recording settings in a settings screen
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores

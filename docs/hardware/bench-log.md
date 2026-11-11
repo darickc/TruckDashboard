@@ -1726,3 +1726,46 @@ stops all behave as designed. Recording costs about 1 % of one core.
 Showing a recorded camera is near-instant. Two changes came out of it:
 the clock is now trusted from `timedatectl`, not timesyncd's file, and
 the image needs four packages (named above).
+
+## 2026-11-10 — Image f3bf43b: recording from the image itself [BENCH]
+
+Hardware: as in the entry before (the Pi 5, the DSI screen, the C920 front
+and C250 rear webcams; no data drive)
+Image: `agl-f250-22.0.1-f3bf43b.wic` (development, sha256 `392b03d4…`),
+built in the VM with camera-manager's `gstreamer` feature and the recording
+packages, flashed by the owner
+Setup: a fresh card. `CAMERA_FRONT` and `CAMERA_REAR` set again by USB port
+in `/etc/default/f250` (`DATA_DRIVE=0`). For the recording check only: a
+1 GiB tmpfs at `/var/lib/f250/storage` and a drop-in env file
+(`DATA_DRIVE=1`, `RECORD_SEGMENT_S=10`, `RECORD_MAX_GB=1`,
+`RECORD_MIN_FREE_GB=0`; the other RECORD_* the file's defaults), removed
+afterwards
+
+Result:
+
+    boot       first boot: gateway, recorder, power-manager, camera-manager
+               and dashboard active, no failed units. From the image:
+               f250-services 0.1+git0+f3bf43be91,
+               gstreamer1.0-plugins-good-matroska and -multifile,
+               libgstriff-1.0-0, libgstpbutils-1.0-0 (1.28.5).
+               /etc/default/f250 has RECORD_CAMERAS=front,rear and the
+               RECORD_* recommendations
+    defaults   camera-manager's default media is gstreamer; with
+               DATA_DRIVE=0, `camera-ctl recording` says "off" and no
+               advisory shows
+    display    rear and front live through the in-process pipeline. The
+               first start after the flash took 1.5 s and 1.7 s (GStreamer
+               building its registry in /var/cache/f250-camera); after that
+               rear 674-678 ms, front 851-875 ms, three times each, as with
+               gst-launch (702/775 ms on 2026-11-10)
+    recording  on the tmpfs: both cameras recording within the first 10 s
+               segment; names with the time (clock trusted). The rear window
+               shown while recording; Save clip: "4 finished segments now,
+               14 more as they finish" (the defaults: 120 s before, 60 s
+               after, at 10 s segments). Segments read back. `systemctl
+               stop`: 365 ms, clean-stop marker 1
+    warnings   none from GStreamer this boot
+
+Verdict: the image records with nothing installed by hand, and its
+camera-manager shows cameras as fast as the gst-launch path did. The Pi is
+left with both webcams set, DATA_DRIVE=0, and recording off.

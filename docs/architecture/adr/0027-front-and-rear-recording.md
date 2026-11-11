@@ -11,7 +11,7 @@
   ([bench-log](../../hardware/bench-log.md)): segments, 1 s clusters,
   retention, saved clips, clean and unclean stops, the window joining the
   recording capture, about 1 % of one core. In the Yocto images from
-  `f3bf43b` (built 2026-11-10; not yet flashed). Not yet: a real drive, a
+  `f3bf43b`: flashed and recording on the Pi (2026-11-10). Not yet: a real drive, a
   power cut. Every figure below is an estimate to check on the bench
   first (see "To measure"). The retention values are recommendations until
   the drive is chosen (H31)
@@ -260,7 +260,8 @@ What constrains it:
   `libgstriff-1.0-0` and `libgstpbutils-1.0-0` (names from the build's
   package list). Both images built on 2026-11-10 with all four packages, and
   the packaged camera-manager links `libgstreamer-1.0.so.0` and defaults to
-  `--media gstreamer`. Not yet flashed and booted.
+  `--media gstreamer`. The development image, flashed, records with nothing
+  installed by hand ([bench-log](../../hardware/bench-log.md), 2026-11-10).
 
 ## Options considered
 
