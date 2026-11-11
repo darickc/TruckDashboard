@@ -17,13 +17,22 @@ Future<PmTilesReader> openPmTilesFile(String path) async {
   }
   final reads = _SerialReads(raf);
   try {
-    return await PmTilesReader.open(reads.read, decompress);
+    return await PmTilesReader.open(reads.read, decompress, close: reads.close);
   } on PmTilesException catch (e) {
     await raf.close();
     throw PmTilesException('$path: ${e.message}');
   } on FileSystemException catch (e) {
     await raf.close();
     throw PmTilesException('can\'t read $path: ${e.osError?.message ?? e.message}');
+  }
+}
+
+/// [path]'s text, or null if it can't be read.
+Future<String?> readTextFile(String path) async {
+  try {
+    return await File(path).readAsString();
+  } on FileSystemException {
+    return null;
   }
 }
 
@@ -39,6 +48,9 @@ class _SerialReads {
   _SerialReads(this._raf);
   final RandomAccessFile _raf;
   Future<void> _last = Future.value();
+
+  /// Closes the file after the reads already queued.
+  Future<void> close() => _last = _last.then((_) => _raf.close());
 
   Future<Uint8List> read(int offset, int length) {
     final done = Completer<Uint8List>();

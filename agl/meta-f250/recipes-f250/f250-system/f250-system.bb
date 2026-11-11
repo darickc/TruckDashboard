@@ -94,4 +94,5 @@ FILES:${PN} = "${sysconfdir} /opt/f250 ${localstatedir}/lib/journal"
 # systemd-growfs (systemd); --check: cmp (diffutils).
 RDEPENDS:${PN} = "bash systemd iproute2 can-utils usbutils coreutils \
     util-linux-blkid util-linux-lsblk util-linux-findmnt e2fsprogs-mke2fs diffutils \
-    util-linux-sfdisk util-linux-partx"
+    util-linux-sfdisk util-linux-partx util-linux-mount util-linux-umount kmod \
+    kernel-module-exfat"

@@ -219,6 +219,33 @@ void main() {
     });
   }
 
+  testWidgets('a map stick shows its progress on every tab, and the result on Nav (ADR-0033)',
+      (tester) async {
+    final answers = <String>[
+      '{"state":"copying","percent":43,"message":"","id":"n","device":"/dev/sda1","at":"2026-11-11T12:00:00Z"}',
+      '{"state":"failed","percent":0,"message":"The copied map doesn\'t match its checksum. The old map is kept.",'
+          '"id":"n","device":"/dev/sda1","at":"${DateTime.now().toUtc().toIso8601String()}"}',
+    ];
+    final map = OfflineMap(
+      'test/fixtures/maps/solid-z0-3.pmtiles',
+      statusPath: '/run/f250-maps/status.json',
+      open: openPmTilesFile,
+      readStatus: (_) async => answers.isEmpty ? null : answers.removeAt(0),
+    );
+    await tester.runAsync(map.load);
+    await tester.runAsync(map.checkUpdate);
+    final h = await Harness.start(tester, map: map);
+    await tester.pump();
+    expect(textOf('map-update-chip'), 'MAP 43%', reason: 'in the status bar on the Home tab');
+    await h.goTo(AppTab.navigation);
+    expect(textOf('nav-map-update'), 'Copying the map from USB: 43%. Leave the stick in.');
+    await tester.runAsync(map.checkUpdate);
+    await tester.pump();
+    expect(textOf('map-update-chip'), 'MAP UPDATE FAILED');
+    expect(textOf('nav-map-update'), contains('The old map is kept'));
+    expect(find.byKey(const ValueKey('nav-map-problem')), findsNothing, reason: 'the old map still shows');
+  });
+
   testWidgets('dragging stops following; the locate button follows again', (tester) async {
     final h = await Harness.start(tester);
     await h.goTo(AppTab.navigation);

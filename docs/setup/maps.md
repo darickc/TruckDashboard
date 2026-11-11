@@ -22,26 +22,48 @@ heavy vehicles or trailers** (ADR-0010).
 
 ## The map file
 
-- One **PMTiles v3** file at `/var/lib/f250/maps/map.pmtiles` on the Pi, of
+- One **PMTiles v3** file at `/var/lib/f250/storage/maps/map.pmtiles` on the
+  Pi, on the data drive ([ADR-0033](../architecture/adr/0033-map-updates-by-usb-stick.md)), of
   **vector** tiles (MVT, the Protomaps basemap schema), which the dashboard
   draws with its bundled styles (day and night), or **raster** tiles (PNG,
   JPEG or WebP). AVIF is refused, saying why.
-- Its `attribution` metadata is shown on screen. A map made from OpenStreetMap
-  data must carry the OpenStreetMap attribution (ODbL). Without any, the
-  screen shows "© OpenStreetMap contributors".
-- To install or replace it:
+- Its `attribution` metadata is shown on screen, with the date of its data
+  when `make map-region` made it. A map made from OpenStreetMap data must
+  carry the OpenStreetMap attribution (ODbL). Without any, the screen shows
+  "© OpenStreetMap contributors".
+- Install or replace it with a USB stick (below).
 
-  ```bash
-  ssh root@<pi> mkdir -p /var/lib/f250/maps
-  ```
+## Updating the map in the truck (USB stick)
 
-  ```bash
-  scp map.pmtiles root@<pi>:/var/lib/f250/maps/map.pmtiles
-  ```
+[ADR-0033](../architecture/adr/0033-map-updates-by-usb-stick.md). Status:
+**[SIM]**; not yet tried with a real stick on the Pi (bench check 17 in
+[agl.md](agl.md)).
 
-  ```bash
-  ssh root@<pi> systemctl restart f250-dashboard
-  ```
+1. Once: erase a USB stick as **ExFAT** in Disk Utility (FAT32 can't hold a
+   file over 4 GB). Any name.
+2. Build the map (next section), then write it onto the stick:
+
+   ```bash
+   make map-stick STICK=/Volumes/<name>
+   ```
+
+   It copies `build/maps/region.pmtiles` (or `MAP=...`) to `f250/map.pmtiles`
+   on the stick and writes its checksum, `f250/map.pmtiles.sha256`. Eject the
+   stick.
+3. In the truck, with the dashboard on (key at ACC or running), plug the stick
+   into the Pi. The status bar shows **MAP n%** while it copies (the Nav tab
+   says more); leave the stick in. Then it checks the copy (**MAP CHECK**)
+   and swaps it in: **MAP UPDATED**, and the Nav tab shows the new map at
+   once. Remove the stick.
+
+If anything is wrong (no checksum, a bad copy, not a map, the data drive
+missing or full, the stick pulled early) it shows **MAP UPDATE FAILED** with
+the reason on the Nav tab, and the old map stays. A stick without
+`f250/map.pmtiles` is ignored. On the Pi, `journalctl -u 'f250-map-import@*'`
+shows what happened.
+
+To try it on the Mac, `make map-import-dev STICK=/Volumes/<name>` imports a
+stick into `/tmp/f250/maps/` the same way while `make ui` runs.
 
 ## Building a real map
 
@@ -97,7 +119,7 @@ yet shown on the Pi** (6.5.3's update workflow comes later).
    make map-check MAP=build/maps/region.pmtiles
    ```
 
-4. Copy it to the Pi as above.
+4. Put it on a stick for the truck as above (`make map-stick`).
 
 Options go in `MAP_ARGS`, e.g. `MAP_ARGS="--format=png --minzoom 6"`. See
 `python3 tools/maps/build-map.py --help`: `--format vector|webp|png|jpg`,
@@ -119,7 +141,8 @@ it again only to change a pin or the style rewrite; the unit test
 `test/unit/vector_map_test.dart` then checks every expression is understood,
 every font bundled and every icon present.
 
-**TODO (6.5.3):** a workflow that updates the map on the Pi over Wi-Fi or USB.
+Updates replace the whole file: download a newer build with `make map-region`
+and write a new stick. Every few months is plenty for roads.
 
 ### A test pattern for development
 

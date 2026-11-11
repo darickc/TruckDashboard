@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../cameras/camera_state.dart';
+import '../../nav/map_update.dart';
 import '../../telemetry/telemetry_store.dart';
 import '../app_scope.dart';
 import '../presentation.dart';
@@ -45,6 +46,19 @@ List<Widget> _cameraChip(CameraStatus c, Palette p) {
   return [Pill(text, key: const ValueKey('camera-chip'), color: color), const SizedBox(width: 10)];
 }
 
+/// A map stick being imported (ADR-0033), or one that just finished, so it
+/// shows on every tab: the Nav tab says more.
+List<Widget> _mapUpdateChip(MapUpdateStatus? u, DateTime now, Palette p) {
+  if (u == null || !u.shownAt(now)) return const [];
+  final (String text, Color color) = switch (u.state) {
+    MapUpdateState.copying => ('MAP ${u.percent}%', p.accent),
+    MapUpdateState.checking => ('MAP CHECK', p.accent),
+    MapUpdateState.updated => ('MAP UPDATED', p.ok),
+    MapUpdateState.failed => ('MAP UPDATE FAILED', p.advisory),
+  };
+  return [Pill(text, key: const ValueKey('map-update-chip'), color: color), const SizedBox(width: 10)];
+}
+
 /// Recording (ADR-0027 decision 9), only as camera-manager reports it: the
 /// recorded cameras that are recording ("REC FRONT REAR"), or, if any camera
 /// set to record isn't, which ("NOT RECORDING: REAR") in the advisory
@@ -86,7 +100,7 @@ class StatusBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge([s.store, s.cameras.status]),
+      listenable: Listenable.merge([s.store, s.cameras.status, s.map.update]),
       builder: (context, _) {
         final p = Palette.of(context);
         final link = s.store.link;
@@ -124,6 +138,7 @@ class StatusBar extends StatelessWidget {
                   style: TextStyle(fontSize: 13, color: p.textDim)),
             ),
             ..._recordingChip(s.cameras.status.value, p),
+            ..._mapUpdateChip(s.map.update.value, now, p),
             ..._cameraChip(s.cameras.status.value, p),
             Text(clock,
                 key: const ValueKey('status-clock'),

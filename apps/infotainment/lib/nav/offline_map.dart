@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import 'map_file.dart';
+import 'map_update.dart';
 import 'pmtiles.dart';
 import 'vector_map.dart';
 
@@ -29,9 +30,16 @@ class MapReady extends MapFileState {
 
 /// A vector tileset's tile provider and the bundled styles to draw it with.
 class VectorMap {
-  VectorMap(PmTilesReader reader, this.styles) : provider = PmTilesVectorProvider(reader);
+  VectorMap(PmTilesReader reader, this.styles)
+    : provider = PmTilesVectorProvider(reader),
+      generation = ++_opened;
   final PmTilesVectorProvider provider;
   final VectorMapStyles styles;
+
+  /// Which map this is since the dashboard started: a replaced map gets a
+  /// new layer and a new tile cache.
+  final int generation;
+  static int _opened = 0;
 }
 
 class MapUnavailable extends MapFileState {
@@ -39,16 +47,19 @@ class MapUnavailable extends MapFileState {
   final String why;
 }
 
-/// The tileset at [path], raster (ADR-0030) or vector (ADR-0032): opened
-/// once, read-only. The map update workflow (6.5.3) replaces the file and
-/// restarts the dashboard.
+/// The tileset at [path], raster (ADR-0030) or vector (ADR-0032), read-only.
+/// A map stick (ADR-0033) replaces the file; [watch] follows the import's
+/// status file at [statusPath] and opens the new map when it is in place.
 class OfflineMap {
   OfflineMap(
     this.path, {
+    this.statusPath = '',
     Future<PmTilesReader> Function(String path)? open,
     Future<VectorMapStyles> Function()? loadStyles,
+    Future<String?> Function(String path)? readStatus,
   }) : _open = open ?? openOfflineMap,
        _loadStyles = loadStyles ?? (() => VectorMapStyles.load(rootBundle)),
+       _readStatus = readStatus ?? readMapStatus,
        _state = ValueNotifier(
         path.isEmpty
             ? const MapUnavailable('no offline map configured (MAP_FILE)')
@@ -59,15 +70,68 @@ class OfflineMap {
   OfflineMap.none() : this('');
 
   final String path;
+
+  /// The map import's status file (`/run/f250-maps/status.json` on the Pi);
+  /// empty: none.
+  final String statusPath;
   final Future<PmTilesReader> Function(String path) _open;
   final Future<VectorMapStyles> Function() _loadStyles;
+  final Future<String?> Function(String path) _readStatus;
   final ValueNotifier<MapFileState> _state;
+  final _update = ValueNotifier<MapUpdateStatus?>(null);
+  Timer? _watch;
+  String? _installedId;
+  bool _checkedOnce = false;
+  VectorMapStyles? _styles;
 
   ValueListenable<MapFileState> get state => _state;
 
+  /// The latest map import, or null if none since the dashboard started.
+  ValueListenable<MapUpdateStatus?> get update => _update;
+
+  /// Checks the import status every [every]. Without [statusPath], nothing.
+  void watch({Duration every = const Duration(seconds: 1)}) {
+    if (statusPath.isEmpty || _watch != null) return;
+    _watch = Timer.periodic(every, (_) => checkUpdate());
+    unawaited(checkUpdate());
+  }
+
+  void dispose() {
+    _watch?.cancel();
+    _watch = null;
+  }
+
+  bool _checking = false;
+
+  /// Reads the import status once. A new finished import reopens the map;
+  /// one that finished before the dashboard started is already the map it
+  /// opened.
+  Future<void> checkUpdate() async {
+    if (statusPath.isEmpty || _checking) return;
+    _checking = true;
+    try {
+      final text = await _readStatus(statusPath);
+      final status = text == null ? null : MapUpdateStatus.parse(text);
+      final first = !_checkedOnce;
+      _checkedOnce = true;
+      if (status == null) return;
+      if (status.state == MapUpdateState.updated && status.id != _installedId) {
+        _installedId = status.id;
+        if (!first) await load();
+      }
+      // An import that finished before the dashboard started isn't news.
+      if (first && !status.inProgress) return;
+      _update.value = status;
+    } finally {
+      _checking = false;
+    }
+  }
+
   Future<void> load() async {
     if (path.isEmpty) return;
+    final old = _state.value;
     _state.value = const MapLoading();
+    if (old is MapReady) await old.reader.close();
     final PmTilesReader reader;
     try {
       reader = await _open(path);
@@ -83,7 +147,7 @@ class OfflineMap {
       return;
     }
     try {
-      _state.value = MapReady(reader, vector: VectorMap(reader, await _loadStyles()));
+      _state.value = MapReady(reader, vector: VectorMap(reader, _styles ??= await _loadStyles()));
     } catch (e) {
       _state.value = MapUnavailable('the vector map styles can\'t be read: $e');
     }

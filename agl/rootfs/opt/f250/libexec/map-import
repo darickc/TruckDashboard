@@ -1,0 +1,195 @@
+#!/bin/bash
+# Copies an offline map from a USB stick onto the data drive (ADR-0033).
+# f250-map-import@<dev>.service runs it when the udev rule
+# 80-f250-map-stick.rules sees an exFAT or FAT stick; `make map-stick` on the
+# Mac writes the stick.
+#
+#   map-import device /dev/sdX1   mount the stick read-only, then `dir`
+#   map-import dir <dir>          import <dir>/f250/map.pmtiles
+#   map-import stopped /dev/sdX1  ExecStopPost: that stick's unfinished import
+#                                 becomes "failed" (the stick was pulled)
+#
+# Only <stick>/f250/map.pmtiles and its map.pmtiles.sha256 are read; nothing
+# on the stick is run, and the stick is mounted ro,nosuid,nodev,noexec. A
+# stick without f250/map.pmtiles is left alone, silently: it isn't a map stick.
+#
+# The new map is copied next to the old one as map.pmtiles.part, then checked
+# (the checksum, the PMTiles v3 header, a tile type the dashboard draws) and
+# only then renamed over map.pmtiles. Any failure, a full drive or a pulled
+# stick leaves the old map in place. The dashboard reads the status file
+# (JSON: state copying|checking|updated|failed, percent, message, id, device) and
+# opens the new map when it sees "updated" with a new id.
+#
+# Testing: F250_STORAGE (the data drive's mount point), F250_MAP_STATUS_DIR
+# (where status.json and the stick's mount point go), F250_MAP_REQUIRE_MOUNT=0
+# (the drive needn't be a mount point), F250_SYS_LOG=<file> records mount and
+# umount instead of running them (tools/dev/test-agl.sh). Works with macOS's
+# bash 3.2 and BSD tools.
+#
+# Status: [SIM] (test-agl.sh). Not run on the Pi or with a real stick yet.
+set -euo pipefail
+
+STORAGE="${F250_STORAGE:-/var/lib/f250/storage}"
+STATUS_DIR="${F250_MAP_STATUS_DIR:-/run/f250-maps}"
+REQUIRE_MOUNT="${F250_MAP_REQUIRE_MOUNT:-1}"
+MAPS="$STORAGE/maps"
+MAP="$MAPS/map.pmtiles"
+PART="$MAP.part"
+STATUS="$STATUS_DIR/status.json"
+LOCK="$STATUS_DIR/import.lock"
+SPARE=$((64 * 1024 * 1024))   # left free on the drive after the copy
+
+log() { echo "map-import: $*"; }
+
+sys() {   # mount and umount: run them, or only record them under test
+  if [[ -n "${F250_SYS_LOG:-}" ]]; then
+    echo "$*" >>"$F250_SYS_LOG"
+    return 0
+  fi
+  "$@"
+}
+
+json_str() { printf '"%s"' "$(printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"; }
+
+ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+DEVICE=""      # the stick being imported, in the status (for `stopped`)
+LOCKED=0
+MOUNTED=""
+
+status() {   # status <state> <percent> <message>
+  local tmp="$STATUS.$$"
+  mkdir -p "$STATUS_DIR"
+  printf '{"state":%s,"percent":%d,"message":%s,"id":%s,"device":%s,"at":%s}\n' \
+    "$(json_str "$1")" "$2" "$(json_str "$3")" "$(json_str "$ID")" "$(json_str "$DEVICE")" \
+    "$(json_str "$(date -u +%Y-%m-%dT%H:%M:%SZ)")" >"$tmp"
+  mv -f "$tmp" "$STATUS"
+}
+
+cleanup() {
+  if [[ -n "$MOUNTED" ]]; then
+    sys umount "$MOUNTED" || true
+    rmdir "$MOUNTED" 2>/dev/null || true
+  fi
+  [[ "$LOCKED" == 1 ]] && rmdir "$LOCK" 2>/dev/null
+  return 0
+}
+trap cleanup EXIT
+
+fail() {
+  log "failed: $*"
+  rm -f "$PART"
+  status failed 0 "$*"
+  exit 1
+}
+
+size_of() { wc -c <"$1" | tr -d ' '; }
+
+sha256() {
+  if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1
+  else shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
+
+# Why the dashboard couldn't show <file>, or nothing: a PMTiles v3 file of
+# vector (1), PNG (2), JPEG (3) or WebP (4) tiles (the header's byte 99).
+header_problem() {
+  local f="$1" magic version type
+  magic="$(head -c 7 "$f")"
+  [[ "$magic" == PMTiles ]] || { echo "it isn't a PMTiles file"; return; }
+  version="$(od -An -tu1 -j7 -N1 "$f" | tr -d ' ')"
+  [[ "$version" == 3 ]] || { echo "it is PMTiles version $version, not 3"; return; }
+  type="$(od -An -tu1 -j99 -N1 "$f" | tr -d ' ')"
+  case "$type" in
+    1|2|3|4) ;;
+    *) echo "its tile type ($type) isn't vector, PNG, JPEG or WebP" ;;
+  esac
+}
+
+import_dir() {
+  local src="$1" map sum want got size free need copied pid problem
+  map="$src/f250/map.pmtiles"
+  sum="$src/f250/map.pmtiles.sha256"
+  if [[ ! -f "$map" ]]; then
+    log "no f250/map.pmtiles in $src: not a map stick, nothing to do"
+    return 0
+  fi
+  mkdir -p "$STATUS_DIR"
+  if ! mkdir "$LOCK" 2>/dev/null; then
+    log "another import is running"; return 1
+  fi
+  LOCKED=1
+  status checking 0 "Map stick found: checking it"
+
+  [[ -f "$sum" ]] || fail "The stick has f250/map.pmtiles but no map.pmtiles.sha256 (make map-stick writes both). The old map is kept."
+  want="$(awk 'NR == 1 { print tolower($1) }' "$sum")"
+  [[ "$want" =~ ^[0-9a-f]{64}$ ]] || fail "map.pmtiles.sha256 on the stick isn't a SHA-256 checksum. The old map is kept."
+  problem="$(header_problem "$map")"
+  [[ -z "$problem" ]] || fail "The map on the stick can't be used: $problem. The old map is kept."
+  if [[ "$REQUIRE_MOUNT" != 0 ]] && ! findmnt -rn --mountpoint "$STORAGE" >/dev/null; then
+    fail "The data drive isn't mounted at $STORAGE; the map is kept on it. Nothing was copied."
+  fi
+
+  mkdir -p "$MAPS"
+  rm -f "$PART"   # a copy cut short by a power loss
+  size="$(size_of "$map")"
+  free="$(df -Pk "$MAPS" | awk 'NR == 2 { print $4 }')"
+  need=$(( (size + SPARE) / 1024 ))
+  [[ "$free" -ge "$need" ]] || fail "Not enough room on the data drive: the map needs $((need / 1024)) MB, $((free / 1024)) MB is free. The old map is kept."
+
+  log "copying $map ($size bytes) to $PART"
+  status copying 0 "Copying the map from USB: leave the stick in"
+  cp "$map" "$PART" &
+  pid=$!
+  while kill -0 "$pid" 2>/dev/null; do
+    copied="$( [[ -f "$PART" ]] && size_of "$PART" || echo 0)"
+    [[ "$size" -gt 0 ]] && status copying $(( copied * 100 / size )) "Copying the map from USB: leave the stick in"
+    sleep 1
+  done
+  wait "$pid" || fail "Copying from the stick failed. The old map is kept."
+  sync
+
+  status checking 100 "Checking the copied map"
+  got="$(sha256 "$PART")"
+  [[ "$got" == "$want" ]] || fail "The copied map doesn't match its checksum: the stick or the copy is bad. The old map is kept."
+  problem="$(header_problem "$PART")"
+  [[ -z "$problem" ]] || fail "The copied map can't be used: $problem. The old map is kept."
+
+  mv -f "$PART" "$MAP"
+  sync
+  log "installed $MAP ($size bytes, sha256 $got)"
+  status updated 100 "Map updated. You can remove the stick."
+}
+
+stopped() {   # that stick's unit stopped: an import it left unfinished failed
+  local dev="$1" state
+  [[ -f "$STATUS" ]] || return 0
+  state="$(sed -n 's/^{"state":"\([a-z]*\)".*/\1/p' "$STATUS")"
+  grep -qF "\"device\":\"$dev\"" "$STATUS" || return 0   # another stick's import
+  case "$state" in
+    copying|checking)
+      rm -f "$PART"
+      ID="$(sed -n 's/.*"id":"\([^"]*\)".*/\1/p' "$STATUS")"
+      DEVICE="$dev"
+      status failed 0 "The stick was removed before the map was copied. The old map is kept."
+      rmdir "$LOCK" 2>/dev/null || true
+      ;;
+  esac
+}
+
+device() {
+  local dev="$1" mnt
+  [[ "$dev" == /dev/* ]] || { echo "map-import: $dev is not a device" >&2; exit 2; }
+  DEVICE="$dev"
+  mnt="$STATUS_DIR/stick-$(basename "$dev")"
+  mkdir -p "$mnt"
+  sys mount -t exfat,vfat -o ro,nosuid,nodev,noexec "$dev" "$mnt" || { log "can't mount $dev"; exit 1; }
+  MOUNTED="$mnt"
+  import_dir "$mnt"
+}
+
+case "${1:-}" in
+  device) [[ $# -eq 2 ]] || { echo "usage: map-import device /dev/<node>" >&2; exit 2; }; device "$2" ;;
+  dir) [[ $# -eq 2 ]] || { echo "usage: map-import dir <dir>" >&2; exit 2; }; import_dir "$2" ;;
+  stopped) [[ $# -eq 2 ]] || { echo "usage: map-import stopped /dev/<node>" >&2; exit 2; }; stopped "$2" ;;
+  *) echo "usage: map-import device /dev/<node> | dir <dir> | stopped /dev/<node>" >&2; exit 2 ;;
+esac

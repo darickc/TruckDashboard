@@ -1,1 +1,1 @@
-Null get mapCacheFolder => null;
+Null mapCacheFolderFor(int generation) => null;

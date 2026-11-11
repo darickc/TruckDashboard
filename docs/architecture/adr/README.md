@@ -41,5 +41,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0030](0030-navigation-position-and-raster-map.md) | Position from gpsd through services/navigation; a raster PMTiles map | Accepted ([SIM] only) |
 | [0031](0031-raster-map-build.md) | The raster map is built from a Protomaps extract, rendered locally by tileserver-gl | Accepted (built and checked on the Mac; not on the Pi) |
 | [0032](0032-vector-map.md) | The dashboard draws vector maps itself (vector_map_tiles, bundled styles); vector is the default build | Accepted ([SIM] only; Pi speed unmeasured) |
+| [0033](0033-map-updates-by-usb-stick.md) | Map updates by USB stick: the Pi copies, checks and swaps in the map on the data drive | Accepted (owner; [SIM] only) |
 
 New ADRs use the next number and the same headings.

@@ -560,7 +560,7 @@ check "navigation: f250, its socket directory (group f250)" "grep -qx 'User=f250
 check "navigation: no devices; gpsd on the loopback only" "grep -qx 'PrivateDevices=yes' $NV && ! grep -q '^PrivateNetwork=' $NV && grep -qx 'RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6' $NV && grep -qx 'IPAddressAllow=localhost' $NV"
 check "navigation: pulls in gpsd's socket" "grep -qx 'Wants=gpsd.socket' $NV && grep -qx 'After=gpsd.socket gpsd.service' $NV"
 check "navigation: watchdog" "grep -qx 'Type=notify' $NV && grep -qx 'WatchdogSec=30' $NV"
-check "dashboard: navigation's socket and the map in deploy.sh and the image" "grep -q -- '-DNAV=unix:/run/f250-nav/nav.sock -DMAP_FILE=/var/lib/f250/maps/map.pmtiles' agl/meta-f250/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -q -- '--dart-define=NAV=unix:\$NAV_SOCK --dart-define=MAP_FILE=\$MAP_FILE' tools/dev/deploy.sh && grep -q '^NAV_SOCK=/run/f250-nav/nav.sock$' tools/dev/deploy.sh && grep -q '^MAP_FILE=/var/lib/f250/maps/map.pmtiles$' tools/dev/deploy.sh"
+check "dashboard: navigation's socket, the map and its import status in deploy.sh and the image" "grep -q -- '-DNAV=unix:/run/f250-nav/nav.sock -DMAP_FILE=/var/lib/f250/storage/maps/map.pmtiles -DMAP_STATUS=/run/f250-maps/status.json' agl/meta-f250/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -q -- '--dart-define=NAV=unix:\$NAV_SOCK --dart-define=MAP_FILE=\$MAP_FILE --dart-define=MAP_STATUS=\$MAP_STATUS' tools/dev/deploy.sh && grep -q '^NAV_SOCK=/run/f250-nav/nav.sock$' tools/dev/deploy.sh && grep -q '^MAP_FILE=/var/lib/f250/storage/maps/map.pmtiles$' tools/dev/deploy.sh && grep -q '^MAP_STATUS=/run/f250-maps/status.json$' tools/dev/deploy.sh"
 check "navigation: deployed and built into the image" "grep -q -- '-p navigation' tools/dev/deploy.sh && grep -q '/target/release/navigation' tools/dev/deploy.sh && grep -q -- '-p navigation' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'camera-ctl navigation; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb"
 for p in gpsd gpsd-conf gpsd-udev; do
   check "navigation: the image has $p" "grep -qx '    $p \\\\' agl/meta-f250/recipes-platform/images/agl-f250-base.inc"
@@ -672,9 +672,9 @@ check "release needs a root key"       "grep -q 'SkipRecipe(\"F250_AUTHORIZED_KE
 check "key installed for root, in the rootfs signature" "grep -q 'ROOT_HOME}/.ssh/authorized_keys' $IMG/agl-f250-base.inc && grep -q 'do_rootfs\\[file-checksums\\]' $IMG/agl-f250-base.inc"
 check "agl-build.sh hands the key to BitBake" "grep -q 'F250_AUTHORIZED_KEYS = ' agl/scripts/agl-build.sh && grep -q 'f250-authorized_keys' tools/dev/build-vm.sh"
 # Every command the on-Pi scripts call comes from a package f250-system pulls in.
-for pair in candump:can-utils lsusb:usbutils mkfs.ext4:e2fsprogs-mke2fs blkid:util-linux-blkid lsblk:util-linux-lsblk findmnt:util-linux-findmnt ip:iproute2 cmp:diffutils sfdisk:util-linux-sfdisk partx:util-linux-partx systemd-growfs:systemd; do
+for pair in candump:can-utils lsusb:usbutils mkfs.ext4:e2fsprogs-mke2fs blkid:util-linux-blkid lsblk:util-linux-lsblk findmnt:util-linux-findmnt ip:iproute2 cmp:diffutils sfdisk:util-linux-sfdisk partx:util-linux-partx systemd-growfs:systemd mount:util-linux-mount umount:util-linux-umount modprobe:kmod sha256sum:coreutils exfat:kernel-module-exfat; do
   cmd=${pair%%:*}; pkg=${pair#*:}
-  check "f250-system pulls in $pkg ($cmd)" "grep -A2 '^RDEPENDS' '$SYSBB' | grep -qw '$pkg'"
+  check "f250-system pulls in $pkg ($cmd)" "grep -A4 '^RDEPENDS' '$SYSBB' | grep -qw '$pkg'"
 done
 check "services: the binaries deploy.sh builds" "grep -q -- '-p vehicle-gateway -p recorder -p obd-console -p power-manager -p camera-manager -p navigation --features vehicle-gateway/rfcomm,camera-manager/gstreamer' $M/recipes-f250/f250-services/f250-services.bb && grep -q -- '-p vehicle-gateway --features rfcomm' tools/dev/deploy.sh"
 check "dashboard: deploy.sh's defines"  "grep -q -- '-DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock -DCAMERAS=unix:/run/f250-camera/camera.sock' $M/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -q -- '--dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:\$SOCK' tools/dev/deploy.sh && grep -q -- '--dart-define=CAMERAS=unix:\$CAMERA_SOCK' tools/dev/deploy.sh && grep -q '^CAMERA_SOCK=/run/f250-camera/camera.sock$' tools/dev/deploy.sh"
@@ -688,6 +688,87 @@ for u in kuksa-can-provider.service can-dev-helper.service; do
 done
 check "oFono disabled in the image and by preset" "grep -qx 'disable ofono.service' agl/rootfs/etc/systemd/system-preset/00-f250.preset && grep -q 'disable ofono.service' agl/meta-f250/recipes-platform/images/agl-f250-base.inc"
 check "f250-system skips configure and compile" "grep -q '^do_compile\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb && grep -q '^do_configure\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb"
+
+echo "map-import (ADR-0033)"
+MI=agl/rootfs/opt/f250/libexec/map-import
+FIX=apps/infotainment/test/fixtures/maps/vector-z12-15.pmtiles
+OLD=apps/infotainment/test/fixtures/maps/solid-z0-3.pmtiles
+mi() {   # mi <test dir> <args...>: map-import against <test dir>/storage and <test dir>/run
+  local d="$1"; shift
+  F250_STORAGE="$d/storage" F250_MAP_STATUS_DIR="$d/run" F250_MAP_REQUIRE_MOUNT="${MI_REQUIRE:-0}" \
+    F250_SYS_LOG="$d/sys.log" bash "$MI" "$@"
+}
+new_case() {   # new_case <name>: a test dir with an old map installed
+  local d="$T/mi-$1"
+  mkdir -p "$d/storage/maps" "$d/stick"
+  cp "$OLD" "$d/storage/maps/map.pmtiles"
+  echo "$d"
+}
+state_of() { sed -n 's/^{"state":"\([a-z]*\)".*/\1/p' "$1/run/status.json" 2>/dev/null; }
+D="$(new_case ok)"
+python3 tools/maps/map-stick.py --map "$FIX" --stick "$D/stick" --any-dir >/dev/null 2>&1 || fail "map-stick wrote no stick"
+check "map-stick writes the map and its checksum" "cmp -s '$FIX' '$D/stick/f250/map.pmtiles' && grep -qE '^[0-9a-f]{64}  map.pmtiles\$' '$D/stick/f250/map.pmtiles.sha256'"
+echo stale >"$D/storage/maps/map.pmtiles.part"
+rc=0; mi "$D" dir "$D/stick" >"$D/out" 2>&1 || rc=$?
+check "a map stick is imported"        "[[ $rc == 0 ]] && cmp -s '$FIX' '$D/storage/maps/map.pmtiles'"
+check "status: updated, with an id"    "[[ \"\$(state_of '$D')\" == updated ]] && grep -q '\"id\":\"[0-9TZ-]*\"' '$D/run/status.json'"
+check "no copy or lock left behind"    "[[ ! -e '$D/storage/maps/map.pmtiles.part' && ! -e '$D/run/import.lock' ]]"
+check "map-stick refuses a file that isn't a map" "! python3 tools/maps/map-stick.py --map Makefile --stick '$D/stick' --any-dir 2>/dev/null"
+check "map-stick refuses a folder that isn't a volume" "! python3 tools/maps/map-stick.py --map '$FIX' --stick '$D/stick' 2>/dev/null"
+
+D="$(new_case other)"; mkdir -p "$D/stick/music"
+rc=0; mi "$D" dir "$D/stick" >/dev/null 2>&1 || rc=$?
+check "another stick is left alone, silently" "[[ $rc == 0 && ! -e '$D/run/status.json' ]] && cmp -s '$OLD' '$D/storage/maps/map.pmtiles'"
+
+failing_case() {   # failing_case <name> <expected message part> <prepare commands>
+  local d; d="$(new_case "$1")"
+  mkdir -p "$d/stick/f250"
+  ( cd "$d/stick/f250" && eval "$3" ) || true
+  mi "$d" dir "$d/stick" >/dev/null 2>&1 && fail "$1: exited 0"
+  check "$1: failed, saying so"          "[[ \"\$(state_of '$d')\" == failed ]] && grep -qF -- '$2' '$d/run/status.json'"
+  check "$1: the old map is kept"        "cmp -s '$OLD' '$d/storage/maps/map.pmtiles' && [[ ! -e '$d/storage/maps/map.pmtiles.part' ]]"
+}
+failing_case "no checksum" "no map.pmtiles.sha256" "cp '$PWD/$FIX' map.pmtiles"
+failing_case "a malformed checksum" "a SHA-256 checksum" "cp '$PWD/$FIX' map.pmtiles; echo nope >map.pmtiles.sha256"
+failing_case "a wrong checksum" "match its checksum" "cp '$PWD/$FIX' map.pmtiles; printf '%064d  map.pmtiles\n' 0 >map.pmtiles.sha256"
+failing_case "not a map" "a PMTiles file" "echo hello >map.pmtiles; (shasum -a 256 map.pmtiles 2>/dev/null || sha256sum map.pmtiles) >map.pmtiles.sha256"
+D="$(new_case unmounted)"
+python3 tools/maps/map-stick.py --map "$FIX" --stick "$D/stick" --any-dir >/dev/null 2>&1 || true
+MI_REQUIRE=1 mi "$D" dir "$D/stick" >/dev/null 2>&1 && fail "no data drive: exited 0"
+check "no data drive: refused, the old map kept" "grep -qF \"data drive isn't mounted\" '$D/run/status.json' && cmp -s '$OLD' '$D/storage/maps/map.pmtiles'"
+
+D="$(new_case locked)"
+python3 tools/maps/map-stick.py --map "$FIX" --stick "$D/stick" --any-dir >/dev/null 2>&1 || true
+mkdir -p "$D/run/import.lock"
+mi "$D" dir "$D/stick" >/dev/null 2>&1 && fail "a second import at once: exited 0"
+check "a second import at once is refused" "cmp -s '$OLD' '$D/storage/maps/map.pmtiles' && [[ -d '$D/run/import.lock' ]]"
+
+D="$(new_case device)"
+mkdir -p "$D/run/stick-sda1"
+python3 tools/maps/map-stick.py --map "$FIX" --stick "$D/run/stick-sda1" --any-dir >/dev/null 2>&1 || true
+mi "$D" device /dev/sda1 >/dev/null 2>&1 || fail "device: exited non-zero"
+check "device: mounts the stick read-only, noexec" "in_order '$D/sys.log' 'mount -t exfat,vfat -o ro,nosuid,nodev,noexec /dev/sda1 $D/run/stick-sda1' 'umount $D/run/stick-sda1'"
+check "device: imports it, naming the device" "cmp -s '$FIX' '$D/storage/maps/map.pmtiles' && grep -qF '\"device\":\"/dev/sda1\"' '$D/run/status.json'"
+check "device: refuses a path that isn't a device" "! mi '$D' device /tmp/x 2>/dev/null"
+
+D="$(new_case pulled)"; mkdir -p "$D/run"
+printf '{"state":"copying","percent":40,"message":"","id":"x","device":"/dev/sdb1","at":"2026-11-11T00:00:00Z"}\n' >"$D/run/status.json"
+echo partial >"$D/storage/maps/map.pmtiles.part"
+mi "$D" stopped /dev/sda1 >/dev/null 2>&1 || true
+check "stopped: another stick's import is left alone" "[[ \"\$(state_of '$D')\" == copying && -e '$D/storage/maps/map.pmtiles.part' ]]"
+mi "$D" stopped /dev/sdb1 >/dev/null 2>&1 || true
+check "stopped: a pulled stick's import fails, the copy goes" "[[ \"\$(state_of '$D')\" == failed && ! -e '$D/storage/maps/map.pmtiles.part' ]] && grep -qF 'stick was removed' '$D/run/status.json' && grep -qF '\"id\":\"x\"' '$D/run/status.json'"
+check "stopped: the old map is kept"   "cmp -s '$OLD' '$D/storage/maps/map.pmtiles'"
+
+U=agl/rootfs/etc/systemd/system/f250-map-import@.service
+RULE=agl/rootfs/etc/udev/rules.d/80-f250-map-stick.rules
+check "udev: USB exFAT/FAT filesystems start the import" "grep -qF 'ENV{ID_BUS}==\"usb\"' $RULE && grep -qF 'ENV{ID_FS_TYPE}==\"exfat|vfat\"' $RULE && grep -qF 'ENV{SYSTEMD_WANTS}+=\"f250-map-import@%k.service\"' $RULE"
+check "unit: runs map-import on the device, and stopped after" "has_line $U 'ExecStart=/opt/f250/libexec/map-import device /dev/%I' && has_line $U 'ExecStopPost=/opt/f250/libexec/map-import stopped /dev/%I'"
+check "unit: bound to the stick, long enough for a big map" "has_line $U 'BindsTo=dev-%i.device' && has_line $U 'TimeoutStartSec=1h'"
+check "unit: status kept for the dashboard" "has_line $U 'RuntimeDirectory=f250-maps' && has_line $U 'RuntimeDirectoryPreserve=yes' && has_line $U 'RuntimeDirectoryMode=0755'"
+check "unit: writes only the data drive, no network" "has_line $U 'ProtectSystem=strict' && has_line $U 'ReadWritePaths=-/var/lib/f250/storage' && has_line $U 'PrivateNetwork=yes' && has_line $U 'PrivateMounts=yes'"
+check "unit: started by udev only (no [Install])" "! grep -q '^\[Install\]' $U"
+check "map path agrees: script, image, deploy" "grep -q 'F250_STORAGE:-/var/lib/f250/storage' $MI && grep -q 'MAPS=\"\$STORAGE/maps\"' $MI && grep -q 'STATUS_DIR=\"\${F250_MAP_STATUS_DIR:-/run/f250-maps}\"' $MI && grep -q -- '-DMAP_FILE=/var/lib/f250/storage/maps/map.pmtiles -DMAP_STATUS=/run/f250-maps/status.json' $M/recipes-f250/f250-dashboard/f250-dashboard.bb"
 
 echo
 echo "agl-test: $PASS passed, $FAIL failed"

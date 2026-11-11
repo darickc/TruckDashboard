@@ -158,6 +158,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 | 14 | Camera ([camera-manager](../architecture/adr/0026-camera-manager-interfaces.md)) | Plug in a UVC webcam; `ls -l /dev/v4l/by-path/`; set `CAMERA_REAR=` to its `...-video-index0` path in `/etc/default/f250`; `systemctl restart f250-camera-manager`. `ls -l /run/f250-camera/` shows `camera.sock` as `agl-driver f250`, `srwxrwx---`. `camera-ctl move back`: the picture appears right of the camera buttons, below the status bar (x 220–800, y 44–479), and `camera-ctl view` says `rear (switch), live` within a second or two (if it never goes live while the picture moves, the frame count is wrong: ADR-0026 decision 3). `camera-ctl move press` closes it (forward is the front camera). `ls /var/cache/f250-camera/gstreamer-1.0/` has the registry. `journalctl -u f250-camera-manager -b` | ADR-0009, ADR-0026 |
 | 15 | Day/night and the backlight ([power-manager](../architecture/adr/0028-day-night-and-backlight.md)) | After `make deploy`: `ls -l /sys/class/backlight/10-0045/brightness` is group `f250`, `-rw-rw-r--` (the udev rule); `ls -l /run/f250-power/` shows `power.sock` as `f250 f250`, `srwxrwx---`. `journalctl -u f250-power-manager -b` shows "display: backlight 10-0045 (max 255)" and, with no location set, "auto unavailable (no location configured)". Dashboard → Settings → Display: **Night** dims the panel over about a second (`cat .../brightness` reads 102) and switches the palette; **Day** brings back 255; repeated −10 % stops at 26 (10 %). `systemctl restart f250-power-manager` keeps the choice (`cat /var/lib/f250-power/display`). Then set `DISPLAY_LATITUDE`/`DISPLAY_LONGITUDE`, join Wi-Fi so `timedatectl` says `System clock synchronized: yes`, choose **Auto**: the screen says "by the sun" with the elevation. Record `systemd-analyze security f250-power-manager` (ProtectKernelTunables is off) | ADR-0028 |
 | 16 | Settings tab ([ADR-0029](../architecture/adr/0029-settings-screen.md)) | With a webcam plugged in: dashboard → Settings → Cameras lists it by USB port (and model), matching `camera-ctl settings` "plugged in" (if the list is empty while `ls /dev/v4l/by-path` isn't, the sandbox hides it). Give its port to Rear, **Apply**: `journalctl -u f250-camera-manager -b` shows "restarting to apply the saved settings" and the same PID (`systemctl show -p MainPID f250-camera-manager` before and after), no watchdog kill; the screen comes back "Set on this screen" within seconds; `cat /var/lib/f250-camera/settings`. The camera buttons show it as Rear. With a camera on screen, Apply is refused. **Use /etc/default/f250** removes the file. Settings → Units → Metric, reboot: still metric (`cat /var/lib/f250-dashboard/settings.json`) | ADR-0029 |
+| 17 | Map stick ([ADR-0033](../architecture/adr/0033-map-updates-by-usb-stick.md)), once the data drive is in | On the Mac: `make map-region ...`, `make map-stick STICK=/Volumes/<name>` (an exFAT stick). Plug it into the Pi with the dashboard on: `systemctl list-units 'f250-map-import@*'` shows the import; the status bar shows **MAP n%**, then **MAP UPDATED**, and the Nav tab draws the new map without a restart. `cat /run/f250-maps/status.json`; `ls -l /var/lib/f250/storage/maps/`; `journalctl -u 'f250-map-import@*' -b` gives the copy and checksum times: record them. Pull a stick mid-copy: **MAP UPDATE FAILED**, the old map stays, no `.part` left. A music stick: nothing happens | ADR-0033 |
 
 If something fails, collect the evidence before changing anything:
 
@@ -262,9 +263,10 @@ look for a refused call or device in `journalctl -u f250-gateway -b`.
 
 ### Data drive (NVMe HAT or USB SSD)
 
-The SD card still boots. The drive holds the telemetry database and the
-gateway's traffic logs (later the maps and camera recordings), which would
-otherwise wear the card. Status: `[SIM]`. The setup and services are tested
+The SD card still boots. The drive holds the telemetry database, the
+gateway's traffic logs and the offline map (`maps/map.pmtiles`, put there by a
+[map stick](maps.md#updating-the-map-in-the-truck-usb-stick)), later the
+camera recordings, which would otherwise wear the card. Status: `[SIM]`. The setup and services are tested
 in `make agl-test`, and `f250-storage format` on a loop device in a Linux
 container. Not run on the Pi or with an NVMe drive yet.
 

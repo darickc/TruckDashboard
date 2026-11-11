@@ -222,7 +222,7 @@ Entry? findEntry(List<Entry> entries, int id) {
 }
 
 class PmTilesReader {
-  PmTilesReader._(this.header, this._root, this._read, this._decompress, this.metadata);
+  PmTilesReader._(this.header, this._root, this._read, this._decompress, this.metadata, this._close);
 
   final PmTilesHeader header;
   final List<Entry> _root;
@@ -232,12 +232,18 @@ class PmTilesReader {
   /// The tileset's JSON metadata (name, attribution, ...); empty if none.
   final Map<String, dynamic> metadata;
 
+  final Future<void> Function()? _close;
+
   final _leaves = <int, List<Entry>>{};
   static const _maxLeaves = 64;
 
   /// Opens a tileset. Throws [PmTilesException] for one the dashboard can't
-  /// show, saying why.
-  static Future<PmTilesReader> open(ReadRange read, Decompress decompress) async {
+  /// show, saying why. [close] releases what [read] reads from.
+  static Future<PmTilesReader> open(
+    ReadRange read,
+    Decompress decompress, {
+    Future<void> Function()? close,
+  }) async {
     final header = PmTilesHeader.parse(await read(0, PmTilesHeader.length));
     final problem = header.problem();
     if (problem != null) throw PmTilesException(problem);
@@ -257,7 +263,18 @@ class PmTilesReader {
         // Metadata is optional; a bad one doesn't stop the map.
       }
     }
-    return PmTilesReader._(header, root, read, decompress, metadata);
+    return PmTilesReader._(header, root, read, decompress, metadata, close);
+  }
+
+  /// Releases the file. A replaced map's space is freed only once closed.
+  Future<void> close() async => _close?.call();
+
+  /// The date of the map data, from `make map-region`'s metadata
+  /// (`f250:protomaps_build`, YYYYMMDD) as YYYY-MM-DD, or null.
+  String? get dataDate {
+    final b = metadata['f250:protomaps_build'];
+    if (b is! String || !RegExp(r'^\d{8}$').hasMatch(b)) return null;
+    return '${b.substring(0, 4)}-${b.substring(4, 6)}-${b.substring(6)}';
   }
 
   /// The attribution the tileset carries, if any (HTML tags stripped and

@@ -45,9 +45,14 @@ const _power = String.fromEnvironment('POWER', defaultValue: 'sim');
 /// (`unix:/run/f250-nav/nav.sock` on the Pi). Default: `sim`.
 const _nav = String.fromEnvironment('NAV', defaultValue: 'sim');
 
-/// The offline raster map (PMTiles, ADR-0030): `/var/lib/f250/maps/map.pmtiles`
-/// on the Pi. Empty: none, and the Navigation screen says so.
+/// The offline map (PMTiles, vector or raster; ADR-0030, ADR-0032):
+/// `/var/lib/f250/storage/maps/map.pmtiles` on the Pi, on the data drive.
+/// Empty: none, and the Navigation screen says so.
 const _mapFile = String.fromEnvironment('MAP_FILE');
+
+/// The map import's status file (ADR-0033): `/run/f250-maps/status.json` on
+/// the Pi. Empty: map sticks aren't watched.
+const _mapStatus = String.fromEnvironment('MAP_STATUS');
 
 /// In-app simulator start point (`make ui-web SCENARIO=eot_ect_freeze START=110`).
 const _scenario = String.fromEnvironment('SCENARIO', defaultValue: 'drive_cycle');
@@ -64,6 +69,7 @@ Future<void> main() async {
             power: _power,
             nav: _nav,
             mapFile: _mapFile,
+            mapStatus: _mapStatus,
             scenario: _scenario,
             startAt: const Duration(seconds: _startSeconds))));
   } catch (e) {
@@ -79,6 +85,7 @@ Future<AppServices> createServices(
   String power = 'sim',
   String nav = 'sim',
   String mapFile = '',
+  String mapStatus = '',
   String scenario = 'drive_cycle',
   Duration startAt = Duration.zero,
 }) async {
@@ -104,8 +111,8 @@ Future<AppServices> createServices(
   final PositionSource position =
       nav == 'sim' ? SimulatedPositionSource() : connectNavigation(GatewayEndpoint.parse(nav));
   position.start();
-  final map = OfflineMap(mapFile);
-  unawaited(map.load());
+  final map = OfflineMap(mapFile, statusPath: mapStatus);
+  unawaited(map.load().then((_) => map.watch()));
   switch (source) {
     case 'gateway':
       final connection = GatewayConnection.create(store, GatewayEndpoint.parse(gateway))..start();

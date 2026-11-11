@@ -1,17 +1,15 @@
 import 'dart:io';
 
-Directory? _folder;
+final _root = Directory('${Directory.systemTemp.path}/f250-vector-map-$pid');
+Future<void>? _emptied;
 
-/// A folder for this run only: emptied on first use, so a tile half-written
-/// when the power went off is never read back.
-Future<Directory> Function()? get mapCacheFolder => () async {
-  final d = _folder ??= Directory('${Directory.systemTemp.path}/f250-vector-map-$pid');
-  if (!_ready) {
-    if (await d.exists()) await d.delete(recursive: true);
-    await d.create(recursive: true);
-    _ready = true;
-  }
-  return d;
+/// A folder for this run and this map only: the run's folder is emptied on
+/// first use (a tile half-written when the power went off is never read
+/// back), and each map opened gets its own (a replaced map's tiles never
+/// show).
+Future<Directory> Function()? mapCacheFolderFor(int generation) => () async {
+  await (_emptied ??= () async {
+    if (await _root.exists()) await _root.delete(recursive: true);
+  }());
+  return Directory('${_root.path}/$generation').create(recursive: true);
 };
-
-bool _ready = false;

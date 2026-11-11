@@ -1,0 +1,6 @@
+# A USB stick with an exFAT or FAT filesystem: offer it to the map import
+# (ADR-0033), which copies f250/map.pmtiles from it onto the data drive and
+# ignores any other stick. exFAT, because a large map is over FAT32's 4 GB
+# file limit. A whole-disk filesystem (no partition table) counts too.
+# Status: [SIM] only: not yet seen to fire on the Pi.
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{ID_FS_TYPE}=="exfat|vfat", TAG+="systemd", ENV{SYSTEMD_WANTS}+="f250-map-import@%k.service"

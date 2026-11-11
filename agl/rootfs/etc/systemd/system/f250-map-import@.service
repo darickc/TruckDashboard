@@ -1,0 +1,53 @@
+# Copies an offline map from a USB stick onto the data drive (ADR-0033).
+# Started by udev (80-f250-map-stick.rules) for each exFAT or FAT filesystem
+# on a USB stick; the instance is the device node (sda1). See
+# /opt/f250/libexec/map-import. A stick without f250/map.pmtiles is left
+# alone. Pulling the stick stops the unit (BindsTo), and ExecStopPost marks
+# that import failed; the old map is kept either way.
+#
+# Nothing here touches the vehicle bus (ADR-0007).
+#
+# Status: [SIM] (test-agl.sh). Not run on the Pi or with a real stick yet;
+# that exFAT mounts here (kernel-module-exfat is in the image) is UNVERIFIED.
+[Unit]
+Description=Copy an offline map from USB stick %I
+BindsTo=dev-%i.device
+After=dev-%i.device local-fs.target
+
+[Service]
+Type=oneshot
+# The exFAT driver is a module in the 22.0.1 image.
+ExecStartPre=-modprobe -q exfat
+ExecStart=/opt/f250/libexec/map-import device /dev/%I
+ExecStopPost=/opt/f250/libexec/map-import stopped /dev/%I
+# A 19 GB map from a USB 2 stick takes about ten minutes.
+TimeoutStartSec=1h
+# status.json for the dashboard (agl-driver reads it), kept between imports.
+RuntimeDirectory=f250-maps
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+Nice=10
+IOSchedulingClass=idle
+
+# Sandbox. It mounts the stick (CAP_SYS_ADMIN) in its own mount namespace,
+# read-only, and writes only the data drive's maps folder and its runtime
+# directory. No network.
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_MODULE CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+PrivateMounts=yes
+ProtectSystem=strict
+ReadWritePaths=-/var/lib/f250/storage
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+SystemCallArchitectures=native

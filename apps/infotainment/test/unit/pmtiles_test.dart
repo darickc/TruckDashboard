@@ -289,6 +289,15 @@ void main() {
       expect(r.attribution, '© OpenStreetMap contributors');
     });
 
+    test('the data date is make map-region\'s build date, YYYYMMDD only', () async {
+      Future<String?> dateOf(String meta) async =>
+          (await _openBytes(_file(root: root, data: data, metadata: meta))).dataDate;
+      expect(await dateOf('{"f250:protomaps_build":"20261111"}'), '2026-11-11');
+      expect(await dateOf('{"f250:protomaps_build":"2026-11-11"}'), isNull);
+      expect(await dateOf('{"f250:protomaps_build":20261111}'), isNull);
+      expect(await dateOf('{}'), isNull);
+    });
+
     test('HTML entities in the attribution are decoded (Protomaps builds)', () async {
       final r = await _openBytes(
         _file(

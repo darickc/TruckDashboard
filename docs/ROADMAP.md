@@ -288,6 +288,12 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       reader, with the Protomaps light/dark styles, icons and Noto Sans bundled (`make map-assets`). Night is the dark
       style. `make map-region` now builds vector by default (an extract, no Docker); raster stays as `--format`.
       Tests: styles fully parsed, provider, screen day/night, `map-check` for MVT. Pi drawing speed UNMEASURED.
+      6.5.3 (update workflow) `[SIM]`: map updates by USB stick ([ADR-0033](architecture/adr/0033-map-updates-by-usb-stick.md),
+      owner's choice): `make map-stick` writes the map and its SHA-256 to an exFAT stick; on the Pi a udev rule starts
+      `f250-map-import@`, which mounts it read-only, copies to the data drive, checks checksum and header, and swaps it
+      in, keeping the old map on any failure. The map moved to `/var/lib/f250/storage/maps/`. The dashboard shows
+      progress on every tab and opens the new map without a restart. Tested by `make agl-test` and app tests;
+      not on the Pi or with a real stick yet (bench check 17).
       Next: 6.5.2's routing, or 6.5.3's update workflow (copy over Wi-Fi or USB)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and

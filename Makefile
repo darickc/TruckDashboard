@@ -44,6 +44,9 @@ NAV_LISTEN ?= tcp:127.0.0.1:50253
 # `make map-test-pattern` writes a raster one there. The macOS app's sandbox
 # may read /tmp/f250/maps/ only.
 MAP_FILE ?= /tmp/f250/maps/map.pmtiles
+# The map import's status (ADR-0033), which the dashboard watches; on the Pi
+# /run/f250-maps/status.json. `make map-import-dev` writes this one.
+MAP_STATUS ?= /tmp/f250/maps/status.json
 # `make map-region` (ADR-0031, ADR-0032): BBOX=west,south,east,north and MAXZOOM
 # are required; ESTIMATE=1 prints tile counts and sizes only; YES=1 allows big
 # builds; MAP_ARGS=--format=webp renders a raster map instead (Docker, Node).
@@ -51,14 +54,15 @@ MAP_OUT ?= build/maps/region.pmtiles
 MAP     ?= $(MAP_FILE)
 SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START) \
               --dart-define=VEHICLE_SOURCE=$(SOURCE) --dart-define=GATEWAY=$(GATEWAY) \
-              --dart-define=NAV=$(NAV) --dart-define=MAP_FILE=$(MAP_FILE)
+              --dart-define=NAV=$(NAV) --dart-define=MAP_FILE=$(MAP_FILE) \
+              --dart-define=MAP_STATUS=$(MAP_STATUS)
 
 .PHONY: help setup doctor test lint \
         fw-test fw-build \
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
-        sim gateway navigation map-test-pattern map-region map-assets map-check console docs-lint \
+        sim gateway navigation map-test-pattern map-region map-assets map-stick map-import-dev map-check console docs-lint \
         pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can \
         agl-test agl-image deploy deploy-build logs build-vm agl-build
 
@@ -238,6 +242,15 @@ map-region: ## Build a vector map of BBOX=w,s,e,n to MAXZOOM= into $(MAP_OUT) an
 ifeq ($(ESTIMATE),)
 	mkdir -p $(dir $(MAP_FILE)) && cp $(MAP_OUT) $(MAP_FILE)
 endif
+
+map-stick: ## Write MAP= (default $(MAP_OUT)) onto the exFAT USB stick at STICK=/Volumes/<name> for the truck (ADR-0033)
+	@test -n "$(STICK)" || { echo "usage: make map-stick STICK=/Volumes/<name> [MAP=build/maps/region.pmtiles]"; exit 2; }
+	python3 tools/maps/map-stick.py --map $(if $(filter command line,$(origin MAP)),$(MAP),$(MAP_OUT)) --stick "$(STICK)"
+
+map-import-dev: ## Import a map stick (STICK=/Volumes/<name>) into $(MAP_FILE) as the truck would, for make ui/sim
+	@test -n "$(STICK)" || { echo "usage: make map-import-dev STICK=/Volumes/<name>"; exit 2; }
+	F250_STORAGE=$(patsubst %/maps/,%,$(dir $(MAP_FILE))) F250_MAP_STATUS_DIR=$(dir $(MAP_STATUS)) F250_MAP_REQUIRE_MOUNT=0 \
+		agl/rootfs/opt/f250/libexec/map-import dir "$(STICK)"
 
 map-assets: ## Regenerate the vector map's styles, icons and fonts in apps/infotainment/assets/map (ADR-0032); needs Node, curl
 	python3 tools/maps/map-assets.py

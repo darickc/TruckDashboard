@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:vector_map_tiles/vector_map_tiles.dart';
 
 import '../../nav/map_cache.dart';
+import '../../nav/map_update.dart';
 import '../../nav/offline_map.dart';
 import '../../nav/position_state.dart';
 import '../../nav/vector_map.dart';
@@ -102,9 +103,12 @@ class _NavigationScreenState extends State<NavigationScreen> {
         child: ValueListenableBuilder(
           valueListenable: s.map.state,
           builder: (context, mapState, _) => ValueListenableBuilder(
-            valueListenable: s.position.status,
-            builder: (context, position, _) =>
-                _build(context, p, mapState, position, s.position.clock.now()),
+            valueListenable: s.map.update,
+            builder: (context, update, _) => ValueListenableBuilder(
+              valueListenable: s.position.status,
+              builder: (context, position, _) =>
+                  _build(context, p, mapState, update, position, s.position.clock.now()),
+            ),
           ),
         ),
       ),
@@ -115,6 +119,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
     BuildContext context,
     Palette p,
     MapFileState mapState,
+    MapUpdateStatus? update,
     PositionState position,
     Duration now,
   ) {
@@ -165,11 +170,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
               if (vector != null)
                 VectorTileLayer(
                   // Day and night are two styles (ADR-0032), not darkened tiles.
-                  key: ValueKey(('vector', night)),
+                  key: ValueKey(('vector', night, vector.generation)),
                   tileProviders: TileProviders({vectorSource: vector.provider}),
                   theme: vector.styles.forNight(night).theme,
                   sprites: vector.styles.forNight(night).sprites,
-                  cacheFolder: mapCacheFolder,
+                  cacheFolder: mapCacheFolderFor(vector.generation),
                   fileCacheMaximumSizeInBytes: mapCacheMaxBytes,
                 )
               else if (reader != null)
@@ -228,6 +233,24 @@ class _NavigationScreenState extends State<NavigationScreen> {
               palette: p,
             ),
           ),
+        // A map stick being imported (ADR-0033), or one that just was.
+        if (update != null && update.shownAt(DateTime.now()))
+          Positioned(
+            left: 8,
+            right: 84,
+            bottom: mapState is MapReady ? 36 : 84,
+            child: _Notice(
+              key: const ValueKey('nav-map-update'),
+              icon: Icons.usb,
+              text: update.text,
+              palette: p,
+              color: switch (update.state) {
+                MapUpdateState.failed => p.advisory,
+                MapUpdateState.updated => p.ok,
+                _ => p.accent,
+              },
+            ),
+          ),
         Positioned(
           right: 8,
           top: 8,
@@ -268,7 +291,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               color: p.surface.withValues(alpha: 0.85),
               child: Text(
-                reader.attribution ?? '© OpenStreetMap contributors',
+                [
+                  reader.attribution ?? '© OpenStreetMap contributors',
+                  if (reader.dataDate != null) 'data ${reader.dataDate}',
+                ].join(' · '),
                 key: const ValueKey('nav-attribution'),
                 style: TextStyle(fontSize: 12, color: p.text),
               ),
