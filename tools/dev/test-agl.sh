@@ -369,6 +369,18 @@ check "off by default in /etc/default/f250" "has_line agl/rootfs/etc/default/f25
 CU=agl/rootfs/etc/systemd/system/f250-can-auto.service
 check "can-auto unit: root, settings file, the script" "grep -qx 'EnvironmentFile=-/etc/default/f250' $CU && grep -qx 'ExecStart=/opt/f250/libexec/can-auto' $CU && ! grep -q '^User=' $CU && [[ -x $CA ]]"
 
+echo "f250-can capture: bounded parts"
+SP="$T/split"; mkdir -p "$SP"
+awk 'BEGIN { for (i = 0; i < 2000; i++) printf "(%d.%06d) can0 201#00%04X00000080\n", 1000 + int(i / 100), (i % 100) * 10000, i }' >"$T/frames.in"
+CAPTURE_PART_MB=0.01 CAPTURE_MAX_MB=0.03 bash tools/pi/can.sh split-frames "$SP" <"$T/frames.in" >/dev/null 2>&1 || fail "split-frames exited non-zero"
+check "parts of at most CAPTURE_PART_MB, whole lines" "for f in $SP/candump-part-*.log; do [[ \$(wc -c <\"\$f\") -le 10485 ]] || exit 1; done && ! grep -qv '^([0-9.]*) can0 201#00[0-9A-F]\\{4\\}00000080\$' $SP/candump-part-*.log"
+check "the kept parts are the newest frames, in order" "cat $SP/candump-part-*.log | cmp -s - <(tail -n \$(cat $SP/candump-part-*.log | wc -l) $T/frames.in)"
+check "all parts together within CAPTURE_MAX_MB" "[[ \$(cat $SP/candump-part-*.log | wc -c) -le 31457 ]]"
+check "each deleted part listed in pruned.txt" "[[ \$(wc -l <$SP/pruned.txt) -ge 1 ]] && ! ls $SP/candump-part-00000.log 2>/dev/null && grep -q 'candump-part-00000.log' $SP/pruned.txt"
+check "split-frames refuses a missing folder" "! bash tools/pi/can.sh split-frames $T/nowhere </dev/null >/dev/null 2>&1"
+check "capture: candump -L through the splitter, a free-space stop" "grep -q 'candump -L \"\$CAN_IF,0:0,#FFFFFFFF\" >.frames' tools/pi/can.sh && grep -q 'split_frames \"\$dir\" <.frames' tools/pi/can.sh && grep -q 'CAPTURE_MIN_FREE_MB' tools/pi/can.sh && ! grep -q 'candump -l ' tools/pi/can.sh"
+check "capture bounds documented with their defaults" "grep -q '^CAPTURE_PART_MB=\"\${CAPTURE_PART_MB:-64}\"' tools/pi/can.sh && grep -q '^CAPTURE_MAX_MB=\"\${CAPTURE_MAX_MB:-2048}\"' tools/pi/can.sh && grep -q '^CAPTURE_MIN_FREE_MB=\"\${CAPTURE_MIN_FREE_MB:-1024}\"' tools/pi/can.sh && grep -q '^CAPTURE_MAX_MB=' agl/rootfs/etc/default/f250"
+
 echo "power-start"
 PSTUB="$T/power-manager"
 printf '#!/bin/sh\necho "$@"\n' >"$PSTUB"; chmod +x "$PSTUB"

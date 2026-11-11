@@ -117,6 +117,19 @@ Each capture goes to `~/f250-data/<date>-candump/`: the `candump` log of every
 frame and error frame, and the interface's error counters before and after
 (`session.txt`).
 
+The log is cut into parts, `candump-part-00000.log` onwards, so a capture
+left running (a drive, or `CAN_AUTO_CAPTURE=1` until shutdown, about
+270 MB an hour) can never fill the card. The limits are examples, set in the
+environment or `/etc/default/f250`:
+
+| Setting | Default | What happens |
+|---|---|---|
+| `CAPTURE_PART_MB` | 64 | A new part starts; lines are never split |
+| `CAPTURE_MAX_MB` | 2048 | The oldest parts are deleted first and listed in `pruned.txt`; `session.txt` says the capture's start is gone |
+| `CAPTURE_MIN_FREE_MB` | 1024 | The capture stops, and `session.txt` says why |
+
+`can-monitor` reads a capture folder's parts as one log.
+
 What it answers:
 
 - **Is 500 kbit/s right?** Frames and no climbing error counters say yes. A
@@ -158,10 +171,18 @@ How to read them:
   provenance. **Until then the camera doesn't use it**, and reverse stays on
   its hardware input either way.
 
-`can-monitor census` lists, per ID, which bytes change in one capture (see
-[Analysing a capture](#analysing-a-capture)). Comparing two captures directly
-(a diff of the IDs and bytes that change) is still TODO; until then, run
-`census` on each and compare.
+Compare each event capture with the baseline:
+
+```bash
+can-monitor diff ~/f250-data/<baseline>-candump ~/f250-data/<brake>-candump
+```
+
+It lists the **bits that flip** (clear in nearly every frame of one capture,
+set in nearly every frame of the other: `--bit-threshold`, default 0.9), the
+**bytes whose values differ** (counters and analog values that change in both
+are left out unless their values don't overlap), rate or length changes, and
+IDs seen in one capture only. The brake candidate should show as
+`440 byte 0 bit 4`, set in 0 % of A and 100 % of B.
 
 **With the MX+ on a Y-splitter and the gateway polling through it** (`make
 pi-start TRANSPORT=obdlink TRANSMIT=1 ENABLE=eot CAPTURE=1`), the capture also
@@ -178,10 +199,16 @@ registry (`shared/signals`) and never touches a bus.
 
 ```bash
 cargo build --release -p can-monitor          # make pi-build also builds it
-target/release/can-monitor census  ~/f250-data/<date>-candump/candump-*.log
-target/release/can-monitor pids    ~/f250-data/<date>-candump/candump-*.log
-target/release/can-monitor correlate ~/f250-data/<date>-candump/candump-*.log --signal rpm
+target/release/can-monitor census  ~/f250-data/<date>-candump
+target/release/can-monitor pids    ~/f250-data/<date>-candump
+target/release/can-monitor correlate ~/f250-data/<date>-candump --signal rpm
+target/release/can-monitor csv ~/f250-data/<date>-candump --ids 201,420 > frames.csv
+target/release/can-monitor csv ~/f250-data/<date>-candump --pids --signal rpm,eot > pids.csv
+target/release/can-monitor diff ~/f250-data/<a>-candump ~/f250-data/<b>-candump
 ```
+
+A log argument is a `candump` file or a capture folder (every `candump*.log`
+in it, in name order, as one log).
 
 - `census`: every ID's rate, period, jitter, length and which bytes change,
   plus any silence over 1 s.
@@ -193,6 +220,11 @@ target/release/can-monitor correlate ~/f250-data/<date>-candump/candump-*.log --
   ID against that PID and lists the best fits as `pid ≈ slope × raw +
   intercept` with the correlation `r`. `--field 215:0:u16be` fits only the
   fields you name; `--responder 7E8` picks one module when two answer.
+- `csv`: one row per frame (time since the first frame, the Pi's wall time,
+  ID, length, the data, and each byte in its own column), or with `--pids`
+  one row per decoded PID answer with its unit and the definition's
+  provenance. To standard output.
+- `diff A B`: see [Event captures](#event-captures-reverse-and-brake).
 
 Correlation needs PID answers **in the same log**. Record them with the MX+
 on the Y-splitter, polling, while the CAN adapter listens:

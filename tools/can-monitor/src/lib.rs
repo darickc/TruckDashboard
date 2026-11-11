@@ -5,6 +5,9 @@
 //! - [`pids`]: OBD answers on the wire (`7E8`–`7EF`), decoded with the
 //!   signal registry (`shared/signals`), plus what the tester sent.
 //! - [`correlate`]: fits broadcast byte fields against a decoded PID.
+//! - [`csv`]: frames or decoded PID answers as CSV.
+//! - [`diff`]: two captures compared, for the event captures (brake,
+//!   reverse): bits that flip, bytes whose values differ.
 //!
 //! The intended capture is listen-only, with the MX+ polling through a
 //! Y-splitter: its requests and the modules' answers are frames on the same
@@ -17,4 +20,6 @@
 pub mod candump;
 pub mod census;
 pub mod correlate;
+pub mod csv;
+pub mod diff;
 pub mod pids;

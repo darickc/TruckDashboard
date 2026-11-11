@@ -147,11 +147,16 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
       The "dropouts" were the Pi's wall clock jumping forward after boot (no RTC battery), not lost frames;
       capture now checks the wall clock against the monotonic one. Wiring signed off (5V terminal
       unconnected, 2026-11-07). Still open: the loopback test, [docs/setup/can.md](setup/can.md)
-- [ ] 4.2 `tools/can-monitor`
+- [x] 4.2 `tools/can-monitor`
       Capture side is `tools/pi/can.sh` (listen-only, bitrate, candump with error frames, counters, gap report).
       Analysis `[SIM]`: `tools/can-monitor census|pids|correlate` reads candump logs, decodes PID answers with
       the signal registry and fits broadcast fields against them; tested on synthetic logs and run on the truck
-      captures. Still open: bounded capture files, CSV export, a two-capture diff
+      captures. Finished `[SIM]` 2026-11-11: bounded captures (`candump -L` through a FIFO into
+      `candump-part-NNNNN.log` of `CAPTURE_PART_MB`, oldest parts deleted past `CAPTURE_MAX_MB` and listed in
+      `pruned.txt`, a stop below `CAPTURE_MIN_FREE_MB` free; run in a Linux container with a stand-in candump,
+      the splitter checked by `make agl-test`; not yet on the Pi), every command reads a capture folder's parts as
+      one log, `csv` (frames, or decoded PID answers with provenance) and `diff A B` (bits that flip, bytes whose
+      values differ, rates, IDs in one capture only: for the 4.3 event captures)
 - [ ] 4.3 Stage A: passive census on the truck, plus the reverse/brake event captures (H14)
       Captures at key on, idle and driving `[TRUCK]`: the same 14 IDs, 712 frames/s, no errors; `4FF`
       carries the VIN (check digit validates). Candidates: reverse/gear (`230`, `420`), brake (`440`), RPM

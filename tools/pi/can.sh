@@ -8,6 +8,7 @@
 #   tools/pi/can.sh active            # 500 kbit/s, normal mode: needed for TRANSPORT=can TRANSMIT=1
 #   tools/pi/can.sh down
 #   tools/pi/can.sh capture [SECONDS] # candump of every frame and error frame, with counters
+#   tools/pi/can.sh split-frames DIR  # candump -L lines on stdin into DIR's bounded parts (capture uses it)
 #   tools/pi/can.sh flash             # put Candlelight 2.5 (gs_usb) firmware on the adapter
 #
 # Options: CAN_IF (default can0), BITRATE (default 500000, the truck's HS-CAN:
@@ -15,6 +16,14 @@
 # CAPTURE_DIR (capture only: write there instead of a new dated folder; how
 # `make pi-run CAPTURE=1` puts the capture inside its session), BOARD (flash
 # only: multiboard, the default, or jhoinrch).
+#
+# Capture bounds (examples to tune; a capture never fills the card):
+#   CAPTURE_PART_MB      each part file, candump-part-NNNNN.log (default 64,
+#                        about 14 min of driving at ~270 MB/h)
+#   CAPTURE_MAX_MB       all parts together: the oldest part is deleted to
+#                        make room, and listed in pruned.txt (default 2048)
+#   CAPTURE_MIN_FREE_MB  the capture stops when the folder's filesystem has
+#                        less free than this, and says so (default 1024)
 #
 # Listen-only is the default and the first step on the truck (ADR-0007): in
 # that mode the controller sends no ACKs and no error frames, so a wrong
@@ -49,12 +58,61 @@ BOARD="${BOARD:-multiboard}"
 #               STM32G431 CANable 2.0. The default.
 #   jhoinrch:   for RH-02 boards with a 25 MHz crystal (fitted "since 2026",
 #               per the firmware's manual). Only if you can see the crystal.
+CAPTURE_PART_MB="${CAPTURE_PART_MB:-64}"
+CAPTURE_MAX_MB="${CAPTURE_MAX_MB:-2048}"
+CAPTURE_MIN_FREE_MB="${CAPTURE_MIN_FREE_MB:-1024}"
+
 FW_COMMIT=12aa9fa1210757923507f6d390f7f909049f4e84
 FW_URL="https://raw.githubusercontent.com/Elmue/CANable-2.5-firmware-Slcan-and-Candlelight/$FW_COMMIT/Binary%20Files"
 
 say()  { printf '\033[1m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33mWARN: %s\033[0m\n' "$*"; }
 die()  { printf '\033[31m%s\033[0m\n' "$*"; exit 1; }
+
+# candump -L lines on stdin into DIR/candump-part-NNNNN.log, each at most
+# CAPTURE_PART_MB and never splitting a line. Before a new part starts, the
+# oldest parts are deleted until the kept ones plus a full new part fit in
+# CAPTURE_MAX_MB; each deletion is a line in DIR/pruned.txt. Every line is
+# flushed, so a power cut loses at most the line being written. Plain text
+# in, files out: it runs anywhere (make agl-test checks it on the Mac).
+split_frames() {
+  local dir="$1"
+  [[ -d "$dir" ]] || die "split-frames: no folder $dir"
+  [[ "$dir" != *"'"* ]] || die "split-frames: a quote in the folder name"
+  awk -v dir="$dir" -v part_mb="$CAPTURE_PART_MB" -v max_mb="$CAPTURE_MAX_MB" '
+    function part(i) { return sprintf("%s/candump-part-%05d.log", dir, i) }
+    function prune(  f) {
+      while (first < n && kept + part_bytes > max_bytes) {
+        f = part(first)
+        system("rm -f -- \047" f "\047")
+        kept -= size[first]
+        printf "%s %d bytes (CAPTURE_MAX_MB %s)\n", f, size[first], max_mb >> (dir "/pruned.txt")
+        close(dir "/pruned.txt")
+        first++
+      }
+    }
+    BEGIN {
+      part_bytes = part_mb * 1048576; max_bytes = max_mb * 1048576
+      if (part_bytes < 1 || max_bytes < 1) { print "split-frames: bad sizes" > "/dev/stderr"; exit 2 }
+      n = 0; first = 0; kept = 0; bytes = 0; cur = part(0)
+    }
+    {
+      len = length($0) + 1
+      if (bytes > 0 && bytes + len > part_bytes) {
+        close(cur); size[n] = bytes; kept += bytes; n++; bytes = 0; cur = part(n)
+        prune()
+      }
+      print > cur
+      fflush(cur)
+      bytes += len
+    }'
+}
+
+if [[ "${1:-}" == split-frames ]]; then
+  [[ $# -eq 2 ]] || die "usage: can.sh split-frames DIR < candump-lines"
+  split_frames "$2"
+  exit
+fi
 
 [[ "$(uname -s)" == Linux ]] || die "can.sh runs on the Pi (Linux)"
 
@@ -168,15 +226,18 @@ case "${1:-status}" in
     secs="${2:-0}"
     dir="${CAPTURE_DIR:-$DATA_DIR/$(date +%Y%m%d-%H%M%S)-candump}"
     mkdir -p "$dir"
+    dir="$(cd "$dir" && pwd)"   # absolute: the splitter runs after the cd below
     {
       echo "started:   $(date -Iseconds)"
       echo "interface: $CAN_IF, driver $(driver_of)"
+      echo "bounds:    parts of $CAPTURE_PART_MB MB, $CAPTURE_MAX_MB MB in all (oldest deleted first, see pruned.txt), stop below $CAPTURE_MIN_FREE_MB MB free"
       echo "--- before"; details
     } >"$dir/session.txt"
     grep -q LISTEN-ONLY "$dir/session.txt" || warn "$CAN_IF is NOT listen-only (recorded in session.txt)"
     say "Capturing $CAN_IF to $dir $([[ "$secs" -gt 0 ]] && echo "for $secs s" || echo "until Ctrl-C")"
     # 0:0 passes every data frame; #FFFFFFFF passes every error class.
-    # candump -l writes candump-<date>.log (timestamps, ID#data) in the cwd.
+    # candump -L writes the log format ("(time) can0 ID#data") to a FIFO, and
+    # split_frames cuts it into bounded parts (candump-part-NNNNN.log).
     # Alongside the frames: kernel messages, and the interface's counters every
     # 5 s with the uptime (the monotonic clock). A silence in the frame times
     # can then be told apart:
@@ -201,8 +262,14 @@ case "${1:-status}" in
     ) >"$dir/counters.log" 2>&1 &
     cpid=$!
     finish() {
-      kill "$jpid" "$cpid" 2>/dev/null || true
-      wait "$jpid" "$cpid" 2>/dev/null || true
+      # Grouped, so bash's "Terminated" notices for these helpers go nowhere.
+      {
+        kill "$jpid" "$cpid" "${wpid:-}" || true
+        wait "$jpid" "$cpid" "${wpid:-}" || true
+      } 2>/dev/null
+      # candump has stopped, so the splitter has its end of file.
+      wait "${spid:-}" 2>/dev/null || true
+      rm -f "$dir/.frames"
       # Silences over 1 s in the frame log (candump: "(epoch.usec) can0 ID#DATA").
       gaps="$(awk '{ t = substr($1, 2, length($1) - 2) + 0
                      if (n++ && t - p > 1) printf "  %.1f s with no frames, from +%.1f s\n", t - p, p - t0
@@ -218,8 +285,16 @@ case "${1:-status}" in
         else
           echo "clock:     no wall-clock jump"
         fi
+        if [[ -s "$dir/pruned.txt" ]]; then
+          echo "pruned:    $(wc -l <"$dir/pruned.txt") oldest part(s) deleted to stay under $CAPTURE_MAX_MB MB (pruned.txt): the capture's start is gone"
+        fi
+        [[ -s "$dir/.low-space" ]] && echo "low space: $(cat "$dir/.low-space")"
         echo "stopped:   $(date -Iseconds)"
       } >>"$dir/session.txt"
+      if [[ -s "$dir/.low-space" ]]; then
+        warn "$(cat "$dir/.low-space")"
+        rm -f "$dir/.low-space"
+      fi
       if [[ -n "$jump" ]]; then
         warn "the wall clock jumped $jump s during the capture: frame times have a gap that size (no frames lost)"
       elif [[ -n "$gaps" ]]; then
@@ -235,12 +310,27 @@ case "${1:-status}" in
     # foreground command returns, and `wait` returns as soon as a signal
     # arrives. The trap stops candump, which closes its log; `finish` then
     # records the counters. Ctrl-C in a terminal reaches candump directly.
+    rm -f .frames; mkfifo .frames
+    split_frames "$dir" <.frames &
+    spid=$!
     if [[ "$secs" -gt 0 ]]; then
-      timeout "$secs" candump -l "$CAN_IF,0:0,#FFFFFFFF" &
+      timeout "$secs" candump -L "$CAN_IF,0:0,#FFFFFFFF" >.frames &
     else
-      candump -l "$CAN_IF,0:0,#FFFFFFFF" &
+      candump -L "$CAN_IF,0:0,#FFFFFFFF" >.frames &
     fi
     dpid=$!
+    # Free space: stop rather than fill the card.
+    (
+      while sleep 5; do
+        free_mb="$(df -Pk "$dir" | awk 'NR == 2 { printf "%d", $4 / 1024 }')"
+        if [[ -n "$free_mb" && "$free_mb" -lt "$CAPTURE_MIN_FREE_MB" ]]; then
+          echo "capture stopped: $free_mb MB free, under CAPTURE_MIN_FREE_MB ($CAPTURE_MIN_FREE_MB)" >"$dir/.low-space"
+          kill -TERM "$dpid" 2>/dev/null
+          break
+        fi
+      done
+    ) &
+    wpid=$!
     trap 'kill -TERM "$dpid" 2>/dev/null || true' INT TERM
     wait "$dpid" || true
     wait "$dpid" 2>/dev/null || true

@@ -12,7 +12,8 @@
 #                        ~712/s driving, CAN_CENSUS.md capture 3)
 #   CAN_AUTO_CAPTURE=1   once active, also capture every frame (f250-can
 #                        capture) into /var/lib/f250/captures until shutdown:
-#                        on the SD card, ~270 MB an hour at 712 frames/s
+#                        on the SD card, ~270 MB an hour at 712 frames/s,
+#                        bounded by CAPTURE_PART_MB/MAX_MB/MIN_FREE_MB
 #
 # "Clean" means, over the whole window, in listen-only (the adapter sends no
 # ACK and no error frame, so a wrong bitrate or bad wiring can't disturb the

@@ -19,9 +19,18 @@ CAN_IF=can0
 #            decision 1, amended 2026-11-10). Needs TRANSMIT=1 to poll, and the
 #            wiring checklist signed off.
 # CAN_AUTO_CAPTURE  1: once active, also capture every frame until shutdown,
-#            into /var/lib/f250/captures (SD card, ~270 MB an hour)
+#            into /var/lib/f250/captures (SD card, ~270 MB an hour, bounded
+#            by the CAPTURE_* settings below)
+# CAPTURE_PART_MB, CAPTURE_MAX_MB, CAPTURE_MIN_FREE_MB  every capture's
+#            bounds (f250-can capture): parts of 64 MB, 2048 MB in all (the
+#            oldest part is deleted first, listed in the capture's
+#            pruned.txt), and the capture stops below 1024 MB free. Empty:
+#            those defaults, examples to tune for the card.
 CAN_AUTO_ACTIVE=0
 CAN_AUTO_CAPTURE=0
+CAPTURE_PART_MB=
+CAPTURE_MAX_MB=
+CAPTURE_MIN_FREE_MB=
 CAN_AUTO_LISTEN_S=
 CAN_AUTO_MIN_FRAMES=
 # PINNED     can only. physical (empty: the default): EOT goes to 7E0 and trans
