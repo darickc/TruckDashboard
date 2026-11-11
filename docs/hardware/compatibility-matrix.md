@@ -273,6 +273,8 @@ Researched 2026-11-10 for front and rear recording
 | Two UVC webcams on one RP1 USB 2 bus | C920 1080p MJPEG and C250 640×480 MJPEG at the same time: both 30 fps, ~98 Mbit/s together, no "No space left on device" | T | [bench-log](bench-log.md) 2026-11-10 |
 | MJPEG decode on the Pi 5 (`jpegdec`) | 1080p30 about 42 % of one core, 720p30 about 32 %, 640×480 about 5 %; recording MJPEG without decoding about 0.1 % | T | [bench-log](bench-log.md) 2026-11-10 |
 | Recording plugins on our image | `matroska` and `multifile` (`splitmuxsink`) are not in the `6114c52` manifest; no `x264enc` either | V | `agl-f250-22.0.1-6114c52.manifest` |
+| gstreamer-rs 0.25 (camera-manager's `gstreamer` feature) | Builds against GStreamer 1.22 (Debian bookworm, `make deploy`'s arm64 build) and 1.26 (`rust:1`, `make linux-test`); recording, display and read-back tests pass on 1.26 with `videotestsrc`. Needs Rust ≥ 1.92. Against the image's 1.28.5: not run | T (Docker) / U (Pi) | `make linux-test`, 2026-11-10 |
+| `matroskamux` `max-cluster-duration` | Present on 1.26.2: Integer64 ns, default 65 535 000 000 (65.5 s); `min-cluster-duration` default 0.5 s. On 1.28.5: UNVERIFIED | T (1.26) / U | `gst-inspect-1.0 matroskamux`, Docker, 2026-11-10 |
 
 ## 2007 F-250 6.0L diagnostic network
 

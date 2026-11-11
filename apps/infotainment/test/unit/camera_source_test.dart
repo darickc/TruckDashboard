@@ -7,6 +7,7 @@ import 'package:f250_infotainment/cameras/simulated_camera_source.dart';
 import 'package:f250_infotainment/data/gateway_connection.dart';
 import 'package:f250_infotainment/gen/f250/camera/v1/camera.pbgrpc.dart' as pb;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fixnum/fixnum.dart';
 import 'package:grpc/grpc.dart' as grpc;
 
 /// A stand-in camera-manager: streams the views the test pushes and records
@@ -25,6 +26,33 @@ class FakeCameraManager extends pb.CameraServiceBase {
   Stream<pb.WatchViewResponse> watchView(grpc.ServiceCall call, pb.WatchViewRequest request) async* {
     yield pb.WatchViewResponse(view: current);
     yield* views.stream;
+  }
+
+  var recordings = StreamController<pb.WatchRecordingResponse>.broadcast();
+  pb.Recording recordingNow = pb.Recording();
+  final saveSources = <String>[];
+  pb.SaveClipResponse saveAnswer = pb.SaveClipResponse(saved: true, segmentsProtected: 2, segmentsToCome: 4);
+
+  /// A camera-manager from before WatchRecording.
+  bool recordingUnimplemented = false;
+
+  void record(pb.Recording r) {
+    recordingNow = r;
+    recordings.add(pb.WatchRecordingResponse(recording: r));
+  }
+
+  @override
+  Stream<pb.WatchRecordingResponse> watchRecording(
+      grpc.ServiceCall call, pb.WatchRecordingRequest request) async* {
+    if (recordingUnimplemented) throw const grpc.GrpcError.unimplemented('no WatchRecording');
+    yield pb.WatchRecordingResponse(recording: recordingNow);
+    yield* recordings.stream;
+  }
+
+  @override
+  Future<pb.SaveClipResponse> saveClip(grpc.ServiceCall call, pb.SaveClipRequest request) async {
+    saveSources.add(request.source);
+    return saveAnswer;
   }
 
   @override
@@ -112,7 +140,119 @@ void main() {
     // its connection.
     src.stop();
     await fake.views.close();
+    await fake.recordings.close();
     await server.shutdown().timeout(const Duration(seconds: 5));
+  });
+
+  test('recording arrives with the view, save clip is sent, and a lost link drops both', () async {
+    final fake = FakeCameraManager()
+      ..recordingNow = pb.Recording(
+          cameras: [
+            pb.CameraRecording(
+                camera: pb.Camera.CAMERA_FRONT,
+                state: pb.RecordingState.RECORDING_STATE_RECORDING,
+                segment: 'b00007-s000003.mkv'),
+            pb.CameraRecording(
+                camera: pb.Camera.CAMERA_REAR,
+                state: pb.RecordingState.RECORDING_STATE_NOT_RECORDING,
+                detail: 'no frames'),
+          ],
+          driveMounted: true,
+          driveFreeBytes: Int64(300000000000),
+          protectedMaxBytes: Int64(25000000000),
+          clockTrusted: true);
+    final server = await serve(fake, path);
+    final src = GrpcCameraSource(
+        endpoint: UnixEndpoint(path), retryDelay: const Duration(milliseconds: 100))
+      ..start();
+
+    var s = await until(src, (s) => s.recording != null);
+    expect(s.link, CameraLink.up);
+    final r = s.recording!;
+    expect(r.records(CameraId.front), isTrue);
+    expect(r.records(CameraId.rear), isFalse);
+    expect(r.cameras.last,
+        const CameraRecording(camera: CameraId.rear, state: RecordingState.notRecording, detail: 'no frames'));
+    expect(r.driveFreeBytes, 300000000000);
+
+    final saved = await src.saveClip();
+    expect(saved.saved, isTrue);
+    expect(saved.segmentsToCome, 4);
+    expect(fake.saveSources.single, 'dashboard');
+    fake.saveAnswer = pb.SaveClipResponse(saved: false, detail: 'saved clips are full');
+    expect((await src.saveClip()).detail, 'saved clips are full');
+
+    fake.record(pb.Recording());
+    s = await until(src, (s) => s.recording?.isOff ?? false);
+
+    // The recording stream failing drops the link: nothing is claimed.
+    fake.recordings.addError(const grpc.GrpcError.unavailable('stopping'));
+    s = await until(src, (s) => s.link == CameraLink.down);
+    expect(s.recording, isNull);
+    s = await until(src, (s) => s.link == CameraLink.up && s.recording != null);
+
+    src.stop();
+    await fake.views.close();
+    await fake.recordings.close();
+    await server.shutdown().timeout(const Duration(seconds: 5));
+  });
+
+  test('a camera-manager without WatchRecording keeps the view, with no recording', () async {
+    final fake = FakeCameraManager()..recordingUnimplemented = true;
+    final server = await serve(fake, path);
+    final src = GrpcCameraSource(
+        endpoint: UnixEndpoint(path), retryDelay: const Duration(milliseconds: 100))
+      ..start();
+    final s = await until(src, (s) => s.link == CameraLink.up);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    expect(src.status.value.link, CameraLink.up);
+    expect(s.recording, isNull);
+    src.stop();
+    await fake.views.close();
+    await fake.recordings.close();
+    await server.shutdown().timeout(const Duration(seconds: 5));
+  });
+
+  test('recording maps from the API; unknown states are never recording', () {
+    expect(recordingFromPb(pb.Recording()), RecordingStatus.off);
+    final r = recordingFromPb(pb.Recording(cameras: [
+      pb.CameraRecording(camera: pb.Camera.CAMERA_FRONT, state: pb.RecordingState.RECORDING_STATE_STARTING),
+      pb.CameraRecording(camera: pb.Camera.CAMERA_REAR),
+      pb.CameraRecording(
+          camera: pb.Camera.CAMERA_UNSPECIFIED, state: pb.RecordingState.RECORDING_STATE_RECORDING),
+    ], problem: 'drive full', clipSegmentsPending: 3));
+    expect(r.cameras[0].state, RecordingState.starting);
+    expect(r.cameras[1].state, RecordingState.notRecording, reason: 'unspecified');
+    expect(r.cameras[1].detail, 'unknown recording state');
+    expect(r.cameras[2].camera, isNull);
+    expect(r.problem, 'drive full');
+    expect(r.clipSegmentsPending, 3);
+    final c = saveClipFromPb(pb.SaveClipResponse(saved: true, detail: 'x', segmentsProtected: 1, segmentsToCome: 2));
+    expect((c.saved, c.detail, c.segmentsProtected, c.segmentsToCome), (true, 'x', 1, 2));
+  });
+
+  test('the simulation records front and rear, and saves nothing', () async {
+    final sim = SimulatedCameraSource();
+    var r = sim.status.value.recording!;
+    expect(r.records(CameraId.front) && r.records(CameraId.rear), isTrue);
+    expect(sim.status.value.simulated, isTrue);
+    final saved = await sim.saveClip();
+    expect(saved.saved, isTrue);
+    expect(saved.detail, startsWith('SIMULATED'));
+
+    sim.setRecording(CameraId.rear, RecordingState.notRecording, detail: 'no frames');
+    r = sim.status.value.recording!;
+    expect(r.records(CameraId.rear), isFalse);
+    expect(r.cameras.last.detail, 'no frames');
+    // A move keeps the recording state.
+    await sim.move(SwitchMove.left);
+    expect(sim.status.value.recording, r);
+
+    sim.setRecording(CameraId.front, RecordingState.notRecording);
+    expect((await sim.saveClip()).saved, isFalse);
+    sim.saveClipRefusal = 'saved clips are full';
+    expect((await sim.saveClip()).detail, 'saved clips are full');
+    sim.stop();
   });
 
   test('a move without camera-manager fails, it never hangs', () async {
@@ -121,6 +261,7 @@ void main() {
     addTearDown(src.stop);
     await until(src, (s) => s.link == CameraLink.down);
     await expectLater(src.move(SwitchMove.left), throwsA(anything));
+    await expectLater(src.saveClip(), throwsA(anything));
   });
 
   test('views map from the API, unknown values read as no camera', () {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../cameras/camera_state.dart';
 import '../app_scope.dart';
+import '../banner_alerts.dart';
 import '../screens/cameras_screen.dart';
 import '../screens/diagnostics_screen.dart';
 import '../screens/gauges_screen.dart';
@@ -61,29 +62,29 @@ class _AppShellState extends State<AppShell> {
         valueListenable: s.cameras.status,
         builder: (context, cameras, _) {
           final view = cameras.view;
-          if (cameras.camera != null && view != null) return _cameraMode(s, view, cameras.simulated);
+          if (cameras.camera != null && view != null) return _cameraMode(s, view, cameras);
           return _screens(s);
         },
       ),
     );
   }
 
-  Widget _cameraMode(AppServices s, CameraView view, bool simulated) {
+  Widget _cameraMode(AppServices s, CameraView view, CameraStatus cameras) {
     return Column(children: [
       // Always 44 high, so the camera area stays where the compositor puts
       // the window: an alert takes the status bar's place, never moves it.
       SizedBox(
         height: kStatusBarHeight,
         child: ListenableBuilder(
-          listenable: s.store,
+          listenable: Listenable.merge([s.store, s.cameras.status]),
           builder: (context, _) =>
-              s.store.alerts.isEmpty ? const StatusBar() : const AlertBanner(compact: true),
+              bannerAlerts(s).isEmpty ? const StatusBar() : const AlertBanner(compact: true),
         ),
       ),
       Expanded(
         child: Row(children: [
-          CameraControls(view: view),
-          Expanded(child: CameraArea(view: view, simulated: simulated)),
+          CameraControls(view: view, recording: cameras.recording, simulated: cameras.simulated),
+          Expanded(child: CameraArea(view: view, simulated: cameras.simulated)),
         ]),
       ),
     ]);

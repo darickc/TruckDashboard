@@ -70,6 +70,10 @@ void main() {
 
     await _until(() => src.status.value.link == CameraLink.up);
     expect(src.status.value.camera, isNull);
+    // Nothing here records (no drive, no recording configured): whatever
+    // camera-manager says about recording, no camera is claimed as recording.
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(src.status.value.recording?.inState(RecordingState.recording) ?? const [], isEmpty);
 
     await src.move(SwitchMove.back);
     await _until(() => src.status.value.view?.feed == FeedState.live);

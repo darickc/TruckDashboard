@@ -134,7 +134,7 @@ x86_64 PC. See
 | [`apps/infotainment/`](apps/infotainment/README.md) | Flutter touchscreen UI |
 | [`simulator/powerstroke/`](simulator/powerstroke/README.md) | Scenario simulator and scenario files |
 | `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto`, `sd-notify` (systemd readiness and watchdog), `camera-policy` (which camera shows), `recording` (dashcam retention and saved clips) |
-| `services/` | `vehicle-gateway`, `recorder`, `power-manager`, `camera-manager` (the camera on screen, `f250.camera.v1`) |
+| `services/` | `vehicle-gateway`, `recorder`, `power-manager`, `camera-manager` (the camera on screen, front and rear recording, `f250.camera.v1`) |
 | `tools/obd-console/` | Diagnostics console for the gateway |
 | [`shared/proto/`](shared/proto/f250/vehicle/v1/vehicle.proto) | Versioned gRPC API |
 | [`agl/`](agl/README.md) | AGL Stage 1: release pin, boot config, files and scripts installed on the Pi. `meta-f250` comes in Phase 5.4 |

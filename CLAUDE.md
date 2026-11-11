@@ -101,7 +101,7 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make ui` / `make ui-macos-build` | Dashboard as a macOS window / just build it (needs Xcode; the Makefile sets `DEVELOPER_DIR` if `xcode-select` points at the Command Line Tools) |
 
 Also: `make proto` (regenerate the Dart gRPC client) and `make linux-test` (Rust
-in Docker, including the RFCOMM build). AGL: `make agl-image`, `make deploy PI=<host>`
+in Docker, including the RFCOMM build and camera-manager's GStreamer tests). AGL: `make agl-image`, `make deploy PI=<host>`
 (`deploy-build` to build only), `make logs PI=<host>`, `make agl-test`; see
 [docs/setup/agl.md](docs/setup/agl.md). Yocto builds: `make build-vm` (a Lima VM
 kept entirely in `~/agl-build-vm`) and `make agl-build`;

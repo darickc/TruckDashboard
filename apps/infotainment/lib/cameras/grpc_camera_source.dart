@@ -11,9 +11,13 @@ import 'camera_state.dart';
 CameraSource createGrpcCameraSource(GatewayEndpoint endpoint) =>
     GrpcCameraSource(endpoint: endpoint);
 
-/// camera-manager's view over gRPC (`WatchView`), and moves (`Move`).
+/// camera-manager's view over gRPC (`WatchView`), its recording state
+/// (`WatchRecording`), moves (`Move`) and "save clip" (`SaveClip`).
 /// Reconnects on its own. While there is no stream, the status says so and
-/// carries no view: the dashboard never claims a camera it can't confirm.
+/// carries no view and no recording: the dashboard never claims a camera or
+/// a recording it can't confirm. Either stream failing drops both and
+/// reconnects; a camera-manager that doesn't serve `WatchRecording`
+/// (UNIMPLEMENTED, an older build) keeps the view, with no recording.
 class GrpcCameraSource implements CameraSource {
   GrpcCameraSource({
     required this.endpoint,
@@ -28,6 +32,9 @@ class GrpcCameraSource implements CameraSource {
   ClientChannel? _channel;
   pb.CameraServiceClient? _client;
   StreamSubscription<pb.WatchViewResponse>? _stream;
+  StreamSubscription<pb.WatchRecordingResponse>? _recStream;
+  CameraView? _view;
+  RecordingStatus? _recording;
   Timer? _retry;
   bool _running = false;
 
@@ -56,8 +63,10 @@ class GrpcCameraSource implements CameraSource {
     _running = false;
     _retry?.cancel();
     _stream?.cancel();
+    _recStream?.cancel();
     _channel?.shutdown();
     _stream = null;
+    _recStream = null;
     _channel = null;
     _client = null;
   }
@@ -72,19 +81,63 @@ class GrpcCameraSource implements CameraSource {
     return viewFromPb(r.view);
   }
 
+  @override
+  Future<SaveClipResult> saveClip() async {
+    final client = _client;
+    if (client == null) throw StateError('camera-manager not connected');
+    final r = await client.saveClip(pb.SaveClipRequest(source: 'dashboard'),
+        options: CallOptions(timeout: callTimeout));
+    return saveClipFromPb(r);
+  }
+
   void _connect() {
     final client = _client;
     if (!_running || client == null) return;
+    _view = null;
+    _recording = null;
     _stream = client.watchView(pb.WatchViewRequest()).listen(
-      (r) => _status.value = CameraStatus(link: CameraLink.up, view: viewFromPb(r.view)),
+      (r) {
+        _view = viewFromPb(r.view);
+        _publish();
+      },
       onError: (Object e) => _down(e is GrpcError ? (e.message ?? e.codeName) : '$e'),
       onDone: () => _down('camera-manager ended the stream'),
     );
+    _recStream = client.watchRecording(pb.WatchRecordingRequest()).listen(
+      (r) {
+        _recording = recordingFromPb(r.recording);
+        _publish();
+      },
+      onError: (Object e) {
+        if (e is GrpcError && e.code == StatusCode.unimplemented) {
+          // An older camera-manager: no recording to report, the view stands.
+          _recStream = null;
+          _recording = null;
+          _publish();
+          return;
+        }
+        _down(e is GrpcError ? (e.message ?? e.codeName) : '$e');
+      },
+      onDone: () {
+        if (_recStream != null) _down('camera-manager ended the recording stream');
+      },
+    );
+  }
+
+  /// Up only once the view has arrived; the recording rides along.
+  void _publish() {
+    final view = _view;
+    if (view == null) return;
+    _status.value = CameraStatus(link: CameraLink.up, view: view, recording: _recording);
   }
 
   void _down(String why) {
     _stream?.cancel();
     _stream = null;
+    _recStream?.cancel();
+    _recStream = null;
+    _view = null;
+    _recording = null;
     if (!_running) return;
     _status.value = CameraStatus(link: CameraLink.down, detail: why);
     _retry?.cancel();
@@ -103,13 +156,7 @@ pb.SwitchMove switchMoveToPb(SwitchMove m) => switch (m) {
 /// camera-manager's view as the dashboard's model. Unknown enum values (a
 /// newer camera-manager) read as "no camera" rather than a guess.
 CameraView viewFromPb(pb.View v) {
-  final camera = switch (v.camera) {
-    pb.Camera.CAMERA_LEFT => CameraId.left,
-    pb.Camera.CAMERA_RIGHT => CameraId.right,
-    pb.Camera.CAMERA_REAR => CameraId.rear,
-    pb.Camera.CAMERA_FRONT => CameraId.front,
-    _ => null,
-  };
+  final camera = _cameraFromPb(v.camera);
   return CameraView(
     camera: camera,
     reason: camera == null
@@ -136,3 +183,53 @@ CameraView viewFromPb(pb.View v) {
     blockedBySpeed: v.blockedBySpeed,
   );
 }
+
+RecordingState _stateFromPb(pb.RecordingState s) => switch (s) {
+      pb.RecordingState.RECORDING_STATE_STARTING => RecordingState.starting,
+      pb.RecordingState.RECORDING_STATE_RECORDING => RecordingState.recording,
+      // NOT_RECORDING, unspecified and anything newer: never claimed as
+      // recording.
+      _ => RecordingState.notRecording,
+    };
+
+CameraId? _cameraFromPb(pb.Camera c) => switch (c) {
+      pb.Camera.CAMERA_LEFT => CameraId.left,
+      pb.Camera.CAMERA_RIGHT => CameraId.right,
+      pb.Camera.CAMERA_REAR => CameraId.rear,
+      pb.Camera.CAMERA_FRONT => CameraId.front,
+      _ => null,
+    };
+
+/// camera-manager's recording state as the dashboard's model. An unknown
+/// state reads as not recording (with a detail saying so if there is none).
+RecordingStatus recordingFromPb(pb.Recording r) => RecordingStatus(
+      cameras: [
+        for (final c in r.cameras)
+          CameraRecording(
+            camera: _cameraFromPb(c.camera),
+            state: _stateFromPb(c.state),
+            detail: c.detail.isEmpty &&
+                    c.state != pb.RecordingState.RECORDING_STATE_RECORDING &&
+                    c.state != pb.RecordingState.RECORDING_STATE_STARTING &&
+                    c.state != pb.RecordingState.RECORDING_STATE_NOT_RECORDING
+                ? 'unknown recording state'
+                : c.detail,
+            segment: c.segment,
+          ),
+      ],
+      driveMounted: r.driveMounted,
+      driveFreeBytes: r.driveFreeBytes.toInt(),
+      recordedBytes: r.recordedBytes.toInt(),
+      protectedBytes: r.protectedBytes.toInt(),
+      protectedMaxBytes: r.protectedMaxBytes.toInt(),
+      clipSegmentsPending: r.clipSegmentsPending,
+      clockTrusted: r.clockTrusted,
+      problem: r.problem,
+    );
+
+SaveClipResult saveClipFromPb(pb.SaveClipResponse r) => SaveClipResult(
+      saved: r.saved,
+      detail: r.detail,
+      segmentsProtected: r.segmentsProtected,
+      segmentsToCome: r.segmentsToCome,
+    );

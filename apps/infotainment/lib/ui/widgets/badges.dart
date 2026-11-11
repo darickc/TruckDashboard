@@ -22,6 +22,7 @@ class Pill extends StatelessWidget {
       child: Text(
         text,
         maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,

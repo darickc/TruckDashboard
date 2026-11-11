@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
-import '../presentation.dart';
+import '../banner_alerts.dart';
 import '../shell/status_bar.dart';
 import '../theme.dart';
 import '../widgets/gauge_tile.dart';
@@ -106,14 +106,14 @@ class _HealthPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge([s.store, s.settings]),
+      listenable: Listenable.merge([s.store, s.settings, s.cameras.status]),
       builder: (context, _) {
         final p = Palette.of(context);
         final store = s.store;
         final enabled = store.ordered.where((x) => x.def.enabled && !x.def.isComputed);
         final current = enabled.where((x) => x.isValid).length;
         final link = store.link;
-        final alerts = store.alerts;
+        final alerts = bannerAlerts(s);
         return Panel(
           title: 'Vehicle health',
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -133,7 +133,7 @@ class _HealthPanel extends StatelessWidget {
             Text(
                 alerts.isEmpty
                     ? 'No alerts'
-                    : describeAlert(alerts.first, store, s.settings.units).$1 +
+                    : alerts.first.title +
                         (alerts.length > 1 ? '  (+${alerts.length - 1})' : ''),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

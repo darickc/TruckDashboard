@@ -45,6 +45,38 @@ List<Widget> _cameraChip(CameraStatus c, Palette p) {
   return [Pill(text, key: const ValueKey('camera-chip'), color: color), const SizedBox(width: 10)];
 }
 
+/// Recording (ADR-0027 decision 9), only as camera-manager reports it: the
+/// recorded cameras that are recording ("REC FRONT REAR"), or, if any camera
+/// set to record isn't, which ("NOT RECORDING: REAR") in the advisory
+/// colour. "SIM" in front of either with the simulated source. Nothing
+/// without camera-manager or with recording off: then a spacer, which keeps
+/// the clock at the right edge.
+List<Widget> _recordingChip(CameraStatus c, Palette p) {
+  final r = c.recording;
+  if (r == null || r.isOff) return const [Spacer()];
+  String names(Iterable<CameraRecording> cams) =>
+      cams.map((x) => cameraShortName(x.camera).toUpperCase()).join(' ');
+  final sim = c.simulated ? 'SIM ' : '';
+  final down = r.inState(RecordingState.notRecording);
+  final rec = r.inState(RecordingState.recording);
+  final (String text, Color color, bool filled) = down.isNotEmpty
+      ? ('${sim}NOT RECORDING: ${names(down)}', p.advisory, false)
+      : rec.isNotEmpty
+          ? ('${sim}REC ${names(rec)}', c.simulated ? p.simulated : p.critical, !c.simulated)
+          : ('${sim}REC STARTING', p.stale, false);
+  // Right-aligned in three quarters of the space the scenario name and it
+  // share, so it ellipsizes (after "REC") rather than overflow, and the
+  // clock stays at the right edge.
+  return [
+    Expanded(
+        flex: 3,
+        child: Align(
+            alignment: Alignment.centerRight,
+            child: Pill(text, key: const ValueKey('rec-chip'), color: color, filled: filled))),
+    const SizedBox(width: 10),
+  ];
+}
+
 /// Always-visible strip: data source, link health, clock. Nothing here is
 /// tappable; it is for glancing.
 class StatusBar extends StatelessWidget {
@@ -83,12 +115,15 @@ class StatusBar extends StatelessWidget {
             Text('· ${formatAge(s.store.clock.now() - s.store.linkSince)}',
                 style: TextStyle(fontSize: 13, color: p.textDim)),
             const SizedBox(width: 12),
-            Expanded(
+            // Loose: a short name leaves its space blank, so a REC pill
+            // beside it stays right-aligned.
+            Flexible(
               child: Text(source.scenario ?? '',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 13, color: p.textDim)),
             ),
+            ..._recordingChip(s.cameras.status.value, p),
             ..._cameraChip(s.cameras.status.value, p),
             Text(clock,
                 key: const ValueKey('status-clock'),

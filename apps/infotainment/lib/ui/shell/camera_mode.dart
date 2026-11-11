@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../cameras/camera_state.dart';
 import '../app_scope.dart';
 import '../theme.dart';
+import '../widgets/save_clip_button.dart';
 import '../widgets/tap_target.dart';
 
 /// The dashboard while camera-manager shows a camera (ADR-0009). The layout
@@ -88,19 +89,27 @@ class CameraArea extends StatelessWidget {
 
 /// The left column while a camera shows: every camera and Close, sent to
 /// camera-manager as switch moves. They do what the switch does (forward
-/// front, left, back rear, right; press closes). Five buttons over 436 px,
-/// each about 85 px tall.
+/// front, left, back rear, right; press closes). A camera that records shows
+/// a REC dot, and while recording is on, "Save clip" (ADR-0027 decision 8)
+/// is the sixth button. Five buttons over 436 px are about 85 px tall, six
+/// about 72 px.
 class CameraControls extends StatelessWidget {
-  const CameraControls({super.key, required this.view});
+  const CameraControls({super.key, required this.view, this.recording, this.simulated = false});
 
   final CameraView view;
+
+  /// camera-manager's recording state; null or off: no dots, no Save clip.
+  final RecordingStatus? recording;
+  final bool simulated;
 
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final p = Palette.of(context);
 
-    Widget button(String key, String label, IconData icon, SwitchMove move, {bool selected = false}) =>
+    final rec = recording;
+    Widget button(String key, String label, IconData icon, SwitchMove move,
+            {bool selected = false, CameraId? camera}) =>
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 3),
@@ -124,6 +133,14 @@ class CameraControls extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: selected ? p.accent : p.text)),
                   ),
+                  if (camera != null && (rec?.records(camera) ?? false))
+                    Container(
+                      key: ValueKey('camera-rec-dot-${camera.name}'),
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                          color: simulated ? p.simulated : p.critical, shape: BoxShape.circle),
+                    ),
                 ]),
               ),
             ),
@@ -137,13 +154,22 @@ class CameraControls extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(6, 3, 6, 3),
       child: Column(children: [
         button('camera-front', 'Front', Icons.arrow_upward_rounded, SwitchMove.forward,
-            selected: view.camera == CameraId.front),
+            selected: view.camera == CameraId.front, camera: CameraId.front),
         button('camera-left', 'Left', Icons.arrow_back_rounded, SwitchMove.left,
-            selected: view.camera == CameraId.left),
+            selected: view.camera == CameraId.left, camera: CameraId.left),
         button('camera-rear', 'Rear', Icons.arrow_downward_rounded, SwitchMove.back,
-            selected: view.camera == CameraId.rear),
+            selected: view.camera == CameraId.rear, camera: CameraId.rear),
         button('camera-right', 'Right', Icons.arrow_forward_rounded, SwitchMove.right,
-            selected: view.camera == CameraId.right),
+            selected: view.camera == CameraId.right, camera: CameraId.right),
+        if (rec != null && !rec.isOff)
+          const Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 3),
+              child: SizedBox(
+                  width: double.infinity,
+                  child: SaveClipButton(keyPrefix: 'camera-save-clip', compact: true)),
+            ),
+          ),
         button('camera-close', 'Close', Icons.close_rounded, SwitchMove.press),
       ]),
     );

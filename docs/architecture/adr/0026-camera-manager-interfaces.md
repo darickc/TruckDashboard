@@ -5,9 +5,11 @@
   (decision 7), frame counting through `identity` (decision 3, one line per
   frame on GStreamer 1.28.5), the no-frozen-frame rule (decision 4), and
   a stop with a camera live (fixed that day: it hung until SIGKILL).
-  [ADR-0027](0027-front-and-rear-recording.md) (accepted 2026-11-10) will
-  supersede decision 3 and narrow decision 2 to unrecorded cameras once
-  recording is built
+  [ADR-0027](0027-front-and-rear-recording.md) (built `[SIM]` 2026-11-10)
+  supersedes decision 3 in a build with the `gstreamer` feature (in-process
+  pipelines, one capture per camera) and narrows decision 2 to unrecorded
+  cameras. The `gst-launch` children stay as `--media launch` and in builds
+  without GStreamer (the Mac), display only
 - **Date:** 2026-11-09
 - **Builds on:** [ADR-0009](0009-camera-rendering.md) (a camera window in an
   activation area), [ADR-0024](0024-camera-selection-switch-and-can-reverse.md)

@@ -1,11 +1,15 @@
 # ADR 0027 — Front and rear cameras record like a dashcam, kept by retention settings
 
-- **Status:** Accepted (owner, 2026-11-10). Built `[SIM]`: the rules for
-  names, retention and saved clips, and the on-drive store
-  (`crates/recording`, 2026-11-10). Not built: recording itself
-  (decisions 2–5) and its API. Nothing measured: every figure below is an
-  estimate to check on the bench first (see "To measure"). The retention
-  values are recommendations until the drive is chosen (H31)
+- **Status:** Accepted (owner, 2026-11-10). Built `[SIM]` (2026-11-10):
+  the rules for names, retention and saved clips, and the on-drive store
+  (`crates/recording`); recording in camera-manager (decisions 1–10, see
+  "As built"), its API in `f250.camera.v1`, and the dashboard's REC
+  indicator, advisory and Save clip button. Tested against a fake media and
+  with real GStreamer pipelines from `videotestsrc` in Linux (GStreamer
+  1.26, `make linux-test`). Not run on the Pi or with a camera; not in the
+  Yocto image yet. Every figure below is an estimate to check on the bench
+  first (see "To measure"). The retention values are recommendations until
+  the drive is chosen (H31)
 - **Date:** 2026-11-10
 - **Builds on:** [ADR-0026](0026-camera-manager-interfaces.md) (camera-manager),
   [ADR-0024](0024-camera-selection-switch-and-can-reverse.md) (the front
@@ -186,6 +190,64 @@ What constrains it:
     and the table above), read by `camera-start`. A settings screen (the
     dashboard, through camera-manager's API, as camera assignment will) comes
     later.
+
+## As built (2026-11-10, `[SIM]`)
+
+- **camera-manager** (`services/camera-manager`): `media.rs` is the seam
+  between the control loop and GStreamer: one capture per camera, with a
+  display branch and a recording branch. `gst.rs` (feature `gstreamer`) is
+  decision 2: `v4l2src ! capsfilter ! tee`, the recording branch `queue
+  (leaky) ! [h264parse] ! splitmuxsink (matroskamux)`, the display branch
+  added and removed at an idle moment, frames counted by pad probes, an
+  end-of-stream at a stop (3 s at most). Both queues are leaky: a slow drive
+  drops recorded frames rather than freezing the picture.
+- **Two media, one choice per build.** GStreamer's development files aren't
+  on the Mac, so the feature is off by default there and camera-manager
+  falls back to the `gst-launch-1.0` children of ADR-0026 (display only),
+  saying it can't record. `make deploy` and `make linux-test` build the
+  feature. `--media launch` (`CAMERA_MEDIA=launch`) keeps the bench-tested
+  display path on a GStreamer build, without recording, in case the
+  in-process one misbehaves on the Pi.
+- **`--caps` stays one setting**: the part before the first `!` is what
+  the camera sends, what the `tee` sees and what is recorded; the rest is
+  the display branch's decoder. Per-camera caps (the bench's finding) are
+  still to do.
+- **Segments** are named by camera-manager through `splitmuxsink`'s
+  `format-location` signal, so names follow decision 10. `max-cluster-duration`
+  is set to 1 s where `matroskamux` has it: it does on 1.26 (default 65.5 s,
+  so setting it matters); on the Pi's 1.28, UNVERIFIED. `fdatasync` runs
+  every `RECORD_SYNC_S` on the segment being written, off the loop's thread,
+  and once more when a segment closes.
+- **The drive thread** (`drive.rs`) owns the store: the run counter, the
+  unclean-stop protection, retention (as each segment opens, which is the
+  moment after "before each new segment", and once a minute), saved clips.
+  Besides the segments being written, it never deletes the newest segment
+  of each camera in this run, in case one opened after the loop's snapshot.
+- **The clock** is trusted while `/run/systemd/timesync/synchronized`
+  exists (systemd-timesyncd). Whether the AGL image runs timesyncd is
+  UNVERIFIED; without it the clock is never trusted, which keeps every
+  name honest and turns the age limit off.
+- **Settings** (decision 11): `RECORD_CAMERAS` and `RECORD_*` in
+  `/etc/default/f250`; `camera-start` passes `--record` only for cameras
+  with a device and only with `DATA_DRIVE=1`, so a head unit without a data
+  drive doesn't warn about recording forever. With `DATA_DRIVE=1` and no
+  drive mounted, the cameras say "not recording: no data drive mounted".
+  camera-manager reads `RECORD_*` from its environment.
+- **The drive**: `stage1-setup.sh` makes `video/` on the drive
+  `agl-driver:f250 0750`; the unit may write only there
+  (`ReadWritePaths=-/var/lib/f250/storage/video`) and starts after the
+  drive's mount. A drive mounted after camera-manager started needs a
+  restart of the unit.
+- **The dashboard**: a REC pill in the status bar ("REC FRONT REAR"; "SIM
+  REC" with the simulated source), a red dot on each recording camera's
+  button in camera mode, Save clip there and on the Cameras tab (whose
+  right half reports each camera, the drive and the saved clips), and an
+  advisory in the alert banner for each camera set to record that isn't.
+- **Not built**: the index file per camera (decision 10: the names already
+  carry the run, sequence and trusted time), `x264enc` re-encoding,
+  per-camera caps, settings on screen, and the image's recording plugins
+  (`matroska`, `multifile`) and GStreamer build in meta-f250: the package
+  names are to come from the build's package list.
 
 ## Options considered
 

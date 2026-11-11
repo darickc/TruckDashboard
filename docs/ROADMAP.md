@@ -283,14 +283,21 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       12 widget tests (geometry pinned to the activation area), the gRPC client against a fake server, and the
       real camera-manager binary end to end; checked in the browser with the simulated source. A front
       camera `[SIM]` (owner, 2026-11-10; ADR-0024 amended): forward shows it, press closes, on the switch, the
-      dashboard's Front button and the Cameras tab. Still to do: truck cameras, the reverse decoder, recording
-      the front and rear ([ADR-0027](architecture/adr/0027-front-and-rear-recording.md), accepted 2026-11-10: GStreamer
-      in-process with a tee per camera, the camera's own MJPEG or H.264 in one-minute Matroska segments, retention
-      by age, size and free space, protected clips, data drive only; bench measurements first; cameras: H33;
-      the rules are built `[SIM]` in `crates/recording`: segment names with honest timestamps, the
-      settings and their recommendations, retention, "save clip", the minutes before an unclean stop,
-      and the on-drive store; 36 tests including a simulated month of driving),
-      and camera assignment in a settings screen
+      dashboard's Front button and the Cameras tab. Front and rear recording `[SIM]`
+      ([ADR-0027](architecture/adr/0027-front-and-rear-recording.md), accepted and built 2026-11-10): the rules in
+      `crates/recording` (segment names with honest timestamps, retention, "save clip", the minutes before an
+      unclean stop, the on-drive store; 36 tests including a simulated month of driving); in camera-manager,
+      in-process GStreamer (feature `gstreamer`, built by `make deploy`) with a `tee` per camera, the camera's own
+      MJPEG or H.264 in 60 s Matroska segments, clusters of 1 s and `fdatasync` every second, the window added
+      and removed while the recording runs, a drive thread for retention and saved clips, the clean-stop marker,
+      data drive only (`RECORD_CAMERAS` with `DATA_DRIVE=1`); `f250.camera.v1` gained `WatchRecording` and
+      `SaveClip`, `camera-ctl` `recording` and `save-clip`; 14 loop tests against a fake media, 5 with real
+      pipelines from `videotestsrc` in Linux (segments read back with `matroskademux`); the dashboard's REC pill,
+      REC dots in camera mode, Save clip there and on the Cameras tab, and an advisory for a camera that isn't
+      recording (150 Flutter tests; checked in the browser with the simulated source). Not run on the Pi or with a
+      camera; not in the Yocto image yet (the recipe and the image's `matroska`/`multifile` plugins, TODO).
+      Still to do: the bench measurements and pulls of the power (ADR-0027 "To measure"), truck cameras (H33),
+      per-camera caps, the reverse decoder, and camera assignment and recording settings in a settings screen
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
       presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later

@@ -4,35 +4,11 @@ import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/theme.dart';
 import 'package:f250_infotainment/ui/widgets/tap_target.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../fake_cameras.dart';
 import '../harness.dart';
-
-/// A camera-manager whose status the test sets directly; records moves.
-class FakeCameras implements CameraSource {
-  FakeCameras(CameraStatus initial) : _status = ValueNotifier(initial);
-
-  final ValueNotifier<CameraStatus> _status;
-  final moves = <SwitchMove>[];
-
-  set status(CameraStatus s) => _status.value = s;
-
-  @override
-  ValueListenable<CameraStatus> get status => _status;
-  @override
-  void start() {}
-  @override
-  void stop() {}
-  @override
-  Future<CameraView> move(SwitchMove move) async {
-    moves.add(move);
-    return _status.value.view ?? CameraView.none;
-  }
-}
-
-CameraStatus up(CameraView view) => CameraStatus(link: CameraLink.up, view: view);
 
 const rearLive = CameraView(
     camera: CameraId.rear, reason: CameraReason.cameraSwitch, feed: FeedState.live);

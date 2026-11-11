@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../telemetry/warnings.dart';
 import '../app_scope.dart';
-import '../presentation.dart';
+import '../banner_alerts.dart';
 import '../theme.dart';
 import '../widgets/badges.dart';
 
-/// The most important active alert, shown above every screen. It isn't
-/// dismissible: it goes away when the condition clears. Its height is
-/// reserved only while an alert is active.
+/// The most important active alert, shown above every screen: the
+/// vehicle's, and camera-manager's recording advisories (banner_alerts.dart).
+/// It isn't dismissible: it goes away when the condition clears. Its height
+/// is reserved only while an alert is active.
 ///
 /// [compact]: the status bar's height, for camera mode, where the alert
 /// takes the status bar's place above the camera window. It carries a SIM
@@ -22,15 +23,19 @@ class AlertBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge([s.store, s.settings]),
+      listenable: Listenable.merge([s.store, s.settings, s.cameras.status]),
       builder: (context, _) {
-        final alerts = s.store.alerts;
+        final alerts = bannerAlerts(s);
         if (alerts.isEmpty) return const SizedBox.shrink();
         final p = Palette.of(context);
         final top = alerts.first;
         final critical = top.level == AlertLevel.critical;
         final color = critical ? p.critical : p.advisory;
-        final (title, detail) = describeAlert(top, s.store, s.settings.units);
+        final (title, detail) = (top.title, top.detail);
+        // In camera mode the status bar's SIMULATED badge is hidden under
+        // this; elsewhere it shows, except for a simulated camera alert
+        // over real vehicle data.
+        final sim = top.simulated && (compact || !s.store.source.simulated);
         return Container(
           key: const ValueKey('alert-banner'),
           height: compact ? kStatusBarHeight : kAlertBannerHeight,
@@ -40,7 +45,7 @@ class AlertBanner extends StatelessWidget {
             border: Border(bottom: BorderSide(color: color, width: 2)),
           ),
           child: Row(children: [
-            if (compact && s.store.source.simulated) ...[
+            if (sim) ...[
               Pill('SIM', color: critical ? Colors.white : p.simulated),
               const SizedBox(width: 8),
             ],
