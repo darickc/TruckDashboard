@@ -1891,3 +1891,11 @@ Now 3 s by default (`CAN_AUTO_LISTEN_S`, ~2100 frames), the same checks
 on the bench it listens in 3 s windows and stays listen-only with no bus.
 Expected on the truck: polling ~12 s after the Pi gets power, so the "Not
 polling the truck" banner for about that long. Not yet driven.
+
+## 2026-11-10 — "Not polling the truck" waits 10 s (owner) [BENCH]
+
+`make deploy` of `3882e6f`. With no bus (the gateway passive from the start),
+dashboard restarted: screenshot at 6 s, only the existing "Vehicle data
+lost"; at 18 s, "Not polling the truck" first with its reason, "+1 more".
+On the truck, polling should start ~12 s after power, so a normal start
+never shows it. Not yet driven.
