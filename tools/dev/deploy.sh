@@ -34,6 +34,8 @@ RUST_TOOLCHAIN="$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
 SOCK=/run/f250/vehicle.sock
 CAMERA_SOCK=/run/f250-camera/camera.sock
 POWER_SOCK=/run/f250-power/power.sock
+NAV_SOCK=/run/f250-nav/nav.sock
+MAP_FILE=/var/lib/f250/maps/map.pmtiles
 
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 die() { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
@@ -62,15 +64,15 @@ build() {
     -v "$PWD":/src:ro -v "$PWD/$OUT":/out \
     -v f250-arm64-cargo:/usr/local/cargo/registry -v f250-arm64-target:/target \
     -v f250-arm64-pub:/root/.pub-cache -v f250-arm64-work:/work \
-    -e CARGO_TARGET_DIR=/target -e FLUTTER_VERSION="$FLUTTER_VERSION" -e SOCK="$SOCK" -e CAMERA_SOCK="$CAMERA_SOCK" -e POWER_SOCK="$POWER_SOCK" \
+    -e CARGO_TARGET_DIR=/target -e FLUTTER_VERSION="$FLUTTER_VERSION" -e SOCK="$SOCK" -e CAMERA_SOCK="$CAMERA_SOCK" -e POWER_SOCK="$POWER_SOCK" -e NAV_SOCK="$NAV_SOCK" -e MAP_FILE="$MAP_FILE" \
     "$IMAGE" bash -euo pipefail -c '
       cd /src
       cargo build -q --release --locked -p vehicle-gateway --features rfcomm
-      cargo build -q --release --locked -p recorder -p obd-console -p power-manager
+      cargo build -q --release --locked -p recorder -p obd-console -p power-manager -p navigation
       # In-process GStreamer, so it can record (ADR-0027 decision 2).
       cargo build -q --release --locked -p camera-manager --features gstreamer
       mkdir -p /out/bin
-      cp /target/release/vehicle-gateway /target/release/recorder /target/release/obd-console /target/release/power-manager /target/release/camera-manager /target/release/camera-ctl /out/bin/
+      cp /target/release/vehicle-gateway /target/release/recorder /target/release/obd-console /target/release/power-manager /target/release/camera-manager /target/release/camera-ctl /target/release/navigation /out/bin/
 
       for d in apps/infotainment simulator/powerstroke; do
         mkdir -p "/work/$d"
@@ -80,7 +82,8 @@ build() {
       flutter pub get >/dev/null
       flutter build linux --release \
         --dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:$SOCK \
-        --dart-define=CAMERAS=unix:$CAMERA_SOCK --dart-define=POWER=unix:$POWER_SOCK
+        --dart-define=CAMERAS=unix:$CAMERA_SOCK --dart-define=POWER=unix:$POWER_SOCK \
+        --dart-define=NAV=unix:$NAV_SOCK --dart-define=MAP_FILE=$MAP_FILE
       b=build/linux/arm64/release/bundle
       mkdir -p /out/bundle/lib /out/bundle/data
       cp "$b/lib/libapp.so" /out/bundle/lib/

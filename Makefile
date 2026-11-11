@@ -37,15 +37,22 @@ WEB_PORT ?= 8250
 # App data source: sim (in-app simulator) or gateway (services/vehicle-gateway).
 SOURCE   ?= sim
 GATEWAY  ?= tcp:127.0.0.1:50251
+# Position: sim (the app's simulated receiver) or services/navigation's endpoint.
+NAV      ?= sim
+NAV_LISTEN ?= tcp:127.0.0.1:50253
+# The offline raster map (PMTiles, ADR-0030); `make map-test-pattern` writes one
+# there. The macOS app's sandbox may read /tmp/f250/maps/ only.
+MAP_FILE ?= /tmp/f250/maps/map.pmtiles
 SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START) \
-              --dart-define=VEHICLE_SOURCE=$(SOURCE) --dart-define=GATEWAY=$(GATEWAY)
+              --dart-define=VEHICLE_SOURCE=$(SOURCE) --dart-define=GATEWAY=$(GATEWAY) \
+              --dart-define=NAV=$(NAV) --dart-define=MAP_FILE=$(MAP_FILE)
 
 .PHONY: help setup doctor test lint \
         fw-test fw-build \
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
-        sim gateway console docs-lint \
+        sim gateway navigation map-test-pattern console docs-lint \
         pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can \
         agl-test agl-image deploy deploy-build logs build-vm agl-build
 
@@ -207,8 +214,16 @@ pi-can: ## On the Pi: direct-CAN adapter, CMD=status|listen|active|down|capture|
 gateway: ## Run the vehicle gateway with the simulator (SCENARIO=, START=) on $(GATEWAY)
 	cargo run -q -p vehicle-gateway -- --listen $(GATEWAY) --scenario $(SCENARIO) --sim-start-s $(START)
 
-sim: ## Gateway (simulated) + the macOS app reading from it over gRPC
-	tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)"
+sim: ## Gateway and navigation (simulated) + the macOS app reading from them over gRPC
+	tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)"
+
+navigation: ## Run services/navigation with a simulated receiver on $(NAV_LISTEN)
+	cargo run -q -p navigation -- --listen $(NAV_LISTEN) --simulate
+
+map-test-pattern: ## Write a test-pattern map (not map data) to $(MAP_FILE); needs Pillow and pmtiles
+	python3 tools/dev/test-pattern-map.py --out build/maps/test-pattern.mbtiles
+	pmtiles convert build/maps/test-pattern.mbtiles build/maps/test-pattern.pmtiles
+	mkdir -p $(dir $(MAP_FILE)) && cp build/maps/test-pattern.pmtiles $(MAP_FILE)
 
 console: ## obd-console against the gateway at $(GATEWAY)
 	cargo run -q -p obd-console -- --gateway $(GATEWAY)

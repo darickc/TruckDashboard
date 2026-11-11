@@ -20,3 +20,9 @@ pub mod power {
         tonic::include_proto!("f250.power.v1");
     }
 }
+
+pub mod nav {
+    pub mod v1 {
+        tonic::include_proto!("f250.nav.v1");
+    }
+}

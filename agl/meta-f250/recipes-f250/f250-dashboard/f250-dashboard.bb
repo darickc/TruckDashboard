@@ -5,8 +5,10 @@ as the compositor's homescreen, in place of the AGL demo homescreen."
 
 require conf/include/f250-source.inc
 
-# The app's only dependencies are pure Dart (grpc, protobuf, fixnum and the
-# simulator package in this repo), so the plain class does: no native plugins.
+# The app's dependencies are pure Dart on Linux (grpc, protobuf, fixnum,
+# flutter_map and the simulator package in this repo; flutter_map's
+# path_provider is pure Dart there), so the plain class does: no native
+# plugins.
 inherit flutter-app
 
 FLUTTER_APPLICATION_PATH = "apps/infotainment"
@@ -15,7 +17,7 @@ PUBSPEC_APPNAME = "f250_infotainment"
 # The same defines as `make deploy` (tools/dev/deploy.sh): live data from the
 # gateway's socket, the camera view from camera-manager's. The socket paths
 # are the units' RuntimeDirectory.
-APP_AOT_EXTRA:append = " -DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock -DCAMERAS=unix:/run/f250-camera/camera.sock -DPOWER=unix:/run/f250-power/power.sock"
+APP_AOT_EXTRA:append = " -DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock -DCAMERAS=unix:/run/f250-camera/camera.sock -DPOWER=unix:/run/f250-power/power.sock -DNAV=unix:/run/f250-nav/nav.sock -DMAP_FILE=/var/lib/f250/maps/map.pmtiles"
 
 # flutter-auto's settings for the bundle: background surface, 800x480,
 # fullscreen. Installed as <bundle>/config.toml by the class.

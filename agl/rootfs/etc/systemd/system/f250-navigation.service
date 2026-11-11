@@ -1,0 +1,67 @@
+# Navigation on AGL (Phase 6.4, ADR-0030): the truck's position from gpsd,
+# served as f250.nav.v1 on /run/f250-nav/nav.sock (group f250, mode 0770 from
+# UMask; agl-driver, which runs the dashboard, is in group f250). Routing
+# joins it in 6.5.2.
+#
+# gpsd owns the GNSS receiver; navigation is its client on 127.0.0.1:2947
+# (NAV_GPSD, navigation-start). gpsd's own socket unit is pulled in, so
+# it listens; a missing gpsd shows on the dashboard as "gpsd unavailable".
+# NAV_SIMULATE=1 replaces gpsd with a simulated receiver, labelled simulated
+# on the screen.
+#
+# Status: [SIM] (make agl-test, services/navigation's tests against gpsd
+# 3.27.5's own output). No receiver chosen yet (H11). UNVERIFIED on the Pi:
+# that the image's gpsd.socket listens on 127.0.0.1:2947 and that gpsd-udev
+# hands it a USB receiver when one is plugged in.
+[Unit]
+Description=F-250 navigation (position from gpsd)
+Wants=gpsd.socket
+After=gpsd.socket gpsd.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=30
+User=f250
+Group=f250
+EnvironmentFile=-/etc/default/f250
+ExecStart=/opt/f250/libexec/navigation-start
+Restart=on-failure
+RestartSec=2
+UMask=0007
+RuntimeDirectory=f250-nav
+RuntimeDirectoryMode=0750
+
+# Sandbox (ADR-0021), like the recorder's, except the network: gpsd is a TCP
+# server on the loopback interface, so AF_INET/AF_INET6 to localhost only.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateUsers=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressAllow=localhost
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target

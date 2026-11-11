@@ -1,0 +1,30 @@
+#!/bin/bash
+# ExecStart of f250-navigation.service on AGL: navigation with the settings
+# from /etc/default/f250 (ADR-0030).
+#
+#   NAV_GPSD            gpsd's address. Default 127.0.0.1:2947.
+#   NAV_SIMULATE        1: a simulated receiver instead of gpsd, labelled
+#                       simulated on the screen. Default 0.
+#   NAV_STALE_AFTER_MS  a fix older than this is never shown as current.
+#                       Default 3000, an example value (navigation's own).
+#
+# The API is on /run/f250-nav/nav.sock (RuntimeDirectory).
+#
+# Status: [SIM] (make agl-test).
+set -euo pipefail
+
+BIN="${F250_NAV_BIN:-/opt/f250/bin/navigation}"
+SOCK="${F250_NAV_SOCK:-/run/f250-nav/nav.sock}"
+
+args=(--listen "unix:$SOCK")
+if [[ "${NAV_SIMULATE:-0}" == 1 ]]; then
+  args+=(--simulate)
+else
+  args+=(--gpsd "${NAV_GPSD:-127.0.0.1:2947}")
+fi
+if [[ -n "${NAV_STALE_AFTER_MS:-}" ]]; then
+  args+=(--stale-after-ms "$NAV_STALE_AFTER_MS")
+fi
+
+echo "exec $BIN ${args[*]}" >&2
+exec "$BIN" "${args[@]}"

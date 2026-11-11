@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+// The truck's position, served by services/navigation from gpsd (Phase 6.4,
+// docs/architecture/adr/0030-navigation-position-and-raster-map.md). Routing
+// joins this package in 6.5.2.
+package f250.nav.v1;
+
+service PositionService {
+  // The position now, then again on each report and at least once a second,
+  // so ages keep moving. A client that loses the stream, or hears nothing
+  // for longer than `stale_after_ms`, must not show the position as current.
+  rpc WatchPosition(WatchPositionRequest) returns (stream WatchPositionResponse);
+}
+
+// What the receiver can say now.
+enum FixStatus {
+  FIX_STATUS_UNSPECIFIED = 0;
+  // gpsd isn't reachable.
+  FIX_STATUS_UNAVAILABLE = 1;
+  // gpsd has no receiver.
+  FIX_STATUS_NO_RECEIVER = 2;
+  // A receiver, but nothing from it within the stale limit.
+  FIX_STATUS_RECEIVER_SILENT = 3;
+  // The receiver reports no fix.
+  FIX_STATUS_NO_FIX = 4;
+  FIX_STATUS_FIX_2D = 5;
+  FIX_STATUS_FIX_3D = 6;
+}
+
+message Fix {
+  double latitude_deg = 1;
+  double longitude_deg = 2;
+  // How old the position was when this message was sent (monotonic).
+  uint64 age_ms = 3;
+  // 3D fixes only. Above mean sea level.
+  optional double altitude_msl_m = 4;
+  // Speed over ground.
+  optional double speed_mps = 5;
+  // Course over ground, degrees clockwise from true north.
+  optional double track_deg = 6;
+  // gpsd's estimated horizontal error (`eph`). Its confidence level
+  // depends on the receiver.
+  optional double horizontal_error_m = 7;
+  // The receiver's UTC time for this fix, ms since the Unix epoch.
+  optional int64 utc_time_ms = 8;
+}
+
+message Position {
+  FixStatus status = 1;
+  // The last good fix, present once there has been one, whatever the
+  // status now.
+  Fix fix = 2;
+  // The fix is current: a fix status, and younger than stale_after_ms.
+  // Otherwise the fix may be shown only as "last known", with its age.
+  bool current = 3;
+  uint64 stale_after_ms = 4;
+  optional uint32 satellites_used = 5;
+  optional uint32 satellites_visible = 6;
+  // Where it comes from: "gpsd 3.27.5: /dev/ttyACM0", or "simulated".
+  string source = 7;
+  // True for the simulated receiver: never the truck's real position.
+  bool simulated = 8;
+  // Why there is no current fix, for the screen. Empty while there is one.
+  string detail = 9;
+}
+
+message WatchPositionRequest {}
+
+message WatchPositionResponse {
+  Position position = 1;
+}

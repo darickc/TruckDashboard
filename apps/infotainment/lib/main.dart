@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -14,6 +16,9 @@ import 'data/simulation_controller.dart';
 import 'display/display_connection.dart';
 import 'display/display_state.dart';
 import 'model/signal_catalog.dart';
+import 'nav/offline_map.dart';
+import 'nav/position_connection.dart';
+import 'nav/position_state.dart';
 import 'telemetry/telemetry_store.dart';
 import 'ui/app.dart';
 import 'ui/app_scope.dart';
@@ -35,6 +40,15 @@ const _cameras = String.fromEnvironment('CAMERAS', defaultValue: 'auto');
 /// Pi runs power-manager.
 const _power = String.fromEnvironment('POWER', defaultValue: 'sim');
 
+/// Position: `sim` (no navigation service: a simulated receiver, labelled
+/// simulated) or services/navigation's endpoint
+/// (`unix:/run/f250-nav/nav.sock` on the Pi). Default: `sim`.
+const _nav = String.fromEnvironment('NAV', defaultValue: 'sim');
+
+/// The offline raster map (PMTiles, ADR-0030): `/var/lib/f250/maps/map.pmtiles`
+/// on the Pi. Empty: none, and the Navigation screen says so.
+const _mapFile = String.fromEnvironment('MAP_FILE');
+
 /// In-app simulator start point (`make ui-web SCENARIO=eot_ect_freeze START=110`).
 const _scenario = String.fromEnvironment('SCENARIO', defaultValue: 'drive_cycle');
 const _startSeconds = int.fromEnvironment('SIM_START_S');
@@ -48,6 +62,8 @@ Future<void> main() async {
             gateway: _gateway,
             cameras: _cameras,
             power: _power,
+            nav: _nav,
+            mapFile: _mapFile,
             scenario: _scenario,
             startAt: const Duration(seconds: _startSeconds))));
   } catch (e) {
@@ -61,6 +77,8 @@ Future<AppServices> createServices(
   String gateway = 'unix:/tmp/f250/vehicle.sock',
   String cameras = 'auto',
   String power = 'sim',
+  String nav = 'sim',
+  String mapFile = '',
   String scenario = 'drive_cycle',
   Duration startAt = Duration.zero,
 }) async {
@@ -83,6 +101,11 @@ Future<AppServices> createServices(
       ? SimulatedDisplaySource()
       : connectPowerManager(GatewayEndpoint.parse(power));
   display.start();
+  final PositionSource position =
+      nav == 'sim' ? SimulatedPositionSource() : connectNavigation(GatewayEndpoint.parse(nav));
+  position.start();
+  final map = OfflineMap(mapFile);
+  unawaited(map.load());
   switch (source) {
     case 'gateway':
       final connection = GatewayConnection.create(store, GatewayEndpoint.parse(gateway))..start();
@@ -93,6 +116,8 @@ Future<AppServices> createServices(
           gateway: connection,
           cameras: cameraSource,
           display: display,
+          position: position,
+          map: map,
           power: PowerControl.forPlatform());
     case 'sim':
       final scenarios = await SimulationController.loadAll(bundle);
@@ -107,6 +132,8 @@ Future<AppServices> createServices(
           simulation: simulation,
           cameras: cameraSource,
           display: display,
+          position: position,
+          map: map,
           power: PowerControl.forPlatform());
     default:
       throw FormatException('VEHICLE_SOURCE must be sim or gateway, got "$source"');

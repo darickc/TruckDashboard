@@ -7,7 +7,7 @@
 # HVAC, radio and audio-mixer services, Qt and the navigation demo, gpsd,
 # oFono, rtl-sdr, mpd, text-to-speech, the CJK fonts, applaunchd and the demo
 # apps. None of those is used here; each Phase 6 feature brings what it needs
-# (PipeWire with the audio manager, gpsd with GPS).
+# (PipeWire with the audio manager; gpsd came back with GPS).
 require recipes-platform/images/agl-image-compositor.bb
 
 # No "splash" feature: AGL removes it on the Pi (agl_raspberrypi.inc). The boot
@@ -33,6 +33,9 @@ IMAGE_INSTALL += " \
     gstreamer1.0-plugins-bad-waylandsink \
     gstreamer1.0-plugins-good-matroska \
     gstreamer1.0-plugins-good-multifile \
+    gpsd \
+    gpsd-conf \
+    gpsd-udev \
 "
 
 # weston-ini-conf-flutter: the compositor's configuration for flutter-auto
@@ -49,6 +52,13 @@ IMAGE_INSTALL += " \
 # (ADR-0026); the plugins already pull it in, named here because the service
 # depends on the tool itself. appsink, the Flutter-texture option's sink, left with that
 # decision. Names from the 22.0.1 demo image's manifest.
+#
+# gpsd for the GPS receiver (Phase 6.4, ADR-0030): services/navigation is
+# its client on 127.0.0.1:2947. gpsd-udev starts it for a USB receiver when
+# one is plugged in; gpsd-conf is its /etc/default/gpsd. Names from the 22.0.1
+# demo image's manifest, which had all three (and gpsd-machine-conf, left out:
+# its contents are UNVERIFIED). UNVERIFIED in a meta-f250 build until the
+# next `make agl-build`.
 #
 # Recording front and rear (ADR-0027): matroskamux (matroska) and
 # splitmuxsink (multifile), from gst-plugins-good. matroska pulls

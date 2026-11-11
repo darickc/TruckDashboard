@@ -70,8 +70,8 @@ project has.
 firmware/esp32/      PlatformIO firmware (C++17); auxiliary controller, ELM reference implementation
 shared/signals/      signal registry (YAML); imports/torque/exportedPIDs.csv
 shared/proto/        versioned gRPC/protobuf API (f250.<domain>.v1); `make proto` regenerates Dart
-crates/              Rust libraries: elm (MX+ client), telemetry, powerstroke-sim, proto, sd-notify, camera-policy, recording, daylight, clock-sync
-services/            Rust daemons: vehicle-gateway, recorder, power-manager, camera-manager (audio in Phase 6)
+crates/              Rust libraries: elm (MX+ client), telemetry, powerstroke-sim, proto, sd-notify, camera-policy, recording, daylight, clock-sync, gpsd
+services/            Rust daemons: vehicle-gateway, recorder, power-manager, camera-manager, navigation (audio in Phase 6)
 apps/infotainment/   Flutter UI, 800×480 (simulated data source today)
 simulator/           Power Stroke scenarios (f250.scenario.v1) + Dart engine; Rust transport in Phase 3
 agl/                 AGL Stage 1: release pin, boot config, rootfs files, target scripts; meta-f250 in 5.4
@@ -94,7 +94,8 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make sim-test` | Scenario simulator tests (Dart) |
 | `make ui-test` / `make ui-lint` | Flutter tests / analyzer |
 | `make ui-web` | Dashboard in a browser at http://127.0.0.1:8250. Add `SCENARIO=<id> START=<s>` to jump into a scenario |
-| `make sim` | Rust gateway (simulated) + macOS app over gRPC. `make gateway` / `make console` run the gateway or `obd-console` alone |
+| `make sim` | Rust gateway and navigation (simulated) + macOS app over gRPC. `make gateway` / `make navigation` / `make console` run one alone |
+| `make map-test-pattern` | A test-pattern map (not map data) at `/tmp/f250/maps/map.pmtiles` for `make ui`/`make sim`; needs Pillow and `pmtiles`. See [docs/setup/maps.md](docs/setup/maps.md) |
 | `make rust-test` / `make rust-lint` | Cargo workspace tests / fmt + clippy (needs `protoc`) |
 | `make pi-setup` / `pi-build` / `pi-run` | On the Pi (Raspberry Pi OS, Phase 3.5): install the tools, release-build, run gateway + recorder + app. `pi-run` uses the simulator unless `TRANSPORT=obdlink` or `TRANSPORT=can`, and polls only with `TRANSMIT=1`. `CAPTURE=1` also candumps `can0` into the session. See [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md) |
 | `make pi-start` / `pi-stop` / `pi-status` | On the Pi, over SSH: `pi-run` as a transient systemd service on tty7 (an SSH login has no seat, so `cage` can't take the screen from it) |

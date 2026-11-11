@@ -353,6 +353,13 @@ name = "f250-elm"
 version = "0.1.0"
 
 [[package]]
+name = "f250-gpsd"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "f250-proto"
 version = "0.1.0"
 dependencies = [
@@ -977,6 +984,21 @@ name = "multimap"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d87ecb2933e8aeadb3e3a02b828fed80a7528047e68b4f424523a0981a3a084"
+
+[[package]]
+name = "navigation"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "f250-gpsd",
+ "f250-proto",
+ "f250-sd-notify",
+ "hyper-util",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tower",
+]
 
 [[package]]
 name = "nb"

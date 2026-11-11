@@ -34,7 +34,9 @@ dependencies:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
+  flutter_map: ^8.3.2
   grpc: ^5.2.0
+  latlong2: ^0.10.1
   powerstroke_sim:
     path: ../../simulator/powerstroke
   protobuf: ^6.1.0
@@ -56,6 +58,10 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   uses-material-design: true
+  # flutter_map brings path_provider, the macOS app's first plugin. Swift
+  # Package Manager builds it with Xcode alone (no CocoaPods).
+  config:
+    enable-swift-package-manager: true
   assets:
     - assets/config/
 

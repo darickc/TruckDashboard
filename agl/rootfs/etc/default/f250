@@ -138,3 +138,15 @@ RECORD_SYNC_S=1
 RECORD_UNCLEAN_PROTECT_MIN=5
 RECORD_CLIP_BEFORE_S=120
 RECORD_CLIP_AFTER_S=60
+# Navigation (Phase 6.4, ADR-0030). After editing: systemctl restart f250-navigation
+# NAV_GPSD     gpsd's address (empty: 127.0.0.1:2947). gpsd owns the receiver.
+# NAV_SIMULATE 1: a simulated receiver instead of gpsd, labelled simulated on
+#            the screen (bench without a receiver). 0: gpsd.
+# NAV_STALE_AFTER_MS  a fix older than this is never shown as current (empty:
+#            3000, an example: tune it once a receiver is fitted, H11).
+# The offline map is /var/lib/f250/maps/map.pmtiles: a raster PMTiles file
+#            the dashboard reads (docs/setup/maps.md). Without it the screen
+#            says so and still shows the position.
+NAV_GPSD=
+NAV_SIMULATE=0
+NAV_STALE_AFTER_MS=

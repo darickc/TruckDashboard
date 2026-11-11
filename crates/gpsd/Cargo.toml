@@ -1,0 +1,18 @@
+[package]
+name = "f250-gpsd"
+version = "0.1.0"
+description = "gpsd's JSON reports (TPV, SKY, DEVICES) and a position tracker that never shows a stale fix as current (Phase 6.4)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "gpsd"
+path = "src/lib.rs"
+
+[dependencies]
+serde_json = "1.0.154"
+
+[lints]
+workspace = true

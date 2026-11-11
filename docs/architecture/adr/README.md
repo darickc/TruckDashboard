@@ -38,5 +38,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0027](0027-front-and-rear-recording.md) | Front and rear cameras record like a dashcam, kept by retention settings | Accepted (owner; nothing built or measured yet) |
 | [0028](0028-day-night-and-backlight.md) | Day/night and the backlight belong to power-manager: the sun on a trusted clock, else a fallback | Accepted ([SIM] only) |
 | [0029](0029-settings-screen.md) | A Settings tab; camera assignment and recording set through camera-manager | Accepted ([SIM] only) |
+| [0030](0030-navigation-position-and-raster-map.md) | Position from gpsd through services/navigation; a raster PMTiles map | Accepted ([SIM] only) |
 
 New ADRs use the next number and the same headings.

@@ -264,8 +264,22 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
 - [ ] 6.1 audio-manager (A2DP sink, AVRCP, pairing window), and the PipeWire filter-chain for the DAC8x: crossover, fader, sub level ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md))
 - [ ] 6.2 DAC mute sequencing (H6) and the crash test with the amps on (H5). The amps' remote is straight on ACC, no timer, not the Pi ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md), 2026-11-09). Wiring design: [wiring/audio.md](wiring/audio.md)
 - [ ] 6.3 Volume knob
-- [ ] 6.4 GPS
-- [ ] 6.5 Offline map, then routing, then the update workflow
+- [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
+      JSON and tracks the position honestly (status, the last fix with its age, never stale as current); 23 tests,
+      with gpsd 3.27.5's own output from synthetic NMEA as the test vectors. `services/navigation` serves
+      `f250.nav.v1.PositionService` from gpsd, or a simulated receiver with outages; 8 tests including end to end
+      against a fake gpsd, and it ran against the real gpsd on the Mac. Packaged: `f250-navigation.service`
+      (sandboxed, localhost TCP only), `navigation-start` with `NAV_*` in `/etc/default/f250`, gpsd in the images,
+      `make deploy`; checked by `make agl-test`. Not on the Pi yet; no receiver chosen (H11).
+      Follow-up: power-manager's location and clock from GPS (ADR-0028)
+- [~] 6.5 Offline map, then routing, then the update workflow
+      6.5.1 `[SIM]`: the Navigation tab shows a raster PMTiles map (`/var/lib/f250/maps/map.pmtiles`) with the truck's
+      position: follows until dragged, north up, 60 px zoom and locate buttons, "LAST KNOWN · n S AGO" and a grey marker
+      when the fix isn't current, SIMULATED when it's simulated, the tileset's attribution, night-darkened tiles. A pure
+      Dart PMTiles v3 reader, tested against files the official `pmtiles` tool wrote. Vector tiles can't be used: the
+      vector stack needs protobuf 3, gRPC needs 6 (ADR-0030). `make map-test-pattern` writes a test pattern (not map
+      data) for development ([setup/maps.md](setup/maps.md)). Not on the Pi yet.
+      Next: 6.5.3's tileset build (a real map) can come before 6.5.2's routing
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and
       invalid reverse, the latched choice, moves during reverse, the optional speed limit, missing cameras).

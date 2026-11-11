@@ -1,6 +1,10 @@
 # ADR 0010 — flutter_map with offline tiles; Valhalla for routing
 
-- **Status:** Proposed. Prototyped in Phase 6 before committing.
+- **Status:** Proposed. Prototyped in Phase 6 before committing. Map display
+  and position refined by [ADR-0030](0030-navigation-position-and-raster-map.md)
+  (2026-11-11): raster tiles in one PMTiles file, because the Flutter
+  vector-tile stack needs protobuf 3 and the app's gRPC needs 6. Routing as
+  below.
 - **Date:** 2026-11-01
 
 ## Context

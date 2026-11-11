@@ -71,12 +71,14 @@ flowchart LR
     DLC[OBD-II DLC<br/>HS-CAN 500k]
     IN[12 V signals<br/>reverse · turn if not on CAN]
     ACC[ACC + battery]
+    GNSS[USB GNSS receiver<br/>via gpsd]
   end
   subgraph Pi5[Raspberry Pi 5 · AGL]
     GW[vehicle-gateway<br/>Rust]
     REC[recorder<br/>SQLite]
     PWR[power-manager]
     CAM[camera-manager]
+    NAV[navigation<br/>gpsd client]
     AUD[audio-manager]
     UI[Flutter UI<br/>800×480]
   end
@@ -87,6 +89,8 @@ flowchart LR
   GW --> REC
   PWR -- gRPC f250.camera.v1 Move --> CAM
   CAM -- gRPC f250.camera.v1 view; its own window --> UI
+  GNSS --> NAV
+  NAV -- gRPC f250.nav.v1 --> UI
   AUD --> UI
   ESP[ESP32 aux I/O<br/>EGT · volume knob] -- USB serial --> GW
 ```
@@ -133,8 +137,8 @@ x86_64 PC. See
 | [`tools/dev/`](tools/dev/) | Development scripts: macOS setup, link checker |
 | [`apps/infotainment/`](apps/infotainment/README.md) | Flutter touchscreen UI |
 | [`simulator/powerstroke/`](simulator/powerstroke/README.md) | Scenario simulator and scenario files |
-| `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto`, `sd-notify` (systemd readiness and watchdog), `camera-policy` (which camera shows), `recording` (dashcam retention and saved clips), `daylight` (the sun, day/night and brightness), `clock-sync` (is the clock trustworthy) |
-| `services/` | `vehicle-gateway`, `recorder`, `power-manager` (power key, camera switch, day/night and the backlight, `f250.power.v1`), `camera-manager` (the camera on screen, front and rear recording, `f250.camera.v1`) |
+| `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto`, `sd-notify` (systemd readiness and watchdog), `camera-policy` (which camera shows), `recording` (dashcam retention and saved clips), `daylight` (the sun, day/night and brightness), `clock-sync` (is the clock trustworthy), `gpsd` (gpsd's reports and an honest position tracker) |
+| `services/` | `vehicle-gateway`, `recorder`, `power-manager` (power key, camera switch, day/night and the backlight, `f250.power.v1`), `camera-manager` (the camera on screen, front and rear recording, `f250.camera.v1`), `navigation` (the position from gpsd, `f250.nav.v1`) |
 | `tools/obd-console/` | Diagnostics console for the gateway |
 | `tools/pid-importer/` | The Torque PID export against the signal registry: candidates, rejections, drift check |
 | [`shared/proto/`](shared/proto/f250/vehicle/v1/vehicle.proto) | Versioned gRPC API |

@@ -11,5 +11,11 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
+	<!-- The development offline map (`make map-test-pattern`, MAP_FILE). -->
+	<key>com.apple.security.temporary-exception.files.absolute-path.read-only</key>
+	<array>
+		<string>/tmp/f250/maps/</string>
+		<string>/private/tmp/f250/maps/</string>
+	</array>
 </dict>
 </plist>
