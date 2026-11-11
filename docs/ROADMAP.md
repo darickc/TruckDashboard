@@ -279,7 +279,11 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       Dart PMTiles v3 reader, tested against files the official `pmtiles` tool wrote. Vector tiles can't be used: the
       vector stack needs protobuf 3, gRPC needs 6 (ADR-0030). `make map-test-pattern` writes a test pattern (not map
       data) for development ([setup/maps.md](setup/maps.md)). Not on the Pi yet.
-      Next: 6.5.3's tileset build (a real map) can come before 6.5.2's routing
+      6.5.3 (build part): `make map-region` builds a real raster map of a region: a Protomaps extract (OpenStreetMap,
+      ODbL) rendered locally by a pinned tileserver-gl, WebP, OSM attribution in the metadata, size estimate first
+      ([ADR-0031](architecture/adr/0031-raster-map-build.md)). Ran on the Mac for Kansas samples; `make map-check`
+      passes with the dashboard's reader. Not on the Pi; the owner's region isn't built yet.
+      Next: 6.5.2's routing, or 6.5.3's update workflow (copy over Wi-Fi or USB)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and
       invalid reverse, the latched choice, moves during reverse, the optional speed limit, missing cameras).

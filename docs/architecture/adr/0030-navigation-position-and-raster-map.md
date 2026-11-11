@@ -71,10 +71,11 @@ Two findings on 2026-11-11:
 
 ## Consequences
 
-- Making a raster tileset for the truck's region is its own job (6.5.3).
-  Nothing here downloads tiles; the OSM tile servers' policy forbids bulk
-  downloads. Until 6.5.3, `make map-test-pattern` writes a test pattern that
-  plainly says it isn't a map.
+- Making a raster tileset for the truck's region is its own job (6.5.3),
+  decided in [ADR-0031](0031-raster-map-build.md): `make map-region` renders
+  one locally from OpenStreetMap data. Nothing downloads tiles from the OSM
+  tile servers; their policy forbids bulk downloads. `make map-test-pattern`
+  still writes a test pattern that plainly says it isn't a map.
 - Raster tiles are bigger than vector tiles for the same area and zooms, and
   labels can't be restyled or rotated. North-up only.
 - The macOS app gained its first plugin (`path_provider`, through

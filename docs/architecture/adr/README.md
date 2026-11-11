@@ -39,5 +39,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0028](0028-day-night-and-backlight.md) | Day/night and the backlight belong to power-manager: the sun on a trusted clock, else a fallback | Accepted ([SIM] only) |
 | [0029](0029-settings-screen.md) | A Settings tab; camera assignment and recording set through camera-manager | Accepted ([SIM] only) |
 | [0030](0030-navigation-position-and-raster-map.md) | Position from gpsd through services/navigation; a raster PMTiles map | Accepted ([SIM] only) |
+| [0031](0031-raster-map-build.md) | The raster map is built from a Protomaps extract, rendered locally by tileserver-gl | Accepted (built and checked on the Mac; not on the Pi) |
 
 New ADRs use the next number and the same headings.
