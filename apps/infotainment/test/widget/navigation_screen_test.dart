@@ -7,7 +7,9 @@ import 'package:f250_infotainment/nav/position_state.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vector_map_tiles/vector_map_tiles.dart';
 
 import '../harness.dart';
 
@@ -157,13 +159,13 @@ void main() {
     final map = OfflineMap(
       '/var/lib/f250/maps/map.pmtiles',
       open: (path) async => throw PmTilesException(
-        '$path: vector tiles (MVT) can\'t be shown: the map needs a raster tileset (ADR-0030)',
+        '$path: AVIF tiles can\'t be decoded; use vector (MVT), PNG, JPEG or WebP',
       ),
     );
     await map.load();
     final h = await Harness.start(tester, map: map);
     await h.goTo(AppTab.navigation);
-    expect(textOf('nav-map-problem'), contains('vector tiles (MVT) can\'t be shown'));
+    expect(textOf('nav-map-problem'), contains('AVIF tiles can\'t be decoded'));
     expect(textOf('nav-map-problem'), contains('The position is still shown'));
   });
 
@@ -179,6 +181,41 @@ void main() {
       expect(find.byKey(const ValueKey('nav-map-problem')), findsNothing);
       expect(textOf('nav-attribution'), 'Test pattern, not map data');
       expect(find.byType(RawImage), findsWidgets, reason: 'tiles drawn');
+    });
+  }
+
+  for (final theme in [DayNight.day, DayNight.night]) {
+    testWidgets('a vector tileset draws with the ${theme.name} style (ADR-0032)', (tester) async {
+      final map = OfflineMap('test/fixtures/maps/vector-z12-15.pmtiles', open: openPmTilesFile);
+      await tester.runAsync(map.load);
+      expect((map.state.value as MapReady).vector, isNotNull);
+      // The fixture covers Lebanon, Kansas; the simulated fix is beside it.
+      final h = await Harness.start(tester, map: map, theme: theme);
+      await h.goTo(AppTab.navigation);
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byKey(const ValueKey('nav-map-problem')), findsNothing);
+      expect(textOf('nav-attribution'), '© OpenStreetMap');
+      final layer = tester.widget<VectorTileLayer>(find.byType(VectorTileLayer));
+      expect(
+        layer.theme.id,
+        theme == DayNight.night ? 'protomaps-dark' : 'protomaps-light',
+      );
+      expect(
+        find.byWidgetPredicate((w) => w is TileLayer && w.tileProvider is PmTilesTileProvider),
+        findsNothing,
+        reason: 'no raster layer for a vector map',
+      );
+      expect(
+        find.descendant(of: find.byType(VectorTileLayer), matching: find.byType(RawImage)),
+        findsWidgets,
+        reason: 'vector tiles drawn',
+      );
+      // Let the layer's own timers finish.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 5));
     });
   }
 

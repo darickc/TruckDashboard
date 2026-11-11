@@ -8,6 +8,9 @@
 - **Date:** 2026-11-11
 - **Refines:** [ADR-0010](0010-offline-maps-routing.md) (map display and
   position; routing stays as decided there)
+- **Refined by:** [ADR-0032](0032-vector-map.md): the package conflict below
+  was worked around, and the dashboard now draws vector maps too (decisions
+  5 and 8 apply to raster maps only)
 
 ## Context
 

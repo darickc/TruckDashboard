@@ -1,5 +1,5 @@
 // Writes the MapLibre style that tileserver-gl renders the raster map with
-// (ADR-0031). Run by tools/maps/build-raster-map.py from a work directory
+// (ADR-0031). Run by tools/maps/build-map.py from a work directory
 // where @protomaps/basemaps is installed at the pinned version:
 //
 //   node style.mjs OUT.json FLAVOR LANG

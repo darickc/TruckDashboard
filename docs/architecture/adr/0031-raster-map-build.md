@@ -8,6 +8,9 @@
 - **Date:** 2026-11-11
 - **Refines:** [ADR-0030](0030-navigation-position-and-raster-map.md) (the
   raster PMTiles map the Navigation tab reads); part of Phase 6.5.3
+- **Refined by:** [ADR-0032](0032-vector-map.md): `make map-region` now builds
+  a vector map by default; raster is `--format webp|png|jpg`. The script is
+  now `tools/maps/build-map.py`
 
 ## Context
 
@@ -35,7 +38,7 @@ existed. A real map needs map data, a style, and a renderer, and must:
 
 ## Decision
 
-1. **`tools/maps/build-raster-map.py`** (Python 3 standard library) builds one
+1. **`tools/maps/build-map.py`** (then `build-raster-map.py`; Python 3 standard library) builds one
    region's map; `make map-region BBOX=w,s,e,n MAXZOOM=n` runs it and copies
    the result to `MAP_FILE` for `make ui`/`make sim`. Steps:
    1. `pmtiles extract https://build.protomaps.com/<YYYYMMDD>.pmtiles` with the

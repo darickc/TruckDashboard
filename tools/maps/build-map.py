@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Builds a raster PMTiles map of one region for the dashboard (ADR-0031).
+"""Builds a PMTiles map of one region for the dashboard (ADR-0031, ADR-0032).
 
-  1. `pmtiles extract` the region's vector tiles from a Protomaps daily build
-     (OpenStreetMap data, ODbL). Only the region's tiles are fetched.
+Vector (the default, ADR-0032): `pmtiles extract` the region's vector tiles
+from a Protomaps daily build (OpenStreetMap data, ODbL) and set the file's
+metadata. Only the region's tiles are fetched. The dashboard draws them with
+the style, fonts and icons in apps/infotainment/assets/map/.
+
+Raster (`--format webp|png|jpg`, ADR-0031):
+  1. The same extract.
   2. Write a MapLibre style with @protomaps/basemaps, and fetch its fonts and
      sprites (protomaps/basemaps-assets). All pinned below.
   3. Render it on this machine with tileserver-gl in Docker (pinned by digest),
@@ -13,11 +18,12 @@ Nothing is downloaded from tile.openstreetmap.org; its policy forbids bulk
 downloads. The tileset's attribution metadata carries the OpenStreetMap
 attribution, which the screen shows.
 
-  build-raster-map.py --bbox=W,S,E,N --maxzoom Z --estimate   # counts and sizes, no network
-  build-raster-map.py --bbox=W,S,E,N --maxzoom Z --out map.pmtiles
+  build-map.py --bbox=W,S,E,N --maxzoom Z --estimate   # counts and sizes, no network
+  build-map.py --bbox=W,S,E,N --maxzoom Z --out map.pmtiles
 
-Needs: pmtiles (brew install pmtiles), Docker, Node.js 18+ with npm. A render
-can be stopped and run again with the same arguments; finished tiles are kept.
+Needs: pmtiles (brew install pmtiles) and curl; raster also Docker and
+Node.js 18+ with npm. A raster render can be stopped and run again with the
+same arguments; finished tiles are kept.
 """
 import argparse
 import concurrent.futures
@@ -35,7 +41,7 @@ import time
 import urllib.error
 import urllib.request
 
-# --- Pins (record changes in ADR-0031) --------------------------------------
+# --- Pins (record changes in ADR-0031/ADR-0032) --------------------------------------
 TILESERVER_IMAGE = (
     "maptiler/tileserver-gl:v5.7.0"
     "@sha256:24d0364e1d40da0ae3fb3269f617c26e36a883ad4b7454e5c4064a8795bfc807"
@@ -44,8 +50,9 @@ BASEMAPS_NPM = "@protomaps/basemaps@5.7.2"
 ASSETS_COMMIT = "028c18f713baecad011301ff7a69acc39bcc2ae7"
 ASSETS_URL = f"https://codeload.github.com/protomaps/basemaps-assets/tar.gz/{ASSETS_COMMIT}"
 BUILD_URL = "https://build.protomaps.com/{date}.pmtiles"
-# Protomaps builds stop at zoom 15; higher raster zooms overzoom its tiles.
+# Protomaps builds stop at zoom 15; higher zooms overzoom its tiles.
 VECTOR_MAXZOOM = 15
+VECTOR = "vector"
 
 ATTRIBUTION = "© OpenStreetMap contributors · Protomaps"
 CONTAINER = "f250-map-render"
@@ -67,6 +74,11 @@ BYTES_PER_TILE = {
     "jpg": {8: (6200, 11900), 9: (3100, 15700), 10: (2800, 16700), 11: (2300, 16300),
             12: (1700, 14900), 13: (1800, 13600), 14: (1400, 11900), 15: (1140, 10400),
             16: (1180, 9300)},
+    # Vector: the extract itself (gzip-compressed MVT), measured the same way
+    # on the same two samples, build 20261111. Low-zoom tiles cover far more
+    # than the sample, so their figures are rougher.
+    VECTOR: {8: (17900, 74400), 9: (14300, 215300), 10: (7700, 157500), 11: (3900, 96600),
+             12: (2170, 72000), 13: (1160, 42800), 14: (590, 29300), 15: (340, 22700)},
 }
 
 TILE_LIMIT_WITHOUT_YES = 100_000  # bigger builds need --yes
@@ -344,7 +356,7 @@ def write_metadata(db, a, bbox, build):
         "name": a.name,
         "description": (f"Raster render of the Protomaps basemap build {build} "
                         f"(OpenStreetMap data), {a.flavor} flavor, made by "
-                        f"tools/maps/build-raster-map.py"),
+                        f"tools/maps/build-map.py"),
         "format": FORMATS[a.format],
         "type": "baselayer",
         "version": "1",
@@ -365,13 +377,46 @@ def write_metadata(db, a, bbox, build):
     db.commit()
 
 
+def write_vector(a, bbox, build, vector, work):
+    """The extract, with metadata that says what it is: the attribution the
+    screen shows (plain text, no HTML), and how it was made."""
+    out = os.path.abspath(a.out)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    shutil.copyfile(vector, out + ".part")
+    meta = json.loads(subprocess.run(["pmtiles", "show", "--metadata", out + ".part"],
+                                     check=True, capture_output=True, text=True).stdout)
+    meta.update({
+        "name": a.name,
+        "description": (f"Protomaps basemap build {build} (OpenStreetMap data), region "
+                        f"{','.join(f'{v:g}' for v in bbox)} to zoom {a.maxzoom}, made by "
+                        f"tools/maps/build-map.py"),
+        "attribution": ATTRIBUTION,
+        "f250:protomaps_build": build,
+        "f250:license": "Map data: OpenStreetMap contributors, ODbL "
+                        "(https://www.openstreetmap.org/copyright)",
+    })
+    meta_file = os.path.join(work, "metadata.json")
+    with open(meta_file, "w") as f:
+        json.dump(meta, f, indent=2, ensure_ascii=False)
+    # The extract's centre zoom is 0; the screen opens there without a fix.
+    header = json.loads(subprocess.run(["pmtiles", "show", "--header-json", out + ".part"],
+                                       check=True, capture_output=True, text=True).stdout)
+    header["center"] = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2, min(12, a.maxzoom)]
+    header_file = os.path.join(work, "header.json")
+    with open(header_file, "w") as f:
+        json.dump(header, f, indent=2)
+    run(["pmtiles", "edit", out + ".part", "--metadata", meta_file, "--header-json", header_file])
+    os.replace(out + ".part", out)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--bbox", required=True, help="west,south,east,north in degrees")
     ap.add_argument("--minzoom", type=int, default=0)
     ap.add_argument("--maxzoom", type=int, required=True)
-    ap.add_argument("--format", choices=sorted(FORMATS), default="webp")
+    ap.add_argument("--format", choices=[VECTOR] + sorted(FORMATS), default=VECTOR,
+                    help="vector (default; the dashboard draws it) or a raster image format")
     ap.add_argument("--quality", type=int, default=90, help="WebP/JPEG quality (default 90)")
     ap.add_argument("--flavor", default="light",
                     choices=["light", "dark", "white", "grayscale", "black"])
@@ -402,6 +447,10 @@ def main():
         die("--bbox must be west<east and south<north, in degrees")
     if not 0 <= a.minzoom <= a.maxzoom <= 18:
         die("zooms must satisfy 0 <= minzoom <= maxzoom <= 18")
+    if a.format == VECTOR and a.maxzoom > VECTOR_MAXZOOM:
+        log(f"vector data stops at zoom {VECTOR_MAXZOOM}; the screen zooms in further "
+            f"from it, so --maxzoom {a.maxzoom} becomes {VECTOR_MAXZOOM}")
+        a.maxzoom = VECTOR_MAXZOOM
 
     total = print_estimate(a, bbox)
     if a.estimate:
@@ -409,11 +458,12 @@ def main():
     if total > TILE_LIMIT_WITHOUT_YES and not a.yes:
         die(f"{total:,} tiles; check the estimate above and pass --yes to build it")
 
-    for tool, hint in [("pmtiles", "brew install pmtiles"), ("docker", "Docker Desktop"),
-                       ("curl", "curl"),
-                       ("node", "Node.js 18+"), ("npm", "Node.js 18+")]:
+    tools = [("pmtiles", "brew install pmtiles"), ("curl", "curl")]
+    if a.format != VECTOR:
+        tools += [("docker", "Docker Desktop"), ("node", "Node.js 18+"), ("npm", "Node.js 18+")]
+    for tool, hint in tools:
         need(tool, hint)
-    if subprocess.run(["docker", "info"], capture_output=True).returncode != 0:
+    if a.format != VECTOR and subprocess.run(["docker", "info"], capture_output=True).returncode != 0:
         die("Docker isn't running")
 
     work = a.work or os.path.splitext(a.out)[0] + ".work"
@@ -425,6 +475,11 @@ def main():
     region = hashlib.sha1(f"{build} {bbox} {min(a.maxzoom, VECTOR_MAXZOOM)}".encode()).hexdigest()[:10]
     vector = os.path.join(work, f"vector-{region}.pmtiles")
     extract_vector(build, bbox, a.maxzoom, vector)
+    if a.format == VECTOR:
+        write_vector(a, bbox, build, vector, work)
+        run(["pmtiles", "verify", a.out])
+        log(f"{a.out}: {human(os.path.getsize(a.out))}")
+        return
     shutil.copyfile(vector, os.path.join(server, "data", "vector.pmtiles"))
     fetch_assets(work, server, a.flavor)
     write_style(work, server, a.flavor, a.lang)

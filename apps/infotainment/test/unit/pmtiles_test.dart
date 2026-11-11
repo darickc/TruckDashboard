@@ -242,8 +242,13 @@ void main() {
     final root = _directory([const Entry(0, 0, 1, 1)]);
     final data = Uint8List.fromList([0]);
 
-    test('vector tiles are refused, saying why', () async {
-      expect(await problemOf(_file(root: root, data: data, tileType: 1)), contains('vector tiles'));
+    test('vector tiles (MVT) are accepted (ADR-0032)', () async {
+      expect(await problemOf(_file(root: root, data: data, tileType: 1)), '');
+    });
+
+    test('AVIF and unknown tile types are refused, saying why', () async {
+      expect(await problemOf(_file(root: root, data: data, tileType: 5)), contains('AVIF'));
+      expect(await problemOf(_file(root: root, data: data, tileType: 0)), contains('unknown'));
     });
 
     test('brotli and zstd are refused', () async {
@@ -282,6 +287,18 @@ void main() {
         ),
       );
       expect(r.attribution, '© OpenStreetMap contributors');
+    });
+
+    test('HTML entities in the attribution are decoded (Protomaps builds)', () async {
+      final r = await _openBytes(
+        _file(
+          root: root,
+          data: data,
+          metadata:
+              '{"attribution":"<a href=\\"https://www.openstreetmap.org/copyright\\">&copy; OpenStreetMap</a> &amp; others"}',
+        ),
+      );
+      expect(r.attribution, '© OpenStreetMap & others');
     });
   });
 }

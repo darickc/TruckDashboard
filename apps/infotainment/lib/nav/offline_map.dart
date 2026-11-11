@@ -3,10 +3,12 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import 'map_file.dart';
 import 'pmtiles.dart';
+import 'vector_map.dart';
 
 /// The offline map's state: being opened, ready, or why there is none.
 sealed class MapFileState {
@@ -18,8 +20,18 @@ class MapLoading extends MapFileState {
 }
 
 class MapReady extends MapFileState {
-  const MapReady(this.reader);
+  const MapReady(this.reader, {this.vector});
   final PmTilesReader reader;
+
+  /// Set for a vector tileset (ADR-0032): what the screen draws it with.
+  final VectorMap? vector;
+}
+
+/// A vector tileset's tile provider and the bundled styles to draw it with.
+class VectorMap {
+  VectorMap(PmTilesReader reader, this.styles) : provider = PmTilesVectorProvider(reader);
+  final PmTilesVectorProvider provider;
+  final VectorMapStyles styles;
 }
 
 class MapUnavailable extends MapFileState {
@@ -27,13 +39,17 @@ class MapUnavailable extends MapFileState {
   final String why;
 }
 
-/// The raster tileset at [path] (ADR-0030): opened once, read-only. The
-/// map update workflow (6.5.3) replaces the file and restarts the
-/// dashboard.
+/// The tileset at [path], raster (ADR-0030) or vector (ADR-0032): opened
+/// once, read-only. The map update workflow (6.5.3) replaces the file and
+/// restarts the dashboard.
 class OfflineMap {
-  OfflineMap(this.path, {Future<PmTilesReader> Function(String path)? open})
-    : _open = open ?? openOfflineMap,
-      _state = ValueNotifier(
+  OfflineMap(
+    this.path, {
+    Future<PmTilesReader> Function(String path)? open,
+    Future<VectorMapStyles> Function()? loadStyles,
+  }) : _open = open ?? openOfflineMap,
+       _loadStyles = loadStyles ?? (() => VectorMapStyles.load(rootBundle)),
+       _state = ValueNotifier(
         path.isEmpty
             ? const MapUnavailable('no offline map configured (MAP_FILE)')
             : const MapLoading(),
@@ -44,6 +60,7 @@ class OfflineMap {
 
   final String path;
   final Future<PmTilesReader> Function(String path) _open;
+  final Future<VectorMapStyles> Function() _loadStyles;
   final ValueNotifier<MapFileState> _state;
 
   ValueListenable<MapFileState> get state => _state;
@@ -51,12 +68,24 @@ class OfflineMap {
   Future<void> load() async {
     if (path.isEmpty) return;
     _state.value = const MapLoading();
+    final PmTilesReader reader;
     try {
-      _state.value = MapReady(await _open(path));
+      reader = await _open(path);
     } on PmTilesException catch (e) {
       _state.value = MapUnavailable(e.message);
+      return;
     } catch (e) {
       _state.value = MapUnavailable('$path: $e');
+      return;
+    }
+    if (reader.header.tileType != TileType.mvt) {
+      _state.value = MapReady(reader);
+      return;
+    }
+    try {
+      _state.value = MapReady(reader, vector: VectorMap(reader, await _loadStyles()));
+    } catch (e) {
+      _state.value = MapUnavailable('the vector map styles can\'t be read: $e');
     }
   }
 }

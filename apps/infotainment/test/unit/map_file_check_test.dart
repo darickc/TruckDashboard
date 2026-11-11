@@ -1,4 +1,4 @@
-// Checks a built map file with the dashboard's own reader (ADR-0031):
+// Checks a built map file with the dashboard's own reader (ADR-0031, ADR-0032):
 //
 //   cd apps/infotainment && MAP_CHECK=/path/to/map.pmtiles fvm flutter test test/unit/map_file_check_test.dart
 //
@@ -12,6 +12,7 @@ import 'dart:ui' as ui;
 import 'package:f250_infotainment/nav/pmtiles.dart';
 import 'package:f250_infotainment/nav/pmtiles_file.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vector_tile_renderer/vector_tile_renderer.dart' as vtr;
 
 (int, int) _tileAt(int z, double lon, double lat) {
   final n = 1 << z;
@@ -31,6 +32,7 @@ bool _magic(TileType t, Uint8List b) => switch (t) {
     b.length > 12 &&
         String.fromCharCodes(b.sublist(0, 4)) == 'RIFF' &&
         String.fromCharCodes(b.sublist(8, 12)) == 'WEBP',
+  TileType.mvt => b.isNotEmpty, // decoded below
   _ => false,
 };
 
@@ -43,14 +45,15 @@ void main() {
       await tester.runAsync(() async {
         final r = await openPmTilesFile(path!);
         final h = r.header;
-        expect([TileType.png, TileType.jpeg, TileType.webp], contains(h.tileType));
+        expect([TileType.mvt, TileType.png, TileType.jpeg, TileType.webp], contains(h.tileType));
         expect(r.attribution, contains('OpenStreetMap'));
         expect(h.minLon, lessThan(h.maxLon));
         expect(h.minLat, lessThan(h.maxLat));
 
         // At every zoom: the tiles at the bounds' centre and four corners
-        // (pulled 1% inside) exist, are the declared format, and decode to
-        // 256 × 256 images.
+        // (pulled 1% inside) exist, are the declared format, and decode:
+        // raster to 256 × 256 images, vector to tiles with the Protomaps
+        // layers the bundled styles draw.
         final dx = (h.maxLon - h.minLon) * 0.01, dy = (h.maxLat - h.minLat) * 0.01;
         final points = [
           ((h.minLon + h.maxLon) / 2, (h.minLat + h.maxLat) / 2),
@@ -66,6 +69,12 @@ void main() {
             final bytes = await r.tile(z, x, y);
             expect(bytes, isNotNull, reason: 'tile $z/$x/$y');
             expect(_magic(h.tileType, bytes!), isTrue, reason: '$z/$x/$y is not ${h.tileType}');
+            if (h.tileType == TileType.mvt) {
+              final tile = vtr.VectorTileReader().read(bytes);
+              expect(tile.layers.map((l) => l.name), contains('earth'), reason: '$z/$x/$y');
+              decoded++;
+              continue;
+            }
             final codec = await ui.instantiateImageCodec(bytes);
             final frame = await codec.getNextFrame();
             expect((frame.image.width, frame.image.height), (256, 256), reason: '$z/$x/$y');

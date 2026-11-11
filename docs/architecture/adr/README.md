@@ -40,5 +40,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0029](0029-settings-screen.md) | A Settings tab; camera assignment and recording set through camera-manager | Accepted ([SIM] only) |
 | [0030](0030-navigation-position-and-raster-map.md) | Position from gpsd through services/navigation; a raster PMTiles map | Accepted ([SIM] only) |
 | [0031](0031-raster-map-build.md) | The raster map is built from a Protomaps extract, rendered locally by tileserver-gl | Accepted (built and checked on the Mac; not on the Pi) |
+| [0032](0032-vector-map.md) | The dashboard draws vector maps itself (vector_map_tiles, bundled styles); vector is the default build | Accepted ([SIM] only; Pi speed unmeasured) |
 
 New ADRs use the next number and the same headings.

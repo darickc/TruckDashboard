@@ -40,6 +40,15 @@ dependencies:
   powerstroke_sim:
     path: ../../simulator/powerstroke
   protobuf: ^6.1.0
+  # Vector map (ADR-0032). 9.x is a beta: the stable 8.0.0 needs flutter_map 7.
+  vector_map_tiles: 9.0.0-beta.13
+  vector_tile_renderer: 6.1.0
+
+# vector_tile_renderer 6.1.0 asks for vector_tile ^2 (protobuf ^3), which
+# can't share the app with grpc's protobuf ^6. vector_tile 4.0.0 is the same
+# decoder on protobuf ^6; the renderer is tested against it (ADR-0032).
+dependency_overrides:
+  vector_tile: 4.0.0
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +73,22 @@ flutter:
     enable-swift-package-manager: true
   assets:
     - assets/config/
+    - assets/map/styles/
+    - assets/map/sprites/
+
+  # The vector map's label fonts, named as the bundled styles name them
+  # (ADR-0032; Noto Sans, SIL OFL: assets/map/fonts/OFL.txt).
+  fonts:
+    - family: Noto Sans Regular
+      fonts:
+        - asset: assets/map/fonts/NotoSans-Regular.ttf
+    - family: Noto Sans Medium
+      fonts:
+        - asset: assets/map/fonts/NotoSans-Medium.ttf
+    - family: Noto Sans Italic
+      fonts:
+        - asset: assets/map/fonts/NotoSans-Italic.ttf
+          style: italic
 
   # To add assets to your application, add an assets section, like this:
   # assets:

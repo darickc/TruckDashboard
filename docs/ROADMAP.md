@@ -283,6 +283,11 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       ODbL) rendered locally by a pinned tileserver-gl, WebP, OSM attribution in the metadata, size estimate first
       ([ADR-0031](architecture/adr/0031-raster-map-build.md)). Ran on the Mac for Kansas samples; `make map-check`
       passes with the dashboard's reader. Not on the Pi; the owner's region isn't built yet.
+      6.5.1b `[SIM]`: vector maps ([ADR-0032](architecture/adr/0032-vector-map.md)): the dashboard draws MVT tilesets
+      itself with vector_map_tiles (vector_tile overridden to 4.0.0, which uses protobuf 6), from its own PMTiles
+      reader, with the Protomaps light/dark styles, icons and Noto Sans bundled (`make map-assets`). Night is the dark
+      style. `make map-region` now builds vector by default (an extract, no Docker); raster stays as `--format`.
+      Tests: styles fully parsed, provider, screen day/night, `map-check` for MVT. Pi drawing speed UNMEASURED.
       Next: 6.5.2's routing, or 6.5.3's update workflow (copy over Wi-Fi or USB)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and

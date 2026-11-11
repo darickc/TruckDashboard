@@ -104,14 +104,13 @@ class PmTilesHeader {
   /// Why the dashboard can't show this tileset, or null if it can.
   String? problem() {
     switch (tileType) {
-      case TileType.png || TileType.jpeg || TileType.webp:
+      // Raster (ADR-0030) or vector (ADR-0032).
+      case TileType.png || TileType.jpeg || TileType.webp || TileType.mvt:
         break;
-      case TileType.mvt:
-        return 'vector tiles (MVT) can\'t be shown: the map needs a raster tileset (ADR-0030)';
       case TileType.avif:
-        return 'AVIF tiles can\'t be decoded; use PNG, JPEG or WebP';
+        return 'AVIF tiles can\'t be decoded; use vector (MVT), PNG, JPEG or WebP';
       case TileType.unknown:
-        return 'the tile type is unknown; use PNG, JPEG or WebP';
+        return 'the tile type is unknown; use vector (MVT), PNG, JPEG or WebP';
     }
     for (final (what, c) in [('directories', internalCompression), ('tiles', tileCompression)]) {
       if (c == Compression.brotli || c == Compression.zstd) {
@@ -261,11 +260,21 @@ class PmTilesReader {
     return PmTilesReader._(header, root, read, decompress, metadata);
   }
 
-  /// The attribution the tileset carries, if any (HTML stripped).
+  /// The attribution the tileset carries, if any (HTML tags stripped and
+  /// the common entities decoded: Protomaps builds say `&copy;`).
   String? get attribution {
     final a = metadata['attribution'];
     if (a is! String || a.trim().isEmpty) return null;
-    return a.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+    final text = a
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll('&copy;', '©')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&amp;', '&')
+        .trim();
+    return text.isEmpty ? null : text;
   }
 
   String? get name => metadata['name'] is String ? metadata['name'] as String : null;

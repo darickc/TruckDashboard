@@ -40,11 +40,13 @@ GATEWAY  ?= tcp:127.0.0.1:50251
 # Position: sim (the app's simulated receiver) or services/navigation's endpoint.
 NAV      ?= sim
 NAV_LISTEN ?= tcp:127.0.0.1:50253
-# The offline raster map (PMTiles, ADR-0030); `make map-test-pattern` writes one
-# there. The macOS app's sandbox may read /tmp/f250/maps/ only.
+# The offline map (PMTiles, vector or raster; ADR-0030, ADR-0032);
+# `make map-test-pattern` writes a raster one there. The macOS app's sandbox
+# may read /tmp/f250/maps/ only.
 MAP_FILE ?= /tmp/f250/maps/map.pmtiles
-# `make map-region` (ADR-0031): BBOX=west,south,east,north and MAXZOOM are
-# required; ESTIMATE=1 prints tile counts and sizes only; YES=1 allows big builds.
+# `make map-region` (ADR-0031, ADR-0032): BBOX=west,south,east,north and MAXZOOM
+# are required; ESTIMATE=1 prints tile counts and sizes only; YES=1 allows big
+# builds; MAP_ARGS=--format=webp renders a raster map instead (Docker, Node).
 MAP_OUT ?= build/maps/region.pmtiles
 MAP     ?= $(MAP_FILE)
 SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START) \
@@ -56,7 +58,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
-        sim gateway navigation map-test-pattern map-region map-check console docs-lint \
+        sim gateway navigation map-test-pattern map-region map-assets map-check console docs-lint \
         pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can \
         agl-test agl-image deploy deploy-build logs build-vm agl-build
 
@@ -229,13 +231,16 @@ map-test-pattern: ## Write a test-pattern map (not map data) to $(MAP_FILE); nee
 	pmtiles convert build/maps/test-pattern.mbtiles build/maps/test-pattern.pmtiles
 	mkdir -p $(dir $(MAP_FILE)) && cp build/maps/test-pattern.pmtiles $(MAP_FILE)
 
-map-region: ## Build a raster map of BBOX=w,s,e,n to MAXZOOM= into $(MAP_OUT) and $(MAP_FILE) (ESTIMATE=1: sizes only); needs pmtiles, Docker, Node
+map-region: ## Build a vector map of BBOX=w,s,e,n to MAXZOOM= into $(MAP_OUT) and $(MAP_FILE) (ESTIMATE=1: sizes only; MAP_ARGS=--format=webp: raster); needs pmtiles
 	@test -n "$(BBOX)" -a -n "$(MAXZOOM)" || { echo "usage: make map-region BBOX=west,south,east,north MAXZOOM=n [ESTIMATE=1] [YES=1] [MAP_ARGS=...]"; exit 2; }
-	python3 tools/maps/build-raster-map.py --bbox=$(BBOX) --maxzoom $(MAXZOOM) --out $(MAP_OUT) \
+	python3 tools/maps/build-map.py --bbox=$(BBOX) --maxzoom $(MAXZOOM) --out $(MAP_OUT) \
 		$(if $(ESTIMATE),--estimate) $(if $(YES),--yes) $(MAP_ARGS)
 ifeq ($(ESTIMATE),)
 	mkdir -p $(dir $(MAP_FILE)) && cp $(MAP_OUT) $(MAP_FILE)
 endif
+
+map-assets: ## Regenerate the vector map's styles, icons and fonts in apps/infotainment/assets/map (ADR-0032); needs Node, curl
+	python3 tools/maps/map-assets.py
 
 map-check: ## Check MAP= (default $(MAP_FILE)) with pmtiles and the dashboard's own reader
 	pmtiles verify $(MAP) && pmtiles show $(MAP)

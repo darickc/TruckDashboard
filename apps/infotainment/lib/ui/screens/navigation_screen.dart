@@ -4,15 +4,18 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:vector_map_tiles/vector_map_tiles.dart';
 
+import '../../nav/map_cache.dart';
 import '../../nav/offline_map.dart';
 import '../../nav/position_state.dart';
+import '../../nav/vector_map.dart';
 import '../app_scope.dart';
 import '../theme.dart';
 import '../widgets/tap_target.dart';
 
 /// The offline map and the truck's position (Phase 6.4 and 6.5.1,
-/// ADR-0030). North up. It follows the truck until the map is dragged;
+/// ADR-0030; vector maps ADR-0032). North up. It follows the truck until the map is dragged;
 /// the locate button follows again.
 ///
 /// Honest about what it knows: a fix that isn't current is drawn grey and
@@ -116,6 +119,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
     Duration now,
   ) {
     final reader = mapState is MapReady ? mapState.reader : null;
+    final vector = mapState is MapReady ? mapState.vector : null;
     final header = reader?.header;
     final minZoom = math.max(2.0, (header?.minZoom ?? 2).toDouble());
     final maxZoom = math.min(19.0, (header?.maxZoom ?? 17) + 2.0); // up to two zooms of overzoom
@@ -158,7 +162,17 @@ class _NavigationScreenState extends State<NavigationScreen> {
               },
             ),
             children: [
-              if (reader != null)
+              if (vector != null)
+                VectorTileLayer(
+                  // Day and night are two styles (ADR-0032), not darkened tiles.
+                  key: ValueKey(('vector', night)),
+                  tileProviders: TileProviders({vectorSource: vector.provider}),
+                  theme: vector.styles.forNight(night).theme,
+                  sprites: vector.styles.forNight(night).sprites,
+                  cacheFolder: mapCacheFolder,
+                  fileCacheMaximumSizeInBytes: mapCacheMaxBytes,
+                )
+              else if (reader != null)
                 TileLayer(
                   tileProvider: PmTilesTileProvider(reader),
                   minNativeZoom: header!.minZoom,
