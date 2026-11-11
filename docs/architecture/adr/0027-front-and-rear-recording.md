@@ -10,8 +10,9 @@
   webcams onto a tmpfs standing in for the drive
   ([bench-log](../../hardware/bench-log.md)): segments, 1 s clusters,
   retention, saved clips, clean and unclean stops, the window joining the
-  recording capture, about 1 % of one core. Not yet: a real drive, a
-  power cut, the Yocto image. Every figure below is an estimate to check on the bench
+  recording capture, about 1 % of one core. In the Yocto images from
+  `f3bf43b` (built 2026-11-10; not yet flashed). Not yet: a real drive, a
+  power cut. Every figure below is an estimate to check on the bench
   first (see "To measure"). The retention values are recommendations until
   the drive is chosen (H31)
 - **Date:** 2026-11-10
@@ -252,12 +253,14 @@ What constrains it:
   advisory in the alert banner for each camera set to record that isn't.
 - **Not built**: the index file per camera (decision 10: the names already
   carry the run, sequence and trusted time), `x264enc` re-encoding,
-  per-camera caps, settings on screen, and the GStreamer build in
-  meta-f250 and the image's recording plugins. From the build's package
-  list (bench, 2026-11-10) the image needs
-  `gstreamer1.0-plugins-good-matroska`, `gstreamer1.0-plugins-good-multifile`,
-  `libgstriff-1.0-0` and `libgstpbutils-1.0-0`; RPM dependencies bring in
-  the last two.
+  per-camera caps, and settings on screen.
+- **The image** (meta-f250, `f3bf43b`): `f250-services` builds camera-manager
+  with the feature (`DEPENDS += "gstreamer1.0 glib-2.0"`), and the image
+  installs `gstreamer1.0-plugins-good-matroska` and `-multifile`, which pull
+  `libgstriff-1.0-0` and `libgstpbutils-1.0-0` (names from the build's
+  package list). Both images built on 2026-11-10 with all four packages, and
+  the packaged camera-manager links `libgstreamer-1.0.so.0` and defaults to
+  `--media gstreamer`. Not yet flashed and booted.
 
 ## Options considered
 
@@ -293,7 +296,7 @@ What constrains it:
   (`splitmuxsink`) plugins from gst-plugins-good; neither is in the
   `6114c52` manifest. Package names to take from the build's package list,
   not guessed. The build needs GStreamer's headers for gstreamer-rs, and
-  `f250-services-crates.inc` grows.
+  `f250-services-crates.inc` grows. *Done in `f3bf43b`: see "As built".*
 - **Camera choice (new question H33):** H.264 UVC cameras for front and rear
   would keep the Pi's CPU free and the files small; MJPEG cameras work but
   need much more drive. One camera per USB controller.
