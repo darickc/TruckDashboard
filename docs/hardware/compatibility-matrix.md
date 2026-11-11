@@ -273,8 +273,11 @@ Researched 2026-11-10 for front and rear recording
 | Two UVC webcams on one RP1 USB 2 bus | C920 1080p MJPEG and C250 640×480 MJPEG at the same time: both 30 fps, ~98 Mbit/s together, no "No space left on device" | T | [bench-log](bench-log.md) 2026-11-10 |
 | MJPEG decode on the Pi 5 (`jpegdec`) | 1080p30 about 42 % of one core, 720p30 about 32 %, 640×480 about 5 %; recording MJPEG without decoding about 0.1 % | T | [bench-log](bench-log.md) 2026-11-10 |
 | Recording plugins on our image | `matroska` and `multifile` (`splitmuxsink`) are not in the `6114c52` manifest; no `x264enc` either | V | `agl-f250-22.0.1-6114c52.manifest` |
-| gstreamer-rs 0.25 (camera-manager's `gstreamer` feature) | Builds against GStreamer 1.22 (Debian bookworm, `make deploy`'s arm64 build) and 1.26 (`rust:1`, `make linux-test`); recording, display and read-back tests pass on 1.26 with `videotestsrc`. Needs Rust ≥ 1.92. Against the image's 1.28.5: not run | T (Docker) / U (Pi) | `make linux-test`, 2026-11-10 |
-| `matroskamux` `max-cluster-duration` | Present on 1.26.2: Integer64 ns, default 65 535 000 000 (65.5 s); `min-cluster-duration` default 0.5 s. On 1.28.5: UNVERIFIED | T (1.26) / U | `gst-inspect-1.0 matroskamux`, Docker, 2026-11-10 |
+| gstreamer-rs 0.25 (camera-manager's `gstreamer` feature) | Builds against GStreamer 1.22 (Debian bookworm, `make deploy`'s arm64 build) and 1.26 (`rust:1`, `make linux-test`); recording, display and read-back tests pass on 1.26 with `videotestsrc`; on the Pi's 1.28.5 it records (bench-log). Needs Rust ≥ 1.92 | T | `make linux-test`, 2026-11-10 |
+| `matroskamux` `max-cluster-duration` | Present on 1.26.2 and on the image's 1.28.5: Integer64 ns, default 65 535 000 000 (65.5 s); `min-cluster-duration` default 0.5 s | T | `gst-inspect-1.0 matroskamux`, Docker and the Pi, 2026-11-10 |
+| Recording plugins for the image | `gstreamer1.0-plugins-good-matroska` and `-multifile` 1.28.5-r0 are built (the build's `deploy/rpm`); matroska also needs `libgstriff-1.0-0` and `libgstpbutils-1.0-0`, not on 6114c52. Installed with `rpm -i`, they record on the Pi | T | [bench-log](bench-log.md) 2026-11-10 |
+| camera-manager recording on the Pi (gstreamer-rs, 1.28.5) | Two webcams recorded in 10 s Matroska segments from the service's sandbox, about 1 % of one core; the window joins the running capture in 37 ms | T | [bench-log](bench-log.md) 2026-11-10 |
+| Clock sync on image 6114c52 | connman keeps the time; systemd-timesyncd isn't running, so `/run/systemd/timesync/synchronized` never appears. `timedatectl` reports synchronized | T | [bench-log](bench-log.md) 2026-11-10 |
 
 ## 2007 F-250 6.0L diagnostic network
 

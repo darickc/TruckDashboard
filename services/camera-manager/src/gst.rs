@@ -25,9 +25,9 @@
 //! - A stop sends end-of-stream first, so `splitmuxsink` finishes the
 //!   segment being written, and waits up to [`EOS_WAIT`] for it.
 //!
-//! Status: `[SIM]`: real pipelines from `videotestsrc` in Linux
-//! (`make linux-test`, tests/gst.rs). Not yet run on the Pi or with a
-//! camera.
+//! Status: `[SIM]` with real pipelines from `videotestsrc` in Linux
+//! (`make linux-test`, tests/gst.rs); `[BENCH]` 2026-11-10 on the Pi's
+//! GStreamer 1.28.5 with two USB webcams (bench-log).
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};

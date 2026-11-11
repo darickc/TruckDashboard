@@ -6,8 +6,12 @@
   "As built"), its API in `f250.camera.v1`, and the dashboard's REC
   indicator, advisory and Save clip button. Tested against a fake media and
   with real GStreamer pipelines from `videotestsrc` in Linux (GStreamer
-  1.26, `make linux-test`). Not run on the Pi or with a camera; not in the
-  Yocto image yet. Every figure below is an estimate to check on the bench
+  1.26, `make linux-test`). `[BENCH]` 2026-11-10 on the Pi with two
+  webcams onto a tmpfs standing in for the drive
+  ([bench-log](../../hardware/bench-log.md)): segments, 1 s clusters,
+  retention, saved clips, clean and unclean stops, the window joining the
+  recording capture, about 1 % of one core. Not yet: a real drive, a
+  power cut, the Yocto image. Every figure below is an estimate to check on the bench
   first (see "To measure"). The retention values are recommendations until
   the drive is chosen (H31)
 - **Date:** 2026-11-10
@@ -214,8 +218,9 @@ What constrains it:
   still to do.
 - **Segments** are named by camera-manager through `splitmuxsink`'s
   `format-location` signal, so names follow decision 10. `max-cluster-duration`
-  is set to 1 s where `matroskamux` has it: it does on 1.26 (default 65.5 s,
-  so setting it matters); on the Pi's 1.28, UNVERIFIED. `fdatasync` runs
+  is set to 1 s: `matroskamux` has it on 1.26 and on the Pi's 1.28.5
+  (default 65.5 s, so setting it matters). On the bench, a copy of the
+  segment being written played to about 0.75 s before the copy. `fdatasync` runs
   every `RECORD_SYNC_S` on the segment being written, off the loop's thread,
   and once more when a segment closes.
 - **The drive thread** (`drive.rs`) owns the store: the run counter, the
@@ -223,10 +228,12 @@ What constrains it:
   moment after "before each new segment", and once a minute), saved clips.
   Besides the segments being written, it never deletes the newest segment
   of each camera in this run, in case one opened after the loop's snapshot.
-- **The clock** is trusted while `/run/systemd/timesync/synchronized`
-  exists (systemd-timesyncd). Whether the AGL image runs timesyncd is
-  UNVERIFIED; without it the clock is never trusted, which keeps every
-  name honest and turns the age limit off.
+- **The clock** is trusted while `timedatectl` says `NTPSynchronized=yes`
+  (the kernel's flag), or timesyncd's `/run/systemd/timesync/synchronized`
+  exists. The drive thread asks on each pass, and naming reads the cached
+  answer. On image 6114c52 connman keeps the time and timesyncd doesn't
+  run, so the file alone never trusted the clock (bench, 2026-11-10).
+  Asking timedatectl works from inside the unit's sandbox.
 - **Settings** (decision 11): `RECORD_CAMERAS` and `RECORD_*` in
   `/etc/default/f250`; `camera-start` passes `--record` only for cameras
   with a device and only with `DATA_DRIVE=1`, so a head unit without a data
@@ -245,9 +252,12 @@ What constrains it:
   advisory in the alert banner for each camera set to record that isn't.
 - **Not built**: the index file per camera (decision 10: the names already
   carry the run, sequence and trusted time), `x264enc` re-encoding,
-  per-camera caps, settings on screen, and the image's recording plugins
-  (`matroska`, `multifile`) and GStreamer build in meta-f250: the package
-  names are to come from the build's package list.
+  per-camera caps, settings on screen, and the GStreamer build in
+  meta-f250 and the image's recording plugins. From the build's package
+  list (bench, 2026-11-10) the image needs
+  `gstreamer1.0-plugins-good-matroska`, `gstreamer1.0-plugins-good-multifile`,
+  `libgstriff-1.0-0` and `libgstpbutils-1.0-0`; RPM dependencies bring in
+  the last two.
 
 ## Options considered
 

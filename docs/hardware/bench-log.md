@@ -1628,3 +1628,101 @@ is the screen's (y + height = 480), though a right edge at the screen's
 (x + width = 800) is fine; why is not looked into. One row short works.
 A 4:3 picture is now 580x435 instead of 427x320 (1.85 times the area),
 and alerts still show above a live camera.
+
+## 2026-11-10 — Front and rear recording on the Pi (ADR-0027) [BENCH]
+
+Hardware: as in the entries before: the Pi 5, the 7" DSI touchscreen, the
+C920 (front, USB port 1) and the C250 (rear, port 2) on one RP1 USB 2 bus.
+No data drive is fitted
+Image: AGL 22.0.1, `agl-f250` @ 6114c52, with `make deploy` of `7554900`
+plus the clock change below (camera-manager built with its `gstreamer`
+feature)
+Setup:
+- The image has no `matroska` or `multifile` plugins. The build VM's
+  `tmp/deploy/rpm/aarch64` has them from the same build (1.28.5-r0), and
+  `rpm -i` installed `gstreamer1.0-plugins-good-matroska`,
+  `gstreamer1.0-plugins-good-multifile`, and the two libraries matroska
+  needs that the image lacked, `libgstriff-1.0-0` and `libgstpbutils-1.0-0`.
+  These are the package names for meta-f250. They stay installed.
+- A stand-in for the data drive: a 2 GiB tmpfs mounted at
+  `/var/lib/f250/storage` (RAM, not the SD card), with `video/` made
+  `agl-driver:f250 0750` as stage1-setup.sh does for a drive.
+- Bench settings in `/etc/default/f250-bench`, added to the unit by a
+  drop-in: `DATA_DRIVE=1`, `RECORD_CAMERAS=front,rear`,
+  `RECORD_SEGMENT_S=10`, `RECORD_MAX_GB=1`, `RECORD_MIN_FREE_GB=0`,
+  `RECORD_PROTECTED_MAX_GB=1`, `RECORD_CLIP_BEFORE_S=20`,
+  `RECORD_CLIP_AFTER_S=10`, `RECORD_UNCLEAN_PROTECT_MIN=1`. Both cameras at
+  the default caps (640×480 MJPEG, 30/1).
+- Removed afterwards, with the tmpfs: the Pi is back to `DATA_DRIVE=0` and
+  recording is off.
+- Frames read back with `filesrc ! matroskademux ! identity silent=false !
+  fakesink`. Screenshots with `agl-screenshooter` as agl-driver.
+- The room was dim.
+
+Result:
+
+    plugins    `matroskamux` on 1.28.5 has max-cluster-duration (Integer64
+               ns, default 65 535 000 000) and min-cluster-duration (default
+               0.5 s); camera-manager sets the max to 1 s
+    clock      timesyncd isn't running on this image (connman keeps the
+               time), so /run/systemd/timesync/synchronized never appears;
+               `timedatectl` says synchronized. camera-manager now asks
+               timedatectl (from inside the unit's sandbox it works): "clock
+               trusted", names carry the time (b00001-s000000-
+               20261111T005842Z.mkv)
+    start      both recording from the service and its sandbox: first frame
+               771 ms (front), 1208 ms (rear) after the start
+    segments   10 s each, on time. Front about 3-4 MB/s (29-43 MB per
+               segment), rear about 0.35 MB/s. Read back: front 299 frames
+               per segment (30 fps), rear 150 (15 fps: the C250 ran at 30
+               on 2026-11-10 in a lit room; low-light exposure, not checked)
+    CPU        camera-manager recording both, sync every second: 1.1 % of
+               one core (30 s), RSS 21 MB, 19 threads. Plus the rear window:
+               4.1 %. Plus the front window (C920 640×480 decode) instead:
+               13.4 %
+    window     `camera-ctl move back` while rear records: live after 37 ms
+               (the display branch joins the running capture; gst-launch
+               took ~700 ms). The same capture kept recording through show
+               and close. Screenshot: REC FRONT REAR in the status bar (red,
+               no SIM: real camera-manager), red dots on Front and Rear,
+               Save clip, the rear picture in 220/44/580×435
+    cut copy   copying the segment being written (what a power cut leaves
+               after the last sync), 4 times: the copy plays to ~0.75 s
+               before the moment it was copied (186 frames at 6.95 s, 219 at
+               8.06 s); the other 2 copies landed on finished segments
+    save clip  `camera-ctl save-clip`: "4 finished segments now, 4 more as
+               they finish". protected/ got s12, s13 (the 20 s before), s14
+               (being written), s15 (10 s after), front and rear, moved as
+               each finished
+    retention  past RECORD_MAX_GB=1: "deleted 1 segments (... size 1 ...)"
+               at each new segment, oldest first; the saved clip untouched;
+               unprotected video stays at ~1.02 GB (enforced as each segment
+               starts, so up to one segment per camera over)
+    clean stop `systemctl stop` while recording: 356 ms; "run 1 stopped
+               cleanly"; .state/clean-stop = 1; the last segment finished
+               (273 frames, read back without errors)
+    unclean    `kill -9` camera-manager 80 s into run 2: systemd restarted
+               it, "run 3", "run 2 stopped uncleanly: protected its last 14
+               segments" (7 per camera: 1 minute of 10 s segments plus the
+               cut one). The cut segment, killed 1 s in, plays 25 frames
+               (front) and 8 (rear) without errors
+    no drive   tmpfs unmounted, service restarted: both "not recording: no
+               data drive mounted at /var/lib/f250/storage"; save-clip
+               refused with that reason. Screenshot: the amber banner "Front
+               camera not recording" (+1 more), NOT RECORDING: FRONT REAR in
+               the status bar, the Home health line says it
+    warnings   none from GStreamer in the whole session
+
+Not measured: a real power cut (no drive is fitted, and a tmpfs loses
+everything), a real drive's sync cost, H.264 cameras, and touch (the owner
+wasn't at the screen; the buttons were exercised with camera-ctl). The unit's
+cgroup reported a 1.1 GB memory peak: that is the tmpfs's pages, charged to
+the writer, not camera-manager (RSS 21 MB).
+
+Verdict: recording works on the Pi as ADR-0027 decides, in the service and
+its sandbox. One capture per camera, the window joining and leaving it,
+1-second clusters, retention, saved clips, and the clean and unclean
+stops all behave as designed. Recording costs about 1 % of one core.
+Showing a recorded camera is near-instant. Two changes came out of it:
+the clock is now trusted from `timedatectl`, not timesyncd's file, and
+the image needs four packages (named above).

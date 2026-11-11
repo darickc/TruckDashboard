@@ -25,7 +25,8 @@
 # makes it agl-driver:f250 on the drive. Ordered after the drive's mount so
 # a drive present at boot is writable here; one mounted later needs a
 # restart of this unit (the sandbox's view is fixed at start). Status:
-# [SIM]; not yet run on the Pi.
+# [BENCH] 2026-11-10 in this sandbox onto a tmpfs in the drive's place
+# (bench-log); never on a real drive yet.
 #
 # Status: [BENCH] 2026-11-10 on image 6114c52 with two USB webcams
 # (bench-log): the socket is agl-driver:f250 0770, the windows show from

@@ -294,9 +294,13 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       `SaveClip`, `camera-ctl` `recording` and `save-clip`; 14 loop tests against a fake media, 5 with real
       pipelines from `videotestsrc` in Linux (segments read back with `matroskademux`); the dashboard's REC pill,
       REC dots in camera mode, Save clip there and on the Cameras tab, and an advisory for a camera that isn't
-      recording (150 Flutter tests; checked in the browser with the simulated source). Not run on the Pi or with a
-      camera; not in the Yocto image yet (the recipe and the image's `matroska`/`multifile` plugins, TODO).
-      Still to do: the bench measurements and pulls of the power (ADR-0027 "To measure"), truck cameras (H33),
+      recording (150 Flutter tests; checked in the browser with the simulated source). `[BENCH]` 2026-11-10 on the
+      Pi with two webcams onto a tmpfs in place of the drive (plugins installed by hand from the build's RPMs):
+      10 s segments, 1 s clusters (a copy of the open segment plays to ~0.75 s before the copy), retention, a
+      saved clip, a clean stop in 356 ms, `kill -9` protecting the last minute, the no-drive advisory on screen,
+      ~1 % of one core, the window live 37 ms after the move; the clock is now trusted from `timedatectl`
+      (timesyncd doesn't run on the image). Not in the Yocto image yet (the recipe, and the four packages named
+      in ADR-0027, TODO). Still to do: a real drive and pulls of the power (ADR-0027 "To measure"), truck cameras (H33),
       per-camera caps, the reverse decoder, and camera assignment and recording settings in a settings screen
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores

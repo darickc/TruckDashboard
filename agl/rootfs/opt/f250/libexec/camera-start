@@ -22,8 +22,8 @@
 #   RECORD_MAX_AGE_DAYS ... RECORD_CLIP_AFTER_S   retention; camera-manager
 #       reads them from its environment (the unit's EnvironmentFile).
 #
-# Status: [SIM] (make agl-test). The display path is [BENCH] (2026-11-10);
-# recording has not run on the Pi.
+# Status: [SIM] (make agl-test). [BENCH] 2026-11-10: the display path, and
+# recording with DATA_DRIVE=1 onto a tmpfs in the drive's place (bench-log).
 set -euo pipefail
 
 SOCK="${F250_CAMERA_SOCK:-/run/f250-camera/camera.sock}"

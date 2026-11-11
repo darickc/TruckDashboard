@@ -20,7 +20,8 @@
 //! fake media; the GStreamer media's tests run real pipelines from
 //! `videotestsrc` in Linux (`make linux-test`). Nothing reads reverse or
 //! speed from the gateway yet (automatic reverse and the speed limit are off
-//! by default). Recording hasn't run on the Pi.
+//! by default). Recording `[BENCH]` 2026-11-10 on the Pi with two webcams
+//! onto a tmpfs in the data drive's place (bench-log); no real drive yet.
 
 pub mod config;
 pub mod drive;
