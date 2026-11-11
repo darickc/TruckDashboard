@@ -49,7 +49,9 @@ at boot; keep it manual; or active after a clean listen. He chose the last:
 - **Listen first, every boot.** `f250-can-auto.service`
   (`/opt/f250/libexec/can-auto`) puts `can0` in **listen-only** mode, where
   the adapter sends neither ACKs nor error frames. It switches to active
-  only after a window (`CAN_AUTO_LISTEN_S`, 30 s) in which it received at
+  only after a window (`CAN_AUTO_LISTEN_S`, 3 s; 30 s until the owner shortened
+  it, 2026-11-10: the Pi is up in ~9 s, and 30 s held polling back to ~38 s)
+  in which it received at
   least `CAN_AUTO_MIN_FRAMES` frames (1000; the truck sends ~712/s), stayed
   ERROR-ACTIVE, and kept both error counters at 0. That is decision 2's
   "bitrate confirmed in listen-only mode", repeated each time. No bus (the

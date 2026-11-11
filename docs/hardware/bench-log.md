@@ -1879,3 +1879,15 @@ dashboard and agl/ now come from the deploy, not the image. No bus.
 On the truck: the banner should show for the first ~40 s after the Pi gets
 power, then clear as polling starts. If it stays, `journalctl -u
 f250-can-auto -b` has an error line.
+
+## 2026-11-10 — can-auto's listen window: 30 s → 3 s (owner)
+
+From the drive's boot journal: firmware ~4 s, Linux and every service up by
+~9 s, then the 30 s listen window, polling from ~38 s. The window was an
+arbitrary choice; the truck sends ~712 frames/s, so 1000 arrive in ~1.4 s.
+Now 3 s by default (`CAN_AUTO_LISTEN_S`, ~2100 frames), the same checks
+(≥ 1000 frames, ERROR-ACTIVE, both error counters 0). Set on the truck card
+(`CAN_AUTO_LISTEN_S=3` in /etc/default/f250, the new can-auto copied over);
+on the bench it listens in 3 s windows and stays listen-only with no bus.
+Expected on the truck: polling ~12 s after the Pi gets power, so the "Not
+polling the truck" banner for about that long. Not yet driven.

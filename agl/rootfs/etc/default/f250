@@ -13,7 +13,7 @@ ADAPTER=rfcomm:00:04:3E:85:EA:FC
 CAN_IF=can0
 # CAN_AUTO_ACTIVE  0 | 1. 1: at boot, f250-can-auto puts can0 in listen-only
 #            mode and switches it to active only after hearing the truck's
-#            bus cleanly (CAN_AUTO_MIN_FRAMES frames in CAN_AUTO_LISTEN_S, no
+#            bus cleanly (CAN_AUTO_MIN_FRAMES frames, 1000, in CAN_AUTO_LISTEN_S, 3 s, no
 #            errors), then restarts the gateway; no laptop needed. 0: can0
 #            stays down until `f250-can listen|active` by hand (ADR-0007
 #            decision 1, amended 2026-11-10). Needs TRANSMIT=1 to poll, and the

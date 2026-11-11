@@ -6,7 +6,8 @@
 #
 #   CAN_AUTO_ACTIVE=1    the owner's opt-in (/etc/default/f250). Anything else:
 #                        this does nothing and exits; CAN stays down at boot.
-#   CAN_AUTO_LISTEN_S    the listen-only window (30)
+#   CAN_AUTO_LISTEN_S    the listen-only window (3 s: ~2100 frames at the truck's
+#                        712/s; owner, 2026-11-10, was 30)
 #   CAN_AUTO_MIN_FRAMES  frames the window must hold (1000; the truck sends
 #                        ~712/s driving, CAN_CENSUS.md capture 3)
 #   CAN_AUTO_CAPTURE=1   once active, also capture every frame (f250-can
@@ -29,7 +30,7 @@
 set -uo pipefail
 
 CAN_IF="${CAN_IF:-can0}"
-LISTEN_S="${CAN_AUTO_LISTEN_S:-30}"
+LISTEN_S="${CAN_AUTO_LISTEN_S:-3}"
 MIN_FRAMES="${CAN_AUTO_MIN_FRAMES:-1000}"
 STATE="${STATE_DIRECTORY:-/var/lib/f250}"
 CAN_BIN="${F250_CAN_BIN:-/opt/f250/bin/f250-can}"

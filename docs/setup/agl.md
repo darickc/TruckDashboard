@@ -189,7 +189,7 @@ opens the adapter (ADR-0007), and `TRANSPORT=can TRANSMIT=1` needs
 **Without a laptop** (ADR-0007 amendment, 2026-11-10): set
 `CAN_AUTO_ACTIVE=1`. At every boot `f250-can-auto.service` puts `can0` in
 listen-only mode. It switches to active only after hearing the truck's bus
-cleanly for 30 s (at least 1000 frames, no errors), and then restarts the
+cleanly for 3 s (at least 1000 frames, no errors; the truck sends ~712/s), and then restarts the
 gateway. With the ignition off, or on the bench, it stays listen-only.
 `CAN_AUTO_CAPTURE=1` also records every frame until shutdown in
 `/var/lib/f250/captures`. See what it did with
