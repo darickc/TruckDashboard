@@ -57,6 +57,32 @@ List<BannerAlert> recordingAlerts(CameraStatus c) {
   ];
 }
 
+/// How long "Not polling the truck" must last before it shows (owner,
+/// 2026-11-10). At a normal start the gateway is passive for a few seconds
+/// while the CAN adapter listens (CAN_AUTO_LISTEN_S, 3 s), which isn't worth
+/// an alert; one that lasts longer is.
+const kNotPollingAfter = Duration(seconds: 10);
+
+/// Holds a condition back until it has lasted [after]; it starts over each
+/// time the condition clears.
+class Persistence {
+  Persistence(this.after);
+
+  final Duration after;
+  Duration? _since;
+
+  /// Whether [active] has held continuously for [after] by [now] (a
+  /// monotonic time).
+  bool held(bool active, Duration now) {
+    if (!active) {
+      _since = null;
+      return false;
+    }
+    final since = _since ??= now;
+    return now - since >= after;
+  }
+}
+
 /// "Not polling the truck" (ADR-0007 amendment, 2026-11-10): the gateway is
 /// passive although polling was asked for, and says why in its link detail
 /// (gateway-start's --passive-reason). Passive by choice (TRANSMIT=0) gives
@@ -85,7 +111,10 @@ List<BannerAlert> pollingAlerts(SourceInfo src) {
 List<BannerAlert> bannerAlerts(AppServices s) {
   final store = s.store;
   final all = [
-    ...pollingAlerts(store.source),
+    ...() {
+      final polling = pollingAlerts(store.source);
+      return s.notPolling.held(polling.isNotEmpty, store.clock.now()) ? polling : const <BannerAlert>[];
+    }(),
     for (final a in store.alerts)
       () {
         final (title, detail) = describeAlert(a, store, s.settings.units);

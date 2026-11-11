@@ -22,6 +22,14 @@ SourceInfo gateway({bool? transmit = false, String? detail = why, bool simulated
         machineState: transmit == true ? 'POLLING' : 'PASSIVE_ONLY',
         detail: detail);
 
+/// Like the app's 250 ms refresh: the banner is rebuilt (and the hold
+/// checked) as time passes, not once at the end.
+Future<void> wait(Harness h, int seconds) async {
+  for (var i = 0; i < seconds; i++) {
+    await h.advance(const Duration(seconds: 1));
+  }
+}
+
 void main() {
   setUpAll(loadTestAssets);
 
@@ -39,10 +47,33 @@ void main() {
         pollingAlerts(gateway(detail: 'polling asks 12.0 req/s of a 10.0 req/s link')), isEmpty);
   });
 
-  testWidgets('it shows in the banner on every screen', (tester) async {
+  test('a condition shows only after it has lasted, and starts over when it clears', () {
+    final p = Persistence(const Duration(seconds: 10));
+    Duration t(int s) => Duration(seconds: s);
+    expect(p.held(true, t(100)), isFalse);
+    expect(p.held(true, t(109)), isFalse);
+    expect(p.held(true, t(110)), isTrue);
+    expect(p.held(false, t(111)), isFalse);
+    expect(p.held(true, t(112)), isFalse, reason: 'starts over');
+    expect(p.held(true, t(122)), isTrue);
+  });
+
+  testWidgets('a normal start (polling within 10 s) never shows it', (tester) async {
     final h = await Harness.start(tester);
     h.store.source = gateway();
-    await h.advance(const Duration(seconds: 1));
+    await wait(h, 8);
+    expect(find.text('Not polling the truck'), findsNothing);
+    h.store.source = gateway(transmit: true, detail: null);
+    await wait(h, 5);
+    expect(find.text('Not polling the truck'), findsNothing);
+  });
+
+  testWidgets('it shows in the banner on every screen once it lasts 10 s', (tester) async {
+    final h = await Harness.start(tester);
+    h.store.source = gateway();
+    await wait(h, 9);
+    expect(find.text('Not polling the truck'), findsNothing, reason: 'held back for 10 s');
+    await wait(h, 2);
     // It is the cause of "Vehicle data lost", so it comes first.
     expect(
         find.descendant(

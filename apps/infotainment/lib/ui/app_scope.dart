@@ -9,6 +9,7 @@ import '../data/gateway_connection.dart';
 import '../data/simulation_controller.dart';
 import '../telemetry/calibration.dart';
 import '../telemetry/telemetry_store.dart';
+import 'banner_alerts.dart';
 
 enum AppTab { home, gauges, media, navigation, cameras, diagnostics }
 
@@ -54,6 +55,10 @@ class AppServices {
   final Duration? refreshPeriod;
 
   final tab = ValueNotifier(AppTab.home);
+
+  /// "Not polling the truck" shows only once it has lasted this long
+  /// (banner_alerts.dart).
+  final notPolling = Persistence(kNotPollingAfter);
 }
 
 class AppScope extends InheritedWidget {
