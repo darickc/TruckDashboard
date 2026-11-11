@@ -92,6 +92,40 @@ decode and need an explicit `stale_after_ms`.
 `formula::from_torque` translates Torque equations (`BARO()` → `baro`,
 `Signed(A)` → `signed(A)`) and rejects anything else with a reason.
 
+## Importing the Torque export
+
+`tools/pid-importer` reads `imports/torque/exportedPIDs.csv` against this
+registry:
+
+```bash
+cargo run -p pid-importer -- import                    # every row's fate
+cargo run -p pid-importer -- import --out /tmp/new.yaml
+cargo run -p pid-importer -- check                     # exit 1 on drift
+```
+
+Each row is one of:
+
+- **In the registry**: a signal already sends the same request on the same
+  CAN id. The report says if its formula differs (the Boost row does on
+  purpose: the registry uses the MAP row and computes boost).
+- **New**: written by `--out` as `IMPORTED_UNVERIFIED`, `enabled: false`,
+  formula translated syntactically. Its `range` is Torque's gauge scale
+  (Min/Max Value, often not a plausibility limit: the CHT rows say 0–100 °F)
+  and its `poll` an example; both are flagged. The output is checked against
+  this registry before it is written.
+- **Rejected**, with the reason. Nothing is invented: header `Auto` is the
+  functional request 0x7DF and a three-hex-digit header (`726`) a literal CAN
+  id; `TCM`, `ABS` and `C410F1` have no established id
+  ([FORD_6_0_PIDS.md](../../docs/diagnostics/FORD_6_0_PIDS.md)). Units the
+  registry has no quantity for (`Count`, `°`, `µs`, `Gear`, ...), services
+  outside ADR-0007, and equations the grammar can't take are rejected too.
+
+Candidates go into a file here only after review, and still need the
+verification procedure before anyone enables one. `check` guards the rows
+already here: an `IMPORTED_UNVERIFIED` row must copy the export's formula
+verbatim; one proven on the truck becomes `VERIFIED_ON_TRUCK` with its
+evidence instead.
+
 ### Validation
 
 Loading fails, listing every problem, when: an id is duplicated or not

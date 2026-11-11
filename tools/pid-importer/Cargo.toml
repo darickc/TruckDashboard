@@ -1,0 +1,23 @@
+[package]
+name = "pid-importer"
+version = "0.1.0"
+description = "Torque Pro PID export → signal registry candidates (IMPORTED_UNVERIFIED, disabled), with a validation report and a drift check (Phase 3.4, ADR-0006)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "pid_importer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pid-importer"
+path = "src/main.rs"
+
+[dependencies]
+f250-telemetry = { path = "../../crates/telemetry" }
+clap = { version = "4", features = ["derive"] }
+
+[lints]
+workspace = true

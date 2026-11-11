@@ -87,7 +87,13 @@ How to run it: [setup/gateway.md](setup/gateway.md).
 - [x] 3.1 Protos `f250.vehicle.v1` (VehicleService, DiagnosticsService), buf lint clean; Rust and Dart codegen
 - [x] 3.2 `crates/telemetry`: registry, units, formula grammar, calibration, validity/staleness, computed signals, link state, warnings (123 tests)
 - [x] 3.3 `shared/signals/` seeded from the Dart catalog, SAE J1979 and the Torque export only; trans_temp is the only VERIFIED_ON_TRUCK signal
-- [ ] 3.4 `tools/pid-importer` CLI: deferred until after the trial. The formula translator it needs exists (all 55 Torque rows translate)
+- [x] 3.4 `tools/pid-importer` CLI `[SIM]` (2026-11-11): `import` reports every Torque row (in the registry, with
+      whether its formula matches; new; or rejected and why) and with `--out` writes the new rows as
+      `IMPORTED_UNVERIFIED`, disabled registry YAML, validated with the registry. `check` fails when an imported
+      registry row no longer copies the export. On the owner's export: 55 rows, 9 in the registry (no drift),
+      18 candidates (range is Torque's gauge scale and poll an example, both flagged), 28 rejected: headers `TCM`,
+      `ABS` and `C410F1` have no established CAN id, and units such as `Count`, `°`, `µs` have no registry quantity.
+      The candidates are not in `shared/signals/`: adding one is a review decision
 - [x] 3.5 `crates/elm`: sans-IO port of the C++ client with every C++ test, the real captures, the allow-list and ATRV (96 tests)
 - [x] 3.6 Transports: simulated (Rust port of the scenario engine, matches Dart on 38,520 golden observations) and OBDLink (serial / TCP / RFCOMM feature). SocketCAN moved to 4.1
 - [x] 3.7 Scheduler: priority, throughput budget, starvation guard, probe budget
