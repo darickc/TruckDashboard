@@ -100,4 +100,30 @@ async fn without_transmit_the_adapter_is_never_opened() {
         "PASSIVE_ONLY must not even connect"
     );
     assert!(wire.lock().unwrap().is_empty());
+    assert!(link.detail.is_empty(), "passive by choice: no reason given");
+}
+
+#[tokio::test]
+async fn a_passive_reason_reaches_the_link_detail_and_transmit_ignores_it() {
+    let (addr, wire) = common::fake_adapter().await;
+    let why = "can0 is down, not active yet (CAN_AUTO_ACTIVE)";
+    let (core, driver, mut snaps) = Core::new(config(&addr, &["--passive-reason", why])).unwrap();
+    let (_cmd_tx, cmd_rx) = mpsc::channel(8);
+    tokio::spawn(core.run(cmd_rx, driver));
+    snaps.changed().await.unwrap();
+    let link = snaps.borrow().link.clone().unwrap();
+    assert!(!link.transmit_enabled);
+    assert_eq!(link.detail, format!("not polling: {why}"));
+    assert_eq!(common::connections(&wire), 0, "still never opened");
+
+    // With --transmit the reason is moot: polling, no "not polling".
+    let (addr, _wire) = common::fake_adapter().await;
+    let (core, driver, mut snaps) =
+        Core::new(config(&addr, &["--transmit", "--passive-reason", why])).unwrap();
+    let (_cmd_tx2, cmd_rx) = mpsc::channel(8);
+    tokio::spawn(core.run(cmd_rx, driver));
+    snaps.changed().await.unwrap();
+    let link = snaps.borrow().link.clone().unwrap();
+    assert!(link.transmit_enabled);
+    assert!(!link.detail.starts_with("not polling"), "{}", link.detail);
 }

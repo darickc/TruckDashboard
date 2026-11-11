@@ -276,7 +276,7 @@ check "pinned: physical by default" "[[ \"\$(gw TRANSPORT=can PINNED=)\" != *--c
 check "pinned on 7DF"       "[[ \"\$(gw TRANSPORT=can PINNED=functional)\" == *' --can-pinned functional'* ]]"
 check "TRANSMIT=0 never transmits" "[[ \"\$(gw TRANSPORT=can TRANSMIT=0)\" != *--transmit* ]]"
 check "can transmit refused without the interface" "! gw TRANSPORT=can TRANSMIT=1 CAN_IF=f250-test-none >/dev/null"
-check "CAN_AUTO_ACTIVE: passive until the interface is active" "[[ \"\$(gw TRANSPORT=can TRANSMIT=1 CAN_AUTO_ACTIVE=1 CAN_IF=f250-test-none)\" == '--listen unix:/run/f250/vehicle.sock --transport can --signals /opt/f250/share/data/signals --warnings /opt/f250/share/data/warning_rules.json --can-if f250-test-none --traffic-log /var/lib/f250/traffic' ]]"
+check "CAN_AUTO_ACTIVE: passive until the interface is active" "[[ \"\$(gw TRANSPORT=can TRANSMIT=1 CAN_AUTO_ACTIVE=1 CAN_IF=f250-test-none)\" == '--listen unix:/run/f250/vehicle.sock --transport can --signals /opt/f250/share/data/signals --warnings /opt/f250/share/data/warning_rules.json --can-if f250-test-none --traffic-log /var/lib/f250/traffic --passive-reason the CAN adapter is absent, waiting to hear the truck'\\''s bus (CAN_AUTO_ACTIVE)' ]]"
 # The interface's mode from a fake sysfs and f250-can's mode file: inside the
 # unit's sandbox `ip` fails silently (bench-log 2026-11-10).
 GS="$T/gw-sys"; mkdir -p "$GS/net/can0" "$GS/run"
@@ -285,6 +285,9 @@ gwm() { echo "$1" >"$GS/net/can0/operstate"; echo "$2" >"$GS/run/can0.mode"; shi
     TRANSPORT=can TRANSMIT=1 CAN_IF=can0 "$@" bash "$GW" 2>/dev/null; }
 check "auto: transmits once f250-can recorded active" "[[ \"\$(gwm up active CAN_AUTO_ACTIVE=1)\" == *' --transmit'* ]]"
 check "auto: passive while listen-only" "[[ \"\$(gwm up listen-only CAN_AUTO_ACTIVE=1)\" != *--transmit* ]]"
+check "auto: says why on screen while passive" "[[ \"\$(gwm up listen-only CAN_AUTO_ACTIVE=1)\" == *\"--passive-reason the CAN adapter is listen-only, waiting to hear the truck's bus (CAN_AUTO_ACTIVE)\"* ]]"
+check "TRANSMIT=0 by choice: no reason, no advisory" "[[ \"\$(gwm up active TRANSMIT=0)\" != *--passive-reason* ]]"
+check "transmitting: no reason" "[[ \"\$(gwm up active CAN_AUTO_ACTIVE=1)\" != *--passive-reason* ]]"
 check "auto: passive when down, whatever the file says" "[[ \"\$(gwm down active CAN_AUTO_ACTIVE=1)\" != *--transmit* ]]"
 check "auto: passive when the mode is unknown" "[[ \"\$(gwm up '' CAN_AUTO_ACTIVE=1)\" != *--transmit* ]]"
 check "by hand: refused while listen-only" "! gwm up listen-only >/dev/null"
@@ -320,11 +323,19 @@ set -u; : "$HOME" "$DATA_DIR"   # as tools/pi/can.sh needs them
 d="$(dirname "$0")"; echo "$1" >>"$d/calls"
 case "$1" in listen) echo listen >"$d/mode" ;; active) [[ "${YES:-}" == 1 ]] && echo active >"$d/mode" ;; esac
 STUB
-printf '#!/bin/bash\necho "$@" >>"$(dirname "$0")/systemctl.log"\n' >"$CT/systemctl"
+cat >"$CT/systemctl" <<'STUB'
+#!/bin/bash
+d="$(dirname "$0")"; echo "$@" >>"$d/systemctl.log"
+[[ "$1" == show ]] && echo 4242
+true
+STUB
+mkdir -p "$CT/proc/4242"
+gwcmd() { printf '%s\0' /opt/f250/bin/vehicle-gateway --transport can "$@" >"$CT/proc/4242/cmdline"; }
+gwcmd --transmit
 chmod +x "$CT/ip" "$CT/f250-can" "$CT/systemctl"
 ca() { : >"$CT/calls"; : >"$CT/systemctl.log"; echo down >"$CT/mode"
   env -i PATH="$PATH" F250_IP="$CT/ip" F250_CAN_BIN="$CT/f250-can" F250_SYSTEMCTL="$CT/systemctl" \
-    F250_SYS_NET="$CT/net" F250_POLL_S=0 CAN_AUTO_ONCE=1 CAN_AUTO_LISTEN_S=0 CAN_AUTO_MIN_FRAMES=100 \
+    F250_SYS_NET="$CT/net" F250_PROC="$CT/proc" F250_SETTLE_S=0 F250_POLL_S=0 CAN_AUTO_ONCE=1 CAN_AUTO_LISTEN_S=0 CAN_AUTO_MIN_FRAMES=100 \
     STATE_DIRECTORY="$CT/state" "$@" bash "$CA" >"$CT/out" 2>&1 && echo 0 >"$CT/rc" || echo $? >"$CT/rc"; }
 echo 0 >"$CT/packets"; echo ERROR-ACTIVE >"$CT/state"; echo 0 >"$CT/rxerr"; echo 500 >"$CT/grow"
 ca
@@ -332,6 +343,11 @@ check "off unless CAN_AUTO_ACTIVE=1: CAN untouched" "[[ \$(cat $CT/rc) == 0 && !
 ca CAN_AUTO_ACTIVE=1
 check "a clean listen: listen-only first, then active" "[[ \$(cat $CT/rc) == 0 && \"\$(paste -sd' ' $CT/calls)\" == 'listen active' && \$(cat $CT/mode) == active ]]"
 check "then the gateway restarts" "grep -qx 'restart f250-gateway.service' $CT/systemctl.log"
+check "and is confirmed polling" "grep -q 'the gateway is polling (--transmit)' $CT/out && [[ \$(grep -c '^restart' $CT/systemctl.log) == 1 ]]"
+gwcmd
+ca CAN_AUTO_ACTIVE=1
+check "a gateway that won't poll: 3 restarts, then an error" "[[ \$(grep -c '^restart' $CT/systemctl.log) == 3 ]] && grep -q '^<3>\[can-auto\] ERROR: can0 is active but the gateway won.t poll' $CT/out"
+gwcmd --transmit
 echo 0 >"$CT/grow"
 ca CAN_AUTO_ACTIVE=1
 check "no frames (no bus): stays listen-only" "[[ \$(cat $CT/rc) == 3 && \$(cat $CT/mode) == listen && ! -s $CT/systemctl.log ]] && grep -q 'not clean: 0 frames' $CT/out"

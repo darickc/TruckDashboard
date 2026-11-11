@@ -1113,13 +1113,15 @@ impl Core {
                 transmit_enabled: self.transmit_enabled(),
                 requests_per_second: rps,
                 machine_state: self.link.state().as_str().into(),
-                detail: if load.oversubscribed() {
-                    format!(
+                detail: match (&self.cfg.passive_reason, self.transmit_enabled()) {
+                    (Some(why), false) if !simulated && !why.trim().is_empty() => {
+                        format!("not polling: {}", why.trim())
+                    }
+                    _ if load.oversubscribed() => format!(
                         "polling asks {:.1} req/s of a {:.1} req/s link: low priorities stretched",
                         load.demand_rps, load.budget_rps
-                    )
-                } else {
-                    String::new()
+                    ),
+                    _ => String::new(),
                 },
                 adapter_voltage: self.adapter_voltage,
                 scenario,

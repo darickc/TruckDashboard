@@ -73,6 +73,9 @@ case "$TRANSPORT" in
     if [[ "$TRANSMIT" == 1 && "${CAN_AUTO_ACTIVE:-0}" == 1 && "$mode" != active ]]; then
       echo "CAN_AUTO_ACTIVE=1: $CAN_IF is $mode, not active yet, so PASSIVE_ONLY until f250-can-auto has heard the bus" >&2
       TRANSMIT=0
+      # The dashboard shows it as a "Not polling" advisory until polling
+      # starts, so a drive that never polls is seen at once.
+      PASSIVE_REASON="the CAN adapter is $mode, waiting to hear the truck's bus (CAN_AUTO_ACTIVE)"
     fi
     if [[ "$TRANSMIT" == 1 ]]; then
       if [[ "$mode" == absent ]]; then
@@ -92,6 +95,7 @@ if [[ "$TRANSPORT" != sim ]]; then
     args+=(--transmit)
   else
     echo "PASSIVE_ONLY: the adapter will not be opened. Opt in with TRANSMIT=1 (ADR-0007)." >&2
+    [[ -n "${PASSIVE_REASON:-}" ]] && args+=(--passive-reason "$PASSIVE_REASON")
   fi
 fi
 [[ -n "${ENABLE:-}" ]] && args+=(--enable "$ENABLE")

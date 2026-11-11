@@ -101,8 +101,32 @@ if ! YES=1 "$CAN_BIN" active >/dev/null 2>&1; then
 fi
 read -r _ s _ _ m <<<"$(counters)"
 log "$CAN_IF active ($m, $s): restarting the gateway"
-"$SYSTEMCTL" reset-failed f250-gateway.service >/dev/null 2>&1 || true
-"$SYSTEMCTL" restart f250-gateway.service || log "gateway restart failed"
+
+# Did the gateway really start polling? Its command line says: --transmit
+# (2026-11-10: it restarted passive and the whole drive went unread, with
+# nothing said). Two more tries, then an error in the journal; the dashboard
+# shows its own "Not polling the truck" advisory meanwhile.
+PROC="${F250_PROC:-/proc}"
+gateway_polls() {
+  local pid
+  pid="$("$SYSTEMCTL" show -p MainPID --value f250-gateway.service 2>/dev/null)"
+  [[ -n "$pid" && "$pid" != 0 && -r "$PROC/$pid/cmdline" ]] || return 1
+  tr '\0' '\n' <"$PROC/$pid/cmdline" | grep -qx -- --transmit
+}
+polling=0
+for try in 1 2 3; do
+  "$SYSTEMCTL" reset-failed f250-gateway.service >/dev/null 2>&1 || true
+  "$SYSTEMCTL" restart f250-gateway.service || log "gateway restart failed"
+  sleep "${F250_SETTLE_S:-2}"
+  if gateway_polls; then polling=1; break; fi
+  log "the gateway started without --transmit (try $try of 3)"
+done
+if [[ "$polling" == 1 ]]; then
+  log "the gateway is polling (--transmit)"
+else
+  # <3>: error priority in the journal.
+  echo "<3>[can-auto] ERROR: $CAN_IF is active but the gateway won't poll (no --transmit after 3 restarts): check TRANSMIT=1 and 'journalctl -u f250-gateway -b'"
+fi
 
 if [[ "${CAN_AUTO_CAPTURE:-0}" == 1 ]]; then
   dir="$STATE/captures/$(date +%Y%m%d-%H%M%S)-auto"

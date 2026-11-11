@@ -78,6 +78,12 @@ pub struct Config {
     /// Off by default: the gateway stays PASSIVE_ONLY.
     #[arg(long)]
     pub transmit: bool,
+    /// Why this gateway is passive although polling was asked for (set by
+    /// gateway-start when it drops TRANSMIT=1, e.g. while the CAN interface
+    /// isn't active yet). Shown in the link status's detail, which the
+    /// dashboard raises as a "Not polling" advisory. Ignored with --transmit.
+    #[arg(long)]
+    pub passive_reason: Option<String>,
     /// Also poll these unverified signals (explicit opt-in; they show as
     /// UNVERIFIED in the UI). Comma-separated ids.
     #[arg(long, value_delimiter = ',')]
