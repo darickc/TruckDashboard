@@ -73,8 +73,8 @@ const lost = DisplayStatus(
     detail: 'connection refused');
 
 Future<void> openDisplay(WidgetTester tester, Harness h) async {
-  await h.goTo(AppTab.diagnostics);
-  await tester.tap(find.byKey(const ValueKey('diag-developer')));
+  await h.goTo(AppTab.settings);
+  await tester.tap(find.byKey(const ValueKey('settings-display')));
   await tester.pump();
   await tester.scrollUntilVisible(find.byKey(const ValueKey('brightness-level')), 80,
       scrollable: find.byType(Scrollable).last);

@@ -1,3 +1,4 @@
+import 'package:f250_infotainment/cameras/camera_settings.dart';
 import 'package:f250_infotainment/cameras/camera_state.dart';
 import 'package:flutter/foundation.dart';
 
@@ -25,6 +26,19 @@ class FakeCameras implements CameraSource {
   Future<CameraView> move(SwitchMove move) async {
     moves.add(move);
     return _status.value.view ?? CameraView.none;
+  }
+
+  CameraSettingsSnapshot settings = const CameraSettingsSnapshot(settings: CameraSettings());
+  final applied = <CameraSettings?>[];
+  ApplyResult applyResult = const ApplyResult(applied: true, detail: 'Saved.');
+
+  @override
+  Future<CameraSettingsSnapshot> getSettings() async => settings;
+
+  @override
+  Future<ApplyResult> setSettings(CameraSettings? s) async {
+    applied.add(s);
+    return applyResult;
   }
 
   @override

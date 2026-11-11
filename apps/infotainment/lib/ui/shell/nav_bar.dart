@@ -12,6 +12,7 @@ const tabIcons = {
   AppTab.media: Icons.music_note_rounded,
   AppTab.navigation: Icons.map_rounded,
   AppTab.cameras: Icons.videocam_rounded,
+  AppTab.settings: Icons.settings_rounded,
   AppTab.diagnostics: Icons.monitor_heart_rounded,
 };
 
@@ -21,6 +22,7 @@ const tabLabels = {
   AppTab.media: 'Media',
   AppTab.navigation: 'Nav',
   AppTab.cameras: 'Cameras',
+  AppTab.settings: 'Settings',
   AppTab.diagnostics: 'Diagnostics',
 };
 

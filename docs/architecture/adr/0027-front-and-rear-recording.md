@@ -194,7 +194,8 @@ What constrains it:
 11. **Settings live in `/etc/default/f250` for now** (`RECORD_CAMERAS=front,rear`
     and the table above), read by `camera-start`. A settings screen (the
     dashboard, through camera-manager's API, as camera assignment will) comes
-    later.
+    later. *Built 2026-11-11: [ADR-0029](0029-settings-screen.md); the screen
+    sets which cameras record, and retention stays here.*
 
 ## As built (2026-11-10, `[SIM]`)
 

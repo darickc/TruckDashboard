@@ -301,7 +301,14 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       ~1 % of one core, the window live 37 ms after the move; the clock is now trusted from `timedatectl`
       (timesyncd doesn't run on the image). In the Yocto images from `f3bf43b` (camera-manager
       with GStreamer, the four recording packages): the development image flashed and recording `[BENCH]`. Still to do: a real drive and pulls of the power (ADR-0027 "To measure"), truck cameras (H33),
-      per-camera caps, the reverse decoder, and camera assignment and recording settings in a settings screen
+      per-camera caps and the reverse decoder.
+      Camera assignment and recording on screen `[SIM]` ([ADR-0029](architecture/adr/0029-settings-screen.md), 2026-11-11):
+      `f250.camera.v1` gained `GetCameraSettings` (each camera's device, what records, why nothing can, and the
+      cameras plugged in: `/dev/v4l/by-path/*-video-index0` labelled from `by-id`) and `SetCameraSettings` (checked,
+      saved to `/var/lib/f250-camera/settings`, refused while a camera is on screen; camera-manager then stops cleanly
+      and `exec`s itself, same PID). Once saved they replace `/etc/default/f250`'s `CAMERA_*` and `RECORD_CAMERAS`;
+      recording still needs `DATA_DRIVE=1` (`--recording-allowed`). `camera-ctl settings`. Tested against the real
+      binary with a fake `/dev`, including the restart in place. Not on the Pi yet ([agl.md](setup/agl.md) check 16)
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
       presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later
@@ -319,10 +326,16 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       reason on screen. power-manager ramps the backlight from its own thread (never below 10 %), keeps the driver's
       choice and levels in `/var/lib/f250-power/display`, and serves `f250.power.v1` on `/run/f250-power/power.sock`;
       `power-start` wrapper, udev rule for `brightness`, `ProtectKernelTunables` dropped for it. Tests: the logic, the
-      writer against a fake sysfs, the real binary end to end; the dashboard's theme follows it (Developer → Display:
+      writer against a fake sysfs, the real binary end to end; the dashboard's theme follows it (Settings → Display since ADR-0029:
       Auto/Day/Night, brightness, why Auto can't run; 22 Flutter tests). Not on the Pi yet: the udev rule, the sandbox
       write, the ramp on the panel ([agl.md](setup/agl.md) check 15). Still to do: the hardware
       watchdog, and the dashboard's Power button becoming Restart once the DCDC-USB is installed
+
+Settings tab `[SIM]` ([ADR-0029](architecture/adr/0029-settings-screen.md), 2026-11-11): Display (ADR-0028), Cameras
+(assignment by USB port, Record for front and rear, Apply, Undo, Rescan, Use /etc/default/f250) and Units, moved out of
+Diagnostics → Developer, which keeps the simulator and speed calibration. Units and the gauge profile are kept in
+`F250_SETTINGS_FILE` (`/var/lib/f250-dashboard/settings.json` on AGL). Flutter tests for each state at 800×480 in both
+themes; checked in the browser with the simulated camera-manager.
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 

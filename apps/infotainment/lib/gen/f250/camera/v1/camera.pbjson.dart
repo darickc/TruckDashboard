@@ -118,6 +118,21 @@ final $typed_data.Uint8List recordingStateDescriptor = $convert.base64Decode(
     'NPUkRJTkdfU1RBVEVfU1RBUlRJTkcQARIdChlSRUNPUkRJTkdfU1RBVEVfUkVDT1JESU5HEAIS'
     'IQodUkVDT1JESU5HX1NUQVRFX05PVF9SRUNPUkRJTkcQAw==');
 
+@$core.Deprecated('Use settingsSourceDescriptor instead')
+const SettingsSource$json = {
+  '1': 'SettingsSource',
+  '2': [
+    {'1': 'SETTINGS_SOURCE_UNSPECIFIED', '2': 0},
+    {'1': 'SETTINGS_SOURCE_DEFAULTS', '2': 1},
+    {'1': 'SETTINGS_SOURCE_SCREEN', '2': 2},
+  ],
+};
+
+/// Descriptor for `SettingsSource`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List settingsSourceDescriptor = $convert.base64Decode(
+    'Cg5TZXR0aW5nc1NvdXJjZRIfChtTRVRUSU5HU19TT1VSQ0VfVU5TUEVDSUZJRUQQABIcChhTRV'
+    'RUSU5HU19TT1VSQ0VfREVGQVVMVFMQARIaChZTRVRUSU5HU19TT1VSQ0VfU0NSRUVOEAI=');
+
 @$core.Deprecated('Use viewDescriptor instead')
 const View$json = {
   '1': 'View',
@@ -380,3 +395,169 @@ final $typed_data.Uint8List saveClipResponseDescriptor = $convert.base64Decode(
     'ChBTYXZlQ2xpcFJlc3BvbnNlEhQKBXNhdmVkGAEgASgIUgVzYXZlZBIWCgZkZXRhaWwYAiABKA'
     'lSBmRldGFpbBItChJzZWdtZW50c19wcm90ZWN0ZWQYAyABKA1SEXNlZ21lbnRzUHJvdGVjdGVk'
     'EigKEHNlZ21lbnRzX3RvX2NvbWUYBCABKA1SDnNlZ21lbnRzVG9Db21l');
+
+@$core.Deprecated('Use cameraDeviceDescriptor instead')
+const CameraDevice$json = {
+  '1': 'CameraDevice',
+  '2': [
+    {'1': 'path', '3': 1, '4': 1, '5': 9, '10': 'path'},
+    {'1': 'label', '3': 2, '4': 1, '5': 9, '10': 'label'},
+  ],
+};
+
+/// Descriptor for `CameraDevice`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List cameraDeviceDescriptor = $convert.base64Decode(
+    'CgxDYW1lcmFEZXZpY2USEgoEcGF0aBgBIAEoCVIEcGF0aBIUCgVsYWJlbBgCIAEoCVIFbGFiZW'
+    'w=');
+
+@$core.Deprecated('Use cameraAssignmentDescriptor instead')
+const CameraAssignment$json = {
+  '1': 'CameraAssignment',
+  '2': [
+    {
+      '1': 'camera',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.f250.camera.v1.Camera',
+      '10': 'camera'
+    },
+    {'1': 'device', '3': 2, '4': 1, '5': 9, '10': 'device'},
+  ],
+};
+
+/// Descriptor for `CameraAssignment`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List cameraAssignmentDescriptor = $convert.base64Decode(
+    'ChBDYW1lcmFBc3NpZ25tZW50Ei4KBmNhbWVyYRgBIAEoDjIWLmYyNTAuY2FtZXJhLnYxLkNhbW'
+    'VyYVIGY2FtZXJhEhYKBmRldmljZRgCIAEoCVIGZGV2aWNl');
+
+@$core.Deprecated('Use cameraSettingsDescriptor instead')
+const CameraSettings$json = {
+  '1': 'CameraSettings',
+  '2': [
+    {
+      '1': 'cameras',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.f250.camera.v1.CameraAssignment',
+      '10': 'cameras'
+    },
+    {
+      '1': 'record',
+      '3': 2,
+      '4': 3,
+      '5': 14,
+      '6': '.f250.camera.v1.Camera',
+      '10': 'record'
+    },
+    {
+      '1': 'source',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.f250.camera.v1.SettingsSource',
+      '10': 'source'
+    },
+    {
+      '1': 'recording_unavailable',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'recordingUnavailable'
+    },
+  ],
+};
+
+/// Descriptor for `CameraSettings`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List cameraSettingsDescriptor = $convert.base64Decode(
+    'Cg5DYW1lcmFTZXR0aW5ncxI6CgdjYW1lcmFzGAEgAygLMiAuZjI1MC5jYW1lcmEudjEuQ2FtZX'
+    'JhQXNzaWdubWVudFIHY2FtZXJhcxIuCgZyZWNvcmQYAiADKA4yFi5mMjUwLmNhbWVyYS52MS5D'
+    'YW1lcmFSBnJlY29yZBI2CgZzb3VyY2UYAyABKA4yHi5mMjUwLmNhbWVyYS52MS5TZXR0aW5nc1'
+    'NvdXJjZVIGc291cmNlEjMKFXJlY29yZGluZ191bmF2YWlsYWJsZRgEIAEoCVIUcmVjb3JkaW5n'
+    'VW5hdmFpbGFibGU=');
+
+@$core.Deprecated('Use getCameraSettingsRequestDescriptor instead')
+const GetCameraSettingsRequest$json = {
+  '1': 'GetCameraSettingsRequest',
+};
+
+/// Descriptor for `GetCameraSettingsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getCameraSettingsRequestDescriptor =
+    $convert.base64Decode('ChhHZXRDYW1lcmFTZXR0aW5nc1JlcXVlc3Q=');
+
+@$core.Deprecated('Use getCameraSettingsResponseDescriptor instead')
+const GetCameraSettingsResponse$json = {
+  '1': 'GetCameraSettingsResponse',
+  '2': [
+    {
+      '1': 'settings',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.f250.camera.v1.CameraSettings',
+      '10': 'settings'
+    },
+    {
+      '1': 'devices',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.f250.camera.v1.CameraDevice',
+      '10': 'devices'
+    },
+  ],
+};
+
+/// Descriptor for `GetCameraSettingsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getCameraSettingsResponseDescriptor = $convert.base64Decode(
+    'ChlHZXRDYW1lcmFTZXR0aW5nc1Jlc3BvbnNlEjoKCHNldHRpbmdzGAEgASgLMh4uZjI1MC5jYW'
+    '1lcmEudjEuQ2FtZXJhU2V0dGluZ3NSCHNldHRpbmdzEjYKB2RldmljZXMYAiADKAsyHC5mMjUw'
+    'LmNhbWVyYS52MS5DYW1lcmFEZXZpY2VSB2RldmljZXM=');
+
+@$core.Deprecated('Use setCameraSettingsRequestDescriptor instead')
+const SetCameraSettingsRequest$json = {
+  '1': 'SetCameraSettingsRequest',
+  '2': [
+    {
+      '1': 'cameras',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.f250.camera.v1.CameraAssignment',
+      '10': 'cameras'
+    },
+    {
+      '1': 'record',
+      '3': 2,
+      '4': 3,
+      '5': 14,
+      '6': '.f250.camera.v1.Camera',
+      '10': 'record'
+    },
+    {'1': 'use_defaults', '3': 3, '4': 1, '5': 8, '10': 'useDefaults'},
+    {'1': 'source', '3': 4, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `SetCameraSettingsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setCameraSettingsRequestDescriptor = $convert.base64Decode(
+    'ChhTZXRDYW1lcmFTZXR0aW5nc1JlcXVlc3QSOgoHY2FtZXJhcxgBIAMoCzIgLmYyNTAuY2FtZX'
+    'JhLnYxLkNhbWVyYUFzc2lnbm1lbnRSB2NhbWVyYXMSLgoGcmVjb3JkGAIgAygOMhYuZjI1MC5j'
+    'YW1lcmEudjEuQ2FtZXJhUgZyZWNvcmQSIQoMdXNlX2RlZmF1bHRzGAMgASgIUgt1c2VEZWZhdW'
+    'x0cxIWCgZzb3VyY2UYBCABKAlSBnNvdXJjZQ==');
+
+@$core.Deprecated('Use setCameraSettingsResponseDescriptor instead')
+const SetCameraSettingsResponse$json = {
+  '1': 'SetCameraSettingsResponse',
+  '2': [
+    {'1': 'applied', '3': 1, '4': 1, '5': 8, '10': 'applied'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `SetCameraSettingsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setCameraSettingsResponseDescriptor =
+    $convert.base64Decode(
+        'ChlTZXRDYW1lcmFTZXR0aW5nc1Jlc3BvbnNlEhgKB2FwcGxpZWQYASABKAhSB2FwcGxpZWQSFg'
+        'oGZGV0YWlsGAIgASgJUgZkZXRhaWw=');

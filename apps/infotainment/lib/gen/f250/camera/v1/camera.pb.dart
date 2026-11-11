@@ -904,6 +904,524 @@ class SaveClipResponse extends $pb.GeneratedMessage {
   void clearSegmentsToCome() => $_clearField(4);
 }
 
+/// A video device plugged in now (ADR-0029 decision 3).
+class CameraDevice extends $pb.GeneratedMessage {
+  factory CameraDevice({
+    $core.String? path,
+    $core.String? label,
+  }) {
+    final result = CameraDevice._();
+    if (path != null) result.path = path;
+    if (label != null) result.label = label;
+    return result;
+  }
+
+  CameraDevice._();
+
+  factory CameraDevice.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CameraDevice()..mergeFromBuffer(data, registry);
+  factory CameraDevice.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CameraDevice()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CameraDevice',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.camera.v1'),
+      createEmptyInstance: CameraDevice.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'path')
+    ..aOS(2, _omitFieldNames ? '' : 'label')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CameraDevice clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CameraDevice copyWith(void Function(CameraDevice) updates) =>
+      super.copyWith((message) => updates(message as CameraDevice))
+          as CameraDevice;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use CameraDevice() / CameraDevice.new instead')
+  static CameraDevice create() => CameraDevice._();
+  static $pb.GeneratedMessage $_createMessage() => CameraDevice._();
+  @$core.override
+  CameraDevice createEmptyInstance() => CameraDevice._();
+  @$core.pragma('dart2js:noInline')
+  static CameraDevice getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CameraDevice>(
+          CameraDevice.$_createMessage);
+  static CameraDevice? _defaultInstance;
+
+  /// /dev/v4l/by-path/...-video-index0: names the USB port, so a camera's
+  /// role follows the port.
+  @$pb.TagNumber(1)
+  $core.String get path => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set path($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPath() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPath() => $_clearField(1);
+
+  /// The /dev/v4l/by-id name pointing at the same device (the camera's
+  /// model), or empty.
+  @$pb.TagNumber(2)
+  $core.String get label => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set label($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLabel() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLabel() => $_clearField(2);
+}
+
+class CameraAssignment extends $pb.GeneratedMessage {
+  factory CameraAssignment({
+    Camera? camera,
+    $core.String? device,
+  }) {
+    final result = CameraAssignment._();
+    if (camera != null) result.camera = camera;
+    if (device != null) result.device = device;
+    return result;
+  }
+
+  CameraAssignment._();
+
+  factory CameraAssignment.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CameraAssignment()..mergeFromBuffer(data, registry);
+  factory CameraAssignment.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CameraAssignment()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CameraAssignment',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.camera.v1'),
+      createEmptyInstance: CameraAssignment.$_createMessage)
+    ..aE<Camera>(1, _omitFieldNames ? '' : 'camera', enumValues: Camera.values)
+    ..aOS(2, _omitFieldNames ? '' : 'device')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CameraAssignment clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CameraAssignment copyWith(void Function(CameraAssignment) updates) =>
+      super.copyWith((message) => updates(message as CameraAssignment))
+          as CameraAssignment;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use CameraAssignment() / CameraAssignment.new instead')
+  static CameraAssignment create() => CameraAssignment._();
+  static $pb.GeneratedMessage $_createMessage() => CameraAssignment._();
+  @$core.override
+  CameraAssignment createEmptyInstance() => CameraAssignment._();
+  @$core.pragma('dart2js:noInline')
+  static CameraAssignment getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CameraAssignment>(
+          CameraAssignment.$_createMessage);
+  static CameraAssignment? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Camera get camera => $_getN(0);
+  @$pb.TagNumber(1)
+  set camera(Camera value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCamera() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCamera() => $_clearField(1);
+
+  /// Empty: no device; the camera shows as unavailable when chosen.
+  @$pb.TagNumber(2)
+  $core.String get device => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set device($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDevice() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDevice() => $_clearField(2);
+}
+
+class CameraSettings extends $pb.GeneratedMessage {
+  factory CameraSettings({
+    $core.Iterable<CameraAssignment>? cameras,
+    $core.Iterable<Camera>? record,
+    SettingsSource? source,
+    $core.String? recordingUnavailable,
+  }) {
+    final result = CameraSettings._();
+    if (cameras != null) result.cameras.addAll(cameras);
+    if (record != null) result.record.addAll(record);
+    if (source != null) result.source = source;
+    if (recordingUnavailable != null)
+      result.recordingUnavailable = recordingUnavailable;
+    return result;
+  }
+
+  CameraSettings._();
+
+  factory CameraSettings.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CameraSettings()..mergeFromBuffer(data, registry);
+  factory CameraSettings.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CameraSettings()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CameraSettings',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.camera.v1'),
+      createEmptyInstance: CameraSettings.$_createMessage)
+    ..pPM<CameraAssignment>(1, _omitFieldNames ? '' : 'cameras',
+        subBuilder: CameraAssignment.$_createMessage)
+    ..pc<Camera>(2, _omitFieldNames ? '' : 'record', $pb.PbFieldType.KE,
+        valueOf: Camera.valueOf,
+        enumValues: Camera.values,
+        defaultEnumValue: Camera.CAMERA_UNSPECIFIED)
+    ..aE<SettingsSource>(3, _omitFieldNames ? '' : 'source',
+        enumValues: SettingsSource.values)
+    ..aOS(4, _omitFieldNames ? '' : 'recordingUnavailable')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CameraSettings clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CameraSettings copyWith(void Function(CameraSettings) updates) =>
+      super.copyWith((message) => updates(message as CameraSettings))
+          as CameraSettings;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use CameraSettings() / CameraSettings.new instead')
+  static CameraSettings create() => CameraSettings._();
+  static $pb.GeneratedMessage $_createMessage() => CameraSettings._();
+  @$core.override
+  CameraSettings createEmptyInstance() => CameraSettings._();
+  @$core.pragma('dart2js:noInline')
+  static CameraSettings getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CameraSettings>(
+          CameraSettings.$_createMessage);
+  static CameraSettings? _defaultInstance;
+
+  /// Front, left, right and rear, in that order.
+  @$pb.TagNumber(1)
+  $pb.PbList<CameraAssignment> get cameras => $_getList(0);
+
+  /// The cameras recorded: front and/or rear.
+  @$pb.TagNumber(2)
+  $pb.PbList<Camera> get record => $_getList(1);
+
+  @$pb.TagNumber(3)
+  SettingsSource get source => $_getN(2);
+  @$pb.TagNumber(3)
+  set source(SettingsSource value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSource() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSource() => $_clearField(3);
+
+  /// Why recording can't happen (no data drive configured, a build that
+  /// can't record); empty when it can.
+  @$pb.TagNumber(4)
+  $core.String get recordingUnavailable => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set recordingUnavailable($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasRecordingUnavailable() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRecordingUnavailable() => $_clearField(4);
+}
+
+class GetCameraSettingsRequest extends $pb.GeneratedMessage {
+  factory GetCameraSettingsRequest() => GetCameraSettingsRequest._();
+
+  GetCameraSettingsRequest._();
+
+  factory GetCameraSettingsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetCameraSettingsRequest()..mergeFromBuffer(data, registry);
+  factory GetCameraSettingsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetCameraSettingsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetCameraSettingsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.camera.v1'),
+      createEmptyInstance: GetCameraSettingsRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetCameraSettingsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetCameraSettingsRequest copyWith(
+          void Function(GetCameraSettingsRequest) updates) =>
+      super.copyWith((message) => updates(message as GetCameraSettingsRequest))
+          as GetCameraSettingsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetCameraSettingsRequest() / GetCameraSettingsRequest.new instead')
+  static GetCameraSettingsRequest create() => GetCameraSettingsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => GetCameraSettingsRequest._();
+  @$core.override
+  GetCameraSettingsRequest createEmptyInstance() =>
+      GetCameraSettingsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static GetCameraSettingsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetCameraSettingsRequest>(
+          GetCameraSettingsRequest.$_createMessage);
+  static GetCameraSettingsRequest? _defaultInstance;
+}
+
+class GetCameraSettingsResponse extends $pb.GeneratedMessage {
+  factory GetCameraSettingsResponse({
+    CameraSettings? settings,
+    $core.Iterable<CameraDevice>? devices,
+  }) {
+    final result = GetCameraSettingsResponse._();
+    if (settings != null) result.settings = settings;
+    if (devices != null) result.devices.addAll(devices);
+    return result;
+  }
+
+  GetCameraSettingsResponse._();
+
+  factory GetCameraSettingsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetCameraSettingsResponse()..mergeFromBuffer(data, registry);
+  factory GetCameraSettingsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetCameraSettingsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetCameraSettingsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.camera.v1'),
+      createEmptyInstance: GetCameraSettingsResponse.$_createMessage)
+    ..aOM<CameraSettings>(1, _omitFieldNames ? '' : 'settings',
+        subBuilder: CameraSettings.$_createMessage)
+    ..pPM<CameraDevice>(2, _omitFieldNames ? '' : 'devices',
+        subBuilder: CameraDevice.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetCameraSettingsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetCameraSettingsResponse copyWith(
+          void Function(GetCameraSettingsResponse) updates) =>
+      super.copyWith((message) => updates(message as GetCameraSettingsResponse))
+          as GetCameraSettingsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetCameraSettingsResponse() / GetCameraSettingsResponse.new instead')
+  static GetCameraSettingsResponse create() => GetCameraSettingsResponse._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      GetCameraSettingsResponse._();
+  @$core.override
+  GetCameraSettingsResponse createEmptyInstance() =>
+      GetCameraSettingsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static GetCameraSettingsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetCameraSettingsResponse>(
+          GetCameraSettingsResponse.$_createMessage);
+  static GetCameraSettingsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  CameraSettings get settings => $_getN(0);
+  @$pb.TagNumber(1)
+  set settings(CameraSettings value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSettings() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSettings() => $_clearField(1);
+  @$pb.TagNumber(1)
+  CameraSettings ensureSettings() => $_ensure(0);
+
+  /// The cameras plugged in now.
+  @$pb.TagNumber(2)
+  $pb.PbList<CameraDevice> get devices => $_getList(1);
+}
+
+class SetCameraSettingsRequest extends $pb.GeneratedMessage {
+  factory SetCameraSettingsRequest({
+    $core.Iterable<CameraAssignment>? cameras,
+    $core.Iterable<Camera>? record,
+    $core.bool? useDefaults,
+    $core.String? source,
+  }) {
+    final result = SetCameraSettingsRequest._();
+    if (cameras != null) result.cameras.addAll(cameras);
+    if (record != null) result.record.addAll(record);
+    if (useDefaults != null) result.useDefaults = useDefaults;
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  SetCameraSettingsRequest._();
+
+  factory SetCameraSettingsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetCameraSettingsRequest()..mergeFromBuffer(data, registry);
+  factory SetCameraSettingsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetCameraSettingsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetCameraSettingsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.camera.v1'),
+      createEmptyInstance: SetCameraSettingsRequest.$_createMessage)
+    ..pPM<CameraAssignment>(1, _omitFieldNames ? '' : 'cameras',
+        subBuilder: CameraAssignment.$_createMessage)
+    ..pc<Camera>(2, _omitFieldNames ? '' : 'record', $pb.PbFieldType.KE,
+        valueOf: Camera.valueOf,
+        enumValues: Camera.values,
+        defaultEnumValue: Camera.CAMERA_UNSPECIFIED)
+    ..aOB(3, _omitFieldNames ? '' : 'useDefaults')
+    ..aOS(4, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetCameraSettingsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetCameraSettingsRequest copyWith(
+          void Function(SetCameraSettingsRequest) updates) =>
+      super.copyWith((message) => updates(message as SetCameraSettingsRequest))
+          as SetCameraSettingsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SetCameraSettingsRequest() / SetCameraSettingsRequest.new instead')
+  static SetCameraSettingsRequest create() => SetCameraSettingsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SetCameraSettingsRequest._();
+  @$core.override
+  SetCameraSettingsRequest createEmptyInstance() =>
+      SetCameraSettingsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static SetCameraSettingsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetCameraSettingsRequest>(
+          SetCameraSettingsRequest.$_createMessage);
+  static SetCameraSettingsRequest? _defaultInstance;
+
+  /// All four cameras; one left out has no device.
+  @$pb.TagNumber(1)
+  $pb.PbList<CameraAssignment> get cameras => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<Camera> get record => $_getList(1);
+
+  /// Forget the saved settings and use /etc/default/f250's again; `cameras`
+  /// and `record` are ignored.
+  @$pb.TagNumber(3)
+  $core.bool get useDefaults => $_getBF(2);
+  @$pb.TagNumber(3)
+  set useDefaults($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasUseDefaults() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUseDefaults() => $_clearField(3);
+
+  /// Who asked ("dashboard"), for the log.
+  @$pb.TagNumber(4)
+  $core.String get source => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set source($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSource() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSource() => $_clearField(4);
+}
+
+class SetCameraSettingsResponse extends $pb.GeneratedMessage {
+  factory SetCameraSettingsResponse({
+    $core.bool? applied,
+    $core.String? detail,
+  }) {
+    final result = SetCameraSettingsResponse._();
+    if (applied != null) result.applied = applied;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  SetCameraSettingsResponse._();
+
+  factory SetCameraSettingsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetCameraSettingsResponse()..mergeFromBuffer(data, registry);
+  factory SetCameraSettingsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetCameraSettingsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetCameraSettingsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.camera.v1'),
+      createEmptyInstance: SetCameraSettingsResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'applied')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetCameraSettingsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetCameraSettingsResponse copyWith(
+          void Function(SetCameraSettingsResponse) updates) =>
+      super.copyWith((message) => updates(message as SetCameraSettingsResponse))
+          as SetCameraSettingsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SetCameraSettingsResponse() / SetCameraSettingsResponse.new instead')
+  static SetCameraSettingsResponse create() => SetCameraSettingsResponse._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      SetCameraSettingsResponse._();
+  @$core.override
+  SetCameraSettingsResponse createEmptyInstance() =>
+      SetCameraSettingsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static SetCameraSettingsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetCameraSettingsResponse>(
+          SetCameraSettingsResponse.$_createMessage);
+  static SetCameraSettingsResponse? _defaultInstance;
+
+  /// True: saved, and camera-manager is restarting to apply them.
+  @$pb.TagNumber(1)
+  $core.bool get applied => $_getBF(0);
+  @$pb.TagNumber(1)
+  set applied($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasApplied() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearApplied() => $_clearField(1);
+
+  /// Why not, or what happens next, in words for the screen.
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

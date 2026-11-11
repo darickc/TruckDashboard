@@ -6,6 +6,7 @@ import 'package:grpc/grpc.dart';
 
 import '../data/gateway_connection.dart';
 import '../gen/f250/camera/v1/camera.pbgrpc.dart' as pb;
+import 'camera_settings.dart';
 import 'camera_state.dart';
 
 CameraSource createGrpcCameraSource(GatewayEndpoint endpoint) =>
@@ -79,6 +80,27 @@ class GrpcCameraSource implements CameraSource {
         pb.MoveRequest(move: switchMoveToPb(move), source: 'dashboard'),
         options: CallOptions(timeout: callTimeout));
     return viewFromPb(r.view);
+  }
+
+  @override
+  Future<CameraSettingsSnapshot> getSettings() async {
+    final client = _client;
+    if (client == null) throw StateError('camera-manager not connected');
+    final r = await client.getCameraSettings(pb.GetCameraSettingsRequest(),
+        options: CallOptions(timeout: callTimeout));
+    return CameraSettingsSnapshot(
+      settings: cameraSettingsFromPb(r.settings),
+      plugged: [for (final d in r.devices) CameraDevice(path: d.path, label: d.label)],
+    );
+  }
+
+  @override
+  Future<ApplyResult> setSettings(CameraSettings? settings) async {
+    final client = _client;
+    if (client == null) throw StateError('camera-manager not connected');
+    final r = await client.setCameraSettings(cameraSettingsToPb(settings),
+        options: CallOptions(timeout: callTimeout));
+    return ApplyResult(applied: r.applied, detail: r.detail);
   }
 
   @override
@@ -233,3 +255,37 @@ SaveClipResult saveClipFromPb(pb.SaveClipResponse r) => SaveClipResult(
       segmentsProtected: r.segmentsProtected,
       segmentsToCome: r.segmentsToCome,
     );
+
+pb.Camera cameraToPb(CameraId c) => switch (c) {
+      CameraId.front => pb.Camera.CAMERA_FRONT,
+      CameraId.left => pb.Camera.CAMERA_LEFT,
+      CameraId.right => pb.Camera.CAMERA_RIGHT,
+      CameraId.rear => pb.Camera.CAMERA_REAR,
+    };
+
+/// camera-manager's settings as the dashboard's model. A camera this
+/// dashboard doesn't know is left out.
+CameraSettings cameraSettingsFromPb(pb.CameraSettings s) => CameraSettings(
+      devices: {
+        for (final a in s.cameras.where((a) => a.device.isNotEmpty))
+          ?_cameraFromPb(a.camera): a.device,
+      },
+      record: {for (final c in s.record) ?_cameraFromPb(c)},
+      source: s.source == pb.SettingsSource.SETTINGS_SOURCE_SCREEN
+          ? SettingsSource.screen
+          : SettingsSource.defaults,
+      recordingUnavailable: s.recordingUnavailable,
+    );
+
+/// The request: all four cameras (one without a device is sent empty), or
+/// "use /etc/default/f250" for `null`.
+pb.SetCameraSettingsRequest cameraSettingsToPb(CameraSettings? s) => s == null
+    ? pb.SetCameraSettingsRequest(useDefaults: true, source: 'dashboard')
+    : pb.SetCameraSettingsRequest(
+        cameras: [
+          for (final c in CameraId.values)
+            pb.CameraAssignment(camera: cameraToPb(c), device: s.devices[c] ?? ''),
+        ],
+        record: [for (final c in CameraId.values) if (s.record.contains(c)) cameraToPb(c)],
+        source: 'dashboard',
+      );

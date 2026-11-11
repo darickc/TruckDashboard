@@ -22,15 +22,21 @@
 #   RECORD_MAX_AGE_DAYS ... RECORD_CLIP_AFTER_S   retention; camera-manager
 #       reads them from its environment (the unit's EnvironmentFile).
 #
+# Settings saved on the dashboard's Settings tab (ADR-0029) live in
+# /var/lib/f250-camera/settings and, once saved, replace the CAMERA_* and
+# RECORD_CAMERAS above. With DATA_DRIVE=1, --recording-allowed lets the
+# screen turn recording on.
+#
 # Status: [SIM] (make agl-test). [BENCH] 2026-11-10: the display path, and
 # recording with DATA_DRIVE=1 onto a tmpfs in the drive's place (bench-log).
 set -euo pipefail
 
 SOCK="${F250_CAMERA_SOCK:-/run/f250-camera/camera.sock}"
+SETTINGS="${F250_CAMERA_SETTINGS:-/var/lib/f250-camera/settings}"
 BIN="${F250_CAMERA_BIN:-/opt/f250/bin/camera-manager}"
 STORAGE="${F250_STORAGE:-/var/lib/f250/storage}"
 
-args=(--listen "unix:$SOCK")
+args=(--listen "unix:$SOCK" --settings-file "$SETTINGS")
 for pair in front:CAMERA_FRONT left:CAMERA_LEFT right:CAMERA_RIGHT rear:CAMERA_REAR; do
   name="${pair%%:*}"
   var="${pair#*:}"
@@ -46,6 +52,9 @@ fi
 if [[ -n "${CAMERA_MEDIA:-}" ]]; then
   args+=(--media "$CAMERA_MEDIA")
 fi
+if [[ "${DATA_DRIVE:-0}" == 1 ]]; then
+  args+=(--recording-allowed --record-dir "$STORAGE/video" --record-drive "$STORAGE")
+fi
 if [[ "${DATA_DRIVE:-0}" == 1 && -n "${RECORD_CAMERAS:-}" ]]; then
   record=()
   IFS=',' read -ra wanted <<<"$RECORD_CAMERAS"
@@ -60,7 +69,6 @@ if [[ "${DATA_DRIVE:-0}" == 1 && -n "${RECORD_CAMERAS:-}" ]]; then
   done
   if ((${#record[@]})); then
     IFS=','; args+=(--record "${record[*]}"); unset IFS
-    args+=(--record-dir "$STORAGE/video" --record-drive "$STORAGE")
   fi
 fi
 

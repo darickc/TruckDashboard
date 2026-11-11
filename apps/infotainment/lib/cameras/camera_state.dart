@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'camera_settings.dart';
+
 /// What camera-manager shows, as the dashboard needs it (f250.camera.v1,
 /// ADR-0026). The dashboard never touches a camera: camera-manager runs the
 /// pipelines and its own window; this is only what it reports.
@@ -255,6 +257,16 @@ abstract class CameraSource {
   /// it (ADR-0027 decision 8). A refusal comes back with `saved` false and
   /// why; throws when camera-manager can't be reached.
   Future<SaveClipResult> saveClip();
+
+  /// The camera settings and the cameras plugged in now (ADR-0029). Throws
+  /// when camera-manager can't be reached or doesn't serve them.
+  Future<CameraSettingsSnapshot> getSettings();
+
+  /// Saves the settings; camera-manager then restarts to apply them (the
+  /// link drops for a few seconds). `null`: forget them and use
+  /// /etc/default/f250's. A refusal comes back with `applied` false and
+  /// why; throws when camera-manager can't be reached.
+  Future<ApplyResult> setSettings(CameraSettings? settings);
 }
 
 String cameraName(CameraId c) => switch (c) {

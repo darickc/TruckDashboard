@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:f250_infotainment/cameras/camera_settings.dart';
 import 'package:f250_infotainment/cameras/camera_state.dart';
 import 'package:f250_infotainment/cameras/grpc_camera_source.dart';
 import 'package:f250_infotainment/cameras/simulated_camera_source.dart';
@@ -53,6 +54,33 @@ class FakeCameraManager extends pb.CameraServiceBase {
   Future<pb.SaveClipResponse> saveClip(grpc.ServiceCall call, pb.SaveClipRequest request) async {
     saveSources.add(request.source);
     return saveAnswer;
+  }
+
+  pb.CameraSettings cameraSettings = pb.CameraSettings(
+    cameras: [
+      pb.CameraAssignment(camera: pb.Camera.CAMERA_FRONT, device: '/dev/v4l/by-path/x-usb-0:1.2:1.0-video-index0'),
+      pb.CameraAssignment(camera: pb.Camera.CAMERA_LEFT),
+      pb.CameraAssignment(camera: pb.Camera.CAMERA_RIGHT),
+      pb.CameraAssignment(camera: pb.Camera.CAMERA_REAR, device: '/dev/video0'),
+    ],
+    record: [pb.Camera.CAMERA_FRONT, pb.Camera.CAMERA_REAR],
+    source: pb.SettingsSource.SETTINGS_SOURCE_DEFAULTS,
+    recordingUnavailable: 'Recording needs the data drive: DATA_DRIVE=1 in /etc/default/f250.',
+  );
+  final settingsRequests = <pb.SetCameraSettingsRequest>[];
+
+  @override
+  Future<pb.GetCameraSettingsResponse> getCameraSettings(
+          grpc.ServiceCall call, pb.GetCameraSettingsRequest request) async =>
+      pb.GetCameraSettingsResponse(settings: cameraSettings, devices: [
+        pb.CameraDevice(path: '/dev/v4l/by-path/x-usb-0:1.2:1.0-video-index0', label: '046d_0825_ABC'),
+      ]);
+
+  @override
+  Future<pb.SetCameraSettingsResponse> setCameraSettings(
+      grpc.ServiceCall call, pb.SetCameraSettingsRequest request) async {
+    settingsRequests.add(request);
+    return pb.SetCameraSettingsResponse(applied: true, detail: 'Saved. Restarting.');
   }
 
   @override
@@ -253,6 +281,64 @@ void main() {
     sim.saveClipRefusal = 'saved clips are full';
     expect((await sim.saveClip()).detail, 'saved clips are full');
     sim.stop();
+  });
+
+  test('camera settings: read with the cameras plugged in, and sent whole', () async {
+    final fake = FakeCameraManager();
+    final server = await serve(fake, path);
+    final src = GrpcCameraSource(endpoint: UnixEndpoint(path))..start();
+    await until(src, (s) => s.link == CameraLink.up);
+
+    final snap = await src.getSettings();
+    expect(snap.settings.devices, {
+      CameraId.front: '/dev/v4l/by-path/x-usb-0:1.2:1.0-video-index0',
+      CameraId.rear: '/dev/video0',
+    });
+    expect(snap.settings.record, {CameraId.front, CameraId.rear});
+    expect(snap.settings.source, SettingsSource.defaults);
+    expect(snap.settings.canRecord, isFalse);
+    expect(snap.settings.recordingUnavailable, contains('DATA_DRIVE=1'));
+    expect(snap.plugged.single.label, '046d_0825_ABC');
+    expect(snap.plugged.single.port, 'USB 1.2');
+
+    final r = await src.setSettings(snap.settings
+        .withDevice(CameraId.left, '/dev/video0')
+        .withRecord(CameraId.front, false));
+    expect(r.applied, isTrue);
+    final sent = fake.settingsRequests.single;
+    expect(sent.source, 'dashboard');
+    expect(sent.useDefaults, isFalse);
+    expect([for (final a in sent.cameras) (a.camera, a.device)], [
+      (pb.Camera.CAMERA_FRONT, '/dev/v4l/by-path/x-usb-0:1.2:1.0-video-index0'),
+      (pb.Camera.CAMERA_LEFT, '/dev/video0'),
+      (pb.Camera.CAMERA_RIGHT, ''),
+      (pb.Camera.CAMERA_REAR, ''),
+    ], reason: 'a device is one camera\'s: left took it from rear');
+    expect(sent.record, [pb.Camera.CAMERA_REAR]);
+
+    await src.setSettings(null);
+    expect(fake.settingsRequests.last.useDefaults, isTrue);
+
+    src.stop();
+    await server.shutdown();
+  });
+
+  test('the simulation applies settings, but never with a camera on screen', () async {
+    final sim = SimulatedCameraSource(startDelay: Duration.zero);
+    final snap = await sim.getSettings();
+    expect(snap.plugged, hasLength(4));
+    expect(snap.settings.devices, hasLength(4));
+    final noLeft = snap.settings.withDevice(CameraId.left, null);
+    expect((await sim.setSettings(noLeft)).applied, isTrue);
+    expect((await sim.getSettings()).settings.source, SettingsSource.screen);
+    await sim.move(SwitchMove.left);
+    expect(sim.status.value.view!.feed, FeedState.unavailable, reason: 'no device now');
+    final refused = await sim.setSettings(null);
+    expect(refused.applied, isFalse);
+    expect(refused.detail, contains('Close the camera first'));
+    await sim.move(SwitchMove.press);
+    expect((await sim.setSettings(null)).applied, isTrue);
+    expect((await sim.getSettings()).settings.source, SettingsSource.defaults);
   });
 
   test('a move without camera-manager fails, it never hangs', () async {

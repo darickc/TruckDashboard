@@ -8,6 +8,7 @@ import 'config/app_config.dart';
 import 'core/clock.dart';
 import 'core/power.dart';
 import 'core/settings.dart';
+import 'core/settings_store.dart';
 import 'data/gateway_connection.dart';
 import 'data/simulation_controller.dart';
 import 'display/display_connection.dart';
@@ -87,7 +88,7 @@ Future<AppServices> createServices(
       final connection = GatewayConnection.create(store, GatewayEndpoint.parse(gateway))..start();
       return AppServices(
           store: store,
-          settings: AppSettings(),
+          settings: AppSettings(store: SettingsStore.forPlatform()),
           config: config,
           gateway: connection,
           cameras: cameraSource,
@@ -101,7 +102,7 @@ Future<AppServices> createServices(
                 startAt: startAt);
       return AppServices(
           store: store,
-          settings: AppSettings(),
+          settings: AppSettings(store: SettingsStore.forPlatform()),
           config: config,
           simulation: simulation,
           cameras: cameraSource,

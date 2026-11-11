@@ -100,6 +100,21 @@ pub struct Config {
     /// untrusted are for development (ADR-0027 decision 10).
     #[arg(long, value_enum, default_value_t = ClockChoice::Ntp)]
     pub clock: ClockChoice,
+
+    /// Settings saved from the dashboard (ADR-0029). Once the file exists,
+    /// its cameras and recorded cameras replace --camera and --record.
+    /// Without this option the dashboard can't change them.
+    #[arg(long, value_name = "PATH")]
+    pub settings_file: Option<PathBuf>,
+
+    /// Recording may be turned on from the dashboard: there is a data drive
+    /// (camera-start passes it with DATA_DRIVE=1). --record implies it.
+    #[arg(long)]
+    pub recording_allowed: bool,
+
+    /// Where /dev is, for listing the cameras plugged in (tests).
+    #[arg(long, default_value = "/dev")]
+    pub dev_root: PathBuf,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]

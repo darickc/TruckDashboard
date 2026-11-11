@@ -7,6 +7,7 @@ import '../app_scope.dart';
 import '../banner_alerts.dart';
 import '../screens/cameras_screen.dart';
 import '../screens/diagnostics_screen.dart';
+import '../screens/settings_screen.dart';
 import '../screens/gauges_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/media_screen.dart';
@@ -107,6 +108,7 @@ class _AppShellState extends State<AppShell> {
                   AppTab.media => const MediaScreen(),
                   AppTab.navigation => const NavigationScreen(),
                   AppTab.cameras => const CamerasScreen(),
+                  AppTab.settings => const SettingsScreen(),
                   AppTab.diagnostics => const DiagnosticsScreen(),
                 },
               ),

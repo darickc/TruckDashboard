@@ -200,5 +200,32 @@ class RecordingState extends $pb.ProtobufEnum {
   const RecordingState._(super.value, super.name);
 }
 
+/// Where the settings in use came from.
+class SettingsSource extends $pb.ProtobufEnum {
+  static const SettingsSource SETTINGS_SOURCE_UNSPECIFIED =
+      SettingsSource._(0, _omitEnumNames ? '' : 'SETTINGS_SOURCE_UNSPECIFIED');
+
+  /// /etc/default/f250 (CAMERA_* and RECORD_CAMERAS).
+  static const SettingsSource SETTINGS_SOURCE_DEFAULTS =
+      SettingsSource._(1, _omitEnumNames ? '' : 'SETTINGS_SOURCE_DEFAULTS');
+
+  /// Saved from the dashboard; it replaces /etc/default/f250's cameras.
+  static const SettingsSource SETTINGS_SOURCE_SCREEN =
+      SettingsSource._(2, _omitEnumNames ? '' : 'SETTINGS_SOURCE_SCREEN');
+
+  static const $core.List<SettingsSource> values = <SettingsSource>[
+    SETTINGS_SOURCE_UNSPECIFIED,
+    SETTINGS_SOURCE_DEFAULTS,
+    SETTINGS_SOURCE_SCREEN,
+  ];
+
+  static final $core.List<SettingsSource?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static SettingsSource? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const SettingsSource._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');

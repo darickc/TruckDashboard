@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'camera_settings.dart';
 import 'camera_state.dart';
 
 /// Stands in for camera-manager in the browser preview and with the in-app
@@ -48,8 +49,50 @@ class SimulatedCameraSource implements CameraSource {
 
   final ValueNotifier<CameraStatus> _status;
 
+  /// Four simulated USB ports, one camera on each, front and rear recorded.
+  static final simulatedPlugged = [
+    for (final (i, label) in [(1, 'SIM_front'), (2, 'SIM_left'), (3, 'SIM_right'), (4, 'SIM_rear')])
+      CameraDevice(
+          path: '/dev/v4l/by-path/simulated-usb-0:1.$i:1.0-video-index0', label: label),
+  ];
+
+  static CameraSettings get simulatedDefaults => CameraSettings(devices: {
+        for (final (i, c) in [CameraId.front, CameraId.left, CameraId.right, CameraId.rear].indexed)
+          c: simulatedPlugged[i].path,
+      }, record: const {
+        CameraId.front,
+        CameraId.rear
+      });
+
+  CameraSettings _settings = simulatedDefaults;
+
   @override
   ValueListenable<CameraStatus> get status => _status;
+
+  @override
+  Future<CameraSettingsSnapshot> getSettings() async =>
+      CameraSettingsSnapshot(settings: _settings, plugged: simulatedPlugged);
+
+  /// Mirrors camera-manager's rules (refused while a camera is on screen);
+  /// nothing restarts. A camera left without a device becomes unavailable.
+  @override
+  Future<ApplyResult> setSettings(CameraSettings? settings) async {
+    if (_status.value.view?.camera != null) {
+      return const ApplyResult(
+          applied: false,
+          detail: 'Close the camera first: applying settings restarts camera-manager.');
+    }
+    _settings = settings == null
+        ? simulatedDefaults
+        : CameraSettings(
+            devices: settings.devices,
+            record: settings.record.intersection(recordable.toSet()),
+            source: SettingsSource.screen);
+    for (final c in CameraId.values) {
+      _settings.devices.containsKey(c) ? _missing.remove(c) : _missing.add(c);
+    }
+    return const ApplyResult(applied: true, detail: 'Saved (simulated: nothing restarts).');
+  }
 
   @override
   void start() {}

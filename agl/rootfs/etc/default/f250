@@ -75,7 +75,10 @@ DISPLAY_BACKLIGHT=
 #            f250.camera.v1 API). Default unix:/run/f250-camera/camera.sock,
 #            set in the unit. Set it empty to only log the moves.
 # CAMERA_FRONT, CAMERA_LEFT, CAMERA_RIGHT, CAMERA_REAR  camera-manager: each
-#            camera's V4L2 device. Use /dev/v4l/by-path/...-video-index0
+#            camera's V4L2 device. The dashboard's Settings tab sets these too
+#            (ADR-0029): once saved there, /var/lib/f250-camera/settings
+#            replaces them and RECORD_CAMERAS; its "Use /etc/default/f250"
+#            brings these back. `camera-ctl settings` shows which applies. Use /dev/v4l/by-path/...-video-index0
 #            (ls -l /dev/v4l/by-path): it names the USB port, so a camera's
 #            role follows the port it is plugged into, and identical cameras
 #            (which share a by-id name) stay apart. Not /dev/videoN, which

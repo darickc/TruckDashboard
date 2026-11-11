@@ -8,6 +8,7 @@
 //!   camera-ctl watch              # every change, until Ctrl-C
 //!   camera-ctl recording          # what is recording now (--watch: every change)
 //!   camera-ctl save-clip          # as the dashboard's Save clip button
+//!   camera-ctl settings           # each camera's device, what records, the cameras plugged in (ADR-0029)
 //!   camera-ctl --to unix:/tmp/f250/camera.sock view
 //!
 //! Without `--to` it uses the Pi's socket (/run/f250-camera/camera.sock) when
@@ -57,6 +58,9 @@ enum Cmd {
     },
     /// Save a clip, as the dashboard's button does. Exits 1 if refused.
     SaveClip,
+    /// The camera settings and the cameras plugged in now (ADR-0029). They
+    /// are changed on the dashboard's Settings tab.
+    Settings,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -193,6 +197,68 @@ async fn run(args: Args) -> Result<(), String> {
             println!("{}", r.detail);
             if !r.saved {
                 return Err("not saved".into());
+            }
+        }
+        Cmd::Settings => {
+            let r = tokio::time::timeout(
+                TIMEOUT,
+                client.get_camera_settings(pb::GetCameraSettingsRequest {}),
+            )
+            .await
+            .map_err(|_| "no answer from camera-manager".to_string())?
+            .map_err(|s| format!("GetCameraSettings: {}", s.message()))?
+            .into_inner();
+            let s = r.settings.unwrap_or_default();
+            println!(
+                "from {}",
+                if s.source == pb::SettingsSource::Screen as i32 {
+                    "the dashboard (/var/lib/f250-camera/settings)"
+                } else {
+                    "/etc/default/f250"
+                }
+            );
+            for a in &s.cameras {
+                let name = pb::Camera::try_from(a.camera)
+                    .map(|c| c.as_str_name().trim_start_matches("CAMERA_").to_lowercase())
+                    .unwrap_or_else(|_| "?".into());
+                let dev = if a.device.is_empty() {
+                    "none"
+                } else {
+                    &a.device
+                };
+                println!("  {name:<6} {dev}");
+            }
+            let record: Vec<String> = s
+                .record
+                .iter()
+                .filter_map(|c| pb::Camera::try_from(*c).ok())
+                .map(|c| c.as_str_name().trim_start_matches("CAMERA_").to_lowercase())
+                .collect();
+            println!(
+                "record: {}",
+                if record.is_empty() {
+                    "none".to_string()
+                } else {
+                    record.join(", ")
+                }
+            );
+            if !s.recording_unavailable.is_empty() {
+                println!("  (nothing records: {})", s.recording_unavailable);
+            }
+            println!("plugged in:");
+            if r.devices.is_empty() {
+                println!("  none");
+            }
+            for d in &r.devices {
+                println!(
+                    "  {}{}",
+                    d.path,
+                    if d.label.is_empty() {
+                        String::new()
+                    } else {
+                        format!("  ({})", d.label)
+                    }
+                );
             }
         }
     }

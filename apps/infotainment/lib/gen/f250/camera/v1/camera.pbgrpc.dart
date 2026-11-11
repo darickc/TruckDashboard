@@ -73,6 +73,25 @@ class CameraServiceClient extends $grpc.Client {
     return $createUnaryCall(_$saveClip, request, options: options);
   }
 
+  /// Settings (ADR-0029, added 2026-11-11): which device each camera is and
+  /// which cameras record, and the cameras plugged in now.
+  $grpc.ResponseFuture<$0.GetCameraSettingsResponse> getCameraSettings(
+    $0.GetCameraSettingsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getCameraSettings, request, options: options);
+  }
+
+  /// Saves the settings, then camera-manager restarts itself to apply them:
+  /// the cameras are off for a few seconds, and every stream ends. Refused,
+  /// with a reason, while a camera is on screen or when they don't check out.
+  $grpc.ResponseFuture<$0.SetCameraSettingsResponse> setCameraSettings(
+    $0.SetCameraSettingsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$setCameraSettings, request, options: options);
+  }
+
   // method descriptors
 
   static final _$watchView =
@@ -94,6 +113,16 @@ class CameraServiceClient extends $grpc.Client {
           '/f250.camera.v1.CameraService/SaveClip',
           ($0.SaveClipRequest value) => value.writeToBuffer(),
           $0.SaveClipResponse.fromBuffer);
+  static final _$getCameraSettings = $grpc.ClientMethod<
+          $0.GetCameraSettingsRequest, $0.GetCameraSettingsResponse>(
+      '/f250.camera.v1.CameraService/GetCameraSettings',
+      ($0.GetCameraSettingsRequest value) => value.writeToBuffer(),
+      $0.GetCameraSettingsResponse.fromBuffer);
+  static final _$setCameraSettings = $grpc.ClientMethod<
+          $0.SetCameraSettingsRequest, $0.SetCameraSettingsResponse>(
+      '/f250.camera.v1.CameraService/SetCameraSettings',
+      ($0.SetCameraSettingsRequest value) => value.writeToBuffer(),
+      $0.SetCameraSettingsResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('f250.camera.v1.CameraService')
@@ -131,6 +160,24 @@ abstract class CameraServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.SaveClipRequest.fromBuffer(value),
         ($0.SaveClipResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.GetCameraSettingsRequest,
+            $0.GetCameraSettingsResponse>(
+        'GetCameraSettings',
+        getCameraSettings_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.GetCameraSettingsRequest.fromBuffer(value),
+        ($0.GetCameraSettingsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.SetCameraSettingsRequest,
+            $0.SetCameraSettingsResponse>(
+        'SetCameraSettings',
+        setCameraSettings_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.SetCameraSettingsRequest.fromBuffer(value),
+        ($0.SetCameraSettingsResponse value) => value.writeToBuffer()));
   }
 
   $async.Stream<$0.WatchViewResponse> watchView_Pre($grpc.ServiceCall $call,
@@ -165,4 +212,22 @@ abstract class CameraServiceBase extends $grpc.Service {
 
   $async.Future<$0.SaveClipResponse> saveClip(
       $grpc.ServiceCall call, $0.SaveClipRequest request);
+
+  $async.Future<$0.GetCameraSettingsResponse> getCameraSettings_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.GetCameraSettingsRequest> $request) async {
+    return getCameraSettings($call, await $request);
+  }
+
+  $async.Future<$0.GetCameraSettingsResponse> getCameraSettings(
+      $grpc.ServiceCall call, $0.GetCameraSettingsRequest request);
+
+  $async.Future<$0.SetCameraSettingsResponse> setCameraSettings_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.SetCameraSettingsRequest> $request) async {
+    return setCameraSettings($call, await $request);
+  }
+
+  $async.Future<$0.SetCameraSettingsResponse> setCameraSettings(
+      $grpc.ServiceCall call, $0.SetCameraSettingsRequest request);
 }

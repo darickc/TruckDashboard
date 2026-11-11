@@ -46,6 +46,20 @@ impl CameraService for Fake {
         Err(Status::unimplemented("not in the fake"))
     }
 
+    async fn get_camera_settings(
+        &self,
+        _: Request<pb::GetCameraSettingsRequest>,
+    ) -> Result<Response<pb::GetCameraSettingsResponse>, Status> {
+        Err(Status::unimplemented("not in the fake"))
+    }
+
+    async fn set_camera_settings(
+        &self,
+        _: Request<pb::SetCameraSettingsRequest>,
+    ) -> Result<Response<pb::SetCameraSettingsResponse>, Status> {
+        Err(Status::unimplemented("not in the fake"))
+    }
+
     async fn watch_view(
         &self,
         _: Request<pb::WatchViewRequest>,

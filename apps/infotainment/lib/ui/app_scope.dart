@@ -12,7 +12,7 @@ import '../telemetry/calibration.dart';
 import '../telemetry/telemetry_store.dart';
 import 'banner_alerts.dart';
 
-enum AppTab { home, gauges, media, navigation, cameras, diagnostics }
+enum AppTab { home, gauges, media, navigation, cameras, settings, diagnostics }
 
 /// The app's services, created once in main() (or a test) and handed down.
 class AppServices {

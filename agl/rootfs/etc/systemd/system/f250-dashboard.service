@@ -34,6 +34,9 @@ User=agl-driver
 EnvironmentFile=/etc/default/flutter
 Environment=XDG_RUNTIME_DIR=/run/user/1001/
 Environment=F250_POWER_OFF=1
+# The dashboard's own preferences (units, the gauge profile; ADR-0029), in
+# its state directory.
+Environment=F250_SETTINGS_FILE=/var/lib/f250-dashboard/settings.json
 ExecStart=/usr/bin/flutter-auto -b /usr/share/flutter/f250_infotainment/${FLUTTER_VERSION}/${FLUTTER_RUNTIME} --xdg-shell-app-id homescreen
 ExecStopPost=+/opt/f250/libexec/dashboard-stopped
 SuccessExitStatus=42

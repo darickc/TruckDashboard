@@ -20,6 +20,13 @@ service CameraService {
   // and the minutes around it from retention. Refused, with a reason, when
   // nothing is recording or the saved clips are full.
   rpc SaveClip(SaveClipRequest) returns (SaveClipResponse);
+  // Settings (ADR-0029, added 2026-11-11): which device each camera is and
+  // which cameras record, and the cameras plugged in now.
+  rpc GetCameraSettings(GetCameraSettingsRequest) returns (GetCameraSettingsResponse);
+  // Saves the settings, then camera-manager restarts itself to apply them:
+  // the cameras are off for a few seconds, and every stream ends. Refused,
+  // with a reason, while a camera is on screen or when they don't check out.
+  rpc SetCameraSettings(SetCameraSettingsRequest) returns (SetCameraSettingsResponse);
 }
 
 enum Camera {
@@ -171,4 +178,66 @@ message SaveClipResponse {
   // Segments that will be moved as they finish (the one being written and
   // the ones after it), across the cameras.
   uint32 segments_to_come = 4;
+}
+
+// A video device plugged in now (ADR-0029 decision 3).
+message CameraDevice {
+  // /dev/v4l/by-path/...-video-index0: names the USB port, so a camera's
+  // role follows the port.
+  string path = 1;
+  // The /dev/v4l/by-id name pointing at the same device (the camera's
+  // model), or empty.
+  string label = 2;
+}
+
+message CameraAssignment {
+  Camera camera = 1;
+  // Empty: no device; the camera shows as unavailable when chosen.
+  string device = 2;
+}
+
+// Where the settings in use came from.
+enum SettingsSource {
+  SETTINGS_SOURCE_UNSPECIFIED = 0;
+  // /etc/default/f250 (CAMERA_* and RECORD_CAMERAS).
+  SETTINGS_SOURCE_DEFAULTS = 1;
+  // Saved from the dashboard; it replaces /etc/default/f250's cameras.
+  SETTINGS_SOURCE_SCREEN = 2;
+}
+
+message CameraSettings {
+  // Front, left, right and rear, in that order.
+  repeated CameraAssignment cameras = 1;
+  // The cameras recorded: front and/or rear.
+  repeated Camera record = 2;
+  SettingsSource source = 3;
+  // Why recording can't happen (no data drive configured, a build that
+  // can't record); empty when it can.
+  string recording_unavailable = 4;
+}
+
+message GetCameraSettingsRequest {}
+
+message GetCameraSettingsResponse {
+  CameraSettings settings = 1;
+  // The cameras plugged in now.
+  repeated CameraDevice devices = 2;
+}
+
+message SetCameraSettingsRequest {
+  // All four cameras; one left out has no device.
+  repeated CameraAssignment cameras = 1;
+  repeated Camera record = 2;
+  // Forget the saved settings and use /etc/default/f250's again; `cameras`
+  // and `record` are ignored.
+  bool use_defaults = 3;
+  // Who asked ("dashboard"), for the log.
+  string source = 4;
+}
+
+message SetCameraSettingsResponse {
+  // True: saved, and camera-manager is restarting to apply them.
+  bool applied = 1;
+  // Why not, or what happens next, in words for the screen.
+  string detail = 2;
 }

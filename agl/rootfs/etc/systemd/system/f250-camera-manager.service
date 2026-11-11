@@ -60,6 +60,11 @@ TimeoutStopSec=10
 UMask=0007
 RuntimeDirectory=f250-camera
 RuntimeDirectoryMode=0750
+# Camera assignment and recording saved from the dashboard (ADR-0029):
+# /var/lib/f250-camera/settings. Applying them restarts camera-manager in
+# place (exec, same PID): no stop, no start limit.
+StateDirectory=f250-camera
+StateDirectoryMode=0750
 
 # Sandbox (ADR-0021), like the dashboard's, except:
 # - Devices: V4L2 cameras only; waylandsink works without the GPU [BENCH].

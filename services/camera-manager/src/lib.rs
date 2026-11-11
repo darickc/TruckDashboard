@@ -7,6 +7,8 @@
 //! and serves `f250.camera.v1` so the dashboard can draw around it.
 //!
 //! - [`config`]: the command line.
+//! - [`camera_settings`]: camera assignment and recording saved from the
+//!   dashboard (ADR-0029), and the cameras plugged in now.
 //! - [`media`]: how a camera is captured, display and recording branches.
 //! - [`pipeline`]: display through `gst-launch-1.0` children (no recording).
 //! - `gst` (feature `gstreamer`): in-process GStreamer, both branches from
@@ -23,6 +25,7 @@
 //! by default). Recording `[BENCH]` 2026-11-10 on the Pi with two webcams
 //! onto a tmpfs in the data drive's place (bench-log); no real drive yet.
 
+pub mod camera_settings;
 pub mod config;
 pub mod drive;
 #[cfg(feature = "gstreamer")]
