@@ -13,8 +13,8 @@ Nothing is downloaded from tile.openstreetmap.org; its policy forbids bulk
 downloads. The tileset's attribution metadata carries the OpenStreetMap
 attribution, which the screen shows.
 
-  build-raster-map.py --bbox W,S,E,N --maxzoom Z --estimate   # counts and sizes, no network
-  build-raster-map.py --bbox W,S,E,N --maxzoom Z --out map.pmtiles
+  build-raster-map.py --bbox=W,S,E,N --maxzoom Z --estimate   # counts and sizes, no network
+  build-raster-map.py --bbox=W,S,E,N --maxzoom Z --out map.pmtiles
 
 Needs: pmtiles (brew install pmtiles), Docker, Node.js 18+ with npm. A render
 can be stopped and run again with the same arguments; finished tiles are kept.
