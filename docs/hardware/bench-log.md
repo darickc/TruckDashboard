@@ -1769,3 +1769,22 @@ Result:
 Verdict: the image records with nothing installed by hand, and its
 camera-manager shows cameras as fast as the gst-launch path did. The Pi is
 left with both webcams set, DATA_DRIVE=0, and recording off.
+
+## 2026-11-10 — Card f3bf43b set up for the truck
+
+The card flashed above goes in the truck (owner). A fresh card has the
+image's defaults, so the last drive's settings were set again (the old file
+kept as `/etc/default/f250.before-truck`):
+
+    TRANSPORT=can   TRANSMIT=1   (ADR-0007 opt-in: read-only polling)
+    ENABLE=eot,map,icp,ipr_duty,ficm_main,battery,fuel_level
+    PINNED unset (physical: 7E0/7E1)   DATA_DRIVE=0   cameras as above
+
+The registry on this image carries 118f684's pins (map, icp, ipr_duty,
+ficm_main, fuel_level to 7E8), which the df61324 truck card never had.
+`can0` stays down at boot (60-canbus-can.network, ADR-0015): on the bench
+the gateway logs "Network is down" and retries every ~2 s, and the
+dashboard shows the link down. In the truck, after the wiring checklist,
+`YES=1 f250-can active` and a gateway restart. Wi-Fi was off and no
+hotspot saved on the fresh card: `connmanctl enable wifi` done; the owner
+joins the hotspot (agl.md "Wi-Fi: a phone hotspot").
