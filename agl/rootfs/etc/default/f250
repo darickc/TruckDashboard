@@ -144,8 +144,8 @@ RECORD_CLIP_AFTER_S=60
 #            the screen (bench without a receiver). 0: gpsd.
 # NAV_STALE_AFTER_MS  a fix older than this is never shown as current (empty:
 #            3000, an example: tune it once a receiver is fitted, H11).
-# The offline map is /var/lib/f250/maps/map.pmtiles: a raster PMTiles file
-#            the dashboard reads (docs/setup/maps.md). Without it the screen
+# The offline map is /var/lib/f250/maps/map.pmtiles: a vector or raster
+#            PMTiles file the dashboard reads (docs/setup/maps.md). Without it the screen
 #            says so and still shows the position.
 NAV_GPSD=
 NAV_SIMULATE=0
