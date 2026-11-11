@@ -1,10 +1,12 @@
 # Camera manager on AGL (Phase 6.6, ADR-0009, ADR-0026). Shows the camera the
 # policy picks as a gst-launch-1.0 pipeline whose waylandsink window
-# agl-compositor confines to the dashboard's activation area (y 96-416 in
-# agl/flutter/config.toml), below the status bar and the alert banner. Serves
+# agl-compositor confines to the dashboard's activation area (x 220, y 44,
+# 580x435 in agl/flutter/config.toml): right of the dashboard's camera
+# buttons and below the status bar, which an alert takes over while a camera
+# shows, so alerts are never covered (owner, 2026-11-10). Serves
 # f250.camera.v1 on /run/f250-camera/camera.sock; power-manager sends the
-# camera switch's moves there. Cameras: CAMERA_LEFT, CAMERA_RIGHT and
-# CAMERA_REAR in /etc/default/f250 (camera-start). A camera with no device
+# camera switch's moves there. Cameras: CAMERA_FRONT, CAMERA_LEFT,
+# CAMERA_RIGHT and CAMERA_REAR in /etc/default/f250 (camera-start). A camera with no device
 # shows as unavailable when chosen.
 #
 # User agl-driver, as the dashboard: the windows need the compositor's

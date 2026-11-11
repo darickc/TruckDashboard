@@ -274,10 +274,11 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       `camera-ctl` for moves by hand; in `make deploy` and both images, checked by `make agl-test`. `[BENCH]`
       2026-11-10 with two webcams ([agl.md](setup/agl.md) check 14): live in 0.7 s through the service and its
       sandbox, the picture in the activation area under the dashboard's camera mode, frame counting verified, a
-      killed pipeline shows "unavailable" and recovers, an alert takes the strip over a live camera; a stop that
+      killed pipeline shows "unavailable" and recovers, an alert stays visible over a live camera; a stop that
       hung 90 s was found and fixed (0.08 s now); MemoryDenyWriteExecute on. Dashboard camera mode `[SIM]`: on any tab while camera-manager
-      reports a camera, the strip says which and why (an alert takes it, the area never moves), the area under
-      the window says starting / unavailable and why, and Left/Rear/Right/Close replace the nav bar; the Cameras
+      reports a camera, the status bar's chip says which (REVERSE when reverse brought it up), an alert takes the
+      status bar's place above the picture (the area never moves), the area under the window says starting /
+      unavailable and why, and Front/Left/Rear/Right/Close down the left (x 0–220) replace the nav bar; the Cameras
       tab picks a camera and reports reverse and the speed limit; no camera is claimed without camera-manager.
       12 widget tests (geometry pinned to the activation area), the gRPC client against a fake server, and the
       real camera-manager binary end to end; checked in the browser with the simulated source. A front
