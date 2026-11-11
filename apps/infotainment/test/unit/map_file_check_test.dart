@@ -71,7 +71,12 @@ void main() {
             expect(_magic(h.tileType, bytes!), isTrue, reason: '$z/$x/$y is not ${h.tileType}');
             if (h.tileType == TileType.mvt) {
               final tile = vtr.VectorTileReader().read(bytes);
-              expect(tile.layers.map((l) => l.name), contains('earth'), reason: '$z/$x/$y');
+              // Land or sea: a corner of a large region can be all ocean.
+              expect(
+                tile.layers.map((l) => l.name),
+                anyOf(contains('earth'), contains('water')),
+                reason: '$z/$x/$y',
+              );
               decoded++;
               continue;
             }
