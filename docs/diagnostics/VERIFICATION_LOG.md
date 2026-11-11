@@ -657,6 +657,62 @@ Verdict:
   battery,fuel_level`), a cold-soak EOT reading before a morning start, a
   fuel reading at a clearly lower level, and the gear labels.
 
+## 2026-11-10 — A drive with no polling: reverse and gear from the broadcast alone [TRUCK]
+
+Card f3bf43b with `CAN_AUTO_ACTIVE=1`, no laptop. The adapter went active
+after a clean 30 s listen (21 350 frames), but the gateway stayed passive
+the whole drive (a gateway-start bug, fixed in `6c4139e`; bench-log
+2026-11-10). So **nothing was requested**: no PIDs, no DIDs, no `7DF`/`7E0`/`7E1`
+frames, and no `7ED` (modules answer only requests). What there is: a
+listen-only-equivalent capture of every broadcast, 22.5 min, 961 738 frames
+(712/s), the same 14 IDs as every earlier capture, no error frames, no
+silence over 1 s, nothing lost after the capture started (the 21 509 frames
+the interface counted as dropped all fell in the listen window, before
+anything read it). The Pi had no clock source: frames are stamped
+2026-10-27, so only relative times hold. The owner's actions weren't timed;
+what he did is read from the data.
+
+**Reverse, broadcast `230` byte 0.** Every value it took, in order, with
+the `215` bytes 0–1 wheel-speed candidate (10106 at standstill) and RPM
+(`201`):
+
+| From | For | Byte 0 | Truck |
+|---|---|---|---|
+| +0 s | 20 s | `F0` | parked, engine starting and idling |
+| +20 s | 12 s | `10` | backing out: `215` 10106 → 10427 |
+| +31 s | | `01`…`06` | driving, the low nibble stepping with speed |
+| +992 s | 0.3 s / 3.6 s | `F1` / `10` | stopped, through N into R, no motion |
+| +996 s | 48 s | `F0` | parked, idling |
+| +1044 s | 16 s | `10` | backing: `215` 10106 → 10495 |
+| +1059 s | | `01`…`03` | driving |
+| +1350 s | 0.1 s each | `F1`, `10`, `F0` | stopped, the lever through N and R into P |
+
+`10` appeared in exactly those four episodes, never while driving forward
+(1350 s; values seen: `F0`, `10`, `F1`, `01`, `02`, `03`, `05`, `06`
+only). Both times the truck moved in R, byte 0 was `10` for the whole
+movement. That agrees with CAN_CENSUS capture 2 (P→R→P at idle) and the
+2026-11-08 lever test (P `F0`, R `10`, N `F1`, D `01`), on a different day,
+in ordinary use. `215` rose in reverse too: it gives speed, not direction.
+
+**Gear, `230` low nibble.** RPM ÷ (`215` − 10106), medians at ≥ 1300 rpm
+and moving: `01` 0.995, `02` 0.673, `03` 0.471, `05` 0.358, `06` 0.187.
+Scaled by 97.5 these are 97, 66, 46, 35, 18.2, against the 2026-11-08 gear
+DID's 97, 67, 45, 32, 18.4 rpm per km/h: the two sessions agree, and `215`
+moves about 97.5 counts per km/h (to check against PID `0D`; not claimed).
+`4` never appears, as before. Which gears the five values are stays
+UNVERIFIED: these ratios include torque-converter slip in the low gears,
+so a published ratio table (with its source) or FORScan is still needed.
+
+Verdict:
+- `230` byte 0 = `10` ⇔ reverse holds over a real drive, independently of
+  the 2026-11-08 lever test: two reverse movements and two pass-throughs,
+  no false reverse in 22 min. Enough for the reverse decoder's verification
+  entry (ADR-0024 decision 4). What it doesn't cover: a cold start in R,
+  and a fault (the bus going silent), which the decoder must treat as
+  unknown.
+- Not done this drive (no polling): the cold-soak EOT, the load readings
+  for the enable list, fuel level at a second point, `7ED`.
+
 ## Open questions for the next session
 
 1. ~~**Who is 7E9?**~~ **ANSWERED: the TCM.** It owns `22 1674` (transmission

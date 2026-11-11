@@ -24,6 +24,7 @@ Rules for this page:
 | 4 | 2026-11-07 13:01 | Driving, the MX+ polling on a Y-splitter (`make pi-start TRANSPORT=obdlink TRANSMIT=1 CAPTURE=1`) | 345 s | 258 551 (749/s) | 0 | `20261107-130116-obdlink/candump` |
 | 5 | 2026-11-07 13:18 | Idle, MX+ polling, no EOT | 32 s (wall clock: 424 s, a 391.6 s clock jump) | 23 994 | 0 | `20261107-131852-obdlink/candump` |
 | 6 | 2026-11-07 13:27 | Idle in the driveway, MX+ polling with EOT (`… CAPTURE=1 ENABLE=eot`) | 74 s | 55 488 (749/s) | 0 | `20261107-132726-obdlink/candump` |
+| 7 | 2026-11-10 (stamped 2026-10-27: no clock source) | A drive with reversing out and back; adapter active, nothing polled (`CAN_AUTO_CAPTURE=1`) | 1352 s | 961 738 (712/s) | 0 | `20261027-150308-auto` on the truck card |
 
 ## Capture 1: key on, engine off [TRUCK]
 
