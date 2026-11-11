@@ -13,7 +13,7 @@ use std::time::Duration;
 use camera_policy::Camera;
 use clap::{Parser, ValueEnum};
 
-use crate::drive::{Clock, TIMESYNC_FILE};
+use crate::drive::{Clock, SystemClock};
 
 /// Where recordings go: on the data drive (ADR-0027 decision 6).
 pub const DEFAULT_RECORD_DIR: &str = "/var/lib/f250/storage/video";
@@ -95,7 +95,8 @@ pub struct Config {
     pub record_drive: String,
 
     /// Whether segment names carry the wall time: ntp trusts the clock
-    /// while systemd-timesyncd says it is synchronized; trusted and
+    /// while the system says it is synchronized (timedatectl's
+    /// NTPSynchronized, or systemd-timesyncd's flag file); trusted and
     /// untrusted are for development (ADR-0027 decision 10).
     #[arg(long, value_enum, default_value_t = ClockChoice::Ntp)]
     pub clock: ClockChoice,
@@ -140,7 +141,7 @@ impl Config {
                     .then(|| PathBuf::from(self.record_drive.trim())),
                 settings: recording::settings::Settings::from_vars(env)?,
                 clock: match self.clock {
-                    ClockChoice::Ntp => Clock::SyncFile(TIMESYNC_FILE.into()),
+                    ClockChoice::Ntp => Clock::System(SystemClock::default()),
                     ClockChoice::Trusted => Clock::Trusted,
                     ClockChoice::Untrusted => Clock::Untrusted,
                 },

@@ -20,9 +20,13 @@
 //! - **The clean-stop marker**, last, at a clean shutdown.
 
 use std::collections::HashMap;
+use std::io::Read;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::process::{Command, Stdio};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use f250_proto::camera::v1 as pb;
 use recording::protect::{self, ClipError};
@@ -35,24 +39,87 @@ use tokio::sync::{oneshot, watch};
 const GB: f64 = 1_000_000_000.0;
 
 /// Whether the wall clock can be believed (ADR-0027 decision 10).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum Clock {
-    /// Trusted while this file exists: systemd-timesyncd creates
-    /// `/run/systemd/timesync/synchronized` once NTP has answered. Whether
-    /// the AGL image runs timesyncd is UNVERIFIED; without it the clock is
-    /// never trusted, which is the safe side. The RTC (H20) isn't fitted.
-    SyncFile(PathBuf),
+    /// The kernel's own "synchronized" flag, as `timedatectl` reports it
+    /// (`NTPSynchronized`), or systemd-timesyncd's
+    /// `/run/systemd/timesync/synchronized`. On image 6114c52 connman keeps
+    /// the time and timesyncd doesn't run, so the file never appears there
+    /// [BENCH] 2026-11-10. Asked by the drive thread on each pass and cached:
+    /// segment naming (GStreamer's streaming thread) only reads the cache.
+    /// The RTC (H20) isn't fitted.
+    System(SystemClock),
     /// Development and tests.
     Trusted,
     Untrusted,
 }
 
+impl PartialEq for Clock {
+    fn eq(&self, other: &Self) -> bool {
+        std::mem::discriminant(self) == std::mem::discriminant(other)
+    }
+}
+
 pub const TIMESYNC_FILE: &str = "/run/systemd/timesync/synchronized";
 
+/// The system clock's synchronized flag, cached.
+#[derive(Debug, Clone, Default)]
+pub struct SystemClock {
+    synced: Arc<AtomicBool>,
+}
+
+impl SystemClock {
+    /// Asks again (at most 2 s), caches and returns the answer.
+    pub fn refresh(&self) -> bool {
+        let now = Path::new(TIMESYNC_FILE).exists() || timedatectl_synchronized();
+        self.synced.store(now, Ordering::Release);
+        now
+    }
+}
+
+fn timedatectl_synchronized() -> bool {
+    let Ok(mut child) = Command::new("timedatectl")
+        .args(["show", "--property=NTPSynchronized", "--value"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+    else {
+        return false;
+    };
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => {
+                let mut out = String::new();
+                if let Some(mut so) = child.stdout.take() {
+                    let _ = so.read_to_string(&mut out);
+                }
+                return out.trim() == "yes";
+            }
+            Ok(Some(_)) | Err(_) => return false,
+            Ok(None) if std::time::Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return false;
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(20)),
+        }
+    }
+}
+
 impl Clock {
+    /// Asks the system again, where that applies. The drive thread does
+    /// this on each pass.
+    pub fn refresh(&self) {
+        if let Clock::System(c) = self {
+            c.refresh();
+        }
+    }
+
     pub fn is_trusted(&self) -> bool {
         match self {
-            Clock::SyncFile(p) => p.exists(),
+            Clock::System(c) => c.synced.load(Ordering::Acquire),
             Clock::Trusted => true,
             Clock::Untrusted => false,
         }
@@ -330,6 +397,7 @@ impl Worker {
     }
 
     fn pass(&mut self, writing: &[SegmentName]) {
+        self.cfg.clock.refresh();
         if !self.ensure_store() {
             return;
         }
@@ -562,9 +630,7 @@ mod tests {
     fn an_untrusted_clock_gives_no_time() {
         assert_eq!(Clock::Untrusted.trusted_now(), None);
         assert!(Clock::Trusted.trusted_now().is_some());
-        assert_eq!(
-            Clock::SyncFile("/nonexistent/f250/synchronized".into()).trusted_now(),
-            None
-        );
+        // Not asked yet: not trusted.
+        assert_eq!(Clock::System(SystemClock::default()).trusted_now(), None);
     }
 }
