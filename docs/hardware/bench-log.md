@@ -1823,3 +1823,37 @@ gateway; no frames, errors, error-passive or no adapter stay listen-only.
 On the truck: Pi boot, then a 30 s listen, so polling starts about a
 minute after the Pi has power; `journalctl -u f250-can-auto -b` says what
 it did.
+
+## 2026-11-10 — The drive with CAN_AUTO_ACTIVE: CAN went active, the gateway never polled [TRUCK]
+
+Card f3bf43b with the entry above's settings, in the truck, no laptop. The
+owner reported "it never connected to the can". Read afterwards from the
+Pi's persistent journal: two boots in the truck, stamped 2026-10-27 15:02
+(no RTC, no network for NTP); the second ran 23 min.
+
+    can-auto   both boots: listen-only at 7.7 s, "clean: 21350 frames in
+               30 s, ERROR-ACTIVE, no errors" at 37.7 s, can0 active, the
+               gateway restarted, the capture started. As designed
+    gateway    restarted at 37.7 s, then again "can0 isn't active yet, so
+               PASSIVE_ONLY", and stayed passive for the whole drive: no
+               polls (the capture's TX 0 packets)
+    capture    23 min, 983 253 frames, no bus or controller errors, no gaps
+               over 1 s; rx_dropped 21 509 (2.2 %: the host didn't keep up;
+               not looked into). Copied off the card for analysis
+
+Cause: gateway-start judged the mode with `ip link show`, which inside the
+gateway unit's sandbox fails silently (rc 1, no output) while
+`/sys/class/net/can0/operstate` reads `up`. Reproduced on the bench in the
+unit itself. The older check that refuses TRANSMIT=1 on a listen-only
+interface used `ip` the same way, so it never worked inside the unit either.
+agl-test hadn't caught it: its checks ran the script outside any sandbox,
+with a missing interface.
+
+Fix: f250-can records the mode it sets (`/run/f250-can/can0.mode`:
+listen-only, active, down), and gateway-start reads that and sysfs's
+operstate, never `ip`. A replugged adapter comes up down, which overrides a
+stale file. agl-test has 7 more checks (425). On the Pi: the real chain with
+a 0-frame threshold (bench only, no bus) went listen-only → clean → active
+→ gateway restarted with `--transmit` inside its sandbox, polling. Back to
+boot state afterwards (can0 listen-only, gateway passive, can-auto
+listening).

@@ -94,6 +94,17 @@ driver_of() {
   [[ -e "$d" ]] && basename "$(readlink -f "$d")" || echo unknown
 }
 
+# The mode this script set, for the gateway's start script: inside the
+# gateway's sandbox `ip` can't read the interface (bench-log 2026-11-10: it
+# failed silently, so the gateway thought can0 wasn't active), but it can
+# read this file and sysfs. A replugged adapter comes up down, which sysfs
+# shows, so a stale file can't claim an active interface.
+MODE_DIR="${F250_CAN_RUN:-/run/f250-can}"
+record_mode() {
+  $SUDO mkdir -p "$MODE_DIR" && $SUDO chmod 0755 "$MODE_DIR" \
+    && echo "$1" | $SUDO tee "$MODE_DIR/$CAN_IF.mode" >/dev/null || warn "couldn't record the mode in $MODE_DIR"
+}
+
 set_mode() { # listen-only on|off
   require_interface
   local lo="$1"
@@ -110,6 +121,7 @@ set_mode() { # listen-only on|off
     die "$CAN_IF is still listen-only"
   fi
   grep -q "bitrate $BITRATE" <<<"$d" || warn "bitrate is not $BITRATE: $(grep -o 'bitrate [0-9]*' <<<"$d" | head -1)"
+  if [[ "$lo" == on ]]; then record_mode listen-only; else record_mode active; fi
   echo "$d"
 }
 
@@ -146,6 +158,7 @@ case "${1:-status}" in
   down)
     require_interface
     $SUDO ip link set "$CAN_IF" down
+    record_mode down
     echo "$CAN_IF down"
     ;;
   capture)

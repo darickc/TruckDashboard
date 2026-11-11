@@ -277,6 +277,19 @@ check "pinned on 7DF"       "[[ \"\$(gw TRANSPORT=can PINNED=functional)\" == *'
 check "TRANSMIT=0 never transmits" "[[ \"\$(gw TRANSPORT=can TRANSMIT=0)\" != *--transmit* ]]"
 check "can transmit refused without the interface" "! gw TRANSPORT=can TRANSMIT=1 CAN_IF=f250-test-none >/dev/null"
 check "CAN_AUTO_ACTIVE: passive until the interface is active" "[[ \"\$(gw TRANSPORT=can TRANSMIT=1 CAN_AUTO_ACTIVE=1 CAN_IF=f250-test-none)\" == '--listen unix:/run/f250/vehicle.sock --transport can --signals /opt/f250/share/data/signals --warnings /opt/f250/share/data/warning_rules.json --can-if f250-test-none --traffic-log /var/lib/f250/traffic' ]]"
+# The interface's mode from a fake sysfs and f250-can's mode file: inside the
+# unit's sandbox `ip` fails silently (bench-log 2026-11-10).
+GS="$T/gw-sys"; mkdir -p "$GS/net/can0" "$GS/run"
+gwm() { echo "$1" >"$GS/net/can0/operstate"; echo "$2" >"$GS/run/can0.mode"; shift 2
+  env -i PATH="$PATH" F250_GATEWAY_BIN="$STUB" STATE_DIRECTORY=/var/lib/f250 F250_SYS_NET="$GS/net" F250_CAN_RUN="$GS/run" \
+    TRANSPORT=can TRANSMIT=1 CAN_IF=can0 "$@" bash "$GW" 2>/dev/null; }
+check "auto: transmits once f250-can recorded active" "[[ \"\$(gwm up active CAN_AUTO_ACTIVE=1)\" == *' --transmit'* ]]"
+check "auto: passive while listen-only" "[[ \"\$(gwm up listen-only CAN_AUTO_ACTIVE=1)\" != *--transmit* ]]"
+check "auto: passive when down, whatever the file says" "[[ \"\$(gwm down active CAN_AUTO_ACTIVE=1)\" != *--transmit* ]]"
+check "auto: passive when the mode is unknown" "[[ \"\$(gwm up '' CAN_AUTO_ACTIVE=1)\" != *--transmit* ]]"
+check "by hand: refused while listen-only" "! gwm up listen-only >/dev/null"
+check "by hand: transmits when active" "[[ \"\$(gwm up active)\" == *' --transmit'* ]]"
+check "f250-can records the mode it set" "grep -q 'record_mode listen-only; else record_mode active' tools/pi/can.sh && grep -q 'record_mode down' tools/pi/can.sh"
 check "enable and budget"   "[[ \"\$(gw TRANSPORT=sim ENABLE=rpm,trans_temp BUDGET_RPS=8)\" == *'--enable rpm,trans_temp --budget-rps 8' ]]"
 check "unknown transport refused" "! gw TRANSPORT=bogus >/dev/null"
 check "traffic on the data drive"  "[[ \"\$(gw TRANSPORT=can DATA_DRIVE=1 F250_TEST_MOUNTED=1)\" == *'--traffic-log /var/lib/f250/storage/traffic' ]]"

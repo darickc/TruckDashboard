@@ -40,6 +40,22 @@ if [[ "${DATA_DRIVE:-0}" == 1 ]]; then
   fi
 fi
 
+# The CAN interface's mode: absent, down, listen-only, active, or unknown
+# (up, but f250-can didn't record how). From sysfs and the file f250-can
+# writes, not `ip`: inside this unit's sandbox `ip` fails silently
+# (bench-log 2026-11-10, the drive where the gateway never polled).
+SYS_NET="${F250_SYS_NET:-/sys/class/net}"
+CAN_RUN="${F250_CAN_RUN:-/run/f250-can}"
+can_mode() {
+  [[ -e "$SYS_NET/$CAN_IF" ]] || { echo absent; return; }
+  [[ "$(cat "$SYS_NET/$CAN_IF/operstate" 2>/dev/null)" == down ]] && { echo down; return; }
+  case "$(cat "$CAN_RUN/$CAN_IF.mode" 2>/dev/null)" in
+    active) echo active ;;
+    listen-only) echo listen-only ;;
+    *) echo unknown ;;
+  esac
+}
+
 args=(--listen "unix:$SOCK" --transport "$TRANSPORT"
       --signals "$DATA/signals" --warnings "$DATA/warning_rules.json")
 case "$TRANSPORT" in
@@ -53,18 +69,16 @@ case "$TRANSPORT" in
     # CAN_AUTO_ACTIVE=1 (ADR-0007 amendment): until f250-can-auto has heard the
     # bus cleanly and switched the interface to active, run passive (the
     # adapter isn't opened); it restarts the gateway once active.
-    if [[ "$TRANSMIT" == 1 && "${CAN_AUTO_ACTIVE:-0}" == 1 ]]; then
-      if [[ ! -e "/sys/class/net/$CAN_IF" ]] || ! ip link show "$CAN_IF" 2>/dev/null | grep -q 'state UP' \
-         || ip -details link show "$CAN_IF" 2>/dev/null | grep -q LISTEN-ONLY; then
-        echo "CAN_AUTO_ACTIVE=1: $CAN_IF isn't active yet, so PASSIVE_ONLY until f250-can-auto has heard the bus" >&2
-        TRANSMIT=0
-      fi
+    mode="$(can_mode)"
+    if [[ "$TRANSMIT" == 1 && "${CAN_AUTO_ACTIVE:-0}" == 1 && "$mode" != active ]]; then
+      echo "CAN_AUTO_ACTIVE=1: $CAN_IF is $mode, not active yet, so PASSIVE_ONLY until f250-can-auto has heard the bus" >&2
+      TRANSMIT=0
     fi
     if [[ "$TRANSMIT" == 1 ]]; then
-      if [[ ! -e "/sys/class/net/$CAN_IF" ]]; then
+      if [[ "$mode" == absent ]]; then
         echo "$CAN_IF does not exist: plug in the CAN adapter, then 'f250-can active'" >&2; exit 1
       fi
-      if ip -details link show "$CAN_IF" | grep -q LISTEN-ONLY; then
+      if [[ "$mode" == listen-only ]]; then
         echo "$CAN_IF is listen-only: polls would never reach the bus." >&2
         echo "Switch it with 'f250-can active' (ADR-0012), or set TRANSMIT=0." >&2; exit 1
       fi
