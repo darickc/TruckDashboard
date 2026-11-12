@@ -313,7 +313,7 @@ class PasskeyQuestion extends $pb.GeneratedMessage {
     $core.String? address,
     $core.int? passkey,
     $core.int? secondsLeft,
-    $core.bool? hasPasskey_6,
+    $core.bool? showsPasskey,
   }) {
     final result = PasskeyQuestion._();
     if (id != null) result.id = id;
@@ -321,7 +321,7 @@ class PasskeyQuestion extends $pb.GeneratedMessage {
     if (address != null) result.address = address;
     if (passkey != null) result.passkey = passkey;
     if (secondsLeft != null) result.secondsLeft = secondsLeft;
-    if (hasPasskey_6 != null) result.hasPasskey_6 = hasPasskey_6;
+    if (showsPasskey != null) result.showsPasskey = showsPasskey;
     return result;
   }
 
@@ -345,7 +345,7 @@ class PasskeyQuestion extends $pb.GeneratedMessage {
     ..aI(4, _omitFieldNames ? '' : 'passkey', fieldType: $pb.PbFieldType.OU3)
     ..aI(5, _omitFieldNames ? '' : 'secondsLeft',
         fieldType: $pb.PbFieldType.OU3)
-    ..aOB(6, _omitFieldNames ? '' : 'hasPasskey')
+    ..aOB(6, _omitFieldNames ? '' : 'showsPasskey')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -398,7 +398,7 @@ class PasskeyQuestion extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearAddress() => $_clearField(3);
 
-  /// Six digits, shown with leading zeros; only when has_passkey.
+  /// Six digits, shown with leading zeros; only when shows_passkey.
   @$pb.TagNumber(4)
   $core.int get passkey => $_getIZ(3);
   @$pb.TagNumber(4)
@@ -421,13 +421,13 @@ class PasskeyQuestion extends $pb.GeneratedMessage {
   /// False: the phone asks to pair without a code; accept only if it is
   /// the phone in your hand.
   @$pb.TagNumber(6)
-  $core.bool get hasPasskey_6 => $_getBF(5);
+  $core.bool get showsPasskey => $_getBF(5);
   @$pb.TagNumber(6)
-  set hasPasskey_6($core.bool value) => $_setBool(5, value);
+  set showsPasskey($core.bool value) => $_setBool(5, value);
   @$pb.TagNumber(6)
-  $core.bool hasHasPasskey_6() => $_has(5);
+  $core.bool hasShowsPasskey() => $_has(5);
   @$pb.TagNumber(6)
-  void clearHasPasskey_6() => $_clearField(6);
+  void clearShowsPasskey() => $_clearField(6);
 }
 
 class Pairing extends $pb.GeneratedMessage {

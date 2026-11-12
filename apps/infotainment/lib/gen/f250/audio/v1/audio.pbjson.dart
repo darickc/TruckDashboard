@@ -168,7 +168,7 @@ const PasskeyQuestion$json = {
     {'1': 'address', '3': 3, '4': 1, '5': 9, '10': 'address'},
     {'1': 'passkey', '3': 4, '4': 1, '5': 13, '10': 'passkey'},
     {'1': 'seconds_left', '3': 5, '4': 1, '5': 13, '10': 'secondsLeft'},
-    {'1': 'has_passkey', '3': 6, '4': 1, '5': 8, '10': 'hasPasskey'},
+    {'1': 'shows_passkey', '3': 6, '4': 1, '5': 8, '10': 'showsPasskey'},
   ],
 };
 
@@ -176,8 +176,8 @@ const PasskeyQuestion$json = {
 final $typed_data.Uint8List passkeyQuestionDescriptor = $convert.base64Decode(
     'Cg9QYXNza2V5UXVlc3Rpb24SDgoCaWQYASABKARSAmlkEh0KCnBob25lX25hbWUYAiABKAlSCX'
     'Bob25lTmFtZRIYCgdhZGRyZXNzGAMgASgJUgdhZGRyZXNzEhgKB3Bhc3NrZXkYBCABKA1SB3Bh'
-    'c3NrZXkSIQoMc2Vjb25kc19sZWZ0GAUgASgNUgtzZWNvbmRzTGVmdBIfCgtoYXNfcGFzc2tleR'
-    'gGIAEoCFIKaGFzUGFzc2tleQ==');
+    'c3NrZXkSIQoMc2Vjb25kc19sZWZ0GAUgASgNUgtzZWNvbmRzTGVmdBIjCg1zaG93c19wYXNza2'
+    'V5GAYgASgIUgxzaG93c1Bhc3NrZXk=');
 
 @$core.Deprecated('Use pairingDescriptor instead')
 const Pairing$json = {

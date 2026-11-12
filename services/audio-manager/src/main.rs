@@ -11,8 +11,8 @@ use std::time::Duration;
 
 use audio_manager::backend::Bluetooth;
 use audio_manager::bluez::Bluez;
-use audio_manager::dsp::{ChannelMap, Limits, Settings, Target};
-use audio_manager::manager::{Config, Manager};
+use audio_manager::dsp::{ChannelMap, Limits, Settings, Target, render};
+use audio_manager::manager::{Config, Manager, load_settings};
 use audio_manager::pairing;
 use audio_manager::runner::{Dsp, NoDsp, PipewireConfig, PipewireDsp};
 use audio_manager::server::Api;
@@ -80,6 +80,10 @@ struct Args {
     /// The crossover's default, Hz. An example value: tune it in the truck.
     #[arg(long, default_value_t = 80)]
     crossover_hz: u32,
+    /// Print the filter-chain configuration the current settings give, and
+    /// exit (for checking it on the bench: `pipewire -c` takes this file).
+    #[arg(long)]
+    print_dsp_config: bool,
 }
 
 #[tokio::main]
@@ -104,6 +108,33 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         .validate(&defaults)
         .map_err(|e| format!("--crossover-hz: {e}"))?;
     let map = ChannelMap::parse(&args.dac_positions, &args.front, &args.rear, &args.sub)?;
+    let settings_file =
+        (!args.settings_file.is_empty()).then(|| PathBuf::from(&args.settings_file));
+    let pairing = pairing::Config {
+        default: Duration::from_secs(args.pair_window_s),
+        max: Duration::from_secs(args.pair_window_max_s.max(args.pair_window_s)),
+        ..pairing::Config::default()
+    };
+    let config = Config {
+        pairing,
+        name: args.name.clone(),
+        limits,
+        defaults,
+        settings_file,
+        simulated: args.simulate,
+    };
+    let target = Target {
+        dac_node: args.dac_node.clone(),
+        map,
+    };
+    if args.print_dsp_config {
+        let (settings, problem) = load_settings(&config);
+        if let Some(p) = problem {
+            eprintln!("[audio] {p}");
+        }
+        print!("{}", render(&limits, &settings, &target));
+        return Ok(());
+    }
 
     let notifier = Notifier::from_env();
     if let Some(problem) = notifier.problem() {
@@ -131,10 +162,7 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             pw_cli: args.pw_cli.clone(),
             conf: args.dsp_conf.clone(),
             limits,
-            target: Target {
-                dac_node: args.dac_node.clone(),
-                map,
-            },
+            target,
             settle: Duration::from_secs(1),
             max_backoff: Duration::from_secs(30),
         }))
@@ -179,6 +207,7 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
         eprintln!("[audio] shutting down");
+        closer.stop();
     };
     let ready = |at: String| {
         eprintln!("[audio] listening on {at}");

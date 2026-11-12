@@ -108,13 +108,13 @@ message PasskeyQuestion {
   uint64 id = 1;
   string phone_name = 2;
   string address = 3;
-  // Six digits, shown with leading zeros; only when has_passkey.
+  // Six digits, shown with leading zeros; only when shows_passkey.
   uint32 passkey = 4;
   // The question is refused by itself when this reaches 0.
   uint32 seconds_left = 5;
   // False: the phone asks to pair without a code; accept only if it is
   // the phone in your hand.
-  bool has_passkey = 6;
+  bool shows_passkey = 6;
 }
 
 message Pairing {

@@ -52,6 +52,9 @@ pub struct Manager {
     out: watch::Sender<pb::WatchAudioResponse>,
     /// Bumped by the main loop (systemd watchdog).
     pub heartbeat: f250_sd_notify::Heartbeat,
+    /// Shutting down: watch streams end (at their next heartbeat), so the
+    /// server's graceful shutdown doesn't wait on them forever.
+    stopping: std::sync::atomic::AtomicBool,
 }
 
 fn play_state(s: PlayState) -> pb::PlayState {
@@ -126,6 +129,7 @@ impl Manager {
             dsp,
             out: watch::Sender::new(pb::WatchAudioResponse::default()),
             heartbeat: f250_sd_notify::Heartbeat::new(),
+            stopping: std::sync::atomic::AtomicBool::new(false),
         })
     }
 
@@ -137,6 +141,17 @@ impl Manager {
 
     pub fn watch(&self) -> watch::Receiver<pb::WatchAudioResponse> {
         self.out.subscribe()
+    }
+
+    /// Starts shutting down: watch streams end within a second.
+    pub fn stop(&self) {
+        self.stopping
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+        self.publish();
+    }
+
+    pub fn stopping(&self) -> bool {
+        self.stopping.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub fn settings(&self) -> Settings {
@@ -442,7 +457,7 @@ impl Manager {
             phone_name: q.name.clone(),
             address: q.address.clone(),
             passkey: q.passkey.unwrap_or(0),
-            has_passkey: q.passkey.is_some(),
+            shows_passkey: q.passkey.is_some(),
             seconds_left: u32::try_from(q.deadline.saturating_duration_since(now).as_secs())
                 .unwrap_or(0),
         });

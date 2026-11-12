@@ -54,6 +54,7 @@ async fn client(path: std::path::PathBuf) -> Client {
 }
 
 struct Running {
+    manager: Arc<Manager>,
     client: Client,
     sim: SimPhone,
     dir: std::path::PathBuf,
@@ -77,15 +78,17 @@ async fn start(test: &str, sim_cfg: SimConfig) -> Running {
         Arc::new(NoDsp::new("simulated: no PipeWire")),
     );
     tokio::spawn(Arc::clone(&manager).run(agent_rx));
+    let api = Api::new(Arc::clone(&manager));
     let sock = dir.join("audio.sock");
     let listener = tokio::net::UnixListener::bind(&sock).expect("bind");
     let incoming = tokio_stream::wrappers::UnixListenerStream::new(listener);
     tokio::spawn(
         Server::builder()
-            .add_service(AudioServiceServer::new(Api::new(manager)))
+            .add_service(AudioServiceServer::new(api))
             .serve_with_incoming(incoming),
     );
     Running {
+        manager,
         client: client(sock).await,
         sim,
         dir,
@@ -298,7 +301,7 @@ async fn pairing_window_with_a_code_accepted() {
     })
     .await;
     let q = m.pairing.unwrap().question.unwrap();
-    assert!(q.has_passkey);
+    assert!(q.shows_passkey);
     assert_eq!(q.passkey, sim::SIM_PASSKEY);
     assert_eq!(q.phone_name, "Simulated phone 2");
     // A wrong id answers nothing.
@@ -509,4 +512,27 @@ async fn heartbeat_once_a_second_while_nothing_changes() {
             .unwrap();
     }
     assert!(t0.elapsed() < Duration::from_secs(3));
+}
+
+#[tokio::test]
+async fn watch_streams_end_when_stopping() {
+    let mut r = start(
+        "stop",
+        SimConfig {
+            pair_after: None,
+            ..SimConfig::default()
+        },
+    )
+    .await;
+    let mut s = watch(&mut r.client).await;
+    s.message().await.unwrap().unwrap();
+    r.manager.stop();
+    let end = tokio::time::timeout(Duration::from_secs(3), async {
+        while s.message().await.unwrap().is_some() {}
+    })
+    .await;
+    assert!(
+        end.is_ok(),
+        "the stream ended, so a graceful shutdown can finish"
+    );
 }

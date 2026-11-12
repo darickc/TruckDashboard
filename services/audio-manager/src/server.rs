@@ -41,7 +41,10 @@ impl AudioService for Api {
         _: Request<pb::WatchAudioRequest>,
     ) -> Result<Response<Self::WatchAudioStream>, Status> {
         // The current value first, then each publish (at least once a second).
-        let stream = WatchStream::new(self.manager.watch()).map(Ok);
+        let m = Arc::clone(&self.manager);
+        let stream = WatchStream::new(self.manager.watch())
+            .take_while(move |_| !m.stopping())
+            .map(Ok);
         Ok(Response::new(Box::pin(stream)))
     }
 
