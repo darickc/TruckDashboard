@@ -13,7 +13,7 @@ use f250_proto::nav::v1 as pb;
 use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
-use crate::valhalla::{Costing, LatLon, Route, RouteRequest, Router, distance_m};
+use crate::valhalla::{Costing, LatLon, Route, RouteRequest, Router, Units, distance_m};
 use crate::voice::{Moment, Voice};
 
 /// Limits, all examples to tune on the truck.
@@ -31,6 +31,9 @@ pub struct GuideConfig {
     /// Below this speed the course is noise and isn't sent to Valhalla.
     pub heading_min_mps: f64,
     pub costing: Costing,
+    /// Valhalla's units: its spoken words carry distances ("Then, in 300
+    /// feet, …"), so they follow the voice's (ADR-0040).
+    pub units: Units,
 }
 
 impl Default for GuideConfig {
@@ -42,6 +45,7 @@ impl Default for GuideConfig {
             arrive_m: 40.0,
             heading_min_mps: 2.0,
             costing: Costing::Auto,
+            units: Units::Imperial,
         }
     }
 }
@@ -302,6 +306,7 @@ impl Guide {
             heading_deg: if moving { h.track_deg } else { None },
             to,
             costing: self.cfg.costing.clone(),
+            units: self.cfg.units,
         })
     }
 

@@ -14,8 +14,9 @@
 # setting (6.5.2, ADR-0040) are written to /var/lib/f250/storage/navigation/
 # (ReadWritePaths), or with DATA_DRIVE=1 and no drive mounted, to the
 # StateDirectory /var/lib/f250-nav/ (navigation-start). Spoken directions go
-# to the journal: the sandbox has no sound devices, and audio-manager
-# (ADR-0039) isn't connected yet.
+# to audio-manager over /run/f250-audio/audio.sock (group f250, AF_UNIX),
+# which says them and pauses the music; navigation itself has no sound
+# devices. Without audio-manager they go to the journal.
 #
 # gpsd owns the GNSS receiver; navigation is its client on 127.0.0.1:2947
 # (NAV_GPSD, navigation-start). gpsd's own socket unit is pulled in, so

@@ -45,6 +45,28 @@ impl Costing {
     }
 }
 
+/// The units Valhalla writes its distances and its spoken words in
+/// ("Then, in 300 feet, turn right."), and navigation speaks in (ADR-0040).
+/// Lengths are converted to metres when the answer is read, either way.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Units {
+    #[default]
+    Imperial,
+    Metric,
+}
+
+impl Units {
+    /// Valhalla's name for them.
+    pub fn valhalla(self) -> &'static str {
+        match self {
+            Units::Imperial => "miles",
+            Units::Metric => "kilometers",
+        }
+    }
+}
+
+const METRES_PER_MILE: f64 = 1_609.344;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RouteRequest {
     pub from: LatLon,
@@ -53,6 +75,7 @@ pub struct RouteRequest {
     pub heading_deg: Option<f64>,
     pub to: LatLon,
     pub costing: Costing,
+    pub units: Units,
 }
 
 /// How far either side of `heading_deg` Valhalla may start.
@@ -68,7 +91,7 @@ pub fn request_json(r: &RouteRequest) -> String {
     let mut req = json!({
         "locations": [from, { "lat": r.to.0, "lon": r.to.1 }],
         "costing": r.costing.name(),
-        "directions_options": { "units": "kilometers", "language": "en-US" },
+        "directions_options": { "units": r.units.valhalla(), "language": "en-US" },
     });
     if let Costing::Truck(t) = &r.costing {
         let mut o = serde_json::Map::new();
@@ -154,9 +177,17 @@ pub fn parse_response(text: &str, destination: LatLon, costing: &str) -> Result<
             .unwrap_or("");
         return Err(format!("Valhalla trip status {status}: {msg}"));
     }
-    if trip.get("units").and_then(Value::as_str) != Some("kilometers") {
-        return Err("Valhalla's answer isn't in kilometres".to_string());
-    }
+    // Lengths in metres whatever Valhalla was asked for.
+    let per_unit = match trip.get("units").and_then(Value::as_str) {
+        Some("kilometers") => 1000.0,
+        Some("miles") => METRES_PER_MILE,
+        other => {
+            return Err(format!(
+                "Valhalla's answer is in {}, not kilometres or miles",
+                other.unwrap_or("no stated units")
+            ));
+        }
+    };
     let legs = trip
         .get("legs")
         .and_then(Value::as_array)
@@ -212,7 +243,7 @@ pub fn parse_response(text: &str, destination: LatLon, costing: &str) -> Result<
                         .collect()
                 })
                 .unwrap_or_default(),
-            length_m: m.get("length").and_then(Value::as_f64).unwrap_or(0.0) * 1000.0,
+            length_m: m.get("length").and_then(Value::as_f64).unwrap_or(0.0) * per_unit,
             time_s: m.get("time").and_then(Value::as_f64).unwrap_or(0.0),
             begin_shape_index: begin,
             start_m: along_m[begin],
@@ -235,7 +266,7 @@ pub fn parse_response(text: &str, destination: LatLon, costing: &str) -> Result<
         shape,
         along_m,
         maneuvers,
-        length_m: summary.get("length").and_then(Value::as_f64).unwrap_or(0.0) * 1000.0,
+        length_m: summary.get("length").and_then(Value::as_f64).unwrap_or(0.0) * per_unit,
         time_s: summary.get("time").and_then(Value::as_f64).unwrap_or(0.0),
         destination,
         costing: costing.to_string(),
@@ -498,12 +529,38 @@ mod tests {
                 .unwrap_err()
                 .contains("no trip")
         );
-        let miles = ROUTE.replace("\"units\":\"kilometers\"", "\"units\":\"miles\"");
+        let furlongs = ROUTE.replace("\"units\":\"kilometers\"", "\"units\":\"furlongs\"");
         assert!(
-            parse_response(&miles, (0.0, 0.0), "auto")
+            parse_response(&furlongs, (0.0, 0.0), "auto")
                 .unwrap_err()
-                .contains("kilometres")
+                .contains("not kilometres or miles")
         );
+    }
+
+    #[test]
+    fn miles_are_read_as_metres() {
+        // The same route asked for in miles (Valhalla 3.9.1's real answer).
+        const MILES: &str = include_str!("../tests/data/valhalla-3.9.1-route-auto-miles.json");
+        let km = parse_response(ROUTE, (39.8103, -98.5559), "auto").unwrap();
+        let mi = parse_response(MILES, (39.8103, -98.5559), "auto").unwrap();
+        assert_eq!(mi.maneuvers.len(), km.maneuvers.len());
+        assert!(
+            (mi.length_m - km.length_m).abs() < 30.0,
+            "{} {}",
+            mi.length_m,
+            km.length_m
+        );
+        for (a, b) in mi.maneuvers.iter().zip(&km.maneuvers) {
+            assert!(
+                (a.length_m - b.length_m).abs() < 20.0,
+                "{} {}",
+                a.length_m,
+                b.length_m
+            );
+            assert_eq!(a.verbal_alert, b.verbal_alert);
+        }
+        assert_eq!(mi.maneuvers[3].verbal_post, "Continue for 12 miles.");
+        assert_eq!(mi.maneuvers[1].verbal_post, "Continue for 200 feet.");
     }
 
     #[test]
@@ -513,6 +570,7 @@ mod tests {
             heading_deg: Some(359.7),
             to: (39.8103, -98.5559),
             costing: Costing::Auto,
+            units: Units::Metric,
         };
         let v: Value = serde_json::from_str(&request_json(&r)).unwrap();
         assert_eq!(v["costing"], "auto");
@@ -521,6 +579,9 @@ mod tests {
         assert_eq!(v["locations"][1]["lat"], 39.8103);
         assert_eq!(v["directions_options"]["units"], "kilometers");
         assert!(v.get("costing_options").is_none());
+        r.units = Units::Imperial;
+        let v: Value = serde_json::from_str(&request_json(&r)).unwrap();
+        assert_eq!(v["directions_options"]["units"], "miles");
         r.heading_deg = None;
         r.costing = Costing::Truck(TruckOptions {
             height_m: Some(3.0),

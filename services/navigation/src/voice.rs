@@ -34,14 +34,7 @@ use f250_proto::nav::v1 as pb;
 
 use crate::guide::{Progress, State};
 use crate::valhalla::Route;
-
-/// The units distances are spoken in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Units {
-    #[default]
-    Imperial,
-    Metric,
-}
+pub use crate::valhalla::Units;
 
 /// When prompts are spoken. Every distance is an example to tune on the
 /// truck (CLAUDE.md rule 10), not a correct value.

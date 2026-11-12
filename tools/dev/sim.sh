@@ -12,10 +12,13 @@ cargo build -q -p vehicle-gateway -p navigation -p audio-manager
 ./target/debug/vehicle-gateway --listen "$GATEWAY" --scenario "$SCENARIO" --sim-start-s "$START" &
 GW=$!
 # shellcheck disable=SC2086  # NAV_ROUTING is a list of arguments from the Makefile
-./target/debug/navigation --listen "$NAV" --simulate ${NAV_ROUTING:-} &
+# Prompts go to audio-manager, which pauses the simulated music (ADR-0040).
+./target/debug/navigation --listen "$NAV" --simulate ${NAV_ROUTING:-} --audio-manager "$AUDIO" &
 NV=$!
 mkdir -p /tmp/f250/audio
-./target/debug/audio-manager --listen "$AUDIO" --simulate --settings-file /tmp/f250/audio/speakers.json &
+# Its voice is silent unless VOICE names a program (VOICE=say).
+./target/debug/audio-manager --listen "$AUDIO" --simulate --settings-file /tmp/f250/audio/speakers.json \
+  ${VOICE:+--voice-command "$VOICE"} &
 AU=$!
 trap 'kill $GW $NV $AU 2>/dev/null || true' EXIT
 sleep 1

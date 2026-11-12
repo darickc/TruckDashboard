@@ -22,11 +22,13 @@
 #                       drive is mounted there; the Nav screen says which.
 #                       0 (default): /var/lib/f250/storage/navigation/, which
 #                       is on the SD card then.
-#   NAV_VOICE_COMMAND   a program that speaks its last argument (e.g.
-#                       espeak-ng -v en-us). Empty (default): prompts go to
-#                       the journal only. The sandbox has no sound devices
-#                       (PrivateDevices=yes): audio comes with audio-manager
-#                       (ADR-0039), not yet connected.
+#   NAV_AUDIO_MANAGER   audio-manager's API, which says the prompts and
+#                       pauses the music around them (ADR-0039, ADR-0040).
+#                       Shipped as unix:/run/f250-audio/audio.sock. Empty:
+#                       prompts go to the journal only.
+#   NAV_VOICE_COMMAND   instead, a program that speaks its last argument.
+#                       Not audible under this unit's sandbox (no sound
+#                       devices); for development.
 #   NAV_VOICE_UNITS     imperial (default) or metric, for spoken distances.
 #   NAV_COSTING         auto (default) or truck.
 #   NAV_TRUCK_HEIGHT_M, NAV_TRUCK_WIDTH_M, NAV_TRUCK_LENGTH_M,
@@ -72,6 +74,7 @@ esac
 if [[ "${DATA_DRIVE:-0}" == 1 ]]; then
   args+=(--places-dir "$STORAGE/navigation" --places-drive "$STORAGE" --places-fallback-dir "$STATE")
 fi
+[[ -n "${NAV_AUDIO_MANAGER:-}" ]] && args+=(--audio-manager "$NAV_AUDIO_MANAGER")
 [[ -n "${NAV_VOICE_COMMAND:-}" ]] && args+=(--voice-command "$NAV_VOICE_COMMAND")
 case "${NAV_VOICE_UNITS:-imperial}" in
   imperial) ;;

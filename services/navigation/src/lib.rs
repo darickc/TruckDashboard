@@ -19,6 +19,7 @@
 //! The dashboard never talks to gpsd; it reads this API (CLAUDE.md rule 5's
 //! pattern, ADR-0030 decision 1).
 
+pub mod audio_speaker;
 pub mod guide;
 pub mod places;
 pub mod publisher;

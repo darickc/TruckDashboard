@@ -15,6 +15,7 @@ use std::time::Duration;
 use clap::Parser;
 use f250_proto::nav::v1 as pb;
 use f250_sd_notify::{Heartbeat, Notifier, run_watchdog};
+use navigation::audio_speaker::AudioManagerSpeaker;
 use navigation::guide::{self, GuideConfig};
 use navigation::places::{self, Places};
 use navigation::publisher::{self, PublisherConfig};
@@ -122,11 +123,18 @@ struct Args {
     places_drive: Option<PathBuf>,
     #[arg(long, default_value = "/var/lib/f250-nav", value_name = "DIR")]
     places_fallback_dir: PathBuf,
-    /// A program that speaks its last argument: "say" on the Mac,
-    /// "espeak-ng -v en-us". Without one, prompts go to the log only.
-    #[arg(long, value_name = "COMMAND")]
+    /// audio-manager's API (unix:PATH or tcp:HOST:PORT): it says the
+    /// prompts and pauses the music while they are spoken (ADR-0039,
+    /// ADR-0040).
+    #[arg(long, value_name = "ENDPOINT")]
+    audio_manager: Option<String>,
+    /// Instead, a program that speaks its last argument ("say" on the Mac),
+    /// for development: it doesn't pause the music. With neither, prompts
+    /// go to the log only.
+    #[arg(long, value_name = "COMMAND", conflicts_with = "audio_manager")]
     voice_command: Option<String>,
-    /// Spoken distances.
+    /// Spoken distances, and the units Valhalla is asked for (its own
+    /// words carry distances).
     #[arg(long, default_value = "imperial", value_parser = ["imperial", "metric"])]
     voice_units: String,
     /// When prompts are spoken: the approaching prompt this many seconds
@@ -211,11 +219,17 @@ async fn main() -> ExitCode {
         ),
         Err(why) => eprintln!("[navigation] routing unavailable for now: {why}"),
     }
+    let units = if args.voice_units == "metric" {
+        Units::Metric
+    } else {
+        Units::Imperial
+    };
     let guide_cfg = GuideConfig {
         off_route_m: args.off_route_m,
         off_route_for: Duration::from_secs(args.off_route_s),
         arrive_m: args.arrive_m,
         costing,
+        units,
         ..GuideConfig::default()
     };
     // Saved places and the mute setting: on the data drive when it is
@@ -240,15 +254,18 @@ async fn main() -> ExitCode {
     if !saved.problem().is_empty() {
         eprintln!("[navigation] {}", saved.problem());
     }
-    let speaker: Box<dyn Speaker> = match args
-        .voice_command
-        .as_deref()
-        .and_then(CommandSpeaker::parse)
-    {
-        Some(s) => Box::new(s),
-        None => Box::new(LogSpeaker {
-            why: "no speech output configured (audio-manager, ADR-0039, not connected yet)"
-                .to_string(),
+    let speaker: Box<dyn Speaker> = match (
+        args.audio_manager
+            .as_deref()
+            .filter(|e| !e.trim().is_empty()),
+        args.voice_command
+            .as_deref()
+            .and_then(CommandSpeaker::parse),
+    ) {
+        (Some(endpoint), _) => Box::new(AudioManagerSpeaker::start(endpoint)),
+        (None, Some(s)) => Box::new(s),
+        (None, None) => Box::new(LogSpeaker {
+            why: "no speech output configured (--audio-manager)".to_string(),
         }),
     };
     eprintln!("[navigation] voice: {}", speaker.status().detail);
@@ -260,11 +277,7 @@ async fn main() -> ExitCode {
             near_s: args.voice_near_s,
             near_min_m: args.voice_near_min_m,
             near_max_m: args.voice_near_max_m,
-            units: if args.voice_units == "metric" {
-                Units::Metric
-            } else {
-                Units::Imperial
-            },
+            units,
             ..VoiceConfig::default()
         },
         speaker,
