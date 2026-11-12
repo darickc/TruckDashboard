@@ -176,6 +176,15 @@ const Guidance$json = {
     },
     {'1': 'detail', '3': 5, '4': 1, '5': 9, '10': 'detail'},
     {'1': 'reroutes', '3': 6, '4': 1, '5': 13, '10': 'reroutes'},
+    {'1': 'destination_name', '3': 7, '4': 1, '5': 9, '10': 'destinationName'},
+    {
+      '1': 'voice',
+      '3': 8,
+      '4': 1,
+      '5': 11,
+      '6': '.f250.nav.v1.Voice',
+      '10': 'voice'
+    },
   ],
 };
 
@@ -185,7 +194,26 @@ final $typed_data.Uint8List guidanceDescriptor = $convert.base64Decode(
     'RlEhkKCHJvdXRlX2lkGAIgASgEUgdyb3V0ZUlkEjUKC2Rlc3RpbmF0aW9uGAMgASgLMhMuZjI1'
     'MC5uYXYudjEuTGF0TG9uUgtkZXN0aW5hdGlvbhIxCghwcm9ncmVzcxgEIAEoCzIVLmYyNTAubm'
     'F2LnYxLlByb2dyZXNzUghwcm9ncmVzcxIWCgZkZXRhaWwYBSABKAlSBmRldGFpbBIaCghyZXJv'
-    'dXRlcxgGIAEoDVIIcmVyb3V0ZXM=');
+    'dXRlcxgGIAEoDVIIcmVyb3V0ZXMSKQoQZGVzdGluYXRpb25fbmFtZRgHIAEoCVIPZGVzdGluYX'
+    'Rpb25OYW1lEigKBXZvaWNlGAggASgLMhIuZjI1MC5uYXYudjEuVm9pY2VSBXZvaWNl');
+
+@$core.Deprecated('Use voiceDescriptor instead')
+const Voice$json = {
+  '1': 'Voice',
+  '2': [
+    {'1': 'muted', '3': 1, '4': 1, '5': 8, '10': 'muted'},
+    {'1': 'audible', '3': 2, '4': 1, '5': 8, '10': 'audible'},
+    {'1': 'detail', '3': 3, '4': 1, '5': 9, '10': 'detail'},
+    {'1': 'last_prompt', '3': 4, '4': 1, '5': 9, '10': 'lastPrompt'},
+    {'1': 'prompts', '3': 5, '4': 1, '5': 4, '10': 'prompts'},
+  ],
+};
+
+/// Descriptor for `Voice`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List voiceDescriptor = $convert.base64Decode(
+    'CgVWb2ljZRIUCgVtdXRlZBgBIAEoCFIFbXV0ZWQSGAoHYXVkaWJsZRgCIAEoCFIHYXVkaWJsZR'
+    'IWCgZkZXRhaWwYAyABKAlSBmRldGFpbBIfCgtsYXN0X3Byb21wdBgEIAEoCVIKbGFzdFByb21w'
+    'dBIYCgdwcm9tcHRzGAUgASgEUgdwcm9tcHRz');
 
 @$core.Deprecated('Use setDestinationRequestDescriptor instead')
 const SetDestinationRequest$json = {
@@ -199,13 +227,16 @@ const SetDestinationRequest$json = {
       '6': '.f250.nav.v1.LatLon',
       '10': 'destination'
     },
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'detail', '3': 3, '4': 1, '5': 9, '10': 'detail'},
   ],
 };
 
 /// Descriptor for `SetDestinationRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List setDestinationRequestDescriptor = $convert.base64Decode(
     'ChVTZXREZXN0aW5hdGlvblJlcXVlc3QSNQoLZGVzdGluYXRpb24YASABKAsyEy5mMjUwLm5hdi'
-    '52MS5MYXRMb25SC2Rlc3RpbmF0aW9u');
+    '52MS5MYXRMb25SC2Rlc3RpbmF0aW9uEhIKBG5hbWUYAiABKAlSBG5hbWUSFgoGZGV0YWlsGAMg'
+    'ASgJUgZkZXRhaWw=');
 
 @$core.Deprecated('Use setDestinationResponseDescriptor instead')
 const SetDestinationResponse$json = {
@@ -294,3 +325,35 @@ const GetRouteResponse$json = {
 final $typed_data.Uint8List getRouteResponseDescriptor = $convert.base64Decode(
     'ChBHZXRSb3V0ZVJlc3BvbnNlEigKBXJvdXRlGAEgASgLMhIuZjI1MC5uYXYudjEuUm91dGVSBX'
     'JvdXRl');
+
+@$core.Deprecated('Use setVoiceRequestDescriptor instead')
+const SetVoiceRequest$json = {
+  '1': 'SetVoiceRequest',
+  '2': [
+    {'1': 'muted', '3': 1, '4': 1, '5': 8, '10': 'muted'},
+  ],
+};
+
+/// Descriptor for `SetVoiceRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setVoiceRequestDescriptor = $convert
+    .base64Decode('Cg9TZXRWb2ljZVJlcXVlc3QSFAoFbXV0ZWQYASABKAhSBW11dGVk');
+
+@$core.Deprecated('Use setVoiceResponseDescriptor instead')
+const SetVoiceResponse$json = {
+  '1': 'SetVoiceResponse',
+  '2': [
+    {
+      '1': 'voice',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.f250.nav.v1.Voice',
+      '10': 'voice'
+    },
+  ],
+};
+
+/// Descriptor for `SetVoiceResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setVoiceResponseDescriptor = $convert.base64Decode(
+    'ChBTZXRWb2ljZVJlc3BvbnNlEigKBXZvaWNlGAEgASgLMhIuZjI1MC5uYXYudjEuVm9pY2VSBX'
+    'ZvaWNl');

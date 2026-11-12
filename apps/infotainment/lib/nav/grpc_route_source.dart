@@ -73,18 +73,34 @@ class GrpcRouteSource implements RouteSource {
   }
 
   @override
-  Future<void> setDestination(LatLng to) async {
+  Future<void> setDestination(LatLng to, {String name = '', String detail = ''}) async {
     final client = _client;
     if (client == null) return;
     try {
       await client.setDestination(
         pb.SetDestinationRequest(
           destination: pb.LatLon(latitudeDeg: to.latitude, longitudeDeg: to.longitude),
+          name: name,
+          detail: detail,
         ),
       );
       _state.value = _state.value.copyWith(commandError: '');
     } catch (e) {
       _state.value = _state.value.copyWith(commandError: 'Couldn\'t set the destination: ${_why(e)}');
+    }
+  }
+
+  @override
+  Future<void> setVoice({required bool muted}) async {
+    final client = _client;
+    if (client == null) return;
+    try {
+      await client.setVoice(pb.SetVoiceRequest(muted: muted));
+      _state.value = _state.value.copyWith(commandError: '');
+    } catch (e) {
+      _state.value = _state.value.copyWith(
+        commandError: 'Couldn\'t ${muted ? 'mute' : 'unmute'} the voice: ${_why(e)}',
+      );
     }
   }
 
@@ -193,6 +209,16 @@ Guidance guidanceFromPb(pb.Guidance g, Duration receivedAt) {
     progress: progress,
     detail: unknown ? 'the navigation service sent a route state this dashboard doesn\'t know' : g.detail,
     reroutes: g.reroutes,
+    destinationName: g.destinationName,
+    voice: g.hasVoice()
+        ? VoiceState(
+            muted: g.voice.muted,
+            audible: g.voice.audible,
+            detail: g.voice.detail,
+            lastPrompt: g.voice.lastPrompt,
+            prompts: g.voice.prompts.toInt(),
+          )
+        : null,
   );
 }
 

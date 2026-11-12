@@ -23,6 +23,8 @@ import 'nav/position_connection.dart';
 import 'nav/position_state.dart';
 import 'nav/route_connection.dart';
 import 'nav/route_state.dart';
+import 'nav/places_connection.dart';
+import 'nav/places_state.dart';
 import 'nav/search_connection.dart';
 import 'nav/search_state.dart';
 import 'nav/vector_map.dart';
@@ -135,6 +137,10 @@ Future<AppServices> createServices(
   final SearchSource search =
       nav == 'sim' ? const UnavailableSearchSource() : connectSearch(GatewayEndpoint.parse(nav));
   search.start();
+  // And saved places (ADR-0040).
+  final PlacesSource places =
+      nav == 'sim' ? UnavailablePlacesSource() : connectPlaces(GatewayEndpoint.parse(nav));
+  places.start();
   final ExportSource exports =
       export == 'sim' ? SimulatedExportSource() : connectUsbExport(GatewayEndpoint.parse(export));
   exports.start();
@@ -153,6 +159,7 @@ Future<AppServices> createServices(
           position: position,
           route: route,
           search: search,
+          places: places,
           map: map,
           exports: exports,
           power: PowerControl.forPlatform());
@@ -172,6 +179,7 @@ Future<AppServices> createServices(
           position: position,
           route: route,
           search: search,
+          places: places,
           map: map,
           exports: exports,
           power: PowerControl.forPlatform());

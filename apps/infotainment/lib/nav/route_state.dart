@@ -34,6 +34,29 @@ class RouteProgress {
   final bool offRoute;
 }
 
+/// Spoken directions as navigation reports them (ADR-0040). Prompts are made
+/// only from a current position; the dashboard just shows and toggles mute.
+@immutable
+class VoiceState {
+  const VoiceState({
+    this.muted = false,
+    this.audible = false,
+    this.detail = '',
+    this.lastPrompt = '',
+    this.prompts = 0,
+  });
+
+  final bool muted;
+
+  /// Prompts reach a speaker; false when they only go to the log.
+  final bool audible;
+
+  /// Where prompts go: "say", "the log only: …".
+  final String detail;
+  final String lastPrompt;
+  final int prompts;
+}
+
 /// One guidance message.
 @immutable
 class Guidance {
@@ -45,6 +68,8 @@ class Guidance {
     this.progress,
     this.detail = '',
     this.reroutes = 0,
+    this.destinationName = '',
+    this.voice,
   });
 
   final RouteState state;
@@ -60,6 +85,12 @@ class Guidance {
   /// Why: unavailable, failed, waiting for a position, rerouting.
   final String detail;
   final int reroutes;
+
+  /// What the destination is called ("Home", a search result), or empty.
+  final String destinationName;
+
+  /// Spoken directions; null from a service without them.
+  final VoiceState? voice;
 }
 
 @immutable
@@ -207,9 +238,13 @@ abstract class RouteSource {
   void start();
   void stop();
 
-  /// Routes from the current position to [to], replacing any route. Never
+  /// Routes from the current position to [to], replacing any route, and
+  /// names it ([name], [detail]: kept with the recent destinations). Never
   /// throws: a failure shows in [RouteView.commandError].
-  Future<void> setDestination(LatLng to);
+  Future<void> setDestination(LatLng to, {String name = '', String detail = ''});
+
+  /// Mutes or unmutes spoken directions (ADR-0040). Never throws.
+  Future<void> setVoice({required bool muted});
 
   /// Drops the destination and the route. Never throws.
   Future<void> clearRoute();
@@ -241,7 +276,9 @@ class UnavailableRouteSource implements RouteSource {
   @override
   void stop() {}
   @override
-  Future<void> setDestination(LatLng to) async {}
+  Future<void> setDestination(LatLng to, {String name = '', String detail = ''}) async {}
+  @override
+  Future<void> setVoice({required bool muted}) async {}
   @override
   Future<void> clearRoute() async {}
 }

@@ -27,6 +27,7 @@ class NavSearchPanel extends StatefulWidget {
     required this.onClose,
     required this.onShow,
     required this.onRoute,
+    this.onSave,
     required this.canRoute,
     required this.moving,
     required this.units,
@@ -38,6 +39,9 @@ class NavSearchPanel extends StatefulWidget {
   final VoidCallback onClose;
   final ValueChanged<SearchResult> onShow;
   final ValueChanged<SearchResult> onRoute;
+
+  /// Save a result as a favourite or as Home (ADR-0040); null hides it.
+  final ValueChanged<SearchResult>? onSave;
 
   /// Routing is up: Route here is offered.
   final bool canRoute;
@@ -242,6 +246,7 @@ class _NavSearchPanelState extends State<NavSearchPanel> {
             canRoute: widget.canRoute,
             onShow: () => widget.onShow(r),
             onRoute: () => widget.onRoute(r),
+            onSave: widget.onSave == null ? null : () => widget.onSave!(r),
             palette: p,
           ),
         );
@@ -302,6 +307,7 @@ class _ResultRow extends StatelessWidget {
     required this.canRoute,
     required this.onShow,
     required this.onRoute,
+    required this.onSave,
     required this.palette,
   });
 
@@ -311,6 +317,7 @@ class _ResultRow extends StatelessWidget {
   final bool canRoute;
   final VoidCallback onShow;
   final VoidCallback onRoute;
+  final VoidCallback? onSave;
   final Palette palette;
 
   @override
@@ -371,6 +378,16 @@ class _ResultRow extends StatelessWidget {
             padding: EdgeInsets.zero,
             child: const Icon(Icons.place_outlined, size: 28),
           ),
+          if (onSave != null) ...[
+            const SizedBox(width: kGap),
+            TapTarget(
+              key: const ValueKey('nav-search-save'),
+              label: 'Save ${r.title}',
+              onTap: onSave!,
+              padding: EdgeInsets.zero,
+              child: const Icon(Icons.star_border, size: 28),
+            ),
+          ],
           if (canRoute) ...[
             const SizedBox(width: kGap),
             TapTarget(

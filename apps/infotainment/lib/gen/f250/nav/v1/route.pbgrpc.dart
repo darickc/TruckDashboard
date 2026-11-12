@@ -69,6 +69,15 @@ class RouteServiceClient extends $grpc.Client {
     return $createUnaryCall(_$getRoute, request, options: options);
   }
 
+  /// Mutes or unmutes spoken directions (ADR-0040). Kept across restarts.
+  /// Guidance.voice reports the result.
+  $grpc.ResponseFuture<$0.SetVoiceResponse> setVoice(
+    $0.SetVoiceRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$setVoice, request, options: options);
+  }
+
   // method descriptors
 
   static final _$setDestination =
@@ -91,6 +100,11 @@ class RouteServiceClient extends $grpc.Client {
           '/f250.nav.v1.RouteService/GetRoute',
           ($0.GetRouteRequest value) => value.writeToBuffer(),
           $0.GetRouteResponse.fromBuffer);
+  static final _$setVoice =
+      $grpc.ClientMethod<$0.SetVoiceRequest, $0.SetVoiceResponse>(
+          '/f250.nav.v1.RouteService/SetVoice',
+          ($0.SetVoiceRequest value) => value.writeToBuffer(),
+          $0.SetVoiceResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('f250.nav.v1.RouteService')
@@ -130,6 +144,13 @@ abstract class RouteServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.GetRouteRequest.fromBuffer(value),
         ($0.GetRouteResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.SetVoiceRequest, $0.SetVoiceResponse>(
+        'SetVoice',
+        setVoice_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.SetVoiceRequest.fromBuffer(value),
+        ($0.SetVoiceResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.SetDestinationResponse> setDestination_Pre(
@@ -165,4 +186,12 @@ abstract class RouteServiceBase extends $grpc.Service {
 
   $async.Future<$0.GetRouteResponse> getRoute(
       $grpc.ServiceCall call, $0.GetRouteRequest request);
+
+  $async.Future<$0.SetVoiceResponse> setVoice_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.SetVoiceRequest> $request) async {
+    return setVoice($call, await $request);
+  }
+
+  $async.Future<$0.SetVoiceResponse> setVoice(
+      $grpc.ServiceCall call, $0.SetVoiceRequest request);
 }

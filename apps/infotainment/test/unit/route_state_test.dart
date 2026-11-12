@@ -37,6 +37,28 @@ void main() {
       expect(g.reroutes, 1);
     });
 
+    test('the destination\'s name and the voice (ADR-0040)', () {
+      final g = guidanceFromPb(
+        active()
+          ..destinationName = 'Home'
+          ..voice = pb.Voice(
+            muted: true,
+            audible: false,
+            detail: 'the log only: no speech output configured',
+            lastPrompt: 'Turn right onto US 36, US 281.',
+            prompts: Int64(4),
+          ),
+        Duration.zero,
+      );
+      expect(g.destinationName, 'Home');
+      final v = g.voice!;
+      expect((v.muted, v.audible, v.prompts), (true, false, 4));
+      expect(v.detail, startsWith('the log only'));
+      expect(v.lastPrompt, 'Turn right onto US 36, US 281.');
+      // From a service without spoken directions: none.
+      expect(guidanceFromPb(active(), Duration.zero).voice, isNull);
+    });
+
     test('every state maps; idle has no destination or progress', () {
       final states = {
         pb.RouteState.ROUTE_STATE_UNAVAILABLE: RouteState.unavailable,

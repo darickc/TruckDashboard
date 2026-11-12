@@ -17,13 +17,15 @@ import '../../nav/vector_map.dart';
 import '../app_scope.dart';
 import '../theme.dart';
 import '../widgets/tap_target.dart';
+import 'nav_places.dart';
 import 'nav_search.dart';
 
 /// The offline map, the truck's position and routing (Phase 6.4, 6.5.1 and
 /// 6.5.2; ADR-0030, vector maps ADR-0032, routing ADR-0035). North up. It
 /// follows the truck until the map is dragged; the locate button follows
-/// again. Search for an address or place (ADR-0038), or long-press the map,
-/// to choose a destination.
+/// again. Search for an address or place (ADR-0038), long-press the map, or
+/// pick a saved place (ADR-0040) to choose a destination. Directions are
+/// spoken by services/navigation; the route's buttons mute them.
 ///
 /// Honest about what it knows: a fix that isn't current is drawn grey and
 /// labelled "last known" with its age (CLAUDE.md rule 4), a simulated
@@ -62,10 +64,15 @@ class _NavigationScreenState extends State<NavigationScreen> {
   /// Cancel, and the result's name.
   LatLng? _pending;
   String? _pendingName;
+  String _pendingDetail = '';
 
   /// The search panel is open, and what was typed in it last.
   bool _searching = false;
   String _searchQuery = '';
+
+  /// The saved places panel is open, and a place being saved or edited.
+  bool _placesOpen = false;
+  PlaceDraft? _editing;
 
   @override
   void didChangeDependencies() {
@@ -262,14 +269,19 @@ class _NavigationScreenState extends State<NavigationScreen> {
           canRoute: canRoute,
           onRoute: () {
             final to = _pending!;
+            final name = _pendingName ?? '';
+            final detail = _pendingDetail;
             setState(() {
               _pending = null;
               _pendingName = null;
               _follow = true;
             });
-            s.route.setDestination(to);
+            s.route.setDestination(to, name: name, detail: detail);
             _centre(force: true);
           },
+          onSave: () => setState(
+            () => _editing = PlaceDraft(location: _pending!, name: _pendingName ?? '', detail: _pendingDetail),
+          ),
           onCancel: () => setState(() {
             _pending = null;
             _pendingName = null;
@@ -284,12 +296,41 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 'nav-retry',
                 'Retry',
                 Icons.refresh,
-                () => s.route.setDestination(destination),
+                () => s.route.setDestination(destination, name: route.guidance?.destinationName ?? ''),
+              ),
+              const SizedBox(width: kGap),
+            ],
+            if (destination != null) ...[
+              _button(
+                'nav-save-destination',
+                'Save the destination',
+                Icons.star_border,
+                () => setState(
+                  () => _editing = PlaceDraft(location: destination, name: route.guidance?.destinationName ?? ''),
+                ),
+              ),
+              const SizedBox(width: kGap),
+            ],
+            // Spoken directions (ADR-0040). "No audio": prompts reach only
+            // the log (no speech output yet on the Pi).
+            if (route.guidance?.voice case final voice?) ...[
+              _textButton(
+                'nav-voice',
+                voice.muted ? 'Muted' : (voice.audible ? 'Voice' : 'No audio'),
+                voice.muted ? Icons.volume_off : Icons.volume_up,
+                () => s.route.setVoice(muted: !voice.muted),
+                selected: !voice.muted,
               ),
               const SizedBox(width: kGap),
             ],
             _textButton('nav-end-route', 'End route', Icons.close, () => s.route.clearRoute()),
           ],
+        )
+      else
+        // Saved places (ADR-0040). In a Row so it keeps its own width.
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [_textButton('nav-places-open', 'Places', Icons.star, () => setState(() => _placesOpen = true))],
         ),
     ];
     final routingHint = switch ((route.link, routeState)) {
@@ -327,6 +368,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                   ? (_, at) => setState(() {
                       _pending = at;
                       _pendingName = null;
+                      _pendingDetail = '';
                     })
                   : null,
             ),
@@ -540,6 +582,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
               units: s.settings.units,
               onClose: () => setState(() => _searching = false),
               onShow: (r) => _show(r),
+              onSave: (r) => setState(
+                () => _editing = PlaceDraft(location: r.location, name: r.title, detail: r.subtitle),
+              ),
               onRoute: (r) {
                 setState(() {
                   _searching = false;
@@ -547,9 +592,49 @@ class _NavigationScreenState extends State<NavigationScreen> {
                   _pendingName = null;
                   _follow = true;
                 });
-                s.route.setDestination(r.location);
+                s.route.setDestination(r.location, name: r.title, detail: r.subtitle);
                 _centre(force: true);
               },
+            ),
+          ),
+        if (_placesOpen)
+          Positioned.fill(
+            child: NavPlacesPanel(
+              source: s.places,
+              canRoute: canRoute,
+              onClose: () => setState(() => _placesOpen = false),
+              onSearch: () => setState(() {
+                _placesOpen = false;
+                _searching = true;
+              }),
+              onEdit: (place) => setState(
+                () => _editing = PlaceDraft(
+                  location: place.location,
+                  name: place.name,
+                  detail: place.detail,
+                  existing: place,
+                ),
+              ),
+              onRoute: (place) {
+                setState(() {
+                  _placesOpen = false;
+                  _pending = null;
+                  _pendingName = null;
+                  _follow = true;
+                });
+                s.route.setDestination(place.location, name: place.name, detail: place.detail);
+                _centre(force: true);
+              },
+            ),
+          ),
+        if (_editing case final draft?)
+          Positioned.fill(
+            child: NavPlaceEditor(
+              key: ValueKey(draft),
+              draft: draft,
+              source: s.places,
+              moving: _moving(s, position, now),
+              onClose: () => setState(() => _editing = null),
             ),
           ),
       ],
@@ -562,6 +647,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
       _searching = false;
       _pending = r.location;
       _pendingName = r.title;
+      _pendingDetail = r.subtitle;
       _follow = false;
     });
     if (_ready) _map.move(r.location, math.max(_map.camera.zoom, NavigationScreen.followZoom));
@@ -585,10 +671,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _ => p.accent,
   };
 
-  Widget _textButton(String key, String label, IconData icon, VoidCallback onTap) {
+  Widget _textButton(String key, String label, IconData icon, VoidCallback onTap, {bool selected = false}) {
     return TapTarget(
       key: ValueKey(key),
       label: label,
+      selected: selected,
       onTap: onTap,
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -941,6 +1028,7 @@ class _PendingPanel extends StatelessWidget {
     required this.at,
     required this.palette,
     required this.onRoute,
+    required this.onSave,
     required this.onCancel,
     this.name,
     this.canRoute = true,
@@ -956,6 +1044,9 @@ class _PendingPanel extends StatelessWidget {
   final bool canRoute;
   final Palette palette;
   final VoidCallback onRoute;
+
+  /// Save it as a favourite or as Home (ADR-0040).
+  final VoidCallback onSave;
   final VoidCallback onCancel;
 
   @override
@@ -1001,6 +1092,8 @@ class _PendingPanel extends StatelessWidget {
             const SizedBox(width: kGap),
             button('nav-route-here', 'Route here', Icons.directions, onRoute),
           ],
+          const SizedBox(width: kGap),
+          button('nav-pending-save', 'Save', Icons.star_border, onSave),
           const SizedBox(width: kGap),
           button('nav-route-cancel', 'Cancel', Icons.close, onCancel),
         ],

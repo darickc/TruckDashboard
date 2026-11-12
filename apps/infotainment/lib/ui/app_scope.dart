@@ -11,6 +11,7 @@ import '../data/simulation_controller.dart';
 import '../display/display_state.dart';
 import '../export/export_state.dart';
 import '../nav/offline_map.dart';
+import '../nav/places_state.dart';
 import '../nav/position_state.dart';
 import '../nav/route_state.dart';
 import '../nav/search_state.dart';
@@ -84,6 +85,7 @@ class AppServices {
     PositionSource? position,
     RouteSource? route,
     SearchSource? search,
+    PlacesSource? places,
     OfflineMap? map,
     ExportSource? exports,
     this.power = const NoPowerControl(),
@@ -93,6 +95,7 @@ class AppServices {
         position = position ?? SimulatedPositionSource(autoRun: false),
         route = route ?? UnavailableRouteSource(),
         search = search ?? const UnavailableSearchSource(),
+        places = places ?? UnavailablePlacesSource(),
         map = map ?? OfflineMap.none(),
         exports = exports ?? SimulatedExportSource(),
         assert((simulation == null) != (gateway == null), 'exactly one data source');
@@ -124,6 +127,10 @@ class AppServices {
   /// Address and place search: services/navigation's offline index (Phase
   /// 6.5.3, ADR-0038), or unavailable without it.
   final SearchSource search;
+
+  /// Home, favourites and recent destinations: services/navigation (Phase
+  /// 6.5.2, ADR-0040), or unavailable without it.
+  final PlacesSource places;
 
   /// The offline raster map (Phase 6.5.1, ADR-0030), or none.
   final OfflineMap map;

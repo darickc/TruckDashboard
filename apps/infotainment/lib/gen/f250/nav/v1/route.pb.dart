@@ -504,6 +504,8 @@ class Guidance extends $pb.GeneratedMessage {
     Progress? progress,
     $core.String? detail,
     $core.int? reroutes,
+    $core.String? destinationName,
+    Voice? voice,
   }) {
     final result = Guidance._();
     if (state != null) result.state = state;
@@ -512,6 +514,8 @@ class Guidance extends $pb.GeneratedMessage {
     if (progress != null) result.progress = progress;
     if (detail != null) result.detail = detail;
     if (reroutes != null) result.reroutes = reroutes;
+    if (destinationName != null) result.destinationName = destinationName;
+    if (voice != null) result.voice = voice;
     return result;
   }
 
@@ -538,6 +542,9 @@ class Guidance extends $pb.GeneratedMessage {
         subBuilder: Progress.$_createMessage)
     ..aOS(5, _omitFieldNames ? '' : 'detail')
     ..aI(6, _omitFieldNames ? '' : 'reroutes', fieldType: $pb.PbFieldType.OU3)
+    ..aOS(7, _omitFieldNames ? '' : 'destinationName')
+    ..aOM<Voice>(8, _omitFieldNames ? '' : 'voice',
+        subBuilder: Voice.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -622,14 +629,153 @@ class Guidance extends $pb.GeneratedMessage {
   $core.bool hasReroutes() => $_has(5);
   @$pb.TagNumber(6)
   void clearReroutes() => $_clearField(6);
+
+  /// The destination's name as SetDestination gave it ("Home", a search
+  /// result's title); empty for a point on the map.
+  @$pb.TagNumber(7)
+  $core.String get destinationName => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set destinationName($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDestinationName() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDestinationName() => $_clearField(7);
+
+  /// Spoken directions (ADR-0040).
+  @$pb.TagNumber(8)
+  Voice get voice => $_getN(7);
+  @$pb.TagNumber(8)
+  set voice(Voice value) => $_setField(8, value);
+  @$pb.TagNumber(8)
+  $core.bool hasVoice() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearVoice() => $_clearField(8);
+  @$pb.TagNumber(8)
+  Voice ensureVoice() => $_ensure(7);
+}
+
+/// Spoken directions: muted or not, whether they can be heard, and the last
+/// prompt. Prompts are only ever made from a current position (CLAUDE.md
+/// rule 4); without one, nothing is spoken.
+class Voice extends $pb.GeneratedMessage {
+  factory Voice({
+    $core.bool? muted,
+    $core.bool? audible,
+    $core.String? detail,
+    $core.String? lastPrompt,
+    $fixnum.Int64? prompts,
+  }) {
+    final result = Voice._();
+    if (muted != null) result.muted = muted;
+    if (audible != null) result.audible = audible;
+    if (detail != null) result.detail = detail;
+    if (lastPrompt != null) result.lastPrompt = lastPrompt;
+    if (prompts != null) result.prompts = prompts;
+    return result;
+  }
+
+  Voice._();
+
+  factory Voice.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Voice()..mergeFromBuffer(data, registry);
+  factory Voice.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Voice()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Voice',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.nav.v1'),
+      createEmptyInstance: Voice.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'muted')
+    ..aOB(2, _omitFieldNames ? '' : 'audible')
+    ..aOS(3, _omitFieldNames ? '' : 'detail')
+    ..aOS(4, _omitFieldNames ? '' : 'lastPrompt')
+    ..a<$fixnum.Int64>(5, _omitFieldNames ? '' : 'prompts', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Voice clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Voice copyWith(void Function(Voice) updates) =>
+      super.copyWith((message) => updates(message as Voice)) as Voice;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Voice() / Voice.new instead')
+  static Voice create() => Voice._();
+  static $pb.GeneratedMessage $_createMessage() => Voice._();
+  @$core.override
+  Voice createEmptyInstance() => Voice._();
+  @$core.pragma('dart2js:noInline')
+  static Voice getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Voice>(Voice.$_createMessage);
+  static Voice? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get muted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set muted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMuted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMuted() => $_clearField(1);
+
+  /// Prompts reach a speaker. False when they only go to the log (no audio
+  /// path yet, ADR-0040) or the speech program is missing; `detail` says which.
+  @$pb.TagNumber(2)
+  $core.bool get audible => $_getBF(1);
+  @$pb.TagNumber(2)
+  set audible($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAudible() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAudible() => $_clearField(2);
+
+  /// Where prompts go: "macOS say", "the log only: …".
+  @$pb.TagNumber(3)
+  $core.String get detail => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set detail($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDetail() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDetail() => $_clearField(3);
+
+  /// The last prompt made (spoken, or skipped because muted), and a count of
+  /// prompts so a client can tell a new one from a repeat.
+  @$pb.TagNumber(4)
+  $core.String get lastPrompt => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set lastPrompt($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasLastPrompt() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearLastPrompt() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get prompts => $_getI64(4);
+  @$pb.TagNumber(5)
+  set prompts($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPrompts() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPrompts() => $_clearField(5);
 }
 
 class SetDestinationRequest extends $pb.GeneratedMessage {
   factory SetDestinationRequest({
     LatLon? destination,
+    $core.String? name,
+    $core.String? detail,
   }) {
     final result = SetDestinationRequest._();
     if (destination != null) result.destination = destination;
+    if (name != null) result.name = name;
+    if (detail != null) result.detail = detail;
     return result;
   }
 
@@ -648,6 +794,8 @@ class SetDestinationRequest extends $pb.GeneratedMessage {
       createEmptyInstance: SetDestinationRequest.$_createMessage)
     ..aOM<LatLon>(1, _omitFieldNames ? '' : 'destination',
         subBuilder: LatLon.$_createMessage)
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'detail')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -684,6 +832,27 @@ class SetDestinationRequest extends $pb.GeneratedMessage {
   void clearDestination() => $_clearField(1);
   @$pb.TagNumber(1)
   LatLon ensureDestination() => $_ensure(0);
+
+  /// Optional: what it is ("Home", a search result's title). Shown with the
+  /// route and kept with it in the recent destinations (places.proto).
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  /// Optional: a second line for the recent destinations ("Fairview").
+  @$pb.TagNumber(3)
+  $core.String get detail => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set detail($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDetail() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDetail() => $_clearField(3);
 }
 
 class SetDestinationResponse extends $pb.GeneratedMessage {
@@ -1031,6 +1200,123 @@ class GetRouteResponse extends $pb.GeneratedMessage {
   void clearRoute() => $_clearField(1);
   @$pb.TagNumber(1)
   Route ensureRoute() => $_ensure(0);
+}
+
+class SetVoiceRequest extends $pb.GeneratedMessage {
+  factory SetVoiceRequest({
+    $core.bool? muted,
+  }) {
+    final result = SetVoiceRequest._();
+    if (muted != null) result.muted = muted;
+    return result;
+  }
+
+  SetVoiceRequest._();
+
+  factory SetVoiceRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetVoiceRequest()..mergeFromBuffer(data, registry);
+  factory SetVoiceRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetVoiceRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetVoiceRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.nav.v1'),
+      createEmptyInstance: SetVoiceRequest.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'muted')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetVoiceRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetVoiceRequest copyWith(void Function(SetVoiceRequest) updates) =>
+      super.copyWith((message) => updates(message as SetVoiceRequest))
+          as SetVoiceRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SetVoiceRequest() / SetVoiceRequest.new instead')
+  static SetVoiceRequest create() => SetVoiceRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SetVoiceRequest._();
+  @$core.override
+  SetVoiceRequest createEmptyInstance() => SetVoiceRequest._();
+  @$core.pragma('dart2js:noInline')
+  static SetVoiceRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetVoiceRequest>(
+          SetVoiceRequest.$_createMessage);
+  static SetVoiceRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get muted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set muted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMuted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMuted() => $_clearField(1);
+}
+
+class SetVoiceResponse extends $pb.GeneratedMessage {
+  factory SetVoiceResponse({
+    Voice? voice,
+  }) {
+    final result = SetVoiceResponse._();
+    if (voice != null) result.voice = voice;
+    return result;
+  }
+
+  SetVoiceResponse._();
+
+  factory SetVoiceResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetVoiceResponse()..mergeFromBuffer(data, registry);
+  factory SetVoiceResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetVoiceResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetVoiceResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.nav.v1'),
+      createEmptyInstance: SetVoiceResponse.$_createMessage)
+    ..aOM<Voice>(1, _omitFieldNames ? '' : 'voice',
+        subBuilder: Voice.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetVoiceResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetVoiceResponse copyWith(void Function(SetVoiceResponse) updates) =>
+      super.copyWith((message) => updates(message as SetVoiceResponse))
+          as SetVoiceResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SetVoiceResponse() / SetVoiceResponse.new instead')
+  static SetVoiceResponse create() => SetVoiceResponse._();
+  static $pb.GeneratedMessage $_createMessage() => SetVoiceResponse._();
+  @$core.override
+  SetVoiceResponse createEmptyInstance() => SetVoiceResponse._();
+  @$core.pragma('dart2js:noInline')
+  static SetVoiceResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetVoiceResponse>(
+          SetVoiceResponse.$_createMessage);
+  static SetVoiceResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Voice get voice => $_getN(0);
+  @$pb.TagNumber(1)
+  set voice(Voice value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasVoice() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearVoice() => $_clearField(1);
+  @$pb.TagNumber(1)
+  Voice ensureVoice() => $_ensure(0);
 }
 
 const $core.bool _omitFieldNames =

@@ -22,6 +22,8 @@ class FakeRouteSource implements RouteSource {
   final FakeMonotonicClock clock = FakeMonotonicClock(const Duration(seconds: 100));
   final ValueNotifier<RouteView> _state;
   final destinations = <LatLng>[];
+  final names = <String>[];
+  final mutes = <bool>[];
   var clears = 0;
 
   @override
@@ -33,7 +35,13 @@ class FakeRouteSource implements RouteSource {
   @override
   void stop() {}
   @override
-  Future<void> setDestination(LatLng to) async => destinations.add(to);
+  Future<void> setDestination(LatLng to, {String name = '', String detail = ''}) async {
+    destinations.add(to);
+    names.add(name);
+  }
+
+  @override
+  Future<void> setVoice({required bool muted}) async => mutes.add(muted);
   @override
   Future<void> clearRoute() async => clears++;
 }
@@ -105,7 +113,8 @@ void main() {
     expect(find.byKey(const ValueKey('nav-guidance')), findsNothing);
 
     final map = tester.getRect(find.byType(FlutterMap));
-    await tester.longPressAt(map.center + const Offset(-120, 60));
+    // South-west of the truck, above the no-map notice and the Places button.
+    await tester.longPressAt(map.center + const Offset(-120, 30));
     await tester.pump();
     expect(find.byKey(const ValueKey('nav-pending')), findsOneWidget);
     expect(find.byKey(const ValueKey('nav-pending-panel')), findsOneWidget);
