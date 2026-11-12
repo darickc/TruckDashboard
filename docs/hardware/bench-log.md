@@ -2042,6 +2042,10 @@ Result:
       data reported "failed" and the dashboard wouldn't have reopened the new
       map. The status now lists what changed and says "The map was updated";
       the dashboard reopens on it. [SIM] only (agl-test and app tests)
+    - an older bug (ADR-0033's): after a dashboard restart, an import that
+      finished before it ("current", 5 min earlier) showed as MAP UP TO DATE
+      from the second status read on. Its id is now remembered and skipped;
+      redeployed and restarted on the Pi: no chip
 
 Verdict: works. Valhalla 3.9.1, built by meta-f250, routes on the Pi 5
 under navigation's sandbox, fast and small for a one-state extract. Not
