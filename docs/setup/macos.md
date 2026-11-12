@@ -76,7 +76,7 @@ The pin keeps the app compatible with the engine on the truck.
 | `make ui-macos-build` | Build the macOS app without running it (`apps/infotainment/build/macos/Build/Products/Debug/f250_infotainment.app`) |
 | `make ui-test` / `make sim-test` | Flutter app tests / simulator tests |
 | `make proto` | Regenerate the Dart gRPC client (Rust is generated at build time; both need `protoc`) |
-| `make sim` | Rust gateway (simulated) + the macOS app reading from it over gRPC ([gateway guide](gateway.md)) |
+| `make sim` | Rust gateway, navigation and audio-manager (simulated) + the macOS app reading from them over gRPC ([gateway guide](gateway.md)). `make audio` runs audio-manager alone with a simulated phone ([ADR-0039](../architecture/adr/0039-audio-manager.md)) |
 | `make linux-test` | Rust tests in a Linux container, including the RFCOMM build (needs Docker running) |
 | `make deploy PI=<host>` / `make logs PI=<host>` | Deploy to the Pi / collect logs from it *(Phase 5)* |
 

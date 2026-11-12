@@ -265,7 +265,21 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
 
 ## Phase 6 — Infotainment
 
-- [ ] 6.1 audio-manager (A2DP sink, AVRCP, pairing window), and the PipeWire filter-chain for the DAC8x: crossover, fader, sub level ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md))
+- [~] 6.1 audio-manager (A2DP sink, AVRCP, pairing window), and the PipeWire filter-chain for the DAC8x: crossover, fader, sub level ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md))
+      `[SIM]` ([ADR-0039](architecture/adr/0039-audio-manager.md)): `services/audio-manager` serves `f250.audio.v1`. BlueZ over
+      D-Bus (zbus, behind a trait; a simulated phone on the Mac): now playing from the phone's `MediaPlayer1` (title, artist,
+      album, position counted on while playing, state), Play/Pause/Next/Previous, the track gone with the phone. The pairing
+      window opens only from the Media screen, 120 s (an example) with BlueZ's own timeouts as a backstop, closes by itself and
+      after one phone pairs; a DisplayYesNo agent puts the phone's six-digit code on the screen to confirm. The speakers'
+      filter-chain runs as audio-manager's own `pipewire -c` child, a WirePlumber smart filter: LR4 crossover (80 Hz), fader,
+      balance, sub level (examples, validated), changed live with `pw-cli`, the crossover by a restart. The Media screen and
+      Settings → Speakers. A2DP sink only (`60-f250-bluetooth.conf`); navigation prompts duck the music through AGL's
+      "Navigation" role, no API needed. Packaged: `f250-audio-manager.service` (f250 + pipewire, sandboxed, real-time
+      allowed), `audio-start` with `AUDIO_*`, PipeWire and AGL's WirePlumber config in the images; `make agl-test`. Tests:
+      BlueZ object-tree parsing from 5.86's documented properties, every pairing-window transition, link loss, the rendered
+      graph, the runner against fake `pipewire`/`pw-cli`, end to end over gRPC, the screens at 800×480, and the real binary
+      against the dashboard's client. **Never run against a real BlueZ or PipeWire; nothing heard.** The DAC8x's node name and
+      jack map are UNVERIFIED. Next: bench check 21 (agl.md), then 6.2 and 6.3, which attach to the filter-chain and the manager
 - [ ] 6.2 DAC mute sequencing (H6) and the crash test with the amps on (H5). The amps' remote is straight on ACC, no timer, not the Pi ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md), 2026-11-09). Wiring design: [wiring/audio.md](wiring/audio.md)
 - [ ] 6.3 Volume knob
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's

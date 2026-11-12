@@ -1,17 +1,21 @@
 # Audio routing
 
-Status: **design**. It is implemented in `services/audio-manager` in Phase 6.
+Status: **built [SIM], not on the Pi.** `services/audio-manager` (Phase 6.1,
+[ADR-0039](adr/0039-audio-manager.md)) does the pairing, the phone's player
+and the speakers' filter-chain; it has never run against a real BlueZ or
+PipeWire, and nothing has been heard.
 
-What has been checked: the AGL Vimba Pi 5 image contains these packages:
+What the AGL Vimba 22.0.1 tree builds (read in the build VM, 2026-11-12;
+ADR-0039 has the sources):
 
-- PipeWire 1.6.6
-- WirePlumber 0.5.14 with the AGL configuration
-- BlueZ 5.86
-- the bluez5 SPA plugin
-- ofono
+- PipeWire 1.6.8 (1.6.6 in the prebuilt demo image), system-wide as user
+  `pipewire`, socket `/run/pipewire/pipewire-0`
+- WirePlumber 0.5.14 with AGL's split instances and role policy
+- BlueZ 5.86 and PipeWire's bluez5 plugin (the A2DP sink)
+- ofono (disabled in these images)
 
-A working **A2DP sink** (the phone streaming to the car) is **not documented**
-by AGL, and is to be proven in Phase 6.
+A working **A2DP sink** on the Pi is still to be proven (bench check 21 in
+[agl.md](../setup/agl.md#5-bring-up-checks-phase-52)).
 
 ## Signal chain
 
@@ -20,7 +24,7 @@ flowchart LR
   PHONE[Phone<br/>Android / iPhone] -- A2DP SBC/AAC --> BZ[BlueZ]
   BZ --> PW[PipeWire bluez5 node]
   PW --> WP{WirePlumber policy<br/>AGL roles}
-  WP --> FC[filter-chain<br/>crossover · fader · sub level]
+  WP --> FC[filter-chain, audio-manager's own<br/>crossover · fader · balance · sub level]
   FC --> DAC[HiFiBerry DAC8x<br/>4 stereo jacks]
   DAC -- jack 1 front, jack 2 rear --> AMP4[new 4-ch amp]
   DAC -- jack 3 sub, mono --> R150[Rockford R150-2<br/>bridged mono]
@@ -48,7 +52,9 @@ flowchart LR
 | 4 | — | Spare |
 
 - The crossover runs in a PipeWire **filter-chain** in front of the DAC8x
-  sink. audio-manager writes and owns its parameters.
+  sink: audio-manager generates it and runs it as its own `pipewire -c`
+  child, a WirePlumber smart filter (ADR-0039 decision 6). Fader, balance and
+  sub level change live; the crossover restarts it.
 - The fader, balance, sub level and crossover frequency are user settings with
   configured limits. The defaults are examples, not recommendations (rule 10).
 - audio-manager validates the configuration before applying it. For example,
@@ -61,12 +67,12 @@ flowchart LR
 
 | Responsibility | How |
 |---|---|
-| Pairing | Only inside an explicit **pairing window** opened from the UI (default 120 s). Not discoverable otherwise. Advertised as an audio sink with a clear name ("F-250") |
-| Active device | Several phones may be paired. The policy is: last connected wins, unless a phone is pinned as preferred. Switching is explicit in the UI |
-| Reconnect | Reconnect automatically to known devices on boot and after a link drop, with bounded backoff |
-| Controls and metadata | AVRCP through BlueZ `MediaPlayer1`: play/pause/next/previous, title, artist, album. Album art only where the phone supports it (AVRCP 1.6 cover art); unsupported otherwise |
-| Volume | One master volume with a configurable **maximum**, plus the physical knob. Absolute volume (AVRCP) where supported |
-| Sources | Bluetooth (phase 6). Navigation prompts are ducked over media later. A USB or local-files source is possible later |
+| Pairing | Only inside an explicit **pairing window** opened from the UI (default 120 s, an example; BlueZ's own timeouts as a backstop). Closes by itself and after one phone pairs. The phone's six-digit code is confirmed on the screen. Not discoverable otherwise. Offered as an audio sink only, named "F-250" (ADR-0039 decisions 3, 4, 8) |
+| Active device | Several phones may be paired. Today: whichever phone connects (BlueZ's behaviour). A preferred phone and switching in the UI are not built |
+| Reconnect | Phones paired in the window are trusted, so they reconnect on their own; audio-manager doesn't initiate connections yet. A dropped phone takes its track off the screen at once |
+| Controls and metadata | AVRCP through BlueZ `MediaPlayer1`: play/pause/next/previous, title, artist, album, position, state. Album art: not built |
+| Volume | One master volume with a configurable **maximum**, plus the physical knob. Absolute volume (AVRCP) where supported. Phase 6.3: not built |
+| Sources | Bluetooth. Navigation prompts duck the music through AGL's role policy: a stream with `media.role = "Navigation"` ducks Multimedia to 0.2 (ADR-0039 decision 9). A USB or local-files source is possible later |
 | Future HFP | ofono is present. Keep a route for microphone and echo cancellation, but do not block release 1 on calling |
 
 ## Pop prevention and failure safety
