@@ -44,5 +44,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0033](0033-map-updates-by-usb-stick.md) | Map updates by USB stick: the Pi copies, checks and swaps in the map on the data drive | Accepted (owner; [SIM] only) |
 | [0034](0034-home-buttons-and-back.md) | Screens are reached from Home and left by Back; Power and Restart move to Settings | Accepted (owner; [SIM] only) |
 | [0035](0035-routing-with-valhalla.md) | Routing with Valhalla, one `valhalla_service` per request, in services/navigation | Accepted ([SIM]; real Valhalla on the Mac; not on the Pi) |
+| [0036](0036-clear-advisories.md) | Advisories can be cleared from the alert banner; critical alerts can't | Accepted (owner; [SIM], seen on the bench Pi) |
 
 New ADRs use the next number and the same headings.

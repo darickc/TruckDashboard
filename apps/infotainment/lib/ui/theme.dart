@@ -7,7 +7,9 @@ import '../core/settings.dart';
 /// (devicePixelRatio 1.0; confirm the flutter-auto setting in Phase 5).
 const kScreenSize = Size(800, 480);
 const kStatusBarHeight = 44.0;
-const kAlertBannerHeight = 52.0;
+/// A touch target (an advisory's Clear button fills it) and the banner's
+/// 2 px bottom border.
+const kAlertBannerHeight = kMinTouch + 2;
 
 /// Camera mode's button column (shell/camera_mode.dart). The camera window
 /// fills the rest below the status bar: x 220, y 44, 580×435, the

@@ -83,6 +83,7 @@ and the link status centred. Decision 3 changes:
 
 Every screen but Home gains 52 px of height: the 60 px header and its 8 px
 gap are gone, and the bar is 16 px taller. Home loses 16 px, so its buttons
-are 256 × 198 (256 × 172 under an alert). [SIM]: widget tests at 800×480.
+are 256 × 198 (256 × 172 under an alert; 256 × 167 since the banner grew
+for Clear, [ADR-0036](0036-clear-advisories.md)). [SIM]: widget tests at 800×480.
 Checked on the bench Pi's panel: see the bench log.
 

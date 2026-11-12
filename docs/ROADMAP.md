@@ -54,7 +54,8 @@ Tags:
 - [x] 2.3 `VehicleDataSource` plus `SimulatedVehicleDataSource`. The gRPC source is
       not written; it arrives in Phase 3 rather than shipping as a stub
 - [x] 2.4 Shell: status bar (SIMULATED badge, link state, clock), a global alert
-      banner that can't be dismissed, and the nav bar
+      banner that can't be dismissed, and the nav bar. Since 2026-11-11 advisories can be cleared;
+      critical alerts still can't ([ADR-0036](architecture/adr/0036-clear-advisories.md))
 - [x] 2.5 Digital, circular and compact gauges. Stale gauges show the hatch,
       last-good value and age. An unverified definition gets a badge
 - [x] 2.6 Home, Gauges (engine and towing profiles from JSON), Diagnostics (signals,

@@ -78,7 +78,7 @@ class _AppShellState extends State<AppShell> {
       SizedBox(
         height: kStatusBarHeight,
         child: ListenableBuilder(
-          listenable: Listenable.merge([s.store, s.cameras.status]),
+          listenable: Listenable.merge([s.store, s.cameras.status, s.cleared]),
           builder: (context, _) =>
               bannerAlerts(s).isEmpty ? const StatusBar() : const AlertBanner(compact: true),
         ),

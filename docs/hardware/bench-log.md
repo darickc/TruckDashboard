@@ -2116,3 +2116,21 @@ isn't recorded yet. The DAC8x isn't fitted, so stacking (H4) is still open.
 
 Verdict: works. Not shown: drive temperature in the truck, a power loss
 while recording, a map stick imported onto the NVMe through udev, a USB SSD.
+
+## 2026-11-11 — Clearing an advisory from the banner (ADR-0036); the rear camera's port [BENCH]
+
+The rear camera (HD Pro Webcam C920) came up on another USB port after the
+HAT was fitted: `CAMERA_REAR` now names
+`platform-xhci-hcd.0-usb-0:1:1.0-video-index0` in `/etc/default/f250` and the
+saved truck file, and front and rear recorded onto the NVMe. The owner then
+saved Settings → Cameras on the dashboard (05:01:20), with the same ports and
+`record=` empty. Recording is off since then, and that file replaces
+`/etc/default/f250`'s cameras. Whether recording was meant to be off is asked.
+
+Clear, after `make deploy` of the working tree (committed next): the owner's
+camera settings file was copied aside, and for a minute the rear camera was
+pointed at the empty port with recording on. The banner showed "Rear camera
+not recording" with Clear at its right; a tap on Clear (uinput): the banner
+gone, the status bar's "NOT RECORDING: R…" still there, and still no banner
+20 s later through camera-manager's 10 s retries. The owner's file was
+restored byte for byte (`diff`) and camera-manager restarted.

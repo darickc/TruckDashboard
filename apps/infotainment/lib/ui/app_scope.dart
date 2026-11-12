@@ -136,6 +136,9 @@ class AppServices {
   /// "Not polling the truck" shows only once it has lasted this long
   /// (banner_alerts.dart).
   final notPolling = Persistence(kNotPollingAfter);
+
+  /// Advisories cleared from the banner (banner_alerts.dart).
+  final cleared = ClearedAlerts(kForgetClearedAfter);
 }
 
 class AppScope extends InheritedWidget {

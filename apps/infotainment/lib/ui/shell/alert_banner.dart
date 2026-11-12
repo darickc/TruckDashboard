@@ -5,15 +5,18 @@ import '../app_scope.dart';
 import '../banner_alerts.dart';
 import '../theme.dart';
 import '../widgets/badges.dart';
+import '../widgets/tap_target.dart';
 
 /// The most important active alert, shown above every screen: the
 /// vehicle's, and camera-manager's recording advisories (banner_alerts.dart).
-/// It isn't dismissible: it goes away when the condition clears. Its height
-/// is reserved only while an alert is active.
+/// It goes away when the condition clears. An advisory also has Clear,
+/// which hides it while it lasts (ClearedAlerts); a critical alert has none.
+/// Its height is reserved only while an alert is active.
 ///
 /// [compact]: the status bar's height, for camera mode, where the alert
 /// takes the status bar's place above the camera window. It carries a SIM
-/// mark, since the status bar's SIMULATED badge is hidden under it.
+/// mark, since the status bar's SIMULATED badge is hidden under it, and no
+/// Clear: 44 px is less than a touch target. Clear it outside camera mode.
 class AlertBanner extends StatelessWidget {
   const AlertBanner({super.key, this.compact = false});
 
@@ -23,7 +26,7 @@ class AlertBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge([s.store, s.settings, s.cameras.status]),
+      listenable: Listenable.merge([s.store, s.settings, s.cameras.status, s.cleared]),
       builder: (context, _) {
         final alerts = bannerAlerts(s);
         if (alerts.isEmpty) return const SizedBox.shrink();
@@ -82,6 +85,24 @@ class AlertBanner extends StatelessWidget {
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: critical ? Colors.white : p.text)),
+            if (top.clearable && !compact) ...[
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 120,
+                height: kMinTouch,
+                child: TapTarget(
+                  key: const ValueKey('alert-clear'),
+                  label: 'Clear: ${top.title}',
+                  padding: EdgeInsets.zero,
+                  onTap: () => s.cleared.clear(top, s.store.clock.now()),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.close_rounded, size: 24, color: p.text),
+                    const SizedBox(width: 4),
+                    Text('Clear', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.text)),
+                  ]),
+                ),
+              ),
+            ],
           ]),
         );
       },
