@@ -440,7 +440,8 @@ pub struct SpeakerStatus {
 }
 
 /// How a prompt is heard. Small on purpose: services/audio-manager
-/// (ADR-0039) will be another implementation, which ducks the music.
+/// (ADR-0039) will be another implementation, which pauses the music while a
+/// prompt is spoken (the owner's decision, ADR-0040 decision 16).
 pub trait Speaker: Send + 'static {
     /// Says `text` now, cutting off anything still being said: the newer
     /// prompt is the one that matters.

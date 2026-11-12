@@ -338,8 +338,8 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       transition, end to end over gRPC, widget tests at 800×480 with and without an alert. Ran against the real Valhalla on
       the Mac. **Not on the Pi, and not audible there:** the image has no audio stack and the service's sandbox no sound
       devices; Flite (in AGL's layers, BSD, ~2.8 MB) is the candidate engine, wired through audio-manager (ADR-0039) later.
-      Next: 6.5.4's docs; bench check 18 with a stick and the NVMe; bench check 20 (search on the Pi); bench check 21 (places
-      and the voice on the Pi); a voice through audio-manager
+      Next: 6.5.4's docs; bench check 18 with a stick and the NVMe; bench check 20 (search on the Pi); bench check 22 (places
+      and the voice on the Pi); a voice through audio-manager, pausing the music (owner, ADR-0040)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and
       invalid reverse, the latched choice, moves during reverse, the optional speed limit, missing cameras).

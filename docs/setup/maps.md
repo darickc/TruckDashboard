@@ -377,6 +377,9 @@ approaching prompt 30 s ahead at the current speed (between 400 m and
 
 The route's buttons have the mute toggle: **Voice**, **Muted**, or **No
 audio** when the prompts only reach the log. Muting is kept across restarts.
+Once prompts are played through audio-manager, the music pauses while one is
+spoken and resumes after (the owner's choice; not built yet, ADR-0040
+decision 16).
 
 | Where prompts go | |
 |---|---|

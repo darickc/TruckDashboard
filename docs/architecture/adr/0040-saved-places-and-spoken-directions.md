@@ -5,12 +5,13 @@
   - navigation ran on the Mac with the simulated receiver and the real Valhalla 3.9.1 (Docker, Kansas data): prompts
     came from Valhalla's own words for that route, and the destination went into the recent places;
   - **nothing on the Pi.** The bench Pi wasn't reachable on 2026-11-12, and **no prompt has been heard there**: the
-    Pi has no speech engine in its image and no audio path for navigation yet (decision 8).
+    Pi has no speech engine in its image and no audio path for navigation yet (decision 15).
 - **Date:** 2026-11-12
 - **Refines:** [ADR-0035](0035-routing-with-valhalla.md) (its "no voice prompts … or saved places") and
   [ADR-0038](0038-offline-address-search.md) (its "no saved places and no recent searches"). Phase 6.5.2.
 - **Depends on:** ADR-0039 (services/audio-manager, written in a parallel session on its own branch, not linked
-  here until both are merged) for playing prompts over the music. Not connected yet.
+  here until both are merged) for playing prompts and pausing the music around them (decision 16). Not connected
+  yet.
 
 ## Context
 
@@ -165,13 +166,45 @@ who reads miles.
     - `f250-navigation.service` has `PrivateDevices=yes` and no PipeWire
       socket, so even a `NAV_VOICE_COMMAND` can't make a sound from inside it,
       by design: playback is audio-manager's;
-    - a `Speaker` that hands the text (or the synthesised audio) to
-      audio-manager, which ducks the music and plays the prompt. Whether
-      navigation synthesises (Flite as a library or a program) and sends
-      audio, or sends text and audio-manager synthesises, is for ADR-0039 to
-      say; the trait fits either;
+    - a `Speaker` that hands the prompt to audio-manager, which pauses the
+      music (decision 16) and plays the prompt. Whether navigation
+      synthesises (Flite as a library or a program) and sends audio, or
+      sends text and audio-manager synthesises, is for ADR-0039 to say; the
+      trait fits either;
     - then Flite in the image, a prompt heard on the bench, and on the truck
       the volume over road noise and the distances tuned.
+
+### The music while a prompt is spoken
+
+16. **The music is paused, not ducked** (owner's decision, 2026-11-12). This
+    replaces the ducking ADR-0039 decision 9 describes (AGL's WirePlumber
+    "Navigation" role, which lowers the music to 0.2 under the voice). What
+    navigation needs from audio-manager; audio-manager decides how, in
+    ADR-0039:
+    - **No music under the voice, at once.** A prompt never waits for the
+      phone: an at-the-maneuver prompt is late if it does. The phone's
+      stream is silenced when the prompt starts (in AGL's role policy, the
+      Navigation role's `lower-priority` action "cork" instead of "duck").
+    - **The song itself stops,** so none of it is missed: AVRCP Pause
+      (`MediaPlayer1.Pause`) when a prompt starts, if the player is playing,
+      and Play when it ends, **only if audio-manager paused it and it is
+      still paused**. The driver pausing or changing source meanwhile wins.
+    - **Prompts close together keep it paused**: no resume between
+      "Off the route. Finding a new one." and "New route.", or between an
+      approaching prompt and the next one a few seconds later. The hold
+      (about 3 s after the last prompt) is an example to tune.
+    - **A phone without AVRCP control** (no `MediaPlayer1`): the music is
+      silenced for the prompt but the phone plays on, so a few seconds of
+      the song are missed. The screen needn't say so; the ADR does.
+    - **Muted directions don't touch the music**: no prompt, no pause.
+
+    So audio-manager has to know when a prompt starts and ends, which is the
+    case ADR-0039 decision 9 left open for an API ("only if a service needs
+    to know or change the music's state"). The simplest fit for the
+    `Speaker` trait: navigation sends the prompt's text, `speak` starts it
+    (cutting off an older one) and `stop` cancels it, and audio-manager does
+    pause → speak → resume in one place. navigation's sandbox then stays
+    without audio access.
 
 ## Consequences
 
@@ -181,6 +214,9 @@ who reads miles.
   prompts in navigation's log (`VOICE=say` speaks them).
 - On the Pi today, prompts go to the journal only and the screen says "No
   audio". That is the honest state until audio-manager is wired.
+- Pausing rather than ducking: a prompt is heard clearly, and the music
+  resumes where it stopped. AVRCP adds a round trip to the phone at each
+  prompt; how long a phone takes to pause and resume is unmeasured.
 - A drive that fails or isn't mounted leaves places on the SD card, saying
   so; places saved then don't move to the drive by themselves when it comes
   back.
