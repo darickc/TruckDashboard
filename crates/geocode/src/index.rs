@@ -28,7 +28,10 @@ use crate::text;
 /// "F250" in the SQLite header (bytes 68..72, big-endian).
 pub const APPLICATION_ID: i32 = 0x4632_3530;
 /// Bumped when the schema changes; the search refuses another version.
-pub const SCHEMA_VERSION: i32 = 1;
+/// 2: `place.state` (each row's state). Version 1 files built before it was
+/// added still said 1, and every search on them failed with "no such column:
+/// p.state" (bench-log 2026-11-12); they are now refused as version 1.
+pub const SCHEMA_VERSION: i32 = 2;
 
 /// What a row is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

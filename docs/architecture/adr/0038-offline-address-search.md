@@ -60,7 +60,8 @@ web search on 2026-11-12. They are listed with their status in the
      anything with a house number (`addrs`). Rows carry their 1° and 5° cell
      as tokens.
    - The file says what it is: `PRAGMA application_id` "F250" and
-     `user_version` 1. The search refuses anything else.
+     `user_version` 2 (2 since `place.state`, 2026-11-12; files built
+     before that are refused). The search refuses anything else.
 2. **It comes on the map stick** as `f250/search.sqlite`, with its checksum,
    next to the map and the routing data (`make map-stick SEARCH=...`). The
    import checks it (checksum, SQLite header, application id) and swaps it in
