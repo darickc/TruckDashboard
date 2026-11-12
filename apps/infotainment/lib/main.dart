@@ -15,6 +15,8 @@ import 'data/gateway_connection.dart';
 import 'data/simulation_controller.dart';
 import 'display/display_connection.dart';
 import 'display/display_state.dart';
+import 'export/export_connection.dart';
+import 'export/export_state.dart';
 import 'model/signal_catalog.dart';
 import 'nav/offline_map.dart';
 import 'nav/position_connection.dart';
@@ -57,6 +59,11 @@ const _mapFile = String.fromEnvironment('MAP_FILE');
 /// the Pi. Empty: map sticks aren't watched.
 const _mapStatus = String.fromEnvironment('MAP_STATUS');
 
+/// Copying recordings to a USB stick (ADR-0037): `sim` (no usb-export: a
+/// simulated stick, nothing copied) or usb-export's endpoint
+/// (`unix:/run/f250-export/export.sock` on the Pi). Default: `sim`.
+const _export = String.fromEnvironment('EXPORT', defaultValue: 'sim');
+
 /// In-app simulator start point (`make ui-web SCENARIO=eot_ect_freeze START=110`).
 const _scenario = String.fromEnvironment('SCENARIO', defaultValue: 'drive_cycle');
 const _startSeconds = int.fromEnvironment('SIM_START_S');
@@ -75,6 +82,7 @@ Future<void> main() async {
             nav: _nav,
             mapFile: _mapFile,
             mapStatus: _mapStatus,
+            export: _export,
             scenario: _scenario,
             startAt: const Duration(seconds: _startSeconds))));
   } catch (e) {
@@ -91,6 +99,7 @@ Future<AppServices> createServices(
   String nav = 'sim',
   String mapFile = '',
   String mapStatus = '',
+  String export = 'sim',
   String scenario = 'drive_cycle',
   Duration startAt = Duration.zero,
 }) async {
@@ -120,6 +129,9 @@ Future<AppServices> createServices(
   final RouteSource route =
       nav == 'sim' ? UnavailableRouteSource() : connectRouting(GatewayEndpoint.parse(nav));
   route.start();
+  final ExportSource exports =
+      export == 'sim' ? SimulatedExportSource() : connectUsbExport(GatewayEndpoint.parse(export));
+  exports.start();
   final map = OfflineMap(mapFile, statusPath: mapStatus);
   unawaited(map.load().then((_) => map.watch()));
   switch (source) {
@@ -135,6 +147,7 @@ Future<AppServices> createServices(
           position: position,
           route: route,
           map: map,
+          exports: exports,
           power: PowerControl.forPlatform());
     case 'sim':
       final scenarios = await SimulationController.loadAll(bundle);
@@ -152,6 +165,7 @@ Future<AppServices> createServices(
           position: position,
           route: route,
           map: map,
+          exports: exports,
           power: PowerControl.forPlatform());
     default:
       throw FormatException('VEHICLE_SOURCE must be sim or gateway, got "$source"');

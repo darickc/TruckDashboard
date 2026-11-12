@@ -10,7 +10,8 @@ import '../widgets/tap_target.dart';
 
 /// Picks a camera by hand (the same moves as the 5-way switch) and says how
 /// the camera system stands: on the left the cameras, on the right front and
-/// rear recording (ADR-0027) with "Save clip". A chosen camera replaces every
+/// rear recording (ADR-0027) with "Save clip", and the way to copy
+/// recordings to a USB stick (ADR-0037). A chosen camera replaces every
 /// screen with camera mode (shell/camera_mode.dart) until it is closed.
 class CamerasScreen extends StatelessWidget {
   const CamerasScreen({super.key});
@@ -105,6 +106,28 @@ class CamerasScreen extends StatelessWidget {
                   ],
                   _line(p, Icons.gamepad_outlined,
                       'The camera switch does the same: forward front, back rear. Press closes.'),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 6),
+            // Recordings to a USB stick (ADR-0037): usb-export's, so it
+            // doesn't need camera-manager.
+            SizedBox(
+              width: double.infinity,
+              height: kMinTouch,
+              child: TapTarget(
+                key: const ValueKey('cameras-recordings'),
+                label: 'Copy recordings to a USB stick',
+                onTap: () => s.screens.open(AppScreen.recordings),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.usb_rounded, size: 24, color: p.text),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text('Recordings to USB',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: p.text)),
+                  ),
                 ]),
               ),
             ),

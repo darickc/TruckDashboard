@@ -9,6 +9,7 @@ import '../core/settings.dart';
 import '../data/gateway_connection.dart';
 import '../data/simulation_controller.dart';
 import '../display/display_state.dart';
+import '../export/export_state.dart';
 import '../nav/offline_map.dart';
 import '../nav/position_state.dart';
 import '../nav/route_state.dart';
@@ -18,7 +19,10 @@ import 'banner_alerts.dart';
 
 /// The dashboard's screens. Home is a grid of buttons to the others; every
 /// other screen has Back at its top left (shell/nav_buttons.dart).
-enum AppScreen { home, gauges, media, navigation, cameras, settings, diagnostics }
+///
+/// `recordings` (copying recordings to a USB stick, ADR-0037) is opened from
+/// Cameras, not Home.
+enum AppScreen { home, gauges, media, navigation, cameras, settings, diagnostics, recordings }
 
 /// Which screen is showing, and the way back to Home: a stack whose bottom is
 /// always Home. Back pops one screen; Home clears the stack.
@@ -79,6 +83,7 @@ class AppServices {
     PositionSource? position,
     RouteSource? route,
     OfflineMap? map,
+    ExportSource? exports,
     this.power = const NoPowerControl(),
     this.refreshPeriod = const Duration(milliseconds: 250),
   })  : cameras = cameras ?? SimulatedCameraSource(),
@@ -86,6 +91,7 @@ class AppServices {
         position = position ?? SimulatedPositionSource(autoRun: false),
         route = route ?? UnavailableRouteSource(),
         map = map ?? OfflineMap.none(),
+        exports = exports ?? SimulatedExportSource(),
         assert((simulation == null) != (gateway == null), 'exactly one data source');
 
   final TelemetryStore store;
@@ -114,6 +120,10 @@ class AppServices {
 
   /// The offline raster map (Phase 6.5.1, ADR-0030), or none.
   final OfflineMap map;
+
+  /// Copying recordings to a USB stick: services/usb-export (ADR-0037), or a
+  /// simulation of it.
+  final ExportSource exports;
 
   /// Whether, and how, the screen can shut the head unit down.
   final PowerControl power;

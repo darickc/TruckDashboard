@@ -12,6 +12,7 @@ const screenIcons = {
   AppScreen.cameras: Icons.videocam_rounded,
   AppScreen.settings: Icons.settings_rounded,
   AppScreen.diagnostics: Icons.monitor_heart_rounded,
+  AppScreen.recordings: Icons.usb_rounded,
 };
 
 const screenLabels = {
@@ -22,6 +23,7 @@ const screenLabels = {
   AppScreen.cameras: 'Cameras',
   AppScreen.settings: 'Settings',
   AppScreen.diagnostics: 'Diagnostics',
+  AppScreen.recordings: 'Recordings',
 };
 
 /// Back, at the top left of the status bar on every screen but Home, and
