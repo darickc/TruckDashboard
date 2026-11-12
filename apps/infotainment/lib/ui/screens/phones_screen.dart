@@ -5,10 +5,13 @@ import '../app_scope.dart';
 import '../theme.dart';
 import '../widgets/audio_button.dart';
 import '../widgets/panel.dart';
+import '../widgets/tap_target.dart';
 
 /// Phones (ADR-0039), opened from Media: on the left every paired phone,
 /// with Connect for the ones not connected (one phone at a time: connecting
-/// one disconnects the other); on the right the pairing window for a new
+/// one disconnects the other), Disconnect for the connected one, and Delete
+/// (asked again in the row: the phone must then be paired again); on the
+/// right the pairing window for a new
 /// phone (Pair, its countdown, and the phone's code to confirm).
 /// audio-manager also reconnects the phone connected last by itself for a
 /// while; the list says which one that is. Everything comes from
@@ -24,6 +27,9 @@ class _PhonesScreenState extends State<PhonesScreen> {
   /// What the last tap did, when it didn't work.
   String? _message;
   bool _busy = false;
+
+  /// The phone whose Delete was tapped: its row asks again.
+  String? _confirmDelete;
 
   Future<void> _run(Future<CommandResult> Function() f) async {
     setState(() {
@@ -51,7 +57,7 @@ class _PhonesScreenState extends State<PhonesScreen> {
         return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Expanded(child: _list(r, audio)),
           const SizedBox(width: kGap),
-          SizedBox(width: 300, child: _pairPanel(r, audio)),
+          SizedBox(width: 270, child: _pairPanel(r, audio)),
         ]);
       },
     );
@@ -120,6 +126,8 @@ class _PhonesScreenState extends State<PhonesScreen> {
                 ? 'Last connected · not connected now'
                 : 'Paired · not connected';
     final canConnect = !ph.connected && !r.connect.busy && !_busy && r.bluetoothReady;
+    if (_confirmDelete == ph.address) return _confirmRow(ph, audio);
+    final idle = !_busy && r.bluetoothReady && !connecting;
     return SizedBox(
       key: ValueKey('phones-row-${ph.address}'),
       height: kMinTouch + 4,
@@ -141,18 +149,83 @@ class _PhonesScreenState extends State<PhonesScreen> {
                 style: TextStyle(fontSize: 14, color: ph.connected ? p.ok : p.textDim)),
           ]),
         ),
-        if (!ph.connected) ...[
-          const SizedBox(width: kGap),
-          SizedBox(
-            width: 160,
-            child: AudioButton(
-              key: ValueKey('phones-connect-${ph.address}'),
-              text: connecting ? 'Connecting…' : 'Connect',
-              icon: Icons.bluetooth_searching_rounded,
-              onTap: canConnect ? () => _run(() => audio.connectPhone(ph.address)) : null,
-            ),
+        const SizedBox(width: kGap),
+        SizedBox(
+          width: 176,
+          child: ph.connected
+              ? AudioButton(
+                  key: ValueKey('phones-disconnect-${ph.address}'),
+                  text: 'Disconnect',
+                  icon: Icons.bluetooth_disabled_rounded,
+                  onTap: idle ? () => _run(() => audio.disconnectPhone(ph.address)) : null,
+                )
+              : AudioButton(
+                  key: ValueKey('phones-connect-${ph.address}'),
+                  text: connecting ? 'Connecting…' : 'Connect',
+                  icon: Icons.bluetooth_searching_rounded,
+                  onTap: canConnect ? () => _run(() => audio.connectPhone(ph.address)) : null,
+                ),
+        ),
+        const SizedBox(width: kGap),
+        Opacity(
+          opacity: idle ? 1 : 0.45,
+          child: TapTarget(
+            key: ValueKey('phones-delete-${ph.address}'),
+            label: idle ? 'Delete ${ph.name}' : 'Delete ${ph.name} (unavailable)',
+            padding: EdgeInsets.zero,
+            onTap: idle ? () => setState(() => _confirmDelete = ph.address) : () {},
+            child: Icon(Icons.delete_outline_rounded, size: 28, color: p.text),
           ),
-        ],
+        ),
+      ]),
+    );
+  }
+
+  /// Delete, asked again: the phone has to be paired again afterwards.
+  Widget _confirmRow(Phone ph, AudioSource audio) {
+    final p = Palette.of(context);
+    return SizedBox(
+      key: ValueKey('phones-confirm-${ph.address}'),
+      height: kMinTouch + 4,
+      child: Row(children: [
+        Icon(Icons.delete_outline_rounded, size: 28, color: p.advisory),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text('Delete ${ph.name}?',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.text)),
+            Text('Pair it again to use it.',
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: p.textDim)),
+          ]),
+        ),
+        const SizedBox(width: kGap),
+        SizedBox(
+          width: 130,
+          child: AudioButton(
+            key: ValueKey('phones-delete-yes-${ph.address}'),
+            text: 'Delete',
+            icon: Icons.delete_rounded,
+            emphasis: true,
+            onTap: _busy
+                ? null
+                : () {
+                    setState(() => _confirmDelete = null);
+                    _run(() => audio.forgetPhone(ph.address));
+                  },
+          ),
+        ),
+        const SizedBox(width: kGap),
+        SizedBox(
+          width: 116,
+          child: AudioButton(
+            key: ValueKey('phones-delete-no-${ph.address}'),
+            text: 'Keep',
+            icon: Icons.close_rounded,
+            onTap: () => setState(() => _confirmDelete = null),
+          ),
+        ),
       ]),
     );
   }

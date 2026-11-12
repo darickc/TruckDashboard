@@ -949,3 +949,105 @@ async fn a_paired_phone_connecting_by_itself_takes_over() {
     })
     .await;
 }
+
+// ---- disconnect and forget (Phones' Disconnect and Delete) ----------------
+
+async fn disconnect(c: &mut Client, address: &str) -> pb::DisconnectPhoneResponse {
+    c.disconnect_phone(pb::DisconnectPhoneRequest {
+        address: address.into(),
+        source: "test".into(),
+    })
+    .await
+    .expect("disconnect_phone")
+    .into_inner()
+}
+
+async fn forget(c: &mut Client, address: &str) -> pb::ForgetPhoneResponse {
+    c.forget_phone(pb::ForgetPhoneRequest {
+        address: address.into(),
+        source: "test".into(),
+    })
+    .await
+    .expect("forget_phone")
+    .into_inner()
+}
+
+fn reconnecting(c: &mut Config, d: &std::path::Path) {
+    c.last_phone_file = Some(d.join("last-phone"));
+    c.reconnect = Reconnect {
+        every: Duration::from_secs(1),
+        window: Duration::from_secs(30),
+    };
+}
+
+#[tokio::test]
+async fn a_phone_the_driver_disconnects_isnt_reconnected_by_itself() {
+    let mut r = start_with("disconnect", quiet(true), reconnecting).await;
+    let mut s = watch(&mut r.client).await;
+    until(&mut s, "connected", |m| connected_addr(m) == sim::FIRST).await;
+    let ok = disconnect(&mut r.client, sim::FIRST).await;
+    assert!(ok.accepted, "{}", ok.detail);
+    assert_eq!(ok.detail, "Disconnecting Simulated phone…");
+    let m = until(&mut s, "disconnected", |m| connected_addr(m).is_empty()).await;
+    assert!(
+        listed(&m, sim::FIRST).is_some_and(|p| p.paired && p.last),
+        "still paired, still the last"
+    );
+    tokio::time::sleep(Duration::from_millis(2500)).await;
+    assert!(r.sim.connects().is_empty(), "not reconnected by itself");
+    let no = disconnect(&mut r.client, sim::FIRST).await;
+    assert!(!no.accepted);
+    assert_eq!(no.detail, "Simulated phone isn't connected.");
+    // Connect brings it back, and a later drop is reconnected again.
+    assert!(connect(&mut r.client, sim::FIRST).await.accepted);
+    until(&mut s, "connected again", |m| {
+        connected_addr(m) == sim::FIRST
+    })
+    .await;
+    r.sim.disconnect();
+    until(&mut s, "dropped", |m| connected_addr(m).is_empty()).await;
+    until(&mut s, "back by itself", |m| {
+        connected_addr(m) == sim::FIRST
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn a_forgotten_phone_is_gone_and_no_longer_the_last() {
+    let mut r = start_with("forget", quiet(true), reconnecting).await;
+    r.sim.add_paired("02:00:00:00:00:03", "Third phone");
+    let mut s = watch(&mut r.client).await;
+    until(&mut s, "both", |m| {
+        listed(m, "02:00:00:00:00:03").is_some() && connected_addr(m) == sim::FIRST
+    })
+    .await;
+    assert!(r.dir.join("last-phone").exists());
+
+    let no = forget(&mut r.client, "02:00:00:00:00:09").await;
+    assert_eq!(
+        (no.accepted, no.detail.as_str()),
+        (false, "That phone isn't paired.")
+    );
+    let ok = forget(&mut r.client, "02:00:00:00:00:03").await;
+    assert_eq!(
+        (ok.accepted, ok.detail.as_str()),
+        (true, "Deleting Third phone…")
+    );
+    let m = until(&mut s, "gone", |m| listed(m, "02:00:00:00:00:03").is_none()).await;
+    assert_eq!(connected_addr(&m), sim::FIRST);
+    until(&mut s, "said", |m| {
+        attempt(m).detail == "Deleted Third phone. Pair it again to use it."
+    })
+    .await;
+
+    // The connected one, the last phone: gone, not remembered, not tried.
+    assert!(forget(&mut r.client, sim::FIRST).await.accepted);
+    let m = until(&mut s, "none left", |m| {
+        m.phone.is_none() && m.known.is_empty()
+    })
+    .await;
+    assert!(m.known.iter().all(|k| !k.last));
+    assert!(!r.dir.join("last-phone").exists());
+    tokio::time::sleep(Duration::from_millis(2500)).await;
+    assert!(r.sim.connects().is_empty());
+}

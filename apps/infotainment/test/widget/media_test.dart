@@ -75,6 +75,18 @@ class FakeAudio implements AudioSource {
   }
 
   @override
+  Future<CommandResult> disconnectPhone(String address) async {
+    calls.add('disconnect $address');
+    return const CommandResult(ok: true);
+  }
+
+  @override
+  Future<CommandResult> forgetPhone(String address) async {
+    calls.add('forget $address');
+    return const CommandResult(ok: true);
+  }
+
+  @override
   Future<SpeakerSnapshot> getSpeakers() async =>
       const SpeakerSnapshot(settings: SpeakerSettings(), limits: SpeakerLimits(), defaults: SpeakerSettings());
   @override
@@ -415,6 +427,58 @@ void main() {
     await tester.pump();
     expect(h.services.screens.value, AppScreen.media);
     expect(text(tester, 'media-explain'), 'Tap Phones to connect a paired phone or pair another.');
+  });
+
+  testWidgets('Disconnect, and Delete asked again in the row', (tester) async {
+    final audio = SimulatedAudioSource(autoRun: false);
+    final h = await Harness.start(tester, audio: audio);
+    await h.goTo(AppScreen.phones);
+    expect(key('phones-connect-02:00:00:00:00:01'), findsNothing);
+    expect(key('phones-disconnect-02:00:00:00:00:03'), findsNothing);
+    expectTouchTargets(tester, 'phones, Disconnect and Delete');
+
+    await tester.tap(key('phones-disconnect-02:00:00:00:00:01'));
+    await tester.pump();
+    await tester.pump();
+    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Last connected · not connected now');
+    expect(key('phones-connect-02:00:00:00:00:01'), findsOneWidget);
+    expect(key('media-title'), findsNothing);
+
+    // Delete asks first; Keep leaves it.
+    await tester.tap(key('phones-delete-02:00:00:00:00:03'));
+    await tester.pump();
+    expect(key('phones-confirm-02:00:00:00:00:03'), findsOneWidget);
+    expect(find.text('Delete Old simulated phone?'), findsOneWidget);
+    expect(find.text('Pair it again to use it.'), findsOneWidget);
+    expectTouchTargets(tester, 'phones, confirm Delete');
+    await tester.tap(key('phones-delete-no-02:00:00:00:00:03'));
+    await tester.pump();
+    expect(key('phones-confirm-02:00:00:00:00:03'), findsNothing);
+    expect(key('phones-row-02:00:00:00:00:03'), findsOneWidget);
+    // Delete, then yes: gone, and said.
+    await tester.tap(key('phones-delete-02:00:00:00:00:03'));
+    await tester.pump();
+    await tester.tap(key('phones-delete-yes-02:00:00:00:00:03'));
+    await tester.pump();
+    await tester.pump();
+    expect(key('phones-row-02:00:00:00:00:03'), findsNothing);
+    expect(text(tester, 'phones-detail'), 'Deleted Old simulated phone. Pair it again to use it.');
+  });
+
+  testWidgets('Disconnect and Delete reach audio-manager', (tester) async {
+    final audio = FakeAudio()
+      ..value = up(const AudioReport(
+          phone: Phone(address: 'AA:01', name: 'Pixel 8', connected: true, paired: true, last: true),
+          known: [Phone(address: 'AA:02', name: 'Old iPhone', paired: true)]));
+    final h = await Harness.start(tester, audio: audio);
+    await h.goTo(AppScreen.phones);
+    await tester.tap(key('phones-disconnect-AA:01'));
+    await tester.pump();
+    await tester.tap(key('phones-delete-AA:02'));
+    await tester.pump();
+    await tester.tap(key('phones-delete-yes-AA:02'));
+    await tester.pump();
+    expect(audio.calls, ['disconnect AA:01', 'forget AA:02']);
   });
 
   testWidgets('a connection that fails says why', (tester) async {

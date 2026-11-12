@@ -22,4 +22,6 @@ pub trait Bluetooth: Send + Sync {
     async fn connect(&self, address: &str) -> Result<(), String>;
     /// Disconnects a phone (it stays paired).
     async fn disconnect(&self, address: &str) -> Result<(), String>;
+    /// Removes a phone's pairing (BlueZ forgets the device).
+    async fn remove(&self, address: &str) -> Result<(), String>;
 }

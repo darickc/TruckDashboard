@@ -132,6 +132,9 @@ struct Inner {
     order: Vec<String>,
     /// Phones asked to disconnect and not gone yet.
     disconnecting: BTreeSet<String>,
+    /// Phones the driver disconnected: not reconnected by itself until they
+    /// connect again (in memory: after a restart they are again).
+    held: BTreeSet<String>,
 }
 
 pub struct Manager {
@@ -236,6 +239,7 @@ impl Manager {
                 adapter_ready: false,
                 order: Vec::new(),
                 disconnecting: BTreeSet::new(),
+                held: BTreeSet::new(),
             }),
             cfg,
             bt,
@@ -550,6 +554,7 @@ impl Manager {
         let ready = matches!(s.adapter, Adapter::Ready { .. });
         let connected = Self::current(inner, s);
         if let Some(p) = &connected {
+            inner.held.remove(&p.address);
             if inner.last_phone.as_deref() != Some(p.address.as_str()) {
                 inner.last_phone = Some(p.address.clone());
                 self.save_last_phone(&p.address);
@@ -557,13 +562,15 @@ impl Manager {
             if inner.auto_until.take().is_some() {
                 eprintln!("[audio] {} ({}) connected", p.name, p.address);
             }
-            if inner.attempt.is_none() {
+            // A phone has just connected: an older failure is stale.
+            if !inner.had_phone && inner.attempt.is_none() {
                 inner.connect_detail.clear();
             }
         } else if ready
             && (!inner.adapter_ready || inner.had_phone)
             && !self.cfg.reconnect.window.is_zero()
             && let Some(last) = inner.last_phone.clone()
+            && !inner.held.contains(&last)
         {
             inner.auto_until = Some(now + self.cfg.reconnect.window);
             inner.next_auto = now;
@@ -713,6 +720,112 @@ impl Manager {
             self.begin_connect(&mut inner, phone.address.clone(), phone.name.clone(), false);
             format!("Connecting to {}…", phone.name)
         };
+        self.publish();
+        Ok(msg)
+    }
+
+    /// The driver disconnects the connected phone. Ok: what is happening.
+    pub fn disconnect_phone(
+        self: &Arc<Self>,
+        address: &str,
+        source: &str,
+    ) -> Result<String, String> {
+        let s = self.bt.snapshot().borrow().clone();
+        if !matches!(s.adapter, Adapter::Ready { .. }) {
+            return Err("Bluetooth is unavailable.".into());
+        }
+        let Some(phone) = s.phones.iter().find(|p| p.address == address).cloned() else {
+            return Err("That phone isn't paired.".into());
+        };
+        if !phone.connected {
+            return Err(format!("{} isn't connected.", phone.name));
+        }
+        {
+            let mut inner = self.lock();
+            inner.held.insert(phone.address.clone());
+            inner.disconnecting.insert(phone.address.clone());
+            inner.auto_until = None;
+            inner.connect_detail.clear();
+        }
+        eprintln!(
+            "[audio] {source}: disconnect {} ({})",
+            phone.name, phone.address
+        );
+        let msg = format!("Disconnecting {}…", phone.name);
+        let me = Arc::clone(self);
+        tokio::spawn(async move {
+            if let Err(e) = me.bt.disconnect(&phone.address).await {
+                eprintln!(
+                    "[audio] disconnecting {} ({}): {e}",
+                    phone.name, phone.address
+                );
+                let mut inner = me.lock();
+                inner.disconnecting.remove(&phone.address);
+                inner.held.remove(&phone.address);
+                inner.connect_detail = format!("Couldn't disconnect {}: {e}.", phone.name);
+            }
+            me.publish();
+        });
+        self.publish();
+        Ok(msg)
+    }
+
+    /// The driver forgets a paired phone (BlueZ removes the pairing). Ok:
+    /// what is happening.
+    pub fn forget_phone(self: &Arc<Self>, address: &str, source: &str) -> Result<String, String> {
+        let s = self.bt.snapshot().borrow().clone();
+        if !matches!(s.adapter, Adapter::Ready { .. }) {
+            return Err("Bluetooth is unavailable.".into());
+        }
+        let Some(phone) = s.phones.iter().find(|p| p.address == address).cloned() else {
+            return Err("That phone isn't paired.".into());
+        };
+        {
+            let mut inner = self.lock();
+            if inner
+                .attempt
+                .as_ref()
+                .is_some_and(|a| a.address == phone.address)
+            {
+                return Err(format!(
+                    "Connecting to {}: wait for it to finish.",
+                    phone.name
+                ));
+            }
+            inner.held.remove(&phone.address);
+            if inner.last_phone.as_deref() == Some(phone.address.as_str()) {
+                inner.last_phone = None;
+                inner.auto_until = None;
+                if let Some(path) = &self.cfg.last_phone_file
+                    && let Err(e) = std::fs::remove_file(path)
+                    && e.kind() != std::io::ErrorKind::NotFound
+                {
+                    eprintln!("[audio] last phone not cleared ({}): {e}", path.display());
+                }
+            }
+            inner.connect_detail.clear();
+        }
+        eprintln!(
+            "[audio] {source}: forget {} ({})",
+            phone.name, phone.address
+        );
+        let msg = format!("Deleting {}…", phone.name);
+        let me = Arc::clone(self);
+        tokio::spawn(async move {
+            let r = me.bt.remove(&phone.address).await;
+            {
+                let mut inner = me.lock();
+                inner.connect_detail = match &r {
+                    Ok(()) => format!("Deleted {}. Pair it again to use it.", phone.name),
+                    Err(e) => format!("Couldn't delete {}: {e}.", phone.name),
+                };
+            }
+            match &r {
+                Ok(()) => eprintln!("[audio] forgot {} ({})", phone.name, phone.address),
+                Err(e) => eprintln!("[audio] forgetting {} ({}): {e}", phone.name, phone.address),
+            }
+            me.publish();
+        });
         self.publish();
         Ok(msg)
     }

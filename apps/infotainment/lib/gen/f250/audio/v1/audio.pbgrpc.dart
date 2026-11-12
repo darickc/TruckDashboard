@@ -84,6 +84,26 @@ class AudioServiceClient extends $grpc.Client {
     return $createUnaryCall(_$connectPhone, request, options: options);
   }
 
+  /// Disconnects the connected phone. It stays paired; audio-manager doesn't
+  /// reconnect it by itself afterwards (the driver chose this). Returns at
+  /// once; refused, with a reason, for a phone that isn't connected.
+  $grpc.ResponseFuture<$0.DisconnectPhoneResponse> disconnectPhone(
+    $0.DisconnectPhoneRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$disconnectPhone, request, options: options);
+  }
+
+  /// Forgets a paired phone (BlueZ removes the pairing): it has to be paired
+  /// again through the window to be used. Disconnects it first if it is
+  /// connected. Returns at once.
+  $grpc.ResponseFuture<$0.ForgetPhoneResponse> forgetPhone(
+    $0.ForgetPhoneRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$forgetPhone, request, options: options);
+  }
+
   /// Answers a passkey question (Pairing.confirmation).
   $grpc.ResponseFuture<$0.ConfirmPairingResponse> confirmPairing(
     $0.ConfirmPairingRequest request, {
@@ -156,6 +176,16 @@ class AudioServiceClient extends $grpc.Client {
           '/f250.audio.v1.AudioService/ConnectPhone',
           ($0.ConnectPhoneRequest value) => value.writeToBuffer(),
           $0.ConnectPhoneResponse.fromBuffer);
+  static final _$disconnectPhone =
+      $grpc.ClientMethod<$0.DisconnectPhoneRequest, $0.DisconnectPhoneResponse>(
+          '/f250.audio.v1.AudioService/DisconnectPhone',
+          ($0.DisconnectPhoneRequest value) => value.writeToBuffer(),
+          $0.DisconnectPhoneResponse.fromBuffer);
+  static final _$forgetPhone =
+      $grpc.ClientMethod<$0.ForgetPhoneRequest, $0.ForgetPhoneResponse>(
+          '/f250.audio.v1.AudioService/ForgetPhone',
+          ($0.ForgetPhoneRequest value) => value.writeToBuffer(),
+          $0.ForgetPhoneResponse.fromBuffer);
   static final _$confirmPairing =
       $grpc.ClientMethod<$0.ConfirmPairingRequest, $0.ConfirmPairingResponse>(
           '/f250.audio.v1.AudioService/ConfirmPairing',
@@ -228,6 +258,24 @@ abstract class AudioServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.ConnectPhoneRequest.fromBuffer(value),
             ($0.ConnectPhoneResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.DisconnectPhoneRequest,
+            $0.DisconnectPhoneResponse>(
+        'DisconnectPhone',
+        disconnectPhone_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.DisconnectPhoneRequest.fromBuffer(value),
+        ($0.DisconnectPhoneResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.ForgetPhoneRequest, $0.ForgetPhoneResponse>(
+            'ForgetPhone',
+            forgetPhone_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.ForgetPhoneRequest.fromBuffer(value),
+            ($0.ForgetPhoneResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.ConfirmPairingRequest,
             $0.ConfirmPairingResponse>(
         'ConfirmPairing',
@@ -314,6 +362,23 @@ abstract class AudioServiceBase extends $grpc.Service {
 
   $async.Future<$0.ConnectPhoneResponse> connectPhone(
       $grpc.ServiceCall call, $0.ConnectPhoneRequest request);
+
+  $async.Future<$0.DisconnectPhoneResponse> disconnectPhone_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.DisconnectPhoneRequest> $request) async {
+    return disconnectPhone($call, await $request);
+  }
+
+  $async.Future<$0.DisconnectPhoneResponse> disconnectPhone(
+      $grpc.ServiceCall call, $0.DisconnectPhoneRequest request);
+
+  $async.Future<$0.ForgetPhoneResponse> forgetPhone_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.ForgetPhoneRequest> $request) async {
+    return forgetPhone($call, await $request);
+  }
+
+  $async.Future<$0.ForgetPhoneResponse> forgetPhone(
+      $grpc.ServiceCall call, $0.ForgetPhoneRequest request);
 
   $async.Future<$0.ConfirmPairingResponse> confirmPairing_Pre(
       $grpc.ServiceCall $call,

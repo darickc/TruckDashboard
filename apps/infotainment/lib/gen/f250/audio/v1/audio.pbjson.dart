@@ -454,6 +454,64 @@ final $typed_data.Uint8List connectPhoneResponseDescriptor = $convert.base64Deco
     'ChRDb25uZWN0UGhvbmVSZXNwb25zZRIaCghhY2NlcHRlZBgBIAEoCFIIYWNjZXB0ZWQSFgoGZG'
     'V0YWlsGAIgASgJUgZkZXRhaWw=');
 
+@$core.Deprecated('Use disconnectPhoneRequestDescriptor instead')
+const DisconnectPhoneRequest$json = {
+  '1': 'DisconnectPhoneRequest',
+  '2': [
+    {'1': 'address', '3': 1, '4': 1, '5': 9, '10': 'address'},
+    {'1': 'source', '3': 2, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `DisconnectPhoneRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List disconnectPhoneRequestDescriptor =
+    $convert.base64Decode(
+        'ChZEaXNjb25uZWN0UGhvbmVSZXF1ZXN0EhgKB2FkZHJlc3MYASABKAlSB2FkZHJlc3MSFgoGc2'
+        '91cmNlGAIgASgJUgZzb3VyY2U=');
+
+@$core.Deprecated('Use disconnectPhoneResponseDescriptor instead')
+const DisconnectPhoneResponse$json = {
+  '1': 'DisconnectPhoneResponse',
+  '2': [
+    {'1': 'accepted', '3': 1, '4': 1, '5': 8, '10': 'accepted'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `DisconnectPhoneResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List disconnectPhoneResponseDescriptor =
+    $convert.base64Decode(
+        'ChdEaXNjb25uZWN0UGhvbmVSZXNwb25zZRIaCghhY2NlcHRlZBgBIAEoCFIIYWNjZXB0ZWQSFg'
+        'oGZGV0YWlsGAIgASgJUgZkZXRhaWw=');
+
+@$core.Deprecated('Use forgetPhoneRequestDescriptor instead')
+const ForgetPhoneRequest$json = {
+  '1': 'ForgetPhoneRequest',
+  '2': [
+    {'1': 'address', '3': 1, '4': 1, '5': 9, '10': 'address'},
+    {'1': 'source', '3': 2, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `ForgetPhoneRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List forgetPhoneRequestDescriptor = $convert.base64Decode(
+    'ChJGb3JnZXRQaG9uZVJlcXVlc3QSGAoHYWRkcmVzcxgBIAEoCVIHYWRkcmVzcxIWCgZzb3VyY2'
+    'UYAiABKAlSBnNvdXJjZQ==');
+
+@$core.Deprecated('Use forgetPhoneResponseDescriptor instead')
+const ForgetPhoneResponse$json = {
+  '1': 'ForgetPhoneResponse',
+  '2': [
+    {'1': 'accepted', '3': 1, '4': 1, '5': 8, '10': 'accepted'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `ForgetPhoneResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List forgetPhoneResponseDescriptor = $convert.base64Decode(
+    'ChNGb3JnZXRQaG9uZVJlc3BvbnNlEhoKCGFjY2VwdGVkGAEgASgIUghhY2NlcHRlZBIWCgZkZX'
+    'RhaWwYAiABKAlSBmRldGFpbA==');
+
 @$core.Deprecated('Use confirmPairingRequestDescriptor instead')
 const ConfirmPairingRequest$json = {
   '1': 'ConfirmPairingRequest',

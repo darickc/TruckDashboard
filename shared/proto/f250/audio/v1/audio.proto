@@ -33,6 +33,14 @@ service AudioService {
   // a phone that isn't paired, without Bluetooth, or while another attempt
   // runs.
   rpc ConnectPhone(ConnectPhoneRequest) returns (ConnectPhoneResponse);
+  // Disconnects the connected phone. It stays paired; audio-manager doesn't
+  // reconnect it by itself afterwards (the driver chose this). Returns at
+  // once; refused, with a reason, for a phone that isn't connected.
+  rpc DisconnectPhone(DisconnectPhoneRequest) returns (DisconnectPhoneResponse);
+  // Forgets a paired phone (BlueZ removes the pairing): it has to be paired
+  // again through the window to be used. Disconnects it first if it is
+  // connected. Returns at once.
+  rpc ForgetPhone(ForgetPhoneRequest) returns (ForgetPhoneResponse);
   // Answers a passkey question (Pairing.confirmation).
   rpc ConfirmPairing(ConfirmPairingRequest) returns (ConfirmPairingResponse);
   // The speaker settings, their limits, and whether they are applied.
@@ -252,6 +260,26 @@ message ConnectPhoneRequest {
 
 message ConnectPhoneResponse {
   // True: the attempt has started.
+  bool accepted = 1;
+  string detail = 2;
+}
+
+message DisconnectPhoneRequest {
+  string address = 1;
+  string source = 2;
+}
+
+message DisconnectPhoneResponse {
+  bool accepted = 1;
+  string detail = 2;
+}
+
+message ForgetPhoneRequest {
+  string address = 1;
+  string source = 2;
+}
+
+message ForgetPhoneResponse {
   bool accepted = 1;
   string detail = 2;
 }

@@ -1498,6 +1498,287 @@ class ConnectPhoneResponse extends $pb.GeneratedMessage {
   void clearDetail() => $_clearField(2);
 }
 
+class DisconnectPhoneRequest extends $pb.GeneratedMessage {
+  factory DisconnectPhoneRequest({
+    $core.String? address,
+    $core.String? source,
+  }) {
+    final result = DisconnectPhoneRequest._();
+    if (address != null) result.address = address;
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  DisconnectPhoneRequest._();
+
+  factory DisconnectPhoneRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      DisconnectPhoneRequest()..mergeFromBuffer(data, registry);
+  factory DisconnectPhoneRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      DisconnectPhoneRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DisconnectPhoneRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: DisconnectPhoneRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'address')
+    ..aOS(2, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DisconnectPhoneRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DisconnectPhoneRequest copyWith(
+          void Function(DisconnectPhoneRequest) updates) =>
+      super.copyWith((message) => updates(message as DisconnectPhoneRequest))
+          as DisconnectPhoneRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DisconnectPhoneRequest() / DisconnectPhoneRequest.new instead')
+  static DisconnectPhoneRequest create() => DisconnectPhoneRequest._();
+  static $pb.GeneratedMessage $_createMessage() => DisconnectPhoneRequest._();
+  @$core.override
+  DisconnectPhoneRequest createEmptyInstance() => DisconnectPhoneRequest._();
+  @$core.pragma('dart2js:noInline')
+  static DisconnectPhoneRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DisconnectPhoneRequest>(
+          DisconnectPhoneRequest.$_createMessage);
+  static DisconnectPhoneRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get address => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set address($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAddress() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAddress() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get source => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set source($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSource() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSource() => $_clearField(2);
+}
+
+class DisconnectPhoneResponse extends $pb.GeneratedMessage {
+  factory DisconnectPhoneResponse({
+    $core.bool? accepted,
+    $core.String? detail,
+  }) {
+    final result = DisconnectPhoneResponse._();
+    if (accepted != null) result.accepted = accepted;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  DisconnectPhoneResponse._();
+
+  factory DisconnectPhoneResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      DisconnectPhoneResponse()..mergeFromBuffer(data, registry);
+  factory DisconnectPhoneResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      DisconnectPhoneResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DisconnectPhoneResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: DisconnectPhoneResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'accepted')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DisconnectPhoneResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DisconnectPhoneResponse copyWith(
+          void Function(DisconnectPhoneResponse) updates) =>
+      super.copyWith((message) => updates(message as DisconnectPhoneResponse))
+          as DisconnectPhoneResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use DisconnectPhoneResponse() / DisconnectPhoneResponse.new instead')
+  static DisconnectPhoneResponse create() => DisconnectPhoneResponse._();
+  static $pb.GeneratedMessage $_createMessage() => DisconnectPhoneResponse._();
+  @$core.override
+  DisconnectPhoneResponse createEmptyInstance() => DisconnectPhoneResponse._();
+  @$core.pragma('dart2js:noInline')
+  static DisconnectPhoneResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<DisconnectPhoneResponse>(
+          DisconnectPhoneResponse.$_createMessage);
+  static DisconnectPhoneResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get accepted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set accepted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAccepted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccepted() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
+}
+
+class ForgetPhoneRequest extends $pb.GeneratedMessage {
+  factory ForgetPhoneRequest({
+    $core.String? address,
+    $core.String? source,
+  }) {
+    final result = ForgetPhoneRequest._();
+    if (address != null) result.address = address;
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  ForgetPhoneRequest._();
+
+  factory ForgetPhoneRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ForgetPhoneRequest()..mergeFromBuffer(data, registry);
+  factory ForgetPhoneRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ForgetPhoneRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ForgetPhoneRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: ForgetPhoneRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'address')
+    ..aOS(2, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ForgetPhoneRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ForgetPhoneRequest copyWith(void Function(ForgetPhoneRequest) updates) =>
+      super.copyWith((message) => updates(message as ForgetPhoneRequest))
+          as ForgetPhoneRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ForgetPhoneRequest() / ForgetPhoneRequest.new instead')
+  static ForgetPhoneRequest create() => ForgetPhoneRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ForgetPhoneRequest._();
+  @$core.override
+  ForgetPhoneRequest createEmptyInstance() => ForgetPhoneRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ForgetPhoneRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ForgetPhoneRequest>(
+          ForgetPhoneRequest.$_createMessage);
+  static ForgetPhoneRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get address => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set address($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAddress() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAddress() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get source => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set source($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSource() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSource() => $_clearField(2);
+}
+
+class ForgetPhoneResponse extends $pb.GeneratedMessage {
+  factory ForgetPhoneResponse({
+    $core.bool? accepted,
+    $core.String? detail,
+  }) {
+    final result = ForgetPhoneResponse._();
+    if (accepted != null) result.accepted = accepted;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  ForgetPhoneResponse._();
+
+  factory ForgetPhoneResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ForgetPhoneResponse()..mergeFromBuffer(data, registry);
+  factory ForgetPhoneResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ForgetPhoneResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ForgetPhoneResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: ForgetPhoneResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'accepted')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ForgetPhoneResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ForgetPhoneResponse copyWith(void Function(ForgetPhoneResponse) updates) =>
+      super.copyWith((message) => updates(message as ForgetPhoneResponse))
+          as ForgetPhoneResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use ForgetPhoneResponse() / ForgetPhoneResponse.new instead')
+  static ForgetPhoneResponse create() => ForgetPhoneResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ForgetPhoneResponse._();
+  @$core.override
+  ForgetPhoneResponse createEmptyInstance() => ForgetPhoneResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ForgetPhoneResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ForgetPhoneResponse>(
+          ForgetPhoneResponse.$_createMessage);
+  static ForgetPhoneResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get accepted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set accepted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAccepted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccepted() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
+}
+
 class ConfirmPairingRequest extends $pb.GeneratedMessage {
   factory ConfirmPairingRequest({
     $fixnum.Int64? id,

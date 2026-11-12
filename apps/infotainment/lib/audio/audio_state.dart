@@ -284,6 +284,13 @@ abstract class AudioSource {
   /// Connects a paired phone (any other is disconnected first). Returns once
   /// the attempt has started; [AudioReport.connect] follows it.
   Future<CommandResult> connectPhone(String address);
+
+  /// Disconnects the connected phone; it stays paired and isn't reconnected
+  /// by itself.
+  Future<CommandResult> disconnectPhone(String address);
+
+  /// Forgets a paired phone: it has to be paired again to be used.
+  Future<CommandResult> forgetPhone(String address);
   Future<SpeakerSnapshot> getSpeakers();
   Future<CommandResult> setSpeakers(SpeakerSettings s);
 }
@@ -459,6 +466,27 @@ class SimulatedAudioSource implements AudioSource {
   void connect() {
     _setConnected(_phones.first.address);
     _publish();
+  }
+
+  @override
+  Future<CommandResult> disconnectPhone(String address) async {
+    final p = _phones.where((p) => p.address == address).firstOrNull;
+    if (p == null) return const CommandResult(ok: false, detail: 'That phone isn\'t paired.');
+    if (!p.connected) return CommandResult(ok: false, detail: '${p.name} isn\'t connected.');
+    _setConnected(null);
+    _publish();
+    return CommandResult(ok: true, detail: 'Disconnecting ${p.name}…');
+  }
+
+  @override
+  Future<CommandResult> forgetPhone(String address) async {
+    final p = _phones.where((p) => p.address == address).firstOrNull;
+    if (p == null) return const CommandResult(ok: false, detail: 'That phone isn\'t paired.');
+    _phones.removeWhere((x) => x.address == address);
+    if (_lastAddress == address) _lastAddress = '';
+    _connectDetail = 'Deleted ${p.name}. Pair it again to use it.';
+    _publish();
+    return CommandResult(ok: true, detail: 'Deleting ${p.name}…');
   }
 
   @override

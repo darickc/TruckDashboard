@@ -423,6 +423,18 @@ impl Bluetooth for SimPhone {
         })
     }
 
+    async fn remove(&self, address: &str) -> Result<(), String> {
+        self.with(|s, _| {
+            let before = s.phones.len();
+            s.phones.retain(|p| p.address != address);
+            if s.phones.len() == before {
+                Err("not a known phone".to_string())
+            } else {
+                Ok(())
+            }
+        })
+    }
+
     async fn disconnect(&self, address: &str) -> Result<(), String> {
         self.with(|s, _| {
             s.disconnects.push(address.to_string());

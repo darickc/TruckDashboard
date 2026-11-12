@@ -104,6 +104,20 @@ impl AudioService for Fake {
         Err(Status::unimplemented("fake"))
     }
 
+    async fn disconnect_phone(
+        &self,
+        _: Request<pb::DisconnectPhoneRequest>,
+    ) -> Result<Response<pb::DisconnectPhoneResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
+    async fn forget_phone(
+        &self,
+        _: Request<pb::ForgetPhoneRequest>,
+    ) -> Result<Response<pb::ForgetPhoneResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
     async fn get_speaker_settings(
         &self,
         _: Request<pb::GetSpeakerSettingsRequest>,

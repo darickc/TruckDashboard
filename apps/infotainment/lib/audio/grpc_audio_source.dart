@@ -145,6 +145,18 @@ class GrpcAudioSource implements AudioSource {
   }
 
   @override
+  Future<CommandResult> disconnectPhone(String address) async {
+    final r = await _need().disconnectPhone(pb.DisconnectPhoneRequest(address: address, source: 'dashboard'), options: _opts);
+    return CommandResult(ok: r.accepted, detail: r.detail);
+  }
+
+  @override
+  Future<CommandResult> forgetPhone(String address) async {
+    final r = await _need().forgetPhone(pb.ForgetPhoneRequest(address: address, source: 'dashboard'), options: _opts);
+    return CommandResult(ok: r.accepted, detail: r.detail);
+  }
+
+  @override
   Future<SpeakerSnapshot> getSpeakers() async {
     final r = await _need().getSpeakerSettings(pb.GetSpeakerSettingsRequest(), options: _opts);
     final l = r.limits;

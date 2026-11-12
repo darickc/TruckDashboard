@@ -127,6 +127,39 @@ impl AudioService for Api {
         }))
     }
 
+    async fn disconnect_phone(
+        &self,
+        req: Request<pb::DisconnectPhoneRequest>,
+    ) -> Result<Response<pb::DisconnectPhoneResponse>, Status> {
+        let req = req.into_inner();
+        let address = req.address.trim().to_ascii_uppercase();
+        let (accepted, detail) = match self
+            .manager
+            .disconnect_phone(&address, &source_of(&req.source))
+        {
+            Ok(d) => (true, d),
+            Err(d) => (false, d),
+        };
+        Ok(Response::new(pb::DisconnectPhoneResponse {
+            accepted,
+            detail,
+        }))
+    }
+
+    async fn forget_phone(
+        &self,
+        req: Request<pb::ForgetPhoneRequest>,
+    ) -> Result<Response<pb::ForgetPhoneResponse>, Status> {
+        let req = req.into_inner();
+        let address = req.address.trim().to_ascii_uppercase();
+        let (accepted, detail) = match self.manager.forget_phone(&address, &source_of(&req.source))
+        {
+            Ok(d) => (true, d),
+            Err(d) => (false, d),
+        };
+        Ok(Response::new(pb::ForgetPhoneResponse { accepted, detail }))
+    }
+
     async fn confirm_pairing(
         &self,
         req: Request<pb::ConfirmPairingRequest>,
