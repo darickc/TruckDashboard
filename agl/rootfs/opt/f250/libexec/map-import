@@ -30,8 +30,9 @@
 # at every start) is not copied again ("current"). The dashboard reads the
 # status file (JSON: state checking|copying|updated|current|failed, percent,
 # message, id, device, item: map|routing, the file being checked or copied,
-# and changed: the items an "updated" import replaced) and opens the new map
-# when it sees "updated" with a new id and "map" in changed. navigation
+# and changed: the items the import replaced, also when it then failed) and
+# opens the new map when it sees "updated", or "failed" after the map was
+# swapped in, with a new id and "map" in changed. navigation
 # notices new routing data by itself (it checks the file every second).
 #
 # Testing: F250_STORAGE (the data drive's mount point), F250_MAP_STATUS_DIR
@@ -94,9 +95,12 @@ cleanup() {
 trap cleanup EXIT
 
 fail() {
+  local msg="$*"
   log "failed: $*"
   [[ -n "$PART" ]] && rm -f "$PART"
-  status failed 0 "$*"
+  # Only the map comes before the routing data: say it was swapped in.
+  [[ ${#CHANGED[@]} -gt 0 ]] && msg="$msg The map was updated."
+  status failed 0 "$msg"
   exit 1
 }
 

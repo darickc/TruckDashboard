@@ -27,13 +27,17 @@ class MapUpdateStatus {
   /// What is being checked or copied: `map` or `routing`.
   final String item;
 
-  /// What an `updated` import replaced (`map`, `routing`). Null from an
-  /// import that doesn't say, which only ever imported maps.
+  /// What the import replaced (`map`, `routing`), also when it then failed
+  /// on the routing data. Null from an import that doesn't say, which only
+  /// ever imported maps.
   final List<String>? changed;
 
   /// Whether this import put a new map on the drive, so the map is reopened.
-  bool get mapChanged =>
-      state == MapUpdateState.updated && (changed == null || changed!.contains('map'));
+  bool get mapChanged => switch (state) {
+    MapUpdateState.updated => changed == null || changed!.contains('map'),
+    MapUpdateState.failed => changed?.contains('map') ?? false,
+    _ => false,
+  };
   final DateTime? at;
 
   /// How long a finished import (updated or failed) stays on screen.

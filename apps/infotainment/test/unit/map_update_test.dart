@@ -52,6 +52,10 @@ void main() {
       expect(MapUpdateStatus.parse(status('updated'))!.mapChanged, isTrue,
           reason: 'an import that doesn\'t say what changed only ever imported maps');
       expect(MapUpdateStatus.parse(status('copying'))!.item, 'map');
+      expect(MapUpdateStatus.parse(status('failed', changed: ['map']))!.mapChanged, isTrue,
+          reason: 'the map was swapped in before the routing data failed');
+      expect(MapUpdateStatus.parse(status('failed'))!.mapChanged, isFalse);
+      expect(MapUpdateStatus.parse(status('failed', changed: []))!.mapChanged, isFalse);
     });
 
     test('anything else is no status', () {
@@ -147,6 +151,18 @@ void main() {
       expect(map.update.value!.state, MapUpdateState.updated);
       expect(opens, 1);
       await map.checkUpdate();
+      expect(opens, 2);
+    });
+
+    test('a new map is opened even if the routing data after it failed', () async {
+      await map.load();
+      answers.addAll([
+        null,
+        status('failed', id: 'f', item: 'routing', changed: ['map'], message: 'bad. The map was updated.'),
+      ]);
+      await map.checkUpdate();
+      await map.checkUpdate();
+      expect(map.update.value!.state, MapUpdateState.failed);
       expect(opens, 2);
     });
 

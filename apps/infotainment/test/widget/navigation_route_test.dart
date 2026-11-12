@@ -1,5 +1,7 @@
 import 'package:f250_infotainment/core/clock.dart';
 import 'package:f250_infotainment/model/units.dart';
+import 'package:f250_infotainment/nav/offline_map.dart';
+import 'package:f250_infotainment/nav/pmtiles_file.dart';
 import 'package:f250_infotainment/nav/position_state.dart';
 import 'package:f250_infotainment/nav/route_state.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
@@ -85,10 +87,11 @@ Future<(Harness, FakeRouteSource)> open(
   WidgetTester tester,
   RouteView Function(FakeRouteSource) initial, {
   PositionSource? position,
+  OfflineMap? map,
 }) async {
   final src = FakeRouteSource(const RouteView(link: RouteLink.connecting));
   src.value = initial(src);
-  final h = await Harness.start(tester, route: src, position: position);
+  final h = await Harness.start(tester, route: src, position: position, map: map);
   await h.goTo(AppScreen.navigation);
   return (h, src);
 }
@@ -160,6 +163,36 @@ void main() {
       expect(find.byIcon(Icons.turn_right), findsOneWidget);
     });
   }
+
+  testWidgets('a map stick while routing is one line, below the banner\'s warning (ADR-0033)', (
+    tester,
+  ) async {
+    // Seen on the Pi (2026-11-11): the stick's card covered "Not checked for
+    // heavy vehicles or trailers".
+    final answers = <String?>[
+      null,
+      '{"state":"current","percent":100,"message":"The routing data on this stick is already installed. '
+          'You can remove the stick.","id":"c","device":"/dev/sda1","item":"routing","changed":[],'
+          '"at":"${DateTime.now().toUtc().toIso8601String()}"}',
+    ];
+    final map = OfflineMap(
+      'test/fixtures/maps/solid-z0-3.pmtiles',
+      statusPath: '/run/f250-maps/status.json',
+      open: openPmTilesFile,
+      readStatus: (_) async => answers.isEmpty ? null : answers.removeAt(0),
+    );
+    await tester.runAsync(map.load);
+    await tester.runAsync(map.checkUpdate);
+    await open(tester, (s) => view(s, RouteState.active, progress: progress), map: map);
+    await tester.runAsync(map.checkUpdate);
+    await tester.pump();
+    final notice = find.byKey(const ValueKey('nav-map-update'));
+    expect(tester.widget<Text>(notice).maxLines, 1);
+    final warning = tester.getRect(find.byKey(const ValueKey('nav-heavy-warning')));
+    final line = tester.getRect(notice);
+    expect(line.top, greaterThan(warning.bottom), reason: 'the warning stays visible');
+    expect(line.bottom, lessThanOrEqualTo(tester.getRect(find.byKey(const ValueKey('nav-end-route'))).top));
+  });
 
   testWidgets('guidance that stops arriving pauses: no distances, and why', (tester) async {
     final (_, src) = await open(tester, (s) => view(s, RouteState.active, progress: progress));

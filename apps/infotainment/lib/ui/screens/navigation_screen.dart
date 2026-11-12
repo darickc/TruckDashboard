@@ -211,19 +211,27 @@ class _NavigationScreenState extends State<NavigationScreen> {
           text: mapProblem,
           palette: p,
         ),
-      // A map stick being imported (ADR-0033), or one that just was.
+      // A map stick being imported (ADR-0033), or one that just was. While
+      // routing it is one small line: the card would reach the guidance
+      // banner and hide its heavy-vehicle warning (seen on the Pi,
+      // 2026-11-11). The status bar's chip shows it on every screen.
       if (update != null && update.shownAt(DateTime.now()))
-        _Notice(
-          key: const ValueKey('nav-map-update'),
-          icon: Icons.usb,
-          text: update.text,
-          palette: p,
-          color: switch (update.state) {
-            MapUpdateState.failed => p.advisory,
-            MapUpdateState.updated || MapUpdateState.current => p.ok,
-            _ => p.accent,
-          },
-        ),
+        if (onRoute)
+          Text(
+            update.text,
+            key: const ValueKey('nav-map-update'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12, color: _updateColor(update, p)),
+          )
+        else
+          _Notice(
+            key: const ValueKey('nav-map-update'),
+            icon: Icons.usb,
+            text: update.text,
+            palette: p,
+            color: _updateColor(update, p),
+          ),
       if (route.commandError.isNotEmpty)
         _Notice(
           key: const ValueKey('nav-route-error'),
@@ -497,6 +505,12 @@ class _NavigationScreenState extends State<NavigationScreen> {
       ],
     );
   }
+
+  static Color _updateColor(MapUpdateStatus u, Palette p) => switch (u.state) {
+    MapUpdateState.failed => p.advisory,
+    MapUpdateState.updated || MapUpdateState.current => p.ok,
+    _ => p.accent,
+  };
 
   Widget _textButton(String key, String label, IconData icon, VoidCallback onTap) {
     return TapTarget(

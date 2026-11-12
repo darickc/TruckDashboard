@@ -3,9 +3,11 @@
 # UMask; agl-driver, which runs the dashboard, is in group f250). Routing
 # (6.5.2, ADR-0035): navigation runs valhalla_service once per route, inside
 # this sandbox, reading /var/lib/f250/storage/routing/ and writing its config
-# to /run/f250-nav/. Valhalla isn't in the image yet, so routing shows as
-# unavailable; UNVERIFIED on the Pi that Valhalla runs under this sandbox
-# (MemoryDenyWriteExecute and the syscall filter apply to it too).
+# to /run/f250-nav/. The sandbox applies to it too: [BENCH] 2026-11-11,
+# valhalla_service 3.9.1 routes under it on the Pi 5 (MemoryDenyWriteExecute,
+# @system-service minus @privileged @resources, ProtectSystem=strict), in
+# 0.13-0.2 s and under 40 MB per request (bench-log). The routing data comes
+# on the map stick (ADR-0033 amendment).
 #
 # gpsd owns the GNSS receiver; navigation is its client on 127.0.0.1:2947
 # (NAV_GPSD, navigation-start). gpsd's own socket unit is pulled in, so

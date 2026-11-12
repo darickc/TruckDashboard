@@ -842,6 +842,11 @@ routing_failing "no checksum" "no routing.tar.sha256" "cp '$T/not-extract.tar' r
 routing_failing "a wrong checksum" "match its checksum" "cp '$T/routing.tar' routing.tar; printf '%064d  routing.tar\n' 0 >routing.tar.sha256"
 routing_failing "not an extract" "no index.bin first" "cp '$T/not-extract.tar' routing.tar; (shasum -a 256 routing.tar 2>/dev/null || sha256sum routing.tar) >routing.tar.sha256"
 routing_failing "not a tar" "a tar file" "cp '$PWD/$FIX' routing.tar; (shasum -a 256 routing.tar 2>/dev/null || sha256sum routing.tar) >routing.tar.sha256"
+D="$(new_case map-then-bad-routing)"; mkdir -p "$D/stick/f250"
+python3 tools/maps/map-stick.py --map "$FIX" --stick "$D/stick" --any-dir >/dev/null 2>&1 || true
+cp "$T/routing.tar" "$D/stick/f250/routing.tar"; printf '%064d  routing.tar\n' 0 >"$D/stick/f250/routing.tar.sha256"
+mi "$D" dir "$D/stick" >/dev/null 2>&1 && fail "map then bad routing data: exited 0"
+check "map then bad routing data: the new map stays, and the status says so" "cmp -s '$FIX' '$D/storage/maps/map.pmtiles' && [[ \"\$(state_of '$D')\" == failed ]] && grep -qF '\"changed\":[\"map\"]' '$D/run/status.json' && grep -qF 'The map was updated.' '$D/run/status.json' && [[ ! -e '$D/storage/$RTS' ]]"
 D="$(new_case r-pulled)"; mkdir -p "$D/run" "$D/storage/routing"
 printf '{"state":"copying","percent":40,"message":"","id":"y","device":"/dev/sdc1","item":"routing","changed":["map"],"at":"2026-11-11T00:00:00Z"}\n' >"$D/run/status.json"
 echo partial >"$D/storage/$RTS.part"
