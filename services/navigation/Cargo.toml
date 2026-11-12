@@ -1,7 +1,7 @@
 [package]
 name = "navigation"
 version = "0.1.0"
-description = "The truck's position from gpsd (or a simulated receiver) and routes from Valhalla, served as f250.nav.v1 (Phase 6.4/6.5.2, ADR-0030, ADR-0035)"
+description = "The truck's position from gpsd (or a simulated receiver), routes from Valhalla and offline address search, served as f250.nav.v1 (Phase 6.4/6.5.2/6.5.3, ADR-0030, ADR-0035, ADR-0038)"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -16,6 +16,7 @@ name = "navigation"
 path = "src/main.rs"
 
 [dependencies]
+f250-geocode = { path = "../../crates/geocode" }
 f250-gpsd = { path = "../../crates/gpsd" }
 f250-proto = { path = "../../crates/proto" }
 serde_json = "1.0.154"

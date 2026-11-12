@@ -1,0 +1,26 @@
+[package]
+name = "search-index"
+version = "0.1.0"
+description = "Builds navigation's offline search index (addresses, streets, towns, named places) from OpenStreetMap extracts, on the Mac (ADR-0038)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "search_index"
+path = "src/lib.rs"
+
+[[bin]]
+name = "search-index"
+path = "src/main.rs"
+
+[dependencies]
+f250-geocode = { path = "../../crates/geocode" }
+clap = { version = "4", features = ["derive"] }
+osmpbf = "0.3.8"
+rayon = "1"
+serde_json = "1.0.154"
+
+[lints]
+workspace = true

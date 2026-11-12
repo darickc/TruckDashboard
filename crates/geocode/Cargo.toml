@@ -1,0 +1,20 @@
+[package]
+name = "f250-geocode"
+version = "0.1.0"
+description = "Offline address and place search: the SQLite FTS5 index of OpenStreetMap addresses, streets, towns and named places, its words, and the search ranked near the truck (ADR-0038)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "geocode"
+path = "src/lib.rs"
+
+[dependencies]
+# Bundled SQLite on the Mac; the AGL image links its own libsqlite3 (FTS5 on
+# in OE-core's sqlite3 recipe), as the recorder does (f250-services.bb).
+rusqlite = { version = "0.41", features = ["bundled"] }
+
+[lints]
+workspace = true

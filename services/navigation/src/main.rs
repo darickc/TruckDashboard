@@ -1,5 +1,6 @@
-//! `navigation`: the truck's position from gpsd and routes from Valhalla,
-//! served as `f250.nav.v1` (Phase 6.4 and 6.5.2, ADR-0030, ADR-0035).
+//! `navigation`: the truck's position from gpsd, routes from Valhalla and
+//! address search, served as `f250.nav.v1` (Phase 6.4, 6.5.2 and 6.5.3,
+//! ADR-0030, ADR-0035, ADR-0038).
 //!
 //!   navigation --listen unix:/run/f250-nav/nav.sock                # gpsd on 127.0.0.1:2947
 //!   navigation --listen unix:/tmp/f250/nav.sock --simulate         # development
@@ -15,6 +16,7 @@ use f250_proto::nav::v1 as pb;
 use f250_sd_notify::{Heartbeat, Notifier, run_watchdog};
 use navigation::guide::{self, GuideConfig};
 use navigation::publisher::{self, PublisherConfig};
+use navigation::search::Searcher;
 use navigation::server::{self, Api, RoutingApi};
 use navigation::sim::{self, SimConfig};
 use navigation::source::{self, GpsdConfig};
@@ -86,6 +88,14 @@ struct Args {
     truck_weight_t: Option<f64>,
     #[arg(long, value_name = "T")]
     truck_axle_load_t: Option<f64>,
+    /// The offline search index (`make search-region`, brought by the map
+    /// stick). Read-only; reopened when it changes.
+    #[arg(
+        long,
+        default_value = "/var/lib/f250/storage/search/search.sqlite",
+        value_name = "FILE"
+    )]
+    search_index: PathBuf,
     /// Off the route beyond this many metres for --off-route-s seconds
     /// asks for a new route. Examples to tune on the truck.
     #[arg(long, default_value_t = 60.0)]
@@ -179,11 +189,24 @@ async fn main() -> ExitCode {
         guidance_tx,
         route_tx,
     ));
-    let api = Api::new(position).with_routing(RoutingApi {
-        commands: commands_tx,
-        guidance: guidance_rx,
-        route: route_rx,
-    });
+    if args.search_index.is_file() {
+        eprintln!(
+            "[navigation] search data from {}",
+            args.search_index.display()
+        );
+    } else {
+        eprintln!(
+            "[navigation] no search data at {} for now (make search-region; the map stick brings it)",
+            args.search_index.display()
+        );
+    }
+    let api = Api::new(position)
+        .with_routing(RoutingApi {
+            commands: commands_tx,
+            guidance: guidance_rx,
+            route: route_rx,
+        })
+        .with_search(Searcher::new(args.search_index.clone()));
 
     let listen = args.listen.clone();
     let serving = tokio::spawn(async move { server::serve(&listen, api).await });

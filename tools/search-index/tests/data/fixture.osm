@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Made-up places in the Gulf of Mexico, for tools/search-index's tests.
+     fixture.osm.pbf is made from it by tests/data/make-fixture.sh (osmium). -->
+<osm version="0.6" generator="hand">
+  <node id="1" version="1" lat="26.0000" lon="-90.0000">
+    <tag k="place" v="town"/><tag k="name" v="Fairview"/><tag k="population" v="2150"/>
+  </node>
+  <node id="2" version="1" lat="26.2000" lon="-90.0000">
+    <tag k="place" v="hamlet"/><tag k="name" v="Tiny"/>
+  </node>
+  <node id="101" version="1" lat="26.0010" lon="-90.0000"/>
+  <node id="102" version="1" lat="26.0020" lon="-90.0000"/>
+  <node id="103" version="1" lat="26.0030" lon="-90.0000"/>
+  <node id="104" version="1" lat="26.0040" lon="-90.0000"/>
+  <node id="105" version="1" lat="26.0010" lon="-90.0010"/>
+  <node id="106" version="1" lat="26.0020" lon="-90.0010"/>
+  <node id="107" version="1" lat="26.0012" lon="-89.9998"/>
+  <node id="108" version="1" lat="26.0012" lon="-89.9996"/>
+  <node id="109" version="1" lat="26.0014" lon="-89.9996"/>
+  <node id="110" version="1" lat="26.0025" lon="-89.9998">
+    <tag k="amenity" v="fuel"/><tag k="name" v="Casey's"/>
+    <tag k="addr:housenumber" v="200"/><tag k="addr:street" v="North Main Street"/>
+  </node>
+  <node id="111" version="1" lat="26.0026" lon="-89.9998">
+    <tag k="amenity" v="bench"/><tag k="name" v="Memorial"/>
+  </node>
+  <node id="112" version="1" lat="26.2010" lon="-90.0002">
+    <tag k="addr:housenumber" v="5"/><tag k="addr:street" v="Elm Avenue"/>
+  </node>
+  <node id="113" version="1" lat="26.2010" lon="-90.0000"/>
+  <node id="114" version="1" lat="26.2020" lon="-90.0000"/>
+  <node id="115" version="1" lat="26.0030" lon="-90.0100">
+    <tag k="highway" v="stop"/>
+  </node>
+  <way id="10" version="1">
+    <nd ref="101"/><nd ref="102"/><nd ref="103"/>
+    <tag k="highway" v="residential"/><tag k="name" v="North Main Street"/>
+  </way>
+  <way id="11" version="1">
+    <nd ref="103"/><nd ref="104"/>
+    <tag k="highway" v="residential"/><tag k="name" v="North Main Street"/>
+  </way>
+  <way id="12" version="1">
+    <nd ref="105"/><nd ref="106"/>
+    <tag k="highway" v="footway"/><tag k="name" v="Park Path"/>
+  </way>
+  <way id="13" version="1">
+    <nd ref="107"/><nd ref="108"/><nd ref="109"/><nd ref="107"/>
+    <tag k="building" v="house"/>
+    <tag k="addr:housenumber" v="120"/><tag k="addr:street" v="North Main Street"/>
+  </way>
+  <way id="14" version="1">
+    <nd ref="113"/><nd ref="114"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Elm Avenue"/>
+  </way>
+  <!-- A way whose nodes aren't in the extract (cut at its edge). -->
+  <way id="15" version="1">
+    <nd ref="901"/><nd ref="902"/>
+    <tag k="highway" v="residential"/><tag k="name" v="Edge Road"/>
+  </way>
+  <relation id="20" version="1">
+    <member type="way" ref="10" role=""/>
+    <tag k="type" v="route"/><tag k="route" v="road"/><tag k="name" v="Not Read"/>
+  </relation>
+</osm>

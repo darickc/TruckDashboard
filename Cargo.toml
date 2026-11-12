@@ -13,6 +13,7 @@ members = [
     "crates/daylight",
     "crates/clock-sync",
     "crates/gpsd",
+    "crates/geocode",
     "services/vehicle-gateway",
     "services/recorder",
     "services/power-manager",
@@ -22,6 +23,7 @@ members = [
     "tools/obd-console",
     "tools/can-monitor",
     "tools/pid-importer",
+    "tools/search-index",
 ]
 
 [workspace.package]

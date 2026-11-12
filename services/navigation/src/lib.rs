@@ -7,13 +7,16 @@
 //!   `f250.nav.v1.Position` on every report and once a second.
 //! - [`guide`] keeps the destination and the route, follows the truck along
 //!   it and asks [`valhalla`] for a new route when it leaves it.
-//! - [`server`] serves `PositionService` and `RouteService`.
+//! - [`search`] answers address and place searches from the offline index
+//!   (6.5.3, ADR-0038), ranked from the latest position.
+//! - [`server`] serves `PositionService`, `RouteService` and `SearchService`.
 //!
 //! The dashboard never talks to gpsd; it reads this API (CLAUDE.md rule 5's
 //! pattern, ADR-0030 decision 1).
 
 pub mod guide;
 pub mod publisher;
+pub mod search;
 pub mod server;
 pub mod sim;
 pub mod source;

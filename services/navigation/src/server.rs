@@ -1,6 +1,7 @@
 //! `f250.nav.v1.PositionService`: the publisher's latest position, then
 //! each new one. `RouteService`: commands to the guide, its guidance and
-//! its current route.
+//! its current route. `SearchService`: the offline search index, ranked from
+//! the latest position (ADR-0038).
 
 use std::path::Path;
 use std::pin::Pin;
@@ -9,17 +10,20 @@ use std::sync::Arc;
 use f250_proto::nav::v1 as pb;
 use pb::position_service_server::{PositionService, PositionServiceServer};
 use pb::route_service_server::{RouteService, RouteServiceServer};
+use pb::search_service_server::{SearchService, SearchServiceServer};
 use tokio::sync::{mpsc, watch};
 use tokio_stream::{Stream, StreamExt, wrappers::WatchStream};
 use tonic::{Request, Response, Status};
 
 use crate::guide::{Command, route_to_pb};
+use crate::search::{self, Searcher};
 use crate::valhalla::Route;
 
 #[derive(Clone)]
 pub struct Api {
     position: watch::Receiver<pb::Position>,
     routing: Option<RoutingApi>,
+    search: Option<Arc<Searcher>>,
 }
 
 /// The guide's side of the API.
@@ -35,7 +39,13 @@ impl Api {
         Api {
             position,
             routing: None,
+            search: None,
         }
+    }
+
+    pub fn with_search(mut self, searcher: Arc<Searcher>) -> Self {
+        self.search = Some(searcher);
+        self
     }
 
     pub fn with_routing(mut self, routing: RoutingApi) -> Self {
@@ -147,12 +157,56 @@ impl RouteService for Api {
     }
 }
 
+#[tonic::async_trait]
+impl SearchService for Api {
+    async fn search(
+        &self,
+        req: Request<pb::SearchRequest>,
+    ) -> Result<Response<pb::SearchResponse>, Status> {
+        let req = req.into_inner();
+        let query = search::clip(&req.query).to_string();
+        let limit = search::limit(req.limit);
+        let (near, from, age) = search::ranked_from(&self.position.borrow());
+        let Some(searcher) = self.search.clone() else {
+            return Ok(Response::new(pb::SearchResponse {
+                available: false,
+                detail: "search isn't running in this service".to_string(),
+                query,
+                ..Default::default()
+            }));
+        };
+        let q = query.clone();
+        let answer = tokio::task::spawn_blocking(move || searcher.search(&q, near, limit))
+            .await
+            .map_err(|e| Status::internal(format!("search task: {e}")))?;
+        Ok(Response::new(match answer {
+            Ok(a) => pb::SearchResponse {
+                available: true,
+                detail: String::new(),
+                results: a.hits.iter().map(search::hit_to_pb).collect(),
+                regions: a.regions,
+                data_date: a.data_date.unwrap_or_default(),
+                ranked_from: from as i32,
+                position_age_s: age,
+                query,
+            },
+            Err(why) => pb::SearchResponse {
+                available: false,
+                detail: why,
+                query,
+                ..Default::default()
+            },
+        }))
+    }
+}
+
 /// Serves on `unix:PATH` or `tcp:HOST:PORT` until the server fails.
 pub async fn serve(listen: &str, api: Api) -> Result<(), String> {
     let mut builder = tonic::transport::Server::builder();
     let router = builder
         .add_service(PositionServiceServer::new(api.clone()))
-        .add_service(RouteServiceServer::new(api));
+        .add_service(RouteServiceServer::new(api.clone()))
+        .add_service(SearchServiceServer::new(api));
     if let Some(path) = listen.strip_prefix("unix:") {
         let path = Path::new(path);
         if let Some(dir) = path.parent() {

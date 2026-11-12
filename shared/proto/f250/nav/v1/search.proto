@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+// Offline address and place search, served by services/navigation from the
+// search index on the data drive (Phase 6.5.3,
+// docs/architecture/adr/0038-offline-address-search.md). The index is
+// OpenStreetMap's addresses, streets, towns and named places for the region
+// it was built for; house numbers are sparse outside towns, so every result
+// says what it matched.
+package f250.nav.v1;
+
+import "f250/nav/v1/route.proto";
+
+service SearchService {
+  // Results for a typed query, best first, ranked near the truck. Cheap
+  // enough to call on every keystroke. Never fails for a missing index:
+  // `available` is false and `detail` says why.
+  rpc Search(SearchRequest) returns (SearchResponse);
+}
+
+message SearchRequest {
+  // As typed: "120 n main st fairview". The last word may be unfinished.
+  string query = 1;
+  // At most this many results; 0 for the service's default (8).
+  uint32 limit = 2;
+}
+
+enum MatchKind {
+  MATCH_KIND_UNSPECIFIED = 0;
+  // The house number asked for, on that street.
+  MATCH_KIND_ADDRESS = 1;
+  // A street. With `house_number_missing`, the query's house number isn't in
+  // the data and the street is the closest it gets.
+  MATCH_KIND_STREET = 2;
+  // A city, town or other named place, and nothing finer.
+  MATCH_KIND_LOCALITY = 3;
+  // A named business, park, school…
+  MATCH_KIND_PLACE = 4;
+}
+
+message SearchResult {
+  MatchKind kind = 1;
+  // "120 North Main Street", "Casey's General Store", "Fairview".
+  string title = 2;
+  // Its town ("Fairview", or "near Fairview" when that is only the nearest
+  // town), a category ("Fuel"), or the kind of place ("Town").
+  string subtitle = 3;
+  // Where a route to it ends: the address, a point on the street, the
+  // town's centre.
+  LatLon location = 4;
+  // Straight-line distance from the position the search was ranked from;
+  // absent without one.
+  optional double distance_m = 5;
+  // The query had a house number and this result doesn't have it.
+  bool house_number_missing = 6;
+  // Query words this result doesn't match: only when nothing matched them
+  // all (e.g. a street found, but not in the town typed).
+  repeated string unmatched_words = 7;
+}
+
+enum RankedFrom {
+  RANKED_FROM_UNSPECIFIED = 0;
+  // No position: results are not ordered by distance.
+  RANKED_FROM_NONE = 1;
+  // The current fix.
+  RANKED_FROM_CURRENT = 2;
+  // The last known fix, `position_age_s` old.
+  RANKED_FROM_LAST_KNOWN = 3;
+}
+
+message SearchResponse {
+  // An index is installed and readable.
+  bool available = 1;
+  // Why not, when not available: "No search data: …".
+  string detail = 2;
+  repeated SearchResult results = 3;
+  // What the index covers, e.g. ["Kansas"], and its OpenStreetMap date
+  // (YYYY-MM-DD, empty if unknown).
+  repeated string regions = 4;
+  string data_date = 5;
+  RankedFrom ranked_from = 6;
+  double position_age_s = 7;
+  // The query this answers, so a client typing fast can drop stale answers.
+  string query = 8;
+}
