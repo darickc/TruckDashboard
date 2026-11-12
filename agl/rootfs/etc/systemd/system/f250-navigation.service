@@ -10,7 +10,12 @@
 # on the map stick (ADR-0033 amendment), and so does the search data
 # (6.5.3, ADR-0038): navigation opens
 # /var/lib/f250/storage/search/search.sqlite read-only (SQLite, immutable),
-# which ProtectSystem=strict allows.
+# which ProtectSystem=strict allows. Saved places and the voice's mute
+# setting (6.5.2, ADR-0040) are written to /var/lib/f250/storage/navigation/
+# (ReadWritePaths), or with DATA_DRIVE=1 and no drive mounted, to the
+# StateDirectory /var/lib/f250-nav/ (navigation-start). Spoken directions go
+# to the journal: the sandbox has no sound devices, and audio-manager
+# (ADR-0039) isn't connected yet.
 #
 # gpsd owns the GNSS receiver; navigation is its client on 127.0.0.1:2947
 # (NAV_GPSD, navigation-start). gpsd's own socket unit is pulled in, so
@@ -40,6 +45,9 @@ RestartSec=2
 UMask=0007
 RuntimeDirectory=f250-nav
 RuntimeDirectoryMode=0750
+StateDirectory=f250-nav
+StateDirectoryMode=0750
+ReadWritePaths=-/var/lib/f250/storage
 
 # Sandbox (ADR-0021), like the recorder's, except the network: gpsd is a TCP
 # server on the loopback interface, so AF_INET/AF_INET6 to localhost only.

@@ -1,6 +1,6 @@
 //! `navigation`: the truck's position from gpsd, routes from Valhalla,
 //! address search, saved places and spoken directions, served as
-//! `f250.nav.v1` (Phase 6.4, 6.5.2–6.5.4, ADR-0030, ADR-0035, ADR-0038,
+//! `f250.nav.v1` (Phase 6.4, 6.5.2 and 6.5.3, ADR-0030, ADR-0035, ADR-0038,
 //! ADR-0040).
 //!
 //!   navigation --listen unix:/run/f250-nav/nav.sock                # gpsd on 127.0.0.1:2947

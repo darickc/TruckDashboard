@@ -10,9 +10,9 @@
 //! - [`search`] answers address and place searches from the offline index
 //!   (6.5.3, ADR-0038), ranked from the latest position.
 //! - [`places`] keeps Home, favourites and recent destinations on the data
-//!   drive (6.5.4, ADR-0040).
+//!   drive (6.5.2, ADR-0040).
 //! - [`voice`] speaks the directions from Valhalla's own words, only from a
-//!   current position (6.5.4, ADR-0040).
+//!   current position (6.5.2, ADR-0040).
 //! - [`server`] serves `PositionService`, `RouteService`, `SearchService` and
 //!   `PlacesService`.
 //!

@@ -1,6 +1,7 @@
 #!/bin/bash
 # ExecStart of f250-navigation.service on AGL: navigation with the settings
-# from /etc/default/f250 (ADR-0030; routing ADR-0035; search ADR-0038).
+# from /etc/default/f250 (ADR-0030; routing ADR-0035; search ADR-0038; saved
+# places and spoken directions ADR-0040).
 #
 #   NAV_GPSD            gpsd's address. Default 127.0.0.1:2947.
 #   NAV_SIMULATE        1: a simulated receiver instead of gpsd, labelled
@@ -15,6 +16,18 @@
 #   NAV_SEARCH_INDEX    the search data (make search-region, brought by the
 #                       map stick). Default
 #                       /var/lib/f250/storage/search/search.sqlite.
+#   DATA_DRIVE          1: saved places (and the voice's mute setting) go on
+#                       the data drive, /var/lib/f250/storage/navigation/,
+#                       and to /var/lib/f250-nav/ (the SD card) while no
+#                       drive is mounted there; the Nav screen says which.
+#                       0 (default): /var/lib/f250/storage/navigation/, which
+#                       is on the SD card then.
+#   NAV_VOICE_COMMAND   a program that speaks its last argument (e.g.
+#                       espeak-ng -v en-us). Empty (default): prompts go to
+#                       the journal only. The sandbox has no sound devices
+#                       (PrivateDevices=yes): audio comes with audio-manager
+#                       (ADR-0039), not yet connected.
+#   NAV_VOICE_UNITS     imperial (default) or metric, for spoken distances.
 #   NAV_COSTING         auto (default) or truck.
 #   NAV_TRUCK_HEIGHT_M, NAV_TRUCK_WIDTH_M, NAV_TRUCK_LENGTH_M,
 #   NAV_TRUCK_WEIGHT_T, NAV_TRUCK_AXLE_LOAD_T
@@ -29,6 +42,8 @@ set -euo pipefail
 
 BIN="${F250_NAV_BIN:-/opt/f250/bin/navigation}"
 SOCK="${F250_NAV_SOCK:-/run/f250-nav/nav.sock}"
+STORAGE="${F250_STORAGE:-/var/lib/f250/storage}"
+STATE="${F250_NAV_STATE:-/var/lib/f250-nav}"
 
 args=(--listen "unix:$SOCK")
 if [[ "${NAV_SIMULATE:-0}" == 1 ]]; then
@@ -53,6 +68,15 @@ case "${NAV_COSTING:-auto}" in
     [[ -n "${NAV_TRUCK_AXLE_LOAD_T:-}" ]] && args+=(--truck-axle-load-t "$NAV_TRUCK_AXLE_LOAD_T")
     ;;
   *) echo "navigation-start: NAV_COSTING=$NAV_COSTING: use auto or truck" >&2; exit 2 ;;
+esac
+if [[ "${DATA_DRIVE:-0}" == 1 ]]; then
+  args+=(--places-dir "$STORAGE/navigation" --places-drive "$STORAGE" --places-fallback-dir "$STATE")
+fi
+[[ -n "${NAV_VOICE_COMMAND:-}" ]] && args+=(--voice-command "$NAV_VOICE_COMMAND")
+case "${NAV_VOICE_UNITS:-imperial}" in
+  imperial) ;;
+  metric) args+=(--voice-units metric) ;;
+  *) echo "navigation-start: NAV_VOICE_UNITS=$NAV_VOICE_UNITS: use imperial or metric" >&2; exit 2 ;;
 esac
 
 echo "exec $BIN ${args[*]}" >&2

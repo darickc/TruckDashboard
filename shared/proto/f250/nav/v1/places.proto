@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 // Saved places: Home, favourites with a name, and the recent destinations,
-// kept by services/navigation on the data drive (Phase 6.5.4,
+// kept by services/navigation on the data drive (Phase 6.5.2,
 // docs/architecture/adr/0040-saved-places-and-spoken-directions.md). A route
 // to one is RouteService.SetDestination with its location and name.
 package f250.nav.v1;

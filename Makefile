@@ -59,10 +59,16 @@ ROUTING_TILES ?= /tmp/f250/routing/valhalla_tiles.tar
 # Search (ADR-0038): `make search-region REGION=north-america/us/kansas` builds
 # the index into SEARCH_INDEX for make navigation and make sim.
 SEARCH_INDEX ?= /tmp/f250/search/search.sqlite
+# Saved places and spoken directions (ADR-0040): places in NAV_STATE; prompts
+# go to navigation's log unless VOICE names a program that speaks its last
+# argument (VOICE=say for macOS's voice).
+NAV_STATE ?= /tmp/f250/navigation
+VOICE   ?=
 NAV_ROUTING = --valhalla tools/dev/valhalla-docker.sh \
               --valhalla-config services/navigation/valhalla/valhalla-3.9.1.json \
               --routing-tiles $(ROUTING_TILES) --run-dir /tmp/f250/nav \
-              --search-index $(SEARCH_INDEX)
+              --search-index $(SEARCH_INDEX) --places-dir $(NAV_STATE) \
+              $(if $(VOICE),--voice-command $(VOICE))
 SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START) \
               --dart-define=VEHICLE_SOURCE=$(SOURCE) --dart-define=GATEWAY=$(GATEWAY) \
               --dart-define=NAV=$(NAV) --dart-define=MAP_FILE=$(MAP_FILE) \
@@ -238,7 +244,7 @@ gateway: ## Run the vehicle gateway with the simulator (SCENARIO=, START=) on $(
 sim: ## Gateway and navigation (simulated) + the macOS app reading from them over gRPC
 	NAV_ROUTING="$(NAV_ROUTING)" tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)"
 
-navigation: ## Run services/navigation with a simulated receiver on $(NAV_LISTEN), routing with Valhalla in Docker
+navigation: ## Run services/navigation with a simulated receiver on $(NAV_LISTEN), routing with Valhalla in Docker (VOICE=say speaks)
 	cargo run -q -p navigation -- --listen $(NAV_LISTEN) --simulate $(NAV_ROUTING)
 
 route-region: ## Build Valhalla routing data for REGION= (Geofabrik path(s), e.g. north-america/us/kansas) into $(ROUTING_TILES) (ROUTE_ARGS= passes build-routing.py options); needs Docker

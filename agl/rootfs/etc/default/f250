@@ -163,12 +163,21 @@ RECORD_CLIP_AFTER_S=60
 # NAV_SEARCH_INDEX  the search data (empty: /var/lib/f250/storage/search/
 #            search.sqlite), brought by the map stick (make map-stick
 #            SEARCH=...). Without it the search panel says why.
+# Saved places and spoken directions (6.5.2, ADR-0040). Places are kept in
+#            /var/lib/f250/storage/navigation/ (with DATA_DRIVE=1 and no drive
+#            mounted, /var/lib/f250-nav/; the Nav screen says which).
+# NAV_VOICE_COMMAND  a program that speaks its last argument (empty: prompts
+#            go to the journal only). Not audible yet: the service's sandbox
+#            has no sound devices; audio-manager (ADR-0039) will play them.
+# NAV_VOICE_UNITS  imperial (empty: imperial) or metric, for spoken distances.
 NAV_GPSD=
 NAV_SIMULATE=0
 NAV_STALE_AFTER_MS=
 NAV_VALHALLA=
 NAV_ROUTING_TILES=
 NAV_SEARCH_INDEX=
+NAV_VOICE_COMMAND=
+NAV_VOICE_UNITS=imperial
 NAV_COSTING=auto
 NAV_TRUCK_HEIGHT_M=
 NAV_TRUCK_WIDTH_M=
