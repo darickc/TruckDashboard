@@ -12,11 +12,13 @@
 #
 # `format` refuses a partition, a disk with anything mounted, the disk the
 # system runs from, and a second f250-data drive, and wants the disk's name
-# typed back. It uses only tools in the AGL Vimba 22.0.1 image (fdisk,
-# mkfs.ext4, lsblk, blkid, findmnt; smartctl for health).
+# typed back. It uses only tools in the AGL Vimba 22.0.1 image (sfdisk,
+# mkfs.ext4, lsblk, blkid, findmnt; smartctl for health, which the image
+# doesn't have yet). Not fdisk: the image's is BusyBox's, with no GPT
+# options (bench-log 2026-11-11: the first format on the Pi stopped there,
+# before writing anything).
 #
-# Status: [SIM] (a loop device in a Linux container, tools/dev/test-agl.sh
-# notes how). Not run on the Pi or with an NVMe drive yet.
+# Status: [BENCH] on the Pi 5 with the NVMe HAT, 2026-11-11 (bench-log).
 set -euo pipefail
 
 LABEL=f250-data
@@ -73,9 +75,11 @@ format() {
   read -r -p "Type the disk's name ($name) to erase it: " answer
   [[ "$answer" == "$name" ]] || die "cancelled"
 
-  # g: new GPT; n: partition 1, default first and last sector; w: write.
-  # -w/-W always: wipe old signatures without asking.
-  printf 'g\nn\n1\n\n\nw\n' | fdisk -w always -W always "$disk" >/dev/null
+  # A new GPT with one Linux-filesystem partition over the whole disk
+  # (sfdisk's default start, 1 MiB). --wipe/--wipe-partitions always: erase
+  # old signatures on the disk and in the new partition without asking.
+  printf 'label: gpt\ntype=0FC63DAF-8483-4772-8E79-3D69D8477DE4\n' |
+    sfdisk --quiet --wipe always --wipe-partitions always "$disk" >/dev/null
   udevadm settle 2>/dev/null || sleep 2
   part="$(lsblk -nrpo NAME,TYPE "$disk" | awk '$2 == "part" { print $1; exit }')"
   [[ -n "$part" && -b "$part" ]] || die "the new partition on $disk didn't appear"

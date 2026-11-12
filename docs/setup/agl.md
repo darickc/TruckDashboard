@@ -7,8 +7,9 @@ recorder and dashboard on it. No Yocto build.
 > **Status (2026-11-06):** sections 2–5 work on the Pi with AGL 22.0.1
 > **[BENCH]**: flashing, `make deploy`, `--check`, and every bring-up check
 > that needs no extra hardware (1–9; [bench-log](../hardware/bench-log.md)).
-> Not run yet: checks 10–11 (they wait for the DAC8x and NVMe HATs), the data
-> drive, and the fallback procedure in section 6. Record each step that works
+> Check 11 and the data drive ran on 2026-11-11 with the NVMe HAT. Not run
+> yet: check 10 (it waits for the DAC8x HAT) and the fallback procedure in
+> section 6. Record each step that works
 > on the Pi in the bench log.
 >
 > **2026-11-09 (image 288d091):** check 13 (power key) passes **[BENCH]**, and
@@ -152,7 +153,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 | 8 | CAN, listen-only | Plug in the adapter, then `f250-can status` (still down), `f250-can listen`, `ip -details link show can0` shows `LISTEN-ONLY`. With a second node on a bench bus: no ACKs | H7 on the AGL kernel |
 | 9 | RTC | `ls /sys/class/rtc/`, `hwclock -r`. Once the rechargeable cell is fitted: uncomment `dtparam=rtc_bbat_vchg` in `agl/boot/config-f250.txt`, deploy, reboot; `cat /sys/class/rtc/rtc0/charging_voltage` shows 3000000 | H20 on AGL |
 | 10 | Audio (once the DAC8x is fitted) | Uncomment `dtoverlay=hifiberry-dac8x` in `agl/boot/config-f250.txt`, deploy, reboot; `aplay -l` lists it; `pw-cli ls Node` shows its sink | ADR-0014 on AGL |
-| 11 | NVMe (once the HAT is fitted) | Uncomment `dtparam=pciex1`, deploy, reboot; `lspci` lists the drive's controller; `f250-storage status` shows `nvme0n1` and its health. Then [the data drive](#data-drive-nvme-hat-or-usb-ssd) | H31 |
+| 11 | NVMe (once the HAT is fitted) | `dtparam=pciex1` (on), deploy, reboot; `lspci` lists the drive's controller; `f250-storage status` shows `nvme0n1` and its health (no health until the image has `smartctl`). Passed on the bench 2026-11-11. Then [the data drive](#data-drive-nvme-hat-or-usb-ssd) | H31 |
 | 12 | Bluetooth and the MX+ | After a reboot, `--check` has no Bluetooth warnings; `bluetoothctl show` says `Powered: yes`, `Discoverable: no`. Then [pair the MX+](#bluetooth-and-the-mx) and run `TRANSPORT=obdlink` in the gateway's sandbox | ADR-0023, ADR-0021 §10 |
 | 13 | Power key ([power-manager](../architecture/power-states.md), pulse-only) | `journalctl -u f250-power-manager -b` shows "reading the power key on /dev/input/eventN". Press the Pi's power button within 30 s of power-on: "ignored: inside the boot window". Press it later: "power off: power key after the boot window", and the Pi halts cleanly (`journalctl -b -1` after the next boot). The DCDC-USB's PSW on J2 is the same press once it is wired (H21) | ADR-0013 |
 | 14 | Camera ([camera-manager](../architecture/adr/0026-camera-manager-interfaces.md)) | Plug in a UVC webcam; `ls -l /dev/v4l/by-path/`; set `CAMERA_REAR=` to its `...-video-index0` path in `/etc/default/f250`; `systemctl restart f250-camera-manager`. `ls -l /run/f250-camera/` shows `camera.sock` as `agl-driver f250`, `srwxrwx---`. `camera-ctl move back`: the picture appears right of the camera buttons, below the status bar (x 220–800, y 44–479), and `camera-ctl view` says `rear (switch), live` within a second or two (if it never goes live while the picture moves, the frame count is wrong: ADR-0026 decision 3). `camera-ctl move press` closes it (forward is the front camera). `ls /var/cache/f250-camera/gstreamer-1.0/` has the registry. `journalctl -u f250-camera-manager -b` | ADR-0009, ADR-0026 |
@@ -267,17 +268,18 @@ look for a refused call or device in `journalctl -u f250-gateway -b`.
 The SD card still boots. The drive holds the telemetry database, the
 gateway's traffic logs and the offline map (`maps/map.pmtiles`, put there by a
 [map stick](maps.md#updating-the-map-in-the-truck-usb-stick)), later the
-camera recordings, which would otherwise wear the card. Status: `[SIM]`. The setup and services are tested
-in `make agl-test`, and `f250-storage format` on a loop device in a Linux
-container. Not run on the Pi or with an NVMe drive yet.
+camera recordings, which would otherwise wear the card. Status: `[BENCH]`: on the
+Pi 5 with a 500 GB NVMe on 2026-11-11, formatted with `f250-storage format`,
+mounted at boot, the recorder, recordings, map and routing data on it
+([bench-log](../hardware/bench-log.md)). Not yet with a USB SSD.
 
 An NVMe HAT needs the Pi 5's external PCIe connector turned on:
-`#dtparam=pciex1` in `agl/boot/config-f250.txt`, commented until the HAT is
-fitted. The 22.0.1 kernel has the NVMe and PCIe drivers built in. **A USB SSD
+`dtparam=pciex1` in `agl/boot/config-f250.txt`, on since the HAT was fitted
+(2026-11-11). The 22.0.1 kernel has the NVMe and PCIe drivers built in. **A USB SSD
 needs neither**, so it works with no HAT and no boot change.
 
 1. NVMe: fit the HAT (see [H4](../hardware/open-questions.md): stacking with
-   the DAC8x), uncomment `dtparam=pciex1`, deploy and reboot. USB SSD: plug it
+   the DAC8x), deploy and reboot. USB SSD: plug it
    in. Then check that the drive is there:
 
    ```bash
@@ -303,6 +305,11 @@ needs neither**, so it works with no HAT and no boot change.
    It adds an `/etc/fstab` entry (`LABEL=f250-data`, `nofail`, a 10 s device
    wait) that mounts the drive at `/var/lib/f250/storage`, mounts it, and
    gives it to the `f250` user. `--check` then reports it.
+
+   The mount hides whatever was already in `/var/lib/f250/storage` on the
+   card: a map or routing data imported from a stick before the drive was on.
+   Copy them onto the drive first (mount it somewhere else, `cp -a maps
+   routing`, check the `.sha256` files), or import the stick again.
 
 What happens without the drive while `DATA_DRIVE=1`:
 

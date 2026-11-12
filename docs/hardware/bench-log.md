@@ -2070,3 +2070,49 @@ Screenshots (agl-screenshooter) and taps (a uinput touchscreen):
 
 Not seen: Back and Home together (no screen opens another yet; widget tests
 only), camera mode's 44 px bar with this build.
+
+## 2026-11-11 — The NVMe data drive (agl.md check 11 and the data drive) [BENCH]
+
+The owner fitted the NVMe HAT and a 500 GB drive to the bench Pi 5 (our
+meta-f250 image on the card, `/etc/version` 20261027150232). The HAT's make
+isn't recorded yet. The DAC8x isn't fitted, so stacking (H4) is still open.
+
+    first boot     drive found with `#dtparam=pciex1` still commented:
+                   0001:01:00.0 "Patriot P300 NVMe SSD (DRAM-less)",
+                   nvme0n1 476.9G, model HYV512X3(HXY). No
+                   /proc/device-tree/hat, so not a HAT+ EEPROM turning PCIe on
+                   (why it came up isn't known)
+    pciex1         `dtparam=pciex1` on, `make deploy`, reboot: still found;
+                   current_link_speed 5.0 GT/s, width 1 (Gen 2 ×1). dmesg:
+                   "missing or invalid SUBNQN field" (harmless), 32 MiB host
+                   memory buffer
+    on the drive   an OpenWrt 25.12.2 install (3.3 GB used; looked at
+                   read-only). The owner chose to erase it
+    format         `f250-storage format /dev/nvme0n1` stopped before writing:
+                   our image's fdisk is BusyBox's ("invalid option -- 'w'").
+                   Fixed to use util-linux sfdisk (already in f250-system's
+                   RDEPENDS): tried first on a 64 MB loop file with an old
+                   ext4 on it (wiped; one GPT partition, type Linux, label
+                   f250-data), then on the NVMe: nvme0n1p1 476.9G ext4
+                   f250-data
+    health         nothing: no smartctl in our image. smartmontools added to
+                   f250-system's RDEPENDS; not in a built image yet
+    data drive     the map (71 MB) and routing data (312 MB) already under
+                   /var/lib/f250/storage on the card, which the mount would
+                   hide, copied onto the drive first, both checksums matched;
+                   then the hidden card copies removed. DATA_DRIVE=1 (in the
+                   bench settings and the saved truck settings),
+                   stage1-setup.sh: fstab entry, mounted; --check: all passed
+    services       recorder on /var/lib/f250/storage/telemetry.sqlite (a new
+                   database; the card's old one stays on the card), front
+                   camera recording segments into storage/video, navigation
+                   routing from the drive's tiles: a 5.6 km route in 0.3 s
+    reboot         mounted at boot (rw,noatime), every f250 service active,
+                   no failed units, front recording again within 16 s
+
+    not recording  rear: its CAMERA_REAR path (xhci-hcd.1 usb-0:2) has no
+                   device; the second camera now shows on xhci-hcd.0 usb-0:1.
+                   Left for the owner
+
+Verdict: works. Not shown: drive temperature in the truck, a power loss
+while recording, a map stick imported onto the NVMe through udev, a USB SSD.

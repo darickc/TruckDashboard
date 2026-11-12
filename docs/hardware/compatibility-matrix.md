@@ -64,19 +64,23 @@ Update a row whenever a source or a test changes it, and keep the citation.
 ## NVMe on the Pi 5 (AGL 22.0.1)
 
 Checked in the 22.0.1 image files on 2026-11-06 (the kernel `Image`, the base
-device tree, `boot.scr`, `u-boot.bin`, the manifest). Nothing here has run on
-our Pi. The HAT and the drive aren't chosen yet: **TODO** (owner).
+device tree, `boot.scr`, `u-boot.bin`, the manifest). On the bench Pi 5 since
+2026-11-11, with the owner's NVMe HAT and a 500 GB drive, running our
+meta-f250 image ([bench-log](bench-log.md)). The HAT's make and model aren't
+recorded here yet: **TODO** (owner).
 
 | Item | Finding | Status | Source |
 |---|---|---|---|
 | Kernel drivers | NVMe (`nvme`, `nvme_core`) and the Pi 5 PCIe controller (`pcie-brcmstb`, `brcm,bcm2712-pcie`) are built into the kernel, not modules | V (strings in `Image`) | [22.0.1 images](https://download.automotivelinux.org/AGL/release/vimba/22.0.1/raspberrypi5/deploy/images/raspberrypi5/) |
-| `config.txt` switch | `bcm2712-rpi-5-b.dtb` has the `pciex1`, `pciex1_gen` and `pciex1_no_l0s` parameters. `agl/boot/config-f250.txt` has `dtparam=pciex1`, commented until the HAT is fitted | V (dtb) / U (link up on our Pi) | same |
-| Firmware turns PCIe on by itself for HAT+ boards | Reported for boards with a HAT+ ID EEPROM. Not checked here; uncommenting our line makes it moot | U | — |
+| `config.txt` switch | `bcm2712-rpi-5-b.dtb` has the `pciex1`, `pciex1_gen` and `pciex1_no_l0s` parameters. `agl/boot/config-f250.txt` has `dtparam=pciex1`, on since the HAT was fitted (2026-11-11). Link up on our Pi with it: Gen 2 ×1, `current_link_speed` 5.0 GT/s | V (dtb) / [BENCH] | same; bench-log 2026-11-11 |
+| Firmware turns PCIe on by itself | On the bench Pi the drive was found with our line still commented out, and `/proc/device-tree/hat` was absent (no HAT ID EEPROM seen). Why isn't known; our line makes it moot | [BENCH] (observed, cause U) | bench-log 2026-11-11 |
+| The drive | `HYV512X3(HXY)`, 476.9 GB; `lspci` names the controller "Hosin Global Electronics Patriot P300 NVMe SSD (DRAM-less)". Kernel: "missing or invalid SUBNQN field" (harmless: it identifies the drive to NVMe-over-fabrics only), a 32 MiB host memory buffer | [BENCH] | `lspci`, `dmesg` |
 | Does the firmware's DT reach the kernel? | `boot.scr` boots the kernel with `${fdt_addr}`, the device tree the firmware built from `config.txt`, so `dtparam`/`dtoverlay` lines apply | V (`boot.scr`) / U (on the Pi) | `boot.scr` |
 | Boot path | U-Boot 2026.01 (`RPI_USE_U_BOOT = "1"`, `meta-agl-bsp/conf/include/agl_raspberrypi.inc`). `boot.scr`: `fatload mmc 0:1 ${kernel_addr_r} Image`. `cmdline.txt`: `root=/dev/mmcblk0p2`. **So this image can't boot from NVMe** | V | `boot.scr`, `bootfiles/cmdline.txt` |
 | U-Boot on the Pi 5's PCIe | `u-boot.bin` has NVMe code and `brcm,bcm2711-pcie` (the Pi 4's), but no `bcm2712` PCIe string | U (string search only) | `u-boot.bin` |
-| Tools in the image | `fdisk`, `mkfs.ext4`, `lsblk`, `blkid`, `findmnt`, `mountpoint`, `fstrim`, `lspci` (pciutils), `smartctl` (smartmontools 7.5). No `sfdisk`, `wipefs`, `parted` or `nvme-cli` | V | manifest |
-| `f250-storage format` | GPT, one partition, ext4 labelled `f250-data`, with the image's `fdisk` (util-linux 2.41.5) | [SIM] (loop device, Debian trixie container, util-linux 2.41.5) | `agl/scripts/storage.sh` |
+| Tools in the stock image | `fdisk`, `mkfs.ext4`, `lsblk`, `blkid`, `findmnt`, `mountpoint`, `fstrim`, `lspci` (pciutils), `smartctl` (smartmontools 7.5). No `sfdisk`, `wipefs`, `parted` or `nvme-cli` | V | manifest |
+| Tools in our meta-f250 image | Different: `fdisk` is BusyBox's (no GPT options, no `-w`), `sfdisk` is util-linux 2.41.5 (`f250-system`'s RDEPENDS), `losetup` is BusyBox's; no `smartctl`, `wipefs` or `parted`. `smartmontools` is now in `f250-system`'s RDEPENDS, not yet in a built image | [BENCH] (`rpm -qa`, on the Pi) / U (smartctl) | bench-log 2026-11-11 |
+| `f250-storage format` | GPT, one partition, ext4 labelled `f250-data`, with util-linux `sfdisk --wipe always`. The first version used `fdisk -w`, which our image's BusyBox `fdisk` refused before writing anything | [BENCH] (a loop device and the 500 GB NVMe on the Pi, 2026-11-11) | `agl/scripts/storage.sh` |
 | Drive temperature range, power-loss protection | From the chosen drive's datasheet. Consumer drives are commonly 0–70 °C and rely on a clean shutdown | TODO | — |
 | Stacking with the DAC8x, power | [H4](open-questions.md), [H25](open-questions.md) | U | — |
 

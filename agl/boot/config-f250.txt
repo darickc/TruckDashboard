@@ -41,15 +41,16 @@ dtoverlay=gpio-key,gpio=16,keycode=185,label=CAM_BACK,gpio_pull=2
 dtoverlay=gpio-key,gpio=6,keycode=186,label=CAM_FORWARD,gpio_pull=2
 dtoverlay=gpio-key,gpio=17,keycode=187,label=CAM_PRESS,gpio_pull=2
 
-# NVMe HAT on the Pi 5's external PCIe connector. Uncomment once the HAT is
-# fitted: until then it is one more unknown on the first AGL boot. The
-# firmware is reported to turn PCIe on by itself for HAT+ boards with an ID
-# EEPROM (unverified); this line turns it on for any board. The NVMe and Pi 5
+# NVMe HAT on the Pi 5's external PCIe connector, fitted 2026-11-11. On the
+# bench Pi the drive was found with this line still commented out, and the
+# device tree showed no HAT ID EEPROM (/proc/device-tree/hat absent), so the
+# firmware turned PCIe on by itself [BENCH]; why isn't known. This line turns
+# it on for any board rather than rely on that. The NVMe and Pi 5
 # PCIe drivers are built into the 22.0.1 kernel, and pciex1 is a parameter of
 # its bcm2712-rpi-5-b.dtb (checked in the image files, 2026-11-06). Gen 2 (the
 # default): Gen 3 (pciex1_gen=3) isn't certified.
 # Using the drive: DATA_DRIVE in /etc/default/f250 (docs/setup/agl.md).
-#dtparam=pciex1
+dtparam=pciex1
 
 # CAN: nothing here. The USB adapter (gs_usb, ADR-0012) needs no overlay; the
 # mcp251x HAT lines in AGL's config.txt stay commented out.

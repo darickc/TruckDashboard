@@ -207,6 +207,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       power-key drop-in, and `agl/scripts/stage1-setup.sh` (apply, `--check`, `--restore-demo`;
       130 tests in `make agl-test`). Optional data drive (`DATA_DRIVE=1`, `f250-storage`): the
       telemetry database and traffic logs on an NVMe HAT or USB SSD; no NVMe boot on this image.
+      `[BENCH]` 2026-11-11: the owner's NVMe HAT and 500 GB drive on the bench Pi, `dtparam=pciex1` on, Gen 2 ×1;
+      `f250-storage format` (fixed to use `sfdisk`: our image's `fdisk` is BusyBox's), mounted at boot; the recorder,
+      front recording, the map and routing data on it. No `smartctl` in our image yet (now in `f250-system`'s RDEPENDS).
       `agl/scripts/diagnose-display.sh` collects DRM connectors, dmesg, the I2C devices, input,
       backlight sysfs and the compositor's logs. Found in the image's sources: its networkd
       config would put the CAN adapter in normal mode, and a KUKSA provider reads `can0`; both are
@@ -295,7 +298,8 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       in, keeping the old map on any failure. The map moved to `/var/lib/f250/storage/maps/`. The dashboard shows
       progress on every tab and opens the new map without a restart. A stick with the installed map isn't copied
       again (MAP UP TO DATE). Tested by `make agl-test` and app tests, and on the bench Pi with a real exFAT stick
-      onto the card (bench-log 2026-11-11): import, reopen, up to date, pulled stick. Not yet onto the NVMe.
+      onto the card (bench-log 2026-11-11): import, reopen, up to date, pulled stick. The map and routing data are
+      on the NVMe since 2026-11-11 (copied there, not yet through a stick import).
       6.5.2 `[SIM]` `[BENCH]` ([ADR-0035](architecture/adr/0035-routing-with-valhalla.md)): services/navigation
       serves `f250.nav.v1.RouteService` and runs Valhalla 3.9.1's `valhalla_service` once per route (no prime_server, no port).
       The guide matches the fix to the route, gives the next maneuver, distance and time left, reroutes after 60 m off for 5 s
