@@ -40,6 +40,11 @@ Long-press the map, then **Route here**, to route there (next section).
 **[SIM]**; not yet tried with a real stick on the Pi (bench check 17 in
 [agl.md](agl.md)).
 
+A stick with `f250/map.pmtiles` or `f250/routing.tar` is a **map stick**:
+the dashboard won't copy dashcam recordings to it. Use another stick for
+recordings (Cameras → **Recordings to USB**,
+[ADR-0037](../architecture/adr/0037-recordings-to-a-usb-stick.md)).
+
 1. Once: erase a USB stick as **ExFAT** in Disk Utility (FAT32 can't hold a
    file over 4 GB). Any name.
 2. Build the map (next section), then write it onto the stick:

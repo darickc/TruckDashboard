@@ -370,6 +370,17 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       and `exec`s itself, same PID). Once saved they replace `/etc/default/f250`'s `CAMERA_*` and `RECORD_CAMERAS`;
       recording still needs `DATA_DRIVE=1` (`--recording-allowed`). `camera-ctl settings`. Tested against the real
       binary with a fake `/dev`, including the restart in place. Not on the Pi yet ([agl.md](setup/agl.md) check 16)
+      Recordings to a USB stick `[SIM]` ([ADR-0037](architecture/adr/0037-recordings-to-a-usb-stick.md), 2026-11-11):
+      `services/usb-export` serves `f250.export.v1` (`ListRecordings`, `WatchExport`, `StartCopy`, `CancelCopy`) on
+      `/run/f250-export/export.sock`; finds USB sticks in sysfs and udev's database, mounts each read-only for a moment
+      (a stick with `f250/map.pmtiles` or `f250/routing.tar` is the map import's and never written), and read-write
+      only while copying to `F250-recordings/` (`.part` then rename, files already there skipped, room and FAT's 4 GiB
+      checked first), then syncs and unmounts before "safe to unplug". Copy only. Root with only `CAP_SYS_ADMIN`,
+      private mounts, `block-sd` devices, no network; in `make deploy`, both images and `make agl-test`. 22 cargo
+      tests (a directory as the stick: full, read-only, pulled mid-copy, map stick, cancelled, being written, sysfs
+      parsing). Dashboard: Cameras → **Recordings to USB**: recordings by run, camera and time, saved clips marked,
+      filters, tap/range/all, size against free space, progress, Cancel, and the result with "Safe to unplug" only
+      from the service (20 Flutter tests at 800×480). Not on the Pi with a stick yet ([agl.md](setup/agl.md) check 19)
 - [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
       presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later

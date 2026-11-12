@@ -98,7 +98,9 @@ Options considered for the update workflow:
   copy and checksum times. Bench check 17 in [agl.md](../../setup/agl.md).
 - macOS writes `._*` files on exFAT sticks; the import ignores them.
 - Any USB stick with an exFAT or FAT filesystem starts the unit, which only
-  looks for `f250/map.pmtiles`. A stick with that file is treated as a map
+  looks for `f250/map.pmtiles`. Any other stick can take dashcam recordings
+  instead ([ADR-0037](0037-recordings-to-a-usb-stick.md)): usb-export never
+  writes to a stick with map or routing data. A stick with that file is treated as a map
   update whoever made it, but is refused unless its checksum and header
   check out, and can only replace the map.
 

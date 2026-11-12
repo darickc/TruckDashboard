@@ -45,5 +45,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0034](0034-home-buttons-and-back.md) | Screens are reached from Home and left by Back; Power and Restart move to Settings | Accepted (owner; [SIM] only) |
 | [0035](0035-routing-with-valhalla.md) | Routing with Valhalla, one `valhalla_service` per request, in services/navigation | Accepted ([SIM]; real Valhalla on the Mac; not on the Pi) |
 | [0036](0036-clear-advisories.md) | Advisories can be cleared from the alert banner; critical alerts can't | Accepted (owner; [SIM], seen on the bench Pi) |
+| [0037](0037-recordings-to-a-usb-stick.md) | Dashcam recordings are copied to a USB stick from the dashboard by `usb-export` (`f250.export.v1`); map sticks are left alone | Accepted (owner asked; [SIM] only) |
 
 New ADRs use the next number and the same headings.
