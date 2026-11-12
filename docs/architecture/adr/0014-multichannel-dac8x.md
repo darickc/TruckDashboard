@@ -104,8 +104,9 @@ There were two ways to feed them:
 
 **Tests:**
 
-- The PipeWire channel map, crossover and fader configuration: generated or
-  validated by audio-manager, unit-tested `[SIM]` in Phase 6.
+- The PipeWire channel map, crossover and fader configuration: generated and
+  validated by audio-manager, unit-tested `[SIM]` (done 2026-11-12,
+  [ADR-0039](0039-audio-manager.md); not run in PipeWire yet).
 - Everything electrical is `[BENCH]` first: line level, boot pop, remote-off on
   crash. Then `[TRUCK]`: polarity, whine, gain. The checklist is in
   [wiring/audio.md](../../wiring/audio.md#checks-before-sign-off).

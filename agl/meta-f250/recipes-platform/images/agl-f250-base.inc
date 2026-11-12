@@ -7,7 +7,7 @@
 # HVAC, radio and audio-mixer services, Qt and the navigation demo, gpsd,
 # oFono, rtl-sdr, mpd, text-to-speech, the CJK fonts, applaunchd and the demo
 # apps. None of those is used here; each Phase 6 feature brings what it needs
-# (PipeWire with the audio manager; gpsd came back with GPS).
+# (PipeWire came back with the audio manager; gpsd with GPS).
 require recipes-platform/images/agl-image-compositor.bb
 
 # No "splash" feature: AGL removes it on the Pi (agl_raspberrypi.inc). The boot
@@ -37,6 +37,11 @@ IMAGE_INSTALL += " \
     gpsd-conf \
     gpsd-udev \
     valhalla \
+    packagegroup-pipewire \
+    pipewire-tools \
+    wireplumber-config-agl \
+    wireplumber-policy-config-agl \
+    flite \
 "
 
 # weston-ini-conf-flutter: the compositor's configuration for flutter-auto
@@ -60,6 +65,23 @@ IMAGE_INSTALL += " \
 # demo image's manifest, which had all three (and gpsd-machine-conf, left out:
 # its contents are UNVERIFIED). UNVERIFIED in a meta-f250 build until the
 # next `make agl-build`.
+#
+# PipeWire for audio (Phase 6.1, ADR-0039): packagegroup-pipewire (pipewire,
+# its modules and SPA plugins with bluez5 and the filter-chain, WirePlumber,
+# pipewire-alsa) from meta-agl/meta-pipewire, AGL's split WirePlumber
+# instances and its role policy (wireplumber-config-agl,
+# wireplumber-policy-config-agl: Multimedia ducked under Navigation), and
+# pipewire-tools for pw-cli, which audio-manager uses to change the fader
+# live. audio-manager runs `pipewire -c` for the speakers' filter-chain.
+# Names from the 22.0.1 tree's recipes and build's deploy/rpm; UNVERIFIED in
+# a meta-f250 build until the next `make agl-build`.
+#
+# flite: Flite+hts_engine 1.06 from meta-agl-demo (BSD-3-Clause; its
+# flite-voicedata voice is CC-BY-3.0), audio-manager's voice for spoken
+# directions through /opt/f250/libexec/speak-prompt (ADR-0039 decision 9).
+# pw-play, which plays the prompt, is pipewire-tools' pw-cat, built when the
+# distro has agl-devel (meta-pipewire's pipewire bbappend), as this build
+# configuration does.
 #
 # valhalla: valhalla_service, which services/navigation runs once per route
 # (ADR-0035; recipes-navigation/valhalla). Its routing data comes on the map

@@ -7,6 +7,12 @@
 - **Date:** 2026-11-09
 - **Refines:** [ADR-0021](0021-trimmed-dev-and-release-images.md)
 
+> **Pairing policy: [ADR-0039](0039-audio-manager.md) (2026-11-12).**
+> audio-manager registers the default agent and keeps the adapter
+> non-discoverable and non-pairable, except in a pairing window opened from
+> the Media screen. Without an agent BlueZ refuses incoming pairing (its
+> source; UNVERIFIED on the Pi).
+
 ## Context
 
 On the trimmed development image (33d8324), Bluetooth never comes up:

@@ -1,0 +1,68 @@
+#!/bin/bash
+# ExecStart of f250-audio-manager.service on AGL: audio-manager with the
+# settings from /etc/default/f250 (ADR-0039).
+#
+#   AUDIO_SIMULATE      1: a simulated phone instead of BlueZ, and no
+#                       filter-chain; labelled simulated on the screen.
+#                       Default 0.
+#   AUDIO_ADAPTER       the Bluetooth adapter. Default hci0.
+#   AUDIO_NAME          the name phones see while pairing. Default F-250.
+#   AUDIO_PAIR_WINDOW_S the pairing window's length, seconds. Default 120,
+#                       an example.
+#   AUDIO_DSP           0: no filter-chain (the speakers get the stereo mix
+#                       straight from WirePlumber). Default 1.
+#   AUDIO_DAC_NODE      the DAC's PipeWire node name (pw-cli ls Node);
+#                       empty: the default sink. UNVERIFIED for the DAC8x.
+#   AUDIO_DAC_POSITIONS the DAC's channel positions, in order. Default
+#                       FL,FR,RL,RR,FC,LFE,SL,SR. UNVERIFIED for the DAC8x.
+#   AUDIO_FRONT, AUDIO_REAR, AUDIO_SUB
+#                       which DAC channels (0-based left,right) feed the
+#                       front, rear and sub inputs. Defaults 0,1 / 2,3 /
+#                       4,5: examples, found on the bench with a test tone
+#                       (docs/wiring/audio.md).
+#   AUDIO_CROSSOVER_HZ  the crossover's default (Defaults on the screen).
+#                       Default 80, an example: tune it in the truck.
+#   AUDIO_VOICE         spoken directions (navigation's prompts): a program
+#                       that says its argument; "none": prompts are refused.
+#                       Default /opt/f250/libexec/speak-prompt (Flite).
+#   AUDIO_PROMPT_HOLD_MS  the music resumes this long after the last prompt.
+#                       Default 1000, an example (owner, 2026-11-12).
+#
+# The API is on /run/f250-audio/audio.sock (RuntimeDirectory); the driver's
+# speaker settings in /var/lib/f250-audio/speakers.json (StateDirectory).
+#
+# Status: [SIM] (make agl-test).
+set -euo pipefail
+
+BIN="${F250_AUDIO_BIN:-/opt/f250/bin/audio-manager}"
+SOCK="${F250_AUDIO_SOCK:-/run/f250-audio/audio.sock}"
+RUN="${F250_AUDIO_RUN:-/run/f250-audio}"
+STATE="${F250_AUDIO_STATE:-/var/lib/f250-audio}"
+
+args=(--listen "unix:$SOCK" --settings-file "$STATE/speakers.json" --dsp-conf "$RUN/speakers.conf")
+if [[ "${AUDIO_SIMULATE:-0}" == 1 ]]; then
+  args+=(--simulate)
+fi
+[[ -n "${AUDIO_ADAPTER:-}" ]] && args+=(--adapter "$AUDIO_ADAPTER")
+[[ -n "${AUDIO_NAME:-}" ]] && args+=(--name "$AUDIO_NAME")
+[[ -n "${AUDIO_PAIR_WINDOW_S:-}" ]] && args+=(--pair-window-s "$AUDIO_PAIR_WINDOW_S")
+case "${AUDIO_DSP:-1}" in
+  1) ;;
+  0) args+=(--no-dsp) ;;
+  *) echo "audio-start: AUDIO_DSP=$AUDIO_DSP: use 0 or 1" >&2; exit 2 ;;
+esac
+[[ -n "${AUDIO_DAC_NODE:-}" ]] && args+=(--dac-node "$AUDIO_DAC_NODE")
+[[ -n "${AUDIO_DAC_POSITIONS:-}" ]] && args+=(--dac-positions "$AUDIO_DAC_POSITIONS")
+[[ -n "${AUDIO_FRONT:-}" ]] && args+=(--front "$AUDIO_FRONT")
+[[ -n "${AUDIO_REAR:-}" ]] && args+=(--rear "$AUDIO_REAR")
+[[ -n "${AUDIO_SUB:-}" ]] && args+=(--sub "$AUDIO_SUB")
+[[ -n "${AUDIO_CROSSOVER_HZ:-}" ]] && args+=(--crossover-hz "$AUDIO_CROSSOVER_HZ")
+case "${AUDIO_VOICE:-}" in
+  none) ;;
+  "") args+=(--voice-command /opt/f250/libexec/speak-prompt) ;;
+  *) args+=(--voice-command "$AUDIO_VOICE") ;;
+esac
+[[ -n "${AUDIO_PROMPT_HOLD_MS:-}" ]] && args+=(--prompt-hold-ms "$AUDIO_PROMPT_HOLD_MS")
+
+echo "exec $BIN ${args[*]}" >&2
+exec "$BIN" "${args[@]}"

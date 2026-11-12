@@ -1,0 +1,182 @@
+// This is a generated file - do not edit.
+//
+// Generated from f250/audio/v1/audio.proto.
+
+// @dart = 3.3
+
+// ignore_for_file: annotate_overrides, camel_case_types, comment_references
+// ignore_for_file: constant_identifier_names
+// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
+
+import 'dart:core' as $core;
+
+import 'package:protobuf/protobuf.dart' as $pb;
+
+/// Whether Bluetooth itself is usable.
+class BluetoothState extends $pb.ProtobufEnum {
+  static const BluetoothState BLUETOOTH_STATE_UNSPECIFIED =
+      BluetoothState._(0, _omitEnumNames ? '' : 'BLUETOOTH_STATE_UNSPECIFIED');
+
+  /// BlueZ answers and its adapter is powered.
+  static const BluetoothState BLUETOOTH_STATE_READY =
+      BluetoothState._(1, _omitEnumNames ? '' : 'BLUETOOTH_STATE_READY');
+
+  /// No adapter, it is off, or BlueZ doesn't answer (`detail` says which).
+  static const BluetoothState BLUETOOTH_STATE_UNAVAILABLE =
+      BluetoothState._(2, _omitEnumNames ? '' : 'BLUETOOTH_STATE_UNAVAILABLE');
+
+  static const $core.List<BluetoothState> values = <BluetoothState>[
+    BLUETOOTH_STATE_UNSPECIFIED,
+    BLUETOOTH_STATE_READY,
+    BLUETOOTH_STATE_UNAVAILABLE,
+  ];
+
+  static final $core.List<BluetoothState?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static BluetoothState? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const BluetoothState._(super.value, super.name);
+}
+
+class PlayState extends $pb.ProtobufEnum {
+  static const PlayState PLAY_STATE_UNSPECIFIED =
+      PlayState._(0, _omitEnumNames ? '' : 'PLAY_STATE_UNSPECIFIED');
+  static const PlayState PLAY_STATE_STOPPED =
+      PlayState._(1, _omitEnumNames ? '' : 'PLAY_STATE_STOPPED');
+  static const PlayState PLAY_STATE_PLAYING =
+      PlayState._(2, _omitEnumNames ? '' : 'PLAY_STATE_PLAYING');
+  static const PlayState PLAY_STATE_PAUSED =
+      PlayState._(3, _omitEnumNames ? '' : 'PLAY_STATE_PAUSED');
+  static const PlayState PLAY_STATE_FORWARD_SEEK =
+      PlayState._(4, _omitEnumNames ? '' : 'PLAY_STATE_FORWARD_SEEK');
+  static const PlayState PLAY_STATE_REVERSE_SEEK =
+      PlayState._(5, _omitEnumNames ? '' : 'PLAY_STATE_REVERSE_SEEK');
+
+  /// The phone reported an error.
+  static const PlayState PLAY_STATE_ERROR =
+      PlayState._(6, _omitEnumNames ? '' : 'PLAY_STATE_ERROR');
+
+  static const $core.List<PlayState> values = <PlayState>[
+    PLAY_STATE_UNSPECIFIED,
+    PLAY_STATE_STOPPED,
+    PLAY_STATE_PLAYING,
+    PLAY_STATE_PAUSED,
+    PLAY_STATE_FORWARD_SEEK,
+    PLAY_STATE_REVERSE_SEEK,
+    PLAY_STATE_ERROR,
+  ];
+
+  static final $core.List<PlayState?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 6);
+  static PlayState? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const PlayState._(super.value, super.name);
+}
+
+class PairingState extends $pb.ProtobufEnum {
+  static const PairingState PAIRING_STATE_UNSPECIFIED =
+      PairingState._(0, _omitEnumNames ? '' : 'PAIRING_STATE_UNSPECIFIED');
+
+  /// Not discoverable; new phones are refused.
+  static const PairingState PAIRING_STATE_CLOSED =
+      PairingState._(1, _omitEnumNames ? '' : 'PAIRING_STATE_CLOSED');
+
+  /// Asked BlueZ to become discoverable and pairable; not confirmed yet.
+  static const PairingState PAIRING_STATE_OPENING =
+      PairingState._(2, _omitEnumNames ? '' : 'PAIRING_STATE_OPENING');
+
+  /// Discoverable and pairable until the countdown ends.
+  static const PairingState PAIRING_STATE_OPEN =
+      PairingState._(3, _omitEnumNames ? '' : 'PAIRING_STATE_OPEN');
+
+  /// Asked BlueZ to stop being discoverable and pairable.
+  static const PairingState PAIRING_STATE_CLOSING =
+      PairingState._(4, _omitEnumNames ? '' : 'PAIRING_STATE_CLOSING');
+
+  /// BlueZ refused to open (or close) the window: `detail` says why.
+  static const PairingState PAIRING_STATE_FAILED =
+      PairingState._(5, _omitEnumNames ? '' : 'PAIRING_STATE_FAILED');
+
+  static const $core.List<PairingState> values = <PairingState>[
+    PAIRING_STATE_UNSPECIFIED,
+    PAIRING_STATE_CLOSED,
+    PAIRING_STATE_OPENING,
+    PAIRING_STATE_OPEN,
+    PAIRING_STATE_CLOSING,
+    PAIRING_STATE_FAILED,
+  ];
+
+  static final $core.List<PairingState?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 5);
+  static PairingState? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const PairingState._(super.value, super.name);
+}
+
+/// Whether the speaker settings are in effect.
+class DspState extends $pb.ProtobufEnum {
+  static const DspState DSP_STATE_UNSPECIFIED =
+      DspState._(0, _omitEnumNames ? '' : 'DSP_STATE_UNSPECIFIED');
+
+  /// The filter-chain runs with the current settings.
+  static const DspState DSP_STATE_APPLIED =
+      DspState._(1, _omitEnumNames ? '' : 'DSP_STATE_APPLIED');
+
+  /// Starting or restarting the filter-chain.
+  static const DspState DSP_STATE_STARTING =
+      DspState._(2, _omitEnumNames ? '' : 'DSP_STATE_STARTING');
+
+  /// Not running: `detail` says why (no PipeWire, the simulation).
+  static const DspState DSP_STATE_NOT_RUNNING =
+      DspState._(3, _omitEnumNames ? '' : 'DSP_STATE_NOT_RUNNING');
+
+  static const $core.List<DspState> values = <DspState>[
+    DSP_STATE_UNSPECIFIED,
+    DSP_STATE_APPLIED,
+    DSP_STATE_STARTING,
+    DSP_STATE_NOT_RUNNING,
+  ];
+
+  static final $core.List<DspState?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static DspState? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const DspState._(super.value, super.name);
+}
+
+class Command extends $pb.ProtobufEnum {
+  static const Command COMMAND_UNSPECIFIED =
+      Command._(0, _omitEnumNames ? '' : 'COMMAND_UNSPECIFIED');
+  static const Command COMMAND_PLAY =
+      Command._(1, _omitEnumNames ? '' : 'COMMAND_PLAY');
+  static const Command COMMAND_PAUSE =
+      Command._(2, _omitEnumNames ? '' : 'COMMAND_PAUSE');
+  static const Command COMMAND_NEXT =
+      Command._(3, _omitEnumNames ? '' : 'COMMAND_NEXT');
+  static const Command COMMAND_PREVIOUS =
+      Command._(4, _omitEnumNames ? '' : 'COMMAND_PREVIOUS');
+
+  static const $core.List<Command> values = <Command>[
+    COMMAND_UNSPECIFIED,
+    COMMAND_PLAY,
+    COMMAND_PAUSE,
+    COMMAND_NEXT,
+    COMMAND_PREVIOUS,
+  ];
+
+  static final $core.List<Command?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
+  static Command? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const Command._(super.value, super.name);
+}
+
+const $core.bool _omitEnumNames =
+    $core.bool.fromEnvironment('protobuf.omit_enum_names');

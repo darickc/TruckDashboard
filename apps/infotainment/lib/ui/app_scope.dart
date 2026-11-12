@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../audio/audio_state.dart';
 import '../cameras/camera_state.dart';
 import '../cameras/simulated_camera_source.dart';
 import '../config/app_config.dart';
@@ -88,6 +89,7 @@ class AppServices {
     PlacesSource? places,
     OfflineMap? map,
     ExportSource? exports,
+    AudioSource? audio,
     this.power = const NoPowerControl(),
     this.refreshPeriod = const Duration(milliseconds: 250),
   })  : cameras = cameras ?? SimulatedCameraSource(),
@@ -98,6 +100,7 @@ class AppServices {
         places = places ?? UnavailablePlacesSource(),
         map = map ?? OfflineMap.none(),
         exports = exports ?? SimulatedExportSource(),
+        audio = audio ?? SimulatedAudioSource(autoRun: false),
         assert((simulation == null) != (gateway == null), 'exactly one data source');
 
   final TelemetryStore store;
@@ -138,6 +141,10 @@ class AppServices {
   /// Copying recordings to a USB stick: services/usb-export (ADR-0037), or a
   /// simulation of it.
   final ExportSource exports;
+
+  /// Bluetooth audio and the speakers: services/audio-manager (ADR-0039), or
+  /// a simulation of it.
+  final AudioSource audio;
 
   /// Whether, and how, the screen can shut the head unit down.
   final PowerControl power;

@@ -92,7 +92,8 @@ flowchart LR
   GNSS --> NAV
   NAV -- gRPC f250.nav.v1 --> UI
   USB[usb-export] -- gRPC f250.export.v1 --> UI
-  AUD --> UI
+  PHONE[Phone] -- Bluetooth A2DP / AVRCP --> AUD
+  AUD -- gRPC f250.audio.v1 --> UI
   ESP[ESP32 aux I/O<br/>EGT · volume knob] -- USB serial --> GW
 ```
 

@@ -20,6 +20,7 @@ members = [
     "services/camera-manager",
     "services/navigation",
     "services/usb-export",
+    "services/audio-manager",
     "tools/obd-console",
     "tools/can-monitor",
     "tools/pid-importer",

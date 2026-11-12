@@ -71,7 +71,7 @@ firmware/esp32/      PlatformIO firmware (C++17); auxiliary controller, ELM refe
 shared/signals/      signal registry (YAML); imports/torque/exportedPIDs.csv
 shared/proto/        versioned gRPC/protobuf API (f250.<domain>.v1); `make proto` regenerates Dart
 crates/              Rust libraries: elm (MX+ client), telemetry, powerstroke-sim, proto, sd-notify, camera-policy, recording, daylight, clock-sync, gpsd, geocode
-services/            Rust daemons: vehicle-gateway, recorder, power-manager, camera-manager, navigation (audio in Phase 6)
+services/            Rust daemons: vehicle-gateway, recorder, power-manager, camera-manager, navigation, usb-export, audio-manager
 apps/infotainment/   Flutter UI, 800×480 (simulated data source today)
 simulator/           Power Stroke scenarios (f250.scenario.v1) + Dart engine; Rust transport in Phase 3
 agl/                 AGL Stage 1: release pin, boot config, rootfs files, target scripts; meta-f250 in 5.4
@@ -94,7 +94,7 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make sim-test` | Scenario simulator tests (Dart) |
 | `make ui-test` / `make ui-lint` | Flutter tests / analyzer |
 | `make ui-web` | Dashboard in a browser at http://127.0.0.1:8250. Add `SCENARIO=<id> START=<s>` to jump into a scenario |
-| `make sim` | Rust gateway and navigation (simulated; routes once `make route-region` has run) + macOS app over gRPC. `make gateway` / `make navigation` / `make console` run one alone |
+| `make sim` | Rust gateway, navigation (simulated; routes once `make route-region` has run) and audio-manager (a simulated phone) + macOS app over gRPC. `make gateway` / `make navigation` / `make audio` / `make console` run one alone |
 | `make map-test-pattern` | A test-pattern map (not map data) at `/tmp/f250/maps/map.pmtiles` for `make ui`/`make sim`; needs Pillow and `pmtiles`. See [docs/setup/maps.md](docs/setup/maps.md) |
 | `make map-region BBOX=w,s,e,n MAXZOOM=n` / `map-check` | A real map of a region from OpenStreetMap data into `build/maps/region.pmtiles` and `/tmp/f250/maps/map.pmtiles`: vector by default (a Protomaps extract the dashboard draws; ADR-0032), or raster with `MAP_ARGS=--format=webp` (rendered by tileserver-gl in Docker; ADR-0031). `ESTIMATE=1` prints size per zoom only, `YES=1` allows >100k tiles. `map-check MAP=...` checks a file with the dashboard's reader |
 | `make map-stick STICK=/Volumes/<name>` / `map-import-dev` | Write the map (`MAP=`, default `build/maps/region.pmtiles`; `ROUTING=` and `SEARCH=` add routing and search data) and its checksum onto an exFAT USB stick, which the Pi imports onto its data drive when plugged in (ADR-0033). `map-import-dev` runs that import into `/tmp/f250/maps/` for `make ui` |

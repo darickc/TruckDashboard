@@ -1,0 +1,32 @@
+#!/bin/bash
+# Says its argument through the speakers: audio-manager's voice for spoken
+# directions (ADR-0039 decision 9). Flite+hts_engine 1.06 (meta-agl-demo's
+# flite, voice flite-voicedata: cmu_us_arctic_slt) makes a WAV in
+# audio-manager's runtime directory; pw-play plays it with media.role
+# Speech-High, which AGL's role policy gives "cork" over Multimedia: the
+# music is silenced at once while it plays.
+#
+# audio-manager kills this to cut a prompt off, so the last step is an exec
+# (the kill reaches pw-play). Older prompts' files are removed first.
+#
+#   F250_TTS        default flite_hts_engine (text on stdin, -m voice, -o wav)
+#   F250_TTS_VOICE  default /usr/share/Voice/us/cmu_us_arctic_slt.htsvoice
+#   F250_PLAY       default pw-play (PipeWire's pw-cat)
+#   F250_AUDIO_RUN  default /run/f250-audio
+#
+# Status: [SIM] (make agl-test, with stand-ins). UNVERIFIED on the Pi: the
+# voice, the cork, and that pw-play is in the image (pipewire's pw-cat
+# PACKAGECONFIG follows the agl-devel distro feature).
+set -euo pipefail
+
+TEXT="${1:?usage: speak-prompt TEXT}"
+TTS="${F250_TTS:-flite_hts_engine}"
+VOICE="${F250_TTS_VOICE:-/usr/share/Voice/us/cmu_us_arctic_slt.htsvoice}"
+PLAY="${F250_PLAY:-pw-play}"
+DIR="${F250_AUDIO_RUN:-/run/f250-audio}"
+
+mkdir -p "$DIR"
+rm -f "$DIR"/prompt-*.wav
+WAV="$DIR/prompt-$$.wav"
+printf '%s\n' "$TEXT" | "$TTS" -m "$VOICE" -o "$WAV"
+exec "$PLAY" --media-role Speech-High "$WAV"
