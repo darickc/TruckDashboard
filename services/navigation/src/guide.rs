@@ -14,6 +14,7 @@ use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
 use crate::valhalla::{Costing, LatLon, Route, RouteRequest, Router, distance_m};
+use crate::voice::{Moment, Voice};
 
 /// Limits, all examples to tune on the truck.
 #[derive(Debug, Clone)]
@@ -158,6 +159,8 @@ pub struct Guide {
     state: State,
     detail: String,
     destination: Option<LatLon>,
+    /// What the destination is called, as SetDestination named it.
+    destination_name: String,
     route: Option<Arc<Route>>,
     next_id: u64,
     /// A route is wanted: a new destination, or off the route.
@@ -179,6 +182,7 @@ impl Guide {
             state: State::Idle,
             detail: String::new(),
             destination: None,
+            destination_name: String::new(),
             route: None,
             next_id: 1,
             want: false,
@@ -198,6 +202,27 @@ impl Guide {
 
     pub fn route(&self) -> Option<&Arc<Route>> {
         self.route.as_ref()
+    }
+
+    /// Progress from the last update's current fix; None without one.
+    pub fn progress(&self) -> Option<Progress> {
+        self.progress
+    }
+
+    pub fn reroutes(&self) -> u32 {
+        self.reroutes
+    }
+
+    /// Farther than the off-route limit from the line, by a current fix.
+    pub fn off_route(&self) -> bool {
+        self.off_since.is_some()
+    }
+
+    /// Names the destination set by [`Guide::set_destination`].
+    pub fn name_destination(&mut self, name: &str) {
+        if self.destination.is_some() {
+            self.destination_name = name.trim().to_string();
+        }
     }
 
     /// Whether routing can work: the router's own check.
@@ -376,6 +401,8 @@ impl Guide {
                 self.detail.clone()
             },
             reroutes: self.reroutes,
+            destination_name: self.destination_name.clone(),
+            voice: None,
         }
     }
 }
@@ -414,8 +441,13 @@ pub fn route_to_pb(r: &Route) -> pb::Route {
 /// What the API sends the guide.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
-    SetDestination(LatLon),
+    /// A destination, and what it is called ("" for a point on the map).
+    SetDestination(LatLon, String),
     Clear,
+    /// Mute or unmute spoken directions (ADR-0040).
+    SetVoice {
+        muted: bool,
+    },
 }
 
 /// How often guidance is sent with nothing new, so ages move and the
@@ -423,7 +455,8 @@ pub enum Command {
 pub const TICK: Duration = Duration::from_secs(1);
 
 /// Runs the guide until `commands` closes. Publishes guidance and the
-/// current route (for GetRoute and the simulated receiver).
+/// current route (for GetRoute and the simulated receiver), and speaks
+/// directions with `voice`, if any.
 pub async fn run<R: Router>(
     cfg: GuideConfig,
     router: Arc<R>,
@@ -431,6 +464,7 @@ pub async fn run<R: Router>(
     mut position: watch::Receiver<pb::Position>,
     guidance: watch::Sender<pb::Guidance>,
     route_out: watch::Sender<Option<Arc<Route>>>,
+    mut voice: Option<Voice>,
 ) {
     let start = tokio::time::Instant::now();
     let mut guide = Guide::new(cfg);
@@ -441,6 +475,11 @@ pub async fn run<R: Router>(
         tokio::select! {
             cmd = commands.recv() => match cmd {
                 None => return,
+                Some(Command::SetVoice { muted }) => {
+                    if let Some(v) = voice.as_mut() {
+                        v.set_muted(muted);
+                    }
+                }
                 Some(cmd) => {
                     // A new destination or a clear abandons a request in
                     // flight (and kills its Valhalla).
@@ -449,8 +488,9 @@ pub async fn run<R: Router>(
                     }
                     guide.clear();
                     guide.set_available(router.check());
-                    if let Command::SetDestination(to) = cmd {
+                    if let Command::SetDestination(to, name) = cmd {
                         guide.set_destination(to);
+                        guide.name_destination(&name);
                     }
                 }
             },
@@ -475,6 +515,21 @@ pub async fn run<R: Router>(
             let router = router.clone();
             pending = Some(tokio::spawn(async move { router.route(req).await }));
         }
+        let mut g = guide.guidance();
+        if let Some(v) = voice.as_mut() {
+            // Only from this update's own state: progress is None unless
+            // `here` is a current fix (CLAUDE.md rule 4).
+            v.update(Moment {
+                state: guide.state(),
+                route: guide.route().map(|r| r.as_ref()),
+                progress: guide.progress(),
+                speed_mps: here.and_then(|h| h.speed_mps),
+                reroutes: guide.reroutes(),
+                off_route: guide.off_route(),
+                now,
+            });
+            g.voice = Some(v.to_pb());
+        }
         let route = guide.route().cloned();
         route_out.send_if_modified(|r| {
             let changed = r.as_ref().map(|r| r.id) != route.as_ref().map(|r| r.id);
@@ -483,7 +538,7 @@ pub async fn run<R: Router>(
             }
             changed
         });
-        guidance.send_replace(guide.guidance());
+        guidance.send_replace(g);
     }
 }
 

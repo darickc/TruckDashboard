@@ -11,6 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "f250/nav/v1/position.proto",
         "f250/nav/v1/route.proto",
         "f250/nav/v1/search.proto",
+        "f250/nav/v1/places.proto",
         "f250/export/v1/export.proto",
     ];
     for f in files {

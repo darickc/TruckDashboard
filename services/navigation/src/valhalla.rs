@@ -99,6 +99,16 @@ pub struct Maneuver {
     pub begin_shape_index: usize,
     /// Distance from the route's start to `begin_shape_index`, along the shape.
     pub start_m: f64,
+    /// Valhalla's words for speaking it (ADR-0040), each empty when it sent
+    /// none: `verbal_transition_alert_instruction` ("Turn right onto US
+    /// 36."), `verbal_pre_transition_instruction` ("Turn right onto US 36,
+    /// US 281.") and `verbal_post_transition_instruction` ("Continue for 19
+    /// kilometers."). With `verbal_multi_cue`, the pre-transition words also
+    /// give the next maneuver ("… Then turn left.").
+    pub verbal_alert: String,
+    pub verbal_pre: String,
+    pub verbal_post: String,
+    pub verbal_multi_cue: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -179,6 +189,13 @@ pub fn parse_response(text: &str, destination: LatLon, costing: &str) -> Result<
                 shape.len()
             ));
         }
+        let text = |k: &str| {
+            m.get(k)
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .trim()
+                .to_string()
+        };
         maneuvers.push(Maneuver {
             kind: m.get("type").and_then(Value::as_u64).unwrap_or(0) as u32,
             instruction: m
@@ -199,6 +216,13 @@ pub fn parse_response(text: &str, destination: LatLon, costing: &str) -> Result<
             time_s: m.get("time").and_then(Value::as_f64).unwrap_or(0.0),
             begin_shape_index: begin,
             start_m: along_m[begin],
+            verbal_alert: text("verbal_transition_alert_instruction"),
+            verbal_pre: text("verbal_pre_transition_instruction"),
+            verbal_post: text("verbal_post_transition_instruction"),
+            verbal_multi_cue: m
+                .get("verbal_multi_cue")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
         });
     }
     if maneuvers.is_empty() {

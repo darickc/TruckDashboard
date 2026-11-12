@@ -58,6 +58,7 @@ async fn main() -> Result<(), String> {
     client
         .set_destination(pb::SetDestinationRequest {
             destination: Some(to),
+            ..Default::default()
         })
         .await
         .map_err(|e| e.to_string())?;

@@ -1,6 +1,7 @@
-//! `navigation`: the truck's position from gpsd, routes from Valhalla and
-//! address search, served as `f250.nav.v1` (Phase 6.4, 6.5.2 and 6.5.3,
-//! ADR-0030, ADR-0035, ADR-0038).
+//! `navigation`: the truck's position from gpsd, routes from Valhalla,
+//! address search, saved places and spoken directions, served as
+//! `f250.nav.v1` (Phase 6.4, 6.5.2–6.5.4, ADR-0030, ADR-0035, ADR-0038,
+//! ADR-0040).
 //!
 //!   navigation --listen unix:/run/f250-nav/nav.sock                # gpsd on 127.0.0.1:2947
 //!   navigation --listen unix:/tmp/f250/nav.sock --simulate         # development
@@ -15,12 +16,14 @@ use clap::Parser;
 use f250_proto::nav::v1 as pb;
 use f250_sd_notify::{Heartbeat, Notifier, run_watchdog};
 use navigation::guide::{self, GuideConfig};
+use navigation::places::{self, Places};
 use navigation::publisher::{self, PublisherConfig};
 use navigation::search::Searcher;
 use navigation::server::{self, Api, RoutingApi};
 use navigation::sim::{self, SimConfig};
 use navigation::source::{self, GpsdConfig};
 use navigation::valhalla::{self, Costing, TruckOptions, ValhallaCli};
+use navigation::voice::{CommandSpeaker, LogSpeaker, Speaker, Units, Voice, VoiceConfig};
 use tokio::sync::{mpsc, watch};
 
 #[derive(Parser)]
@@ -105,6 +108,42 @@ struct Args {
     /// Arrived within this many metres of the destination. An example.
     #[arg(long, default_value_t = 40.0)]
     arrive_m: f64,
+    /// Saved places (places.json) and the voice's mute setting (voice.json)
+    /// go here: on the data drive (ADR-0040).
+    #[arg(
+        long,
+        default_value = "/var/lib/f250/storage/navigation",
+        value_name = "DIR"
+    )]
+    places_dir: PathBuf,
+    /// The data drive's mount point. When given and nothing is mounted
+    /// there, --places-fallback-dir is used instead and the screen says so.
+    #[arg(long, value_name = "DIR")]
+    places_drive: Option<PathBuf>,
+    #[arg(long, default_value = "/var/lib/f250-nav", value_name = "DIR")]
+    places_fallback_dir: PathBuf,
+    /// A program that speaks its last argument: "say" on the Mac,
+    /// "espeak-ng -v en-us". Without one, prompts go to the log only.
+    #[arg(long, value_name = "COMMAND")]
+    voice_command: Option<String>,
+    /// Spoken distances.
+    #[arg(long, default_value = "imperial", value_parser = ["imperial", "metric"])]
+    voice_units: String,
+    /// When prompts are spoken: the approaching prompt this many seconds
+    /// ahead at the current speed, between the two distances; then the
+    /// at-the-maneuver prompt likewise. Examples to tune on the truck.
+    #[arg(long, default_value_t = 30.0)]
+    voice_far_s: f64,
+    #[arg(long, default_value_t = 400.0)]
+    voice_far_min_m: f64,
+    #[arg(long, default_value_t = 2500.0)]
+    voice_far_max_m: f64,
+    #[arg(long, default_value_t = 8.0)]
+    voice_near_s: f64,
+    #[arg(long, default_value_t = 50.0)]
+    voice_near_min_m: f64,
+    #[arg(long, default_value_t = 300.0)]
+    voice_near_max_m: f64,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -179,6 +218,58 @@ async fn main() -> ExitCode {
         costing,
         ..GuideConfig::default()
     };
+    // Saved places and the mute setting: on the data drive when it is
+    // mounted, else on the SD card, saying so (ADR-0040).
+    let location = places::choose_location(
+        &args.places_dir.join("places.json"),
+        args.places_drive.as_deref(),
+        &args.places_fallback_dir.join("places.json"),
+        places::is_mount_point,
+    );
+    let state_dir = location
+        .file
+        .parent()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| args.places_dir.clone());
+    eprintln!(
+        "[navigation] saved places in {} ({})",
+        location.file.display(),
+        location.described
+    );
+    let saved = Places::open(location);
+    if !saved.problem().is_empty() {
+        eprintln!("[navigation] {}", saved.problem());
+    }
+    let speaker: Box<dyn Speaker> = match args
+        .voice_command
+        .as_deref()
+        .and_then(CommandSpeaker::parse)
+    {
+        Some(s) => Box::new(s),
+        None => Box::new(LogSpeaker {
+            why: "no speech output configured (audio-manager, ADR-0039, not connected yet)"
+                .to_string(),
+        }),
+    };
+    eprintln!("[navigation] voice: {}", speaker.status().detail);
+    let voice = Voice::new(
+        VoiceConfig {
+            far_s: args.voice_far_s,
+            far_min_m: args.voice_far_min_m,
+            far_max_m: args.voice_far_max_m,
+            near_s: args.voice_near_s,
+            near_min_m: args.voice_near_min_m,
+            near_max_m: args.voice_near_max_m,
+            units: if args.voice_units == "metric" {
+                Units::Metric
+            } else {
+                Units::Imperial
+            },
+            ..VoiceConfig::default()
+        },
+        speaker,
+        Some(state_dir.join("voice.json")),
+    );
     let (commands_tx, commands_rx) = mpsc::channel(8);
     let (guidance_tx, guidance_rx) = watch::channel(f250_proto::nav::v1::Guidance::default());
     tokio::spawn(guide::run(
@@ -188,6 +279,7 @@ async fn main() -> ExitCode {
         position.clone(),
         guidance_tx,
         route_tx,
+        Some(voice),
     ));
     if args.search_index.is_file() {
         eprintln!(
@@ -206,7 +298,8 @@ async fn main() -> ExitCode {
             guidance: guidance_rx,
             route: route_rx,
         })
-        .with_search(Searcher::new(args.search_index.clone()));
+        .with_search(Searcher::new(args.search_index.clone()))
+        .with_places(saved);
 
     let listen = args.listen.clone();
     let serving = tokio::spawn(async move { server::serve(&listen, api).await });

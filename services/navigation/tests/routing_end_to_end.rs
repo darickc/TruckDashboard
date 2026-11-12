@@ -11,10 +11,13 @@ use std::time::Duration;
 use f250_proto::nav::v1 as pb;
 use hyper_util::rt::TokioIo;
 use navigation::guide::{self, GuideConfig};
+use navigation::places::{Location, Places};
 use navigation::publisher::{self, PublisherConfig};
 use navigation::server::{self, Api, RoutingApi};
 use navigation::sim::{self, SimConfig};
 use navigation::valhalla::{DEFAULT_TIMEOUT, ValhallaCli};
+use navigation::voice::{RecordingSpeaker, Voice, VoiceConfig};
+use pb::places_service_client::PlacesServiceClient;
 use pb::route_service_client::RouteServiceClient;
 use tokio::sync::{mpsc, watch};
 use tonic::transport::{Endpoint, Uri};
@@ -39,6 +42,9 @@ fn fake_valhalla(dir: &Path, answer: &str, code: i32) -> PathBuf {
 struct Service {
     dir: PathBuf,
     client: RouteServiceClient<tonic::transport::Channel>,
+    places: PlacesServiceClient<tonic::transport::Channel>,
+    /// What the voice said.
+    said: RecordingSpeaker,
 }
 
 async fn start(test: &str, answer: &str, code: i32, with_tiles: bool) -> Service {
@@ -80,6 +86,12 @@ async fn start(test: &str, answer: &str, code: i32, with_tiles: bool) -> Service
     tokio::spawn(sim::run(sim_cfg, events_tx, Some(route_rx.clone())));
     let (commands_tx, commands_rx) = mpsc::channel(8);
     let (guidance_tx, guidance_rx) = watch::channel(pb::Guidance::default());
+    let said = RecordingSpeaker::default();
+    let voice = Voice::new(
+        VoiceConfig::default(),
+        Box::new(said.clone()),
+        Some(dir.join("state/voice.json")),
+    );
     tokio::spawn(guide::run(
         GuideConfig::default(),
         router,
@@ -87,12 +99,19 @@ async fn start(test: &str, answer: &str, code: i32, with_tiles: bool) -> Service
         position.clone(),
         guidance_tx,
         route_tx,
+        Some(voice),
     ));
-    let api = Api::new(position).with_routing(RoutingApi {
-        commands: commands_tx,
-        guidance: guidance_rx,
-        route: route_rx,
+    let places = Places::open(Location {
+        file: dir.join("state/places.json"),
+        described: "a test directory".to_string(),
     });
+    let api = Api::new(position)
+        .with_routing(RoutingApi {
+            commands: commands_tx,
+            guidance: guidance_rx,
+            route: route_rx,
+        })
+        .with_places(places);
     let sock = dir.join("nav.sock");
     let listen = format!("unix:{}", sock.display());
     tokio::spawn(async move { server::serve(&listen, api).await });
@@ -115,7 +134,9 @@ async fn start(test: &str, answer: &str, code: i32, with_tiles: bool) -> Service
         .expect("connect");
     Service {
         dir,
-        client: RouteServiceClient::new(channel),
+        client: RouteServiceClient::new(channel.clone()),
+        places: PlacesServiceClient::new(channel),
+        said,
     }
 }
 
@@ -165,6 +186,8 @@ async fn routes_guides_and_arrives() {
     s.client
         .set_destination(pb::SetDestinationRequest {
             destination: Some(dest()),
+            name: "Grain elevator".to_string(),
+            detail: "Smith Center".to_string(),
         })
         .await
         .expect("set");
@@ -184,6 +207,35 @@ async fn routes_guides_and_arrives() {
     let first = active.first().expect("active before arriving");
     assert_eq!(first.route_id, 1);
     assert_eq!(first.destination, Some(dest()));
+    assert_eq!(first.destination_name, "Grain elevator");
+    // Spoken, from Valhalla's words, and the arrival last. (At the
+    // simulated 2 km/s, which prompts fall between samples varies.)
+    let said = s.said.said.lock().unwrap().clone();
+    assert_eq!(
+        said.last().map(String::as_str),
+        Some("You have arrived at your destination."),
+        "{said:?}"
+    );
+    let voice = active
+        .last()
+        .unwrap()
+        .voice
+        .clone()
+        .expect("voice in guidance");
+    assert!(!voice.muted && voice.audible);
+    assert!(voice.prompts >= 1);
+    // The destination is now a recent one, with its name.
+    let places = s
+        .places
+        .list_places(pb::ListPlacesRequest {})
+        .await
+        .expect("places")
+        .into_inner()
+        .places
+        .expect("places");
+    assert_eq!(places.recents.len(), 1);
+    assert_eq!(places.recents[0].name, "Grain elevator");
+    assert_eq!(places.recents[0].detail, "Smith Center");
     let on_route: Vec<(u32, f64)> = active
         .iter()
         .filter_map(|g| g.progress.as_ref())
@@ -241,6 +293,135 @@ async fn routes_guides_and_arrives() {
         .expect("clear");
     let g = until(&mut stream, |g| g.state == pb::RouteState::Idle as i32).await;
     assert_eq!((g.route_id, g.destination), (0, None));
+
+    // Muting: guidance says so, and the setting is kept for a restart.
+    let r = s
+        .client
+        .set_voice(pb::SetVoiceRequest { muted: true })
+        .await
+        .expect("mute")
+        .into_inner();
+    assert!(r.voice.expect("voice").muted);
+    let kept = std::fs::read_to_string(s.dir.join("state/voice.json")).expect("kept");
+    assert!(kept.contains("\"muted\": true"), "{kept}");
+    let g = until(&mut stream, |g| g.voice.as_ref().is_some_and(|v| v.muted)).await;
+    assert_eq!(g.state, pb::RouteState::Idle as i32);
+}
+
+#[tokio::test]
+async fn saved_places_over_the_api() {
+    let mut s = start("places", "valhalla-3.9.1-route-auto.json", 0, true).await;
+    let loc = |lat, lon| {
+        Some(pb::LatLon {
+            latitude_deg: lat,
+            longitude_deg: lon,
+        })
+    };
+    let l = s
+        .places
+        .list_places(pb::ListPlacesRequest {})
+        .await
+        .expect("list")
+        .into_inner()
+        .places
+        .expect("places");
+    assert!(l.home.is_none() && l.favourites.is_empty() && l.recents.is_empty());
+    let storage = l.storage.expect("storage");
+    assert!(storage.writable);
+    assert_eq!(storage.location, "a test directory");
+    assert_eq!(
+        (l.max_favourites, l.max_recents, l.max_name_chars),
+        (50, 10, 40)
+    );
+
+    let l = s
+        .places
+        .save_place(pb::SavePlaceRequest {
+            kind: pb::PlaceKind::Home as i32,
+            name: String::new(),
+            detail: "Fairview".to_string(),
+            location: loc(39.84, -98.54),
+        })
+        .await
+        .expect("home")
+        .into_inner()
+        .places
+        .expect("places");
+    assert_eq!(l.home.as_ref().expect("home").name, "Home");
+    let l = s
+        .places
+        .save_place(pb::SavePlaceRequest {
+            kind: pb::PlaceKind::Favourite as i32,
+            name: "Feed store".to_string(),
+            detail: String::new(),
+            location: loc(39.85, -95.53),
+        })
+        .await
+        .expect("favourite")
+        .into_inner()
+        .places
+        .expect("places");
+    let feed = l.favourites[0].id;
+    let l = s
+        .places
+        .rename_place(pb::RenamePlaceRequest {
+            id: feed,
+            name: "Co-op".to_string(),
+        })
+        .await
+        .expect("rename")
+        .into_inner()
+        .places
+        .expect("places");
+    assert_eq!(l.favourites[0].name, "Co-op");
+
+    // Refusals say why, with the right codes.
+    let e = s
+        .places
+        .save_place(pb::SavePlaceRequest {
+            kind: pb::PlaceKind::Favourite as i32,
+            name: " ".to_string(),
+            detail: String::new(),
+            location: loc(39.0, -98.0),
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(e.code(), tonic::Code::InvalidArgument);
+    assert_eq!(e.message(), "a favourite needs a name");
+    let e = s
+        .places
+        .save_place(pb::SavePlaceRequest {
+            kind: pb::PlaceKind::Recent as i32,
+            name: "x".to_string(),
+            detail: String::new(),
+            location: loc(39.0, -98.0),
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(e.code(), tonic::Code::InvalidArgument);
+    let e = s
+        .places
+        .delete_place(pb::DeletePlaceRequest { id: 999 })
+        .await
+        .unwrap_err();
+    assert_eq!(e.code(), tonic::Code::NotFound);
+
+    let l = s
+        .places
+        .delete_place(pb::DeletePlaceRequest { id: feed })
+        .await
+        .expect("delete")
+        .into_inner()
+        .places
+        .expect("places");
+    assert!(l.favourites.is_empty());
+    // On disk, for the next start.
+    let reopened = Places::open(Location {
+        file: s.dir.join("state/places.json"),
+        described: String::new(),
+    });
+    assert_eq!(reopened.home().expect("home").detail, "Fairview");
+    assert!(reopened.favourites().is_empty());
 }
 
 #[tokio::test]
@@ -255,6 +436,7 @@ async fn valhalla_errors_are_shown() {
     s.client
         .set_destination(pb::SetDestinationRequest {
             destination: Some(dest()),
+            ..Default::default()
         })
         .await
         .expect("set");
@@ -271,6 +453,7 @@ async fn valhalla_errors_are_shown() {
                 latitude_deg: 91.0,
                 longitude_deg: 0.0,
             }),
+            ..Default::default()
         })
         .await
         .unwrap_err();
@@ -295,6 +478,7 @@ async fn no_routing_data_is_unavailable() {
     s.client
         .set_destination(pb::SetDestinationRequest {
             destination: Some(dest()),
+            ..Default::default()
         })
         .await
         .expect("set");

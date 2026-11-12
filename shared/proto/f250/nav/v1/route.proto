@@ -18,6 +18,9 @@ service RouteService {
   // The line and maneuvers of a route, by the id Guidance names. NOT_FOUND
   // once a newer route has replaced it.
   rpc GetRoute(GetRouteRequest) returns (GetRouteResponse);
+  // Mutes or unmutes spoken directions (ADR-0040). Kept across restarts.
+  // Guidance.voice reports the result.
+  rpc SetVoice(SetVoiceRequest) returns (SetVoiceResponse);
 }
 
 message LatLon {
@@ -101,10 +104,36 @@ message Guidance {
   string detail = 5;
   // New routes after leaving the route, for this destination.
   uint32 reroutes = 6;
+  // The destination's name as SetDestination gave it ("Home", a search
+  // result's title); empty for a point on the map.
+  string destination_name = 7;
+  // Spoken directions (ADR-0040).
+  Voice voice = 8;
+}
+
+// Spoken directions: muted or not, whether they can be heard, and the last
+// prompt. Prompts are only ever made from a current position (CLAUDE.md
+// rule 4); without one, nothing is spoken.
+message Voice {
+  bool muted = 1;
+  // Prompts reach a speaker. False when they only go to the log (no audio
+  // path yet, ADR-0040) or the speech program is missing; `detail` says which.
+  bool audible = 2;
+  // Where prompts go: "macOS say", "the log only: …".
+  string detail = 3;
+  // The last prompt made (spoken, or skipped because muted), and a count of
+  // prompts so a client can tell a new one from a repeat.
+  string last_prompt = 4;
+  uint64 prompts = 5;
 }
 
 message SetDestinationRequest {
   LatLon destination = 1;
+  // Optional: what it is ("Home", a search result's title). Shown with the
+  // route and kept with it in the recent destinations (places.proto).
+  string name = 2;
+  // Optional: a second line for the recent destinations ("Fairview").
+  string detail = 3;
 }
 
 message SetDestinationResponse {}
@@ -125,4 +154,12 @@ message GetRouteRequest {
 
 message GetRouteResponse {
   Route route = 1;
+}
+
+message SetVoiceRequest {
+  bool muted = 1;
+}
+
+message SetVoiceResponse {
+  Voice voice = 1;
 }

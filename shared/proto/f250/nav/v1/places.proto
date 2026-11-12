@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+// Saved places: Home, favourites with a name, and the recent destinations,
+// kept by services/navigation on the data drive (Phase 6.5.4,
+// docs/architecture/adr/0040-saved-places-and-spoken-directions.md). A route
+// to one is RouteService.SetDestination with its location and name.
+package f250.nav.v1;
+
+import "f250/nav/v1/route.proto";
+
+service PlacesService {
+  // Every saved place. Never fails for a missing or unreadable file:
+  // `storage` says what happened.
+  rpc ListPlaces(ListPlacesRequest) returns (ListPlacesResponse);
+  // Saves a place as Home (replacing any) or as a favourite. A favourite
+  // needs a name. Returns the places after the change.
+  rpc SavePlace(SavePlaceRequest) returns (SavePlaceResponse);
+  // Renames a place of any kind. NOT_FOUND for an unknown id.
+  rpc RenamePlace(RenamePlaceRequest) returns (RenamePlaceResponse);
+  // Deletes a place of any kind. NOT_FOUND for an unknown id.
+  rpc DeletePlace(DeletePlaceRequest) returns (DeletePlaceResponse);
+}
+
+enum PlaceKind {
+  PLACE_KIND_UNSPECIFIED = 0;
+  PLACE_KIND_HOME = 1;
+  PLACE_KIND_FAVOURITE = 2;
+  // Added by SetDestination, newest first, bounded.
+  PLACE_KIND_RECENT = 3;
+}
+
+message Place {
+  // Unique among this store's places; never reused.
+  uint64 id = 1;
+  PlaceKind kind = 2;
+  // "Home", "Feed store", "120 North Main Street"; a recent one may have
+  // none (a point on the map).
+  string name = 3;
+  // A second line: a town, a category.
+  string detail = 4;
+  LatLon location = 5;
+}
+
+// Where the places are kept, and anything wrong with them.
+message PlacesStorage {
+  // The places can be read and changed.
+  bool writable = 1;
+  // "the data drive", "the SD card: the data drive isn't mounted".
+  string location = 2;
+  // A problem worth showing: an unreadable file kept aside, entries
+  // dropped, a failed write. Empty when all is well.
+  string problem = 3;
+}
+
+// Every saved place, and how they are kept.
+message Places {
+  // Absent when none is saved.
+  Place home = 1;
+  repeated Place favourites = 2;
+  // Newest first.
+  repeated Place recents = 3;
+  PlacesStorage storage = 4;
+  // The limits this service keeps: more favourites are refused, older
+  // recents dropped, longer names refused.
+  uint32 max_favourites = 5;
+  uint32 max_recents = 6;
+  uint32 max_name_chars = 7;
+}
+
+message ListPlacesRequest {}
+
+message ListPlacesResponse {
+  Places places = 1;
+}
+
+message SavePlaceRequest {
+  // HOME or FAVOURITE.
+  PlaceKind kind = 1;
+  string name = 2;
+  string detail = 3;
+  LatLon location = 4;
+}
+
+message SavePlaceResponse {
+  // After the change.
+  Places places = 1;
+}
+
+message RenamePlaceRequest {
+  uint64 id = 1;
+  string name = 2;
+}
+
+message RenamePlaceResponse {
+  Places places = 1;
+}
+
+message DeletePlaceRequest {
+  uint64 id = 1;
+}
+
+message DeletePlaceResponse {
+  Places places = 1;
+}

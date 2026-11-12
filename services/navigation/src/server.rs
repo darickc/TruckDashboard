@@ -1,13 +1,16 @@
 //! `f250.nav.v1.PositionService`: the publisher's latest position, then
 //! each new one. `RouteService`: commands to the guide, its guidance and
 //! its current route. `SearchService`: the offline search index, ranked from
-//! the latest position (ADR-0038).
+//! the latest position (ADR-0038). `PlacesService`: Home, favourites and
+//! recent destinations (ADR-0040); every SetDestination adds a recent one.
 
 use std::path::Path;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use f250_proto::nav::v1 as pb;
+use pb::places_service_server::{PlacesService, PlacesServiceServer};
 use pb::position_service_server::{PositionService, PositionServiceServer};
 use pb::route_service_server::{RouteService, RouteServiceServer};
 use pb::search_service_server::{SearchService, SearchServiceServer};
@@ -16,6 +19,7 @@ use tokio_stream::{Stream, StreamExt, wrappers::WatchStream};
 use tonic::{Request, Response, Status};
 
 use crate::guide::{Command, route_to_pb};
+use crate::places::{self, Places, Refused};
 use crate::search::{self, Searcher};
 use crate::valhalla::Route;
 
@@ -24,6 +28,7 @@ pub struct Api {
     position: watch::Receiver<pb::Position>,
     routing: Option<RoutingApi>,
     search: Option<Arc<Searcher>>,
+    places: Option<Arc<Mutex<Places>>>,
 }
 
 /// The guide's side of the API.
@@ -40,7 +45,33 @@ impl Api {
             position,
             routing: None,
             search: None,
+            places: None,
         }
+    }
+
+    pub fn with_places(mut self, places: Places) -> Self {
+        self.places = Some(Arc::new(Mutex::new(places)));
+        self
+    }
+
+    /// Runs `f` on the places on the blocking pool: a change writes and
+    /// flushes a file, which mustn't hold up guidance on this runtime.
+    async fn places<T: Send + 'static>(
+        &self,
+        f: impl FnOnce(&mut Places) -> T + Send + 'static,
+    ) -> Result<T, Status> {
+        let p = self
+            .places
+            .clone()
+            .ok_or_else(|| Status::unimplemented("saved places aren't kept by this service"))?;
+        tokio::task::spawn_blocking(move || {
+            let mut g = p
+                .lock()
+                .map_err(|_| Status::internal("saved places: a previous change panicked"))?;
+            Ok(f(&mut g))
+        })
+        .await
+        .map_err(|e| Status::internal(format!("saved places task: {e}")))?
     }
 
     pub fn with_search(mut self, searcher: Arc<Searcher>) -> Self {
@@ -99,17 +130,61 @@ impl RouteService for Api {
         &self,
         req: Request<pb::SetDestinationRequest>,
     ) -> Result<Response<pb::SetDestinationResponse>, Status> {
+        let req = req.into_inner();
         let to = req
-            .into_inner()
             .destination
             .filter(valid)
             .ok_or_else(|| Status::invalid_argument("a destination in degrees is required"))?;
+        let at = (to.latitude_deg, to.longitude_deg);
+        let name: String = req
+            .name
+            .trim()
+            .chars()
+            .take(places::MAX_NAME_CHARS)
+            .collect();
         self.routing()?
             .commands
-            .send(Command::SetDestination((to.latitude_deg, to.longitude_deg)))
+            .send(Command::SetDestination(at, name.clone()))
             .await
             .map_err(|_| Status::unavailable("the guide has stopped"))?;
+        // A recent destination. A failure to keep it doesn't stop the route;
+        // the places' own problem line says why.
+        let detail = req.detail;
+        if self.places.is_some()
+            && let Ok(Err(e)) = self.places(move |p| p.add_recent(&name, &detail, at)).await
+        {
+            eprintln!("[navigation] recent destination not kept: {e}");
+        }
         Ok(Response::new(pb::SetDestinationResponse {}))
+    }
+
+    async fn set_voice(
+        &self,
+        req: Request<pb::SetVoiceRequest>,
+    ) -> Result<Response<pb::SetVoiceResponse>, Status> {
+        let muted = req.into_inner().muted;
+        let routing = self.routing()?;
+        routing
+            .commands
+            .send(Command::SetVoice { muted })
+            .await
+            .map_err(|_| Status::unavailable("the guide has stopped"))?;
+        // The guide applies it on its next turn, and says so in guidance.
+        let mut rx = routing.guidance.clone();
+        let applied = tokio::time::timeout(
+            Duration::from_secs(2),
+            rx.wait_for(|g| g.voice.as_ref().is_some_and(|v| v.muted == muted)),
+        )
+        .await;
+        match applied {
+            Ok(Ok(g)) => Ok(Response::new(pb::SetVoiceResponse {
+                voice: g.voice.clone(),
+            })),
+            Ok(Err(_)) => Err(Status::unavailable("the guide has stopped")),
+            Err(_) => Err(Status::unavailable(
+                "spoken directions aren't running in this service",
+            )),
+        }
     }
 
     async fn clear_route(
@@ -200,13 +275,95 @@ impl SearchService for Api {
     }
 }
 
+fn refused(e: Refused) -> Status {
+    match e {
+        Refused::Invalid(why) => Status::invalid_argument(why),
+        Refused::NotFound(id) => Status::not_found(format!("no saved place {id}")),
+        Refused::Full(why) => Status::failed_precondition(why),
+        Refused::Write(why) => Status::unavailable(why),
+    }
+}
+
+#[tonic::async_trait]
+impl PlacesService for Api {
+    async fn list_places(
+        &self,
+        _: Request<pb::ListPlacesRequest>,
+    ) -> Result<Response<pb::ListPlacesResponse>, Status> {
+        Ok(Response::new(pb::ListPlacesResponse {
+            places: Some(self.places(|p| p.to_pb()).await?),
+        }))
+    }
+
+    async fn save_place(
+        &self,
+        req: Request<pb::SavePlaceRequest>,
+    ) -> Result<Response<pb::SavePlaceResponse>, Status> {
+        let req = req.into_inner();
+        let at = req
+            .location
+            .filter(valid)
+            .map(|l| (l.latitude_deg, l.longitude_deg))
+            .ok_or_else(|| Status::invalid_argument("a location in degrees is required"))?;
+        let kind = match pb::PlaceKind::try_from(req.kind) {
+            Ok(pb::PlaceKind::Home) => places::Kind::Home,
+            Ok(pb::PlaceKind::Favourite) => places::Kind::Favourite,
+            _ => return Err(Status::invalid_argument("save as HOME or FAVOURITE")),
+        };
+        self.places(move |p| {
+            p.save(kind, &req.name, &req.detail, at)
+                .map(|_| p.to_pb())
+                .map_err(refused)
+        })
+        .await?
+        .map(|places| {
+            Response::new(pb::SavePlaceResponse {
+                places: Some(places),
+            })
+        })
+    }
+
+    async fn rename_place(
+        &self,
+        req: Request<pb::RenamePlaceRequest>,
+    ) -> Result<Response<pb::RenamePlaceResponse>, Status> {
+        let req = req.into_inner();
+        self.places(move |p| {
+            p.rename(req.id, &req.name)
+                .map(|()| p.to_pb())
+                .map_err(refused)
+        })
+        .await?
+        .map(|places| {
+            Response::new(pb::RenamePlaceResponse {
+                places: Some(places),
+            })
+        })
+    }
+
+    async fn delete_place(
+        &self,
+        req: Request<pb::DeletePlaceRequest>,
+    ) -> Result<Response<pb::DeletePlaceResponse>, Status> {
+        let id = req.into_inner().id;
+        self.places(move |p| p.delete(id).map(|()| p.to_pb()).map_err(refused))
+            .await?
+            .map(|places| {
+                Response::new(pb::DeletePlaceResponse {
+                    places: Some(places),
+                })
+            })
+    }
+}
+
 /// Serves on `unix:PATH` or `tcp:HOST:PORT` until the server fails.
 pub async fn serve(listen: &str, api: Api) -> Result<(), String> {
     let mut builder = tonic::transport::Server::builder();
     let router = builder
         .add_service(PositionServiceServer::new(api.clone()))
         .add_service(RouteServiceServer::new(api.clone()))
-        .add_service(SearchServiceServer::new(api));
+        .add_service(SearchServiceServer::new(api.clone()))
+        .add_service(PlacesServiceServer::new(api));
     if let Some(path) = listen.strip_prefix("unix:") {
         let path = Path::new(path);
         if let Some(dir) = path.parent() {
