@@ -9,7 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../harness.dart';
 
-/// The Media screen and Settings → Speakers (ADR-0039) at 800×480, against
+/// The Media and Phones screens and Settings → Speakers (ADR-0039) at
+/// 800×480, against
 /// the simulated audio-manager and a fake one whose reports the test sets.
 /// `[SIM]`.
 
@@ -64,6 +65,12 @@ class FakeAudio implements AudioSource {
   @override
   Future<CommandResult> confirm(int id, bool accept) async {
     calls.add('confirm $id $accept');
+    return const CommandResult(ok: true);
+  }
+
+  @override
+  Future<CommandResult> connectPhone(String address) async {
+    calls.add('connect $address');
     return const CommandResult(ok: true);
   }
 
@@ -126,8 +133,7 @@ void main() {
     await tester.pump();
     expect(key('media-title'), findsNothing, reason: 'never the last track of a gone phone');
     expect(text(tester, 'media-headline'), 'No phone connected');
-    expect(text(tester, 'media-phone'), 'None connected');
-    expect(find.text('Simulated phone: paired, not connected'), findsOneWidget);
+    expect(text(tester, 'media-explain'), 'Tap Phones to connect a paired phone or pair another.');
     // The controls are shown but do nothing.
     await tester.tap(key('media-next'));
     await tester.pump();
@@ -147,10 +153,11 @@ void main() {
     expect(text(tester, 'media-headline'), 'Bluetooth unavailable');
     expect(text(tester, 'media-explain'), 'simulated: Bluetooth is off');
     expect(key('media-title'), findsNothing);
-    expect(text(tester, 'media-phone'), 'Bluetooth unavailable');
-    await tester.tap(key('media-pair'));
+    await h.goTo(AppScreen.phones);
+    expect(text(tester, 'phones-empty'), 'simulated: Bluetooth is off');
+    await tester.tap(key('phones-pair'));
     await tester.pump();
-    expect(text(tester, 'media-pairing'), 'Bluetooth stopped: the pairing window is closed.',
+    expect(text(tester, 'phones-pairing'), 'Bluetooth stopped: the pairing window is closed.',
         reason: 'Pair is off: nothing opened');
   });
 
@@ -168,7 +175,10 @@ void main() {
     expect(find.text('Old Song'), findsNothing);
     expect(text(tester, 'media-link'), 'audio-manager not connected');
     expect(text(tester, 'media-link-detail'), startsWith('audio-manager stopped answering.'));
-    expect(key('media-pair'), findsNothing);
+    expect(key('media-phones'), findsNothing);
+    await h.goTo(AppScreen.phones);
+    expect(text(tester, 'phones-link'), contains('audio-manager not connected'));
+    expect(key('phones-pair'), findsNothing);
   });
 
   testWidgets('a phone with no player: connected, no controls', (tester) async {
@@ -176,6 +186,10 @@ void main() {
     final h = await Harness.start(tester, audio: audio);
     await h.goTo(AppScreen.media);
     expect(text(tester, 'media-headline'), 'Connected to Pixel 8');
+    // The badges follow the name: no empty room is kept between them (which
+    // used to cut the name short with space to spare).
+    expect(tester.getRect(key('media-streaming')).left - tester.getRect(key('media-source')).right,
+        closeTo(6, 0.5));
     expect(text(tester, 'media-explain'), contains('no AVRCP player'));
     await tester.tap(key('media-play-pause'));
     await tester.pump();
@@ -216,14 +230,14 @@ void main() {
   testWidgets('pairing window: Pair, countdown, the code, accepted, closed', (tester) async {
     final audio = SimulatedAudioSource(autoRun: false, pairAfterTicks: 3);
     final h = await Harness.start(tester, audio: audio);
-    await h.goTo(AppScreen.media);
+    await h.goTo(AppScreen.phones);
     expect(find.textContaining('Pair a phone'), findsOneWidget);
-    expect(text(tester, 'media-pairing'), contains('Not visible to new phones'));
-    await tester.tap(key('media-pair'));
+    expect(text(tester, 'phones-pairing'), contains('Not visible to new phones'));
+    await tester.tap(key('phones-pair'));
     await tester.pump();
     await tester.pump();
     expect(find.textContaining('Stop pairing · 2:00'), findsOneWidget);
-    expect(text(tester, 'media-pairing'), contains('Visible as "F-250" for 2:00'));
+    expect(text(tester, 'phones-pairing'), contains('Visible as "F-250" for 2:00'));
     audio.tick();
     await tester.pump();
     expect(find.textContaining('Stop pairing · 1:59'), findsOneWidget);
@@ -231,46 +245,53 @@ void main() {
       ..tick()
       ..tick();
     await tester.pump();
-    expect(key('media-question'), findsOneWidget);
-    expect(text(tester, 'media-passkey'), '246 810');
+    expect(key('phones-question'), findsOneWidget);
+    expect(text(tester, 'phones-passkey'), '246 810');
     expect(find.text('Simulated phone 2 wants to pair'), findsOneWidget);
-    expectTouchTargets(tester, 'media, question');
-    await tester.tap(key('media-confirm-yes'));
+    expectTouchTargets(tester, 'phones, question');
+    // Media points at it too.
+    await h.goTo(AppScreen.media);
+    expect(find.text('Phones · pairing request'), findsOneWidget);
+    await tester.tap(key('media-phones'));
+    await tester.pump();
+    await tester.tap(key('phones-confirm-yes'));
     await tester.pump();
     await tester.pump();
-    expect(key('media-question'), findsNothing);
-    expect(text(tester, 'media-phone'), 'Simulated phone 2');
-    expect(text(tester, 'media-pairing'), 'Paired with Simulated phone 2.');
+    expect(key('phones-question'), findsNothing);
+    expect(text(tester, 'phones-status-02:00:00:00:00:02'), 'Connected');
+    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Paired · not connected');
+    expect(text(tester, 'phones-pairing'), 'Paired with Simulated phone 2.');
     expect(find.textContaining('Pair a phone'), findsOneWidget);
   });
 
   testWidgets('pairing window: refused, stopped by hand, and closing by itself', (tester) async {
     final audio = SimulatedAudioSource(autoRun: false, pairAfterTicks: 1);
     final h = await Harness.start(tester, audio: audio);
-    await h.goTo(AppScreen.media);
-    await tester.tap(key('media-pair'));
+    await h.goTo(AppScreen.phones);
+    await tester.tap(key('phones-pair'));
     await tester.pump();
     audio.tick();
     await tester.pump();
-    await tester.tap(key('media-confirm-no'));
+    await tester.tap(key('phones-confirm-no'));
     await tester.pump();
     await tester.pump();
-    expect(text(tester, 'media-pairing'), contains('Visible as'));
-    expect(text(tester, 'media-phone'), 'Simulated phone');
-    await tester.tap(key('media-pair'));
+    expect(text(tester, 'phones-pairing'), contains('Visible as'));
+    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Connected');
+    expect(key('phones-row-02:00:00:00:00:02'), findsNothing);
+    await tester.tap(key('phones-pair'));
     await tester.pump();
     await tester.pump();
-    expect(text(tester, 'media-pairing'), 'Closed.');
+    expect(text(tester, 'phones-pairing'), 'Closed.');
 
-    await tester.tap(key('media-pair'));
+    await tester.tap(key('phones-pair'));
     await tester.pump();
     await tester.pump();
     for (var i = 0; i < SimulatedAudioSource.windowSeconds; i++) {
       audio.tick();
     }
     await tester.pump();
-    expect(text(tester, 'media-pairing'), 'Closed by itself after 120 s.');
-    expect(key('media-question'), findsNothing);
+    expect(text(tester, 'phones-pairing'), 'Closed by itself after 120 s.');
+    expect(key('phones-question'), findsNothing);
   });
 
   testWidgets('a code-less pairing request says to check the phone', (tester) async {
@@ -283,11 +304,11 @@ void main() {
               name: 'F-250',
               question: PasskeyQuestion(id: 7, phoneName: 'Unknown', address: 'CC', secondsLeft: 20))));
     final h = await Harness.start(tester, audio: audio);
-    await h.goTo(AppScreen.media);
-    expect(key('media-passkey'), findsNothing);
+    await h.goTo(AppScreen.phones);
+    expect(key('phones-passkey'), findsNothing);
     expect(find.textContaining('Accept only if it is the phone in your hand'), findsOneWidget);
     expect(find.text('Refused by itself in 20 s.'), findsOneWidget);
-    await tester.tap(key('media-confirm-no'));
+    await tester.tap(key('phones-confirm-no'));
     await tester.pump();
     expect(audio.calls, ['confirm 7 false']);
   });
@@ -314,8 +335,34 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(text(tester, 'media-time'), '3:00 / 1:02:00');
       expect(text(tester, 'media-state'), 'The phone reports an error');
-      expect(text(tester, 'media-dsp'), contains('not running (pipewire stopped'));
+      expect(key('media-dsp'), findsNothing, reason: 'simulated: never a crossover to miss');
     }
+  });
+
+  testWidgets('long phone names fit on Phones at 800×480 in day and night', (tester) async {
+    for (final theme in DayNight.values) {
+      final audio = FakeAudio()
+        ..value = up(AudioReport(
+            phone: Phone(address: 'A', name: 'Phone ' * 20, connected: true),
+            known: [
+              for (var i = 0; i < 6; i++) Phone(address: 'B$i', name: 'Other ' * 20, paired: true, last: i == 0),
+            ],
+            connect: ConnectStatus(detail: 'Couldn\'t reach ${'Other ' * 20}: a long reason ' * 3)));
+      final h = await Harness.start(tester, audio: audio, theme: theme);
+      await h.goTo(AppScreen.phones);
+      expect(tester.takeException(), isNull);
+      expect(key('phones-row-B0'), findsOneWidget);
+      expect(text(tester, 'phones-status-B0'), 'Last connected · not connected now');
+      expectTouchTargets(tester, 'phones, long names');
+    }
+  });
+
+  testWidgets('without the crossover running, Media says so', (tester) async {
+    final audio = FakeAudio()
+      ..value = up(const AudioReport(phone: phone, dsp: DspPhase.notRunning, dspDetail: 'pipewire stopped'));
+    final h = await Harness.start(tester, audio: audio);
+    await h.goTo(AppScreen.media);
+    expect(find.text('NO CROSSOVER'), findsOneWidget);
   });
 
   testWidgets('alerts stay visible on the Media screen', (tester) async {
@@ -325,7 +372,103 @@ void main() {
     expect(find.byKey(const ValueKey('alert-banner')), findsOneWidget);
   });
 
-  testWidgets('Settings → Speakers: steps, limits, defaults', (tester) async {
+  testWidgets('Phones opens from Media: paired phones, the last one first, Connect', (tester) async {
+    final audio = SimulatedAudioSource(autoRun: false);
+    final h = await Harness.start(tester, audio: audio);
+    await h.goTo(AppScreen.media);
+    expect(tester.getRect(key('media-next')).right, greaterThan(760), reason: 'Media is the full width');
+    await tester.tap(key('media-phones'));
+    await tester.pump();
+    expect(h.services.screens.value, AppScreen.phones);
+    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Connected');
+    expect(text(tester, 'phones-status-02:00:00:00:00:03'), 'Paired · not connected');
+    expect(key('phones-connect-02:00:00:00:00:01'), findsNothing, reason: 'already connected');
+    expectTouchTargets(tester, 'phones');
+
+    await tester.tap(key('phones-connect-02:00:00:00:00:03'));
+    await tester.pump();
+    await tester.pump();
+    expect(text(tester, 'phones-status-02:00:00:00:00:03'), 'Connecting…');
+    expect(text(tester, 'phones-detail'), 'Connecting to Old simulated phone…');
+    expect(find.text('Connecting…'), findsWidgets);
+    audio
+      ..tick()
+      ..tick();
+    await tester.pump();
+    expect(text(tester, 'phones-status-02:00:00:00:00:03'), 'Connected');
+    // One phone at a time; the old one is now just paired.
+    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Paired · not connected');
+    expect(key('phones-detail'), findsNothing);
+    // The connected phone first.
+    final rows = find.byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('phones-row-'));
+    expect(tester.getRect(rows.first).top, tester.getRect(key('phones-row-02:00:00:00:00:03')).top);
+
+    // The link drops: the phone connected last is marked, first in the list.
+    audio.disconnect();
+    await tester.pump();
+    expect(text(tester, 'phones-status-02:00:00:00:00:03'), 'Last connected · not connected now');
+    expect(tester.getRect(key('phones-row-02:00:00:00:00:03')).top,
+        lessThan(tester.getRect(key('phones-row-02:00:00:00:00:01')).top));
+
+    // Back to Media.
+    await tester.tap(find.byKey(const ValueKey('nav-back')));
+    await tester.pump();
+    expect(h.services.screens.value, AppScreen.media);
+    expect(text(tester, 'media-explain'), 'Tap Phones to connect a paired phone or pair another.');
+  });
+
+  testWidgets('a connection that fails says why', (tester) async {
+    final audio = SimulatedAudioSource(autoRun: false)..reachable = false;
+    final h = await Harness.start(tester, audio: audio);
+    await h.goTo(AppScreen.phones);
+    await tester.tap(key('phones-connect-02:00:00:00:00:03'));
+    await tester.pump();
+    audio
+      ..tick()
+      ..tick();
+    await tester.pump();
+    expect(text(tester, 'phones-detail'),
+        'Couldn\'t connect to Old simulated phone: simulated: the phone didn\'t answer (out of range).');
+    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Connected', reason: 'the old phone stays');
+  });
+
+  testWidgets('audio-manager reconnecting the last phone by itself is shown', (tester) async {
+    final audio = FakeAudio()
+      ..value = up(const AudioReport(
+          known: [
+            Phone(address: 'AA:01', name: 'Pixel 8', paired: true, last: true),
+            Phone(address: 'AA:02', name: 'Old iPhone', paired: true),
+          ],
+          connect: ConnectStatus(address: 'AA:01', name: 'Pixel 8', automatic: true)));
+    final h = await Harness.start(tester, audio: audio);
+    await h.goTo(AppScreen.media);
+    expect(text(tester, 'media-headline'), 'Connecting to Pixel 8…');
+    expect(text(tester, 'media-explain'), contains('trying it again by itself'));
+    expect(find.text('Phones · connecting…'), findsOneWidget);
+    await h.goTo(AppScreen.phones);
+    expect(text(tester, 'phones-status-AA:01'), 'Reconnecting by itself…');
+    expect(text(tester, 'phones-detail'), 'Trying Pixel 8 again by itself…');
+    // While an attempt runs, no other one starts from here.
+    await tester.tap(key('phones-connect-AA:02'));
+    await tester.pump();
+    expect(audio.calls, isEmpty);
+
+    audio.value = up(const AudioReport(
+        known: [
+          Phone(address: 'AA:01', name: 'Pixel 8', paired: true, last: true),
+          Phone(address: 'AA:02', name: 'Old iPhone', paired: true),
+        ],
+        connect: ConnectStatus(detail: 'Stopped trying to reach Pixel 8 after 5 min. Tap it to connect.')));
+    await tester.pump();
+    expect(text(tester, 'phones-detail'), 'Stopped trying to reach Pixel 8 after 5 min. Tap it to connect.');
+    await tester.tap(key('phones-connect-AA:02'));
+    await tester.pump();
+    expect(audio.calls, ['connect AA:02']);
+    await h.goTo(AppScreen.media);
+    expect(text(tester, 'media-explain'), 'Stopped trying to reach Pixel 8 after 5 min. Tap it to connect.');
+  });
+
+  testWidgets('Settings → Speakers: sliders, steps, limits, Defaults at the bottom', (tester) async {
     final audio = SimulatedAudioSource(autoRun: false);
     final h = await Harness.start(tester, audio: audio);
     await h.goTo(AppScreen.settings);
@@ -336,19 +479,39 @@ void main() {
     expect(text(tester, 'spk-crossover'), '80 Hz');
     expect(text(tester, 'spk-note'), contains('examples'));
     expectTouchTargets(tester, 'speakers');
-    await tester.tap(key('spk-fader-up'));
+    for (final k in ['fader', 'balance', 'sub']) {
+      final r = tester.getRect(key('spk-$k-slider'));
+      expect(r.height, greaterThanOrEqualTo(kMinTouch - 0.01), reason: '$k: a 60 px touch target');
+      expect(r.width, greaterThan(400), reason: '$k: the full width, no column beside it');
+    }
+    // Defaults below everything, at the bottom.
+    expect(tester.getRect(key('spk-reset')).top, greaterThan(tester.getRect(key('spk-crossover-up')).bottom));
+
+    // A real drag on the fader moves it to the front.
+    await tester.drag(key('spk-fader-slider'), const Offset(400, 0));
     await tester.pump();
     await tester.pump();
+    expect(text(tester, 'spk-fader'), startsWith('Front'));
+    expect((await audio.getSpeakers()).settings.fader, greaterThan(0));
+
+    // Exact values through the sliders' callbacks.
+    Future<void> slide(String k, double v) async {
+      tester.widget<Slider>(key('spk-$k-slider')).onChanged!(v);
+      await tester.pump();
+      await tester.pump();
+    }
+
+    await slide('fader', 1);
     expect(text(tester, 'spk-fader'), 'Front 1 (Rear −2 dB)');
     expect(text(tester, 'spk-message'), contains('not applied'));
-    await tester.tap(key('spk-balance-down'));
-    await tester.pump();
-    await tester.pump();
+    expect(text(tester, 'spk-note'), contains('examples'), reason: 'the note stays with a message');
+    await slide('balance', -1);
     expect(text(tester, 'spk-balance'), 'Left 1 (Right −2 dB)');
-    await tester.tap(key('spk-sub-up'));
-    await tester.pump();
-    await tester.pump();
+    await slide('sub', 1);
     expect(text(tester, 'spk-sub'), '+1 dB');
+    await slide('fader', 10);
+    expect(text(tester, 'spk-fader'), 'Front 10 (Rear off)');
+    await slide('fader', 1);
     await tester.tap(key('spk-crossover-up'));
     await tester.pump();
     await tester.pump();
@@ -367,6 +530,21 @@ void main() {
     await tester.pump();
     expect(text(tester, 'spk-fader'), 'Centre');
     expect(text(tester, 'spk-crossover'), '80 Hz');
+    expect((await audio.getSpeakers()).settings, const SpeakerSettings());
+  });
+
+  testWidgets('Settings → Speakers with an alert banner: scrolls, nothing squeezed', (tester) async {
+    final h = await Harness.start(tester, scenario: 'eot_ect_freeze');
+    await h.advance(const Duration(seconds: 200));
+    await h.goTo(AppScreen.settings);
+    await tester.tap(key('settings-speakers'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('alert-banner')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    expect(tester.getRect(key('spk-fader-slider')).height, greaterThanOrEqualTo(kMinTouch - 0.01));
+    await tester.scrollUntilVisible(key('spk-reset'), 50, scrollable: find.byType(Scrollable).last);
+    expect(key('spk-reset'), findsOneWidget);
   });
 
   testWidgets('Settings → Speakers without audio-manager says so', (tester) async {

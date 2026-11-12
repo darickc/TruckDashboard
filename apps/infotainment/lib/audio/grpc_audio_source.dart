@@ -139,6 +139,12 @@ class GrpcAudioSource implements AudioSource {
   }
 
   @override
+  Future<CommandResult> connectPhone(String address) async {
+    final r = await _need().connectPhone(pb.ConnectPhoneRequest(address: address, source: 'dashboard'), options: _opts);
+    return CommandResult(ok: r.accepted, detail: r.detail);
+  }
+
+  @override
   Future<SpeakerSnapshot> getSpeakers() async {
     final r = await _need().getSpeakerSettings(pb.GetSpeakerSettingsRequest(), options: _opts);
     final l = r.limits;
@@ -182,8 +188,13 @@ SpeakerSettings speakersFromPb(pb.SpeakerSettings s) => SpeakerSettings(
   crossoverHz: s.crossoverHz,
 );
 
-Phone phoneFromPb(pb.Phone p) =>
-    Phone(address: p.address, name: p.name.isEmpty ? p.address : p.name, connected: p.connected, paired: p.paired);
+Phone phoneFromPb(pb.Phone p) => Phone(
+  address: p.address,
+  name: p.name.isEmpty ? p.address : p.name,
+  connected: p.connected,
+  paired: p.paired,
+  last: p.last,
+);
 
 PlayState playStateFromPb(pb.PlayState s) => switch (s) {
   pb.PlayState.PLAY_STATE_STOPPED => PlayState.stopped,
@@ -250,5 +261,14 @@ AudioReport reportFromPb(pb.WatchAudioResponse r) {
     dspDetail: r.dspDetail,
     speaking: r.prompts.speaking,
     pausedForPrompt: phone != null && r.prompts.musicPaused,
+    // An attempt only means something while Bluetooth is up.
+    connect: ready && r.hasConnect()
+        ? ConnectStatus(
+            address: r.connect.address,
+            name: r.connect.name.isEmpty ? r.connect.address : r.connect.name,
+            automatic: r.connect.automatic,
+            detail: r.connect.detail,
+          )
+        : const ConnectStatus(),
   );
 }

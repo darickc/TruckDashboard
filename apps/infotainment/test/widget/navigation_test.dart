@@ -22,10 +22,10 @@ void main() {
     expect(find.byKey(const ValueKey('screen-home')), findsOneWidget);
     expect(back, findsNothing);
     expect(home, findsNothing);
-    // Recordings is opened from Cameras (ADR-0037).
+    // Recordings is opened from Cameras (ADR-0037), Phones from Media.
     expect(homeButtons.toSet(),
-        AppScreen.values.toSet()..remove(AppScreen.home)..remove(AppScreen.recordings),
-        reason: 'Home reaches every screen but Recordings');
+        AppScreen.values.toSet()..remove(AppScreen.home)..remove(AppScreen.recordings)..remove(AppScreen.phones),
+        reason: 'Home reaches every screen but Recordings and Phones');
     for (final screen in homeButtons) {
       final button = find.byKey(ValueKey('home-${screen.name}'));
       expect(button, findsOneWidget, reason: screen.name);

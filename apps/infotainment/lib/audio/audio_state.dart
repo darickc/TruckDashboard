@@ -14,10 +14,37 @@ enum PlayState { unknown, stopped, playing, paused, forwardSeek, reverseSeek, er
 
 @immutable
 class Phone {
-  const Phone({required this.address, required this.name, this.connected = false, this.paired = false});
+  const Phone({
+    required this.address,
+    required this.name,
+    this.connected = false,
+    this.paired = false,
+    this.last = false,
+  });
 
   final String address, name;
   final bool connected, paired;
+
+  /// The phone connected most recently: audio-manager reconnects it by
+  /// itself for a while (at start, and after the link drops).
+  final bool last;
+}
+
+/// A connection to a paired phone being tried (the driver's choice, or
+/// audio-manager reconnecting the last phone by itself), and how the last
+/// one went.
+@immutable
+class ConnectStatus {
+  const ConnectStatus({this.address = '', this.name = '', this.automatic = false, this.detail = ''});
+
+  /// The phone being connected now; empty: none.
+  final String address, name;
+  final bool automatic;
+
+  /// What happened last; may be empty.
+  final String detail;
+
+  bool get busy => address.isNotEmpty;
 }
 
 @immutable
@@ -103,6 +130,7 @@ class AudioReport {
     this.simulated = false,
     this.speaking = false,
     this.pausedForPrompt = false,
+    this.connect = const ConnectStatus(),
   });
 
   final bool bluetoothReady;
@@ -130,6 +158,18 @@ class AudioReport {
   /// audio-manager paused the phone for spoken directions and will resume it
   /// (ADR-0039 decision 9).
   final bool pausedForPrompt;
+
+  final ConnectStatus connect;
+
+  /// Every paired phone, the connected one first, then the last one, then
+  /// by name.
+  List<Phone> get paired {
+    final others = [...known]..sort((a, b) {
+        if (a.last != b.last) return a.last ? -1 : 1;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+    return [?phone, ...others];
+  }
 }
 
 enum AudioLink { connecting, up, down }
@@ -240,6 +280,10 @@ abstract class AudioSource {
   Future<CommandResult> openPairing([int seconds = 0]);
   Future<bool> closePairing();
   Future<CommandResult> confirm(int id, bool accept);
+
+  /// Connects a paired phone (any other is disconnected first). Returns once
+  /// the attempt has started; [AudioReport.connect] follows it.
+  Future<CommandResult> connectPhone(String address);
   Future<SpeakerSnapshot> getSpeakers();
   Future<CommandResult> setSpeakers(SpeakerSettings s);
 }
@@ -249,9 +293,15 @@ abstract class AudioSource {
 /// Time moves in [tick]s of one second (a timer when [autoRun]; tests call
 /// [tick] themselves).
 class SimulatedAudioSource implements AudioSource {
-  SimulatedAudioSource({this.autoRun = true, this.pairAfterTicks = 5}) {
+  SimulatedAudioSource({this.autoRun = true, this.pairAfterTicks = 5, this.connectTicks = 2}) {
     _publish();
   }
+
+  /// A connection asked for takes this many ticks.
+  final int connectTicks;
+
+  /// The phones answer a connection (in range).
+  bool reachable = true;
 
   final bool autoRun;
 
@@ -271,7 +321,12 @@ class SimulatedAudioSource implements AudioSource {
   bool _bluetooth = true;
   final _phones = <Phone>[
     const Phone(address: '02:00:00:00:00:01', name: 'Simulated phone', connected: true, paired: true),
+    const Phone(address: '02:00:00:00:00:03', name: 'Old simulated phone', paired: true),
   ];
+  String _lastAddress = '02:00:00:00:00:01';
+  Phone? _connecting;
+  int _connectLeft = 0;
+  String _connectDetail = '';
   int _index = 0;
   int _positionS = 0;
   PlayState _play = PlayState.playing;
@@ -289,8 +344,20 @@ class SimulatedAudioSource implements AudioSource {
 
   Phone? get _connected => _phones.where((p) => p.connected).firstOrNull;
 
+  Phone _marked(Phone p) => Phone(
+      address: p.address, name: p.name, connected: p.connected, paired: p.paired, last: p.address == _lastAddress);
+
+  void _setConnected(String? address) {
+    for (var i = 0; i < _phones.length; i++) {
+      final p = _phones[i];
+      _phones[i] = Phone(address: p.address, name: p.name, paired: p.paired, connected: p.address == address);
+    }
+    if (address != null) _lastAddress = address;
+  }
+
   void _publish() {
-    final phone = _bluetooth ? _connected : null;
+    final c = _bluetooth ? _connected : null;
+    final phone = c == null ? null : _marked(c);
     final t = tracks[_index];
     _status.value = AudioStatus(
       link: AudioLink.up,
@@ -299,7 +366,12 @@ class SimulatedAudioSource implements AudioSource {
         bluetoothReady: _bluetooth,
         bluetoothDetail: _bluetooth ? '' : 'simulated: Bluetooth is off',
         phone: phone,
-        known: _bluetooth ? _phones.where((p) => !p.connected).toList() : const [],
+        known: _bluetooth ? [for (final p in _phones.where((p) => !p.connected)) _marked(p)] : const [],
+        connect: ConnectStatus(
+          address: _connecting?.address ?? '',
+          name: _connecting?.name ?? '',
+          detail: _connectDetail,
+        ),
         nowPlaying: phone == null
             ? null
             : NowPlaying(
@@ -350,9 +422,21 @@ class SimulatedAudioSource implements AudioSource {
       _sinceOpen++;
       if (_pairLeft <= 0) {
         _close('Closed by itself after $windowSeconds s.');
-      } else if (_sinceOpen == pairAfterTicks && _question == null && _phones.length == 1) {
+      } else if (_sinceOpen == pairAfterTicks &&
+          _question == null &&
+          !_phones.any((p) => p.address == '02:00:00:00:00:02')) {
         _question = PasskeyQuestion(
             id: _nextId++, phoneName: 'Simulated phone 2', address: '02:00:00:00:00:02', passkey: passkey, secondsLeft: 30);
+      }
+    }
+    final c = _connecting;
+    if (c != null && --_connectLeft <= 0) {
+      _connecting = null;
+      if (reachable && _bluetooth) {
+        _setConnected(c.address);
+        _positionS = 0;
+      } else {
+        _connectDetail = 'Couldn\'t connect to ${c.name}: simulated: the phone didn\'t answer (out of range).';
       }
     }
     _publish();
@@ -367,18 +451,28 @@ class SimulatedAudioSource implements AudioSource {
 
   /// The phone drops the link.
   void disconnect() {
-    for (var i = 0; i < _phones.length; i++) {
-      final p = _phones[i];
-      _phones[i] = Phone(address: p.address, name: p.name, paired: p.paired);
-    }
+    _setConnected(null);
     _publish();
   }
 
-  /// The first paired phone connects again.
+  /// The first paired phone connects again (by itself).
   void connect() {
-    final p = _phones.first;
-    _phones[0] = Phone(address: p.address, name: p.name, paired: true, connected: true);
+    _setConnected(_phones.first.address);
     _publish();
+  }
+
+  @override
+  Future<CommandResult> connectPhone(String address) async {
+    if (!_bluetooth) return const CommandResult(ok: false, detail: 'Bluetooth is unavailable.');
+    final p = _phones.where((p) => p.paired && p.address == address).firstOrNull;
+    if (p == null) return const CommandResult(ok: false, detail: 'That phone isn\'t paired.');
+    if (p.connected) return CommandResult(ok: false, detail: '${p.name} is already connected.');
+    if (_connecting != null) return CommandResult(ok: false, detail: 'Already connecting to ${_connecting!.name}.');
+    _connecting = p;
+    _connectLeft = connectTicks;
+    _connectDetail = '';
+    _publish();
+    return CommandResult(ok: true, detail: 'Connecting to ${p.name}…');
   }
 
   /// Bluetooth goes away (or comes back); the window closes.
@@ -438,11 +532,9 @@ class SimulatedAudioSource implements AudioSource {
     }
     _question = null;
     if (accept) {
-      for (var i = 0; i < _phones.length; i++) {
-        final p = _phones[i];
-        _phones[i] = Phone(address: p.address, name: p.name, paired: true);
-      }
-      _phones.add(Phone(address: q.address, name: q.phoneName, paired: true, connected: true));
+      _setConnected(null);
+      _phones.add(Phone(address: q.address, name: q.phoneName, paired: true));
+      _setConnected(q.address);
       _close('Paired with ${q.phoneName}.');
     } else {
       _pairDetail = 'Refused ${q.phoneName}.';

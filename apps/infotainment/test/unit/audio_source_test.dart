@@ -91,6 +91,25 @@ void main() {
     expect(d.known, isEmpty);
   });
 
+  test('the last phone and a connection attempt map; nothing of them without Bluetooth', () {
+    final m = full()
+      ..known.clear()
+      ..known.add(pb.Phone(address: 'BB', name: '', paired: true, last: true))
+      ..connect = pb.ConnectAttempt(address: 'BB', name: '', automatic: true, detail: 'x');
+    final r = reportFromPb(m);
+    expect(r.known.single.last, isTrue);
+    expect(r.known.single.name, 'BB', reason: 'no name: the address');
+    expect(r.connect.busy, isTrue);
+    expect(r.connect.name, 'BB');
+    expect(r.connect.automatic, isTrue);
+    expect(r.connect.detail, 'x');
+    expect(r.paired.map((p) => p.address), ['AA', 'BB'], reason: 'the connected phone first');
+    m.bluetooth = pbe.BluetoothState.BLUETOOTH_STATE_UNAVAILABLE;
+    final d = reportFromPb(m);
+    expect(d.connect.busy, isFalse);
+    expect(d.known, isEmpty);
+  });
+
   test('speaker limits check', () {
     const l = SpeakerLimits();
     expect(l.check(const SpeakerSettings()), isNull);

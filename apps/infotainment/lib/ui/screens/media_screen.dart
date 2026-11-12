@@ -5,13 +5,14 @@ import '../app_scope.dart';
 import '../theme.dart';
 import '../widgets/badges.dart';
 import '../widgets/panel.dart';
-import '../widgets/tap_target.dart';
+import '../widgets/audio_button.dart';
 
-/// Bluetooth audio from a phone (ADR-0039): on the left what is playing and
-/// the transport controls; on the right the phone and the pairing window
-/// (Pair, its countdown, and the phone's code to confirm). Everything comes
-/// from services/audio-manager; nothing is shown as current without it, and a
-/// phone that has gone takes its track with it.
+/// Bluetooth audio from a phone (ADR-0039), the full width: what is
+/// playing and the transport controls. Phones (paired phones, connecting
+/// one, pairing a new one) is a screen of its own, opened from the button at
+/// the top right. Everything comes from services/audio-manager; nothing is
+/// shown as current without it, and a phone that has gone takes its track
+/// with it.
 class MediaScreen extends StatefulWidget {
   const MediaScreen({super.key});
 
@@ -47,11 +48,7 @@ class _MediaScreenState extends State<MediaScreen> {
       builder: (context, status, _) {
         final r = status.report;
         if (r == null) return _noService(status);
-        return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Expanded(child: _playing(r, audio)),
-          const SizedBox(width: kGap),
-          SizedBox(width: 290, child: _phonePanel(r, audio)),
-        ]);
+        return _playing(r, audio);
       },
     );
   }
@@ -78,45 +75,93 @@ class _MediaScreenState extends State<MediaScreen> {
     );
   }
 
+  /// Phones, at the top right: the connected phone's name, or what needs
+  /// the driver (a phone asking to pair, a connection being tried).
+  Widget _phonesButton(AudioReport r) {
+    final screens = AppScope.of(context).screens;
+    final String label;
+    if (r.pairing.question != null) {
+      label = 'Phones · pairing request';
+    } else if (r.connect.busy) {
+      label = 'Phones · connecting…';
+    } else if (r.pairing.open) {
+      label = 'Phones · pairing open';
+    } else {
+      label = 'Phones';
+    }
+    return SizedBox(
+      width: 250,
+      child: AudioButton(
+        key: const ValueKey('media-phones'),
+        text: label,
+        icon: Icons.smartphone_rounded,
+        onTap: () => screens.open(AppScreen.phones),
+        emphasis: r.pairing.question != null,
+      ),
+    );
+  }
+
   Widget _playing(AudioReport r, AudioSource audio) {
     final p = Palette.of(context);
     final phone = r.phone;
     final np = r.nowPlaying;
+    // The source and its badges at the left, taking the room they need
+    // (the name ellipsized only when it must be), Phones at the right.
     Widget header() => Row(children: [
-          Icon(Icons.bluetooth_audio_rounded, size: 20, color: phone == null ? p.textDim : p.accent),
+          Icon(Icons.bluetooth_audio_rounded, size: 22, color: phone == null ? p.textDim : p.accent),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(phone == null ? 'Bluetooth' : 'Bluetooth · ${phone.name}',
-                key: const ValueKey('media-source'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: p.textDim)),
+            child: Row(children: [
+              Flexible(
+                child: Text(phone == null ? 'Bluetooth' : 'Bluetooth · ${phone.name}',
+                    key: const ValueKey('media-source'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.textDim)),
+              ),
+              if (r.pausedForPrompt || r.speaking) ...[
+                const SizedBox(width: 6),
+                Pill(r.pausedForPrompt ? 'PAUSED FOR DIRECTIONS' : 'DIRECTIONS',
+                    key: const ValueKey('media-directions'), color: p.accent),
+              ],
+              if (r.streaming) ...[
+                const SizedBox(width: 6),
+                Pill('STREAMING', key: const ValueKey('media-streaming'), color: p.ok),
+              ],
+              // Without the filter-chain the speakers get the plain stereo
+              // mix: said, except in the simulation (which never has one).
+              if (r.dsp == DspPhase.notRunning && !r.simulated) ...[
+                const SizedBox(width: 6),
+                Pill('NO CROSSOVER', key: const ValueKey('media-dsp'), color: p.advisory),
+              ],
+              if (r.simulated) ...[
+                const SizedBox(width: 6),
+                Pill('SIMULATED', key: const ValueKey('media-simulated'), color: p.simulated),
+              ],
+            ]),
           ),
-          if (r.pausedForPrompt || r.speaking) ...[
-            const SizedBox(width: 6),
-            Pill(r.pausedForPrompt ? 'PAUSED FOR DIRECTIONS' : 'DIRECTIONS',
-                key: const ValueKey('media-directions'), color: p.accent),
-          ],
-          if (r.streaming) ...[
-            const SizedBox(width: 6),
-            Pill('STREAMING', key: const ValueKey('media-streaming'), color: p.ok),
-          ],
-          if (r.simulated) ...[
-            const SizedBox(width: 6),
-            Pill('SIMULATED', key: const ValueKey('media-simulated'), color: p.simulated),
-          ],
+          const SizedBox(width: kGap),
+          _phonesButton(r),
         ]);
 
     final String headline;
     final String explain;
+    final c = r.connect;
     if (!r.bluetoothReady) {
       headline = 'Bluetooth unavailable';
       explain = r.bluetoothDetail.isEmpty ? 'No phone can connect.' : r.bluetoothDetail;
+    } else if (phone == null && c.busy) {
+      headline = 'Connecting to ${c.name}…';
+      explain = c.automatic
+          ? 'It was the last phone connected; trying it again by itself. Phones lists the others.'
+          : 'Make sure Bluetooth is on on the phone.';
     } else if (phone == null) {
       headline = 'No phone connected';
-      explain = r.known.isEmpty
-          ? 'Tap Pair a phone, then pick ${r.pairing.name.isEmpty ? 'this head unit' : r.pairing.name} in the phone\'s Bluetooth settings.'
-          : 'Turn Bluetooth on on a paired phone and it connects by itself, or pair another.';
+      explain = c.detail.isNotEmpty
+          ? c.detail
+          : r.known.isEmpty
+              ? 'Tap Phones to pair a phone.'
+              : 'Tap Phones to connect a paired phone or pair another.';
     } else if (np == null) {
       headline = 'Connected to ${phone.name}';
       explain = 'The phone hasn\'t sent track information or offered controls (no AVRCP player).';
@@ -137,12 +182,15 @@ class _MediaScreenState extends State<MediaScreen> {
               ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(headline,
                       key: const ValueKey('media-headline'),
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: p.text)),
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: p.text)),
                   const SizedBox(height: 6),
                   Text(explain,
                       key: const ValueKey('media-explain'),
                       style: TextStyle(
-                          fontSize: 16, color: r.bluetoothReady ? p.textDim : p.advisory)),
+                          fontSize: 17,
+                          color: !r.bluetoothReady || (phone == null && c.detail.isNotEmpty && !c.busy)
+                              ? p.advisory
+                              : p.textDim)),
                 ])
               : _track(np),
         ),
@@ -157,22 +205,28 @@ class _MediaScreenState extends State<MediaScreen> {
           ),
         Row(children: [
           Expanded(
-              child: _button('media-previous', 'Previous', Icons.skip_previous_rounded,
-                  controlsEnabled ? () => _run(() => audio.control(MediaCommand.previous)) : null)),
+              child: AudioButton(
+                  key: const ValueKey('media-previous'),
+                  text: 'Previous',
+                  icon: Icons.skip_previous_rounded,
+                  onTap: controlsEnabled ? () => _run(() => audio.control(MediaCommand.previous)) : null)),
           const SizedBox(width: kGap),
           Expanded(
-              child: _button(
-                  'media-play-pause',
-                  playing ? 'Pause' : 'Play',
-                  playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  controlsEnabled
+              child: AudioButton(
+                  key: const ValueKey('media-play-pause'),
+                  text: playing ? 'Pause' : 'Play',
+                  icon: playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  onTap: controlsEnabled
                       ? () => _run(() => audio.control(playing ? MediaCommand.pause : MediaCommand.play))
                       : null,
                   emphasis: true)),
           const SizedBox(width: kGap),
           Expanded(
-              child: _button('media-next', 'Next', Icons.skip_next_rounded,
-                  controlsEnabled ? () => _run(() => audio.control(MediaCommand.next)) : null)),
+              child: AudioButton(
+                  key: const ValueKey('media-next'),
+                  text: 'Next',
+                  icon: Icons.skip_next_rounded,
+                  onTap: controlsEnabled ? () => _run(() => audio.control(MediaCommand.next)) : null)),
         ]),
       ]),
     );
@@ -244,129 +298,5 @@ class _MediaScreenState extends State<MediaScreen> {
       ]),
       const SizedBox(height: 8),
     ]);
-  }
-
-  Widget _phonePanel(AudioReport r, AudioSource audio) {
-    final p = Palette.of(context);
-    final pairing = r.pairing;
-    final q = pairing.question;
-    if (q != null) return _question(q, audio);
-    final phone = r.phone;
-    final open = pairing.open;
-    final note = TextStyle(fontSize: 14, color: p.textDim);
-    final String windowText = switch (pairing.phase) {
-      PairingPhase.open =>
-        'Visible as "${pairing.name}" for ${formatTrackTime(Duration(seconds: pairing.secondsLeft))}. Pick it in the phone\'s Bluetooth settings.',
-      PairingPhase.opening => 'Opening the pairing window…',
-      PairingPhase.closing => 'Closing the pairing window…',
-      PairingPhase.failed => pairing.detail,
-      PairingPhase.closed => pairing.detail.isEmpty
-          ? 'Not visible to new phones. Pairing opens only from here, and closes by itself.'
-          : pairing.detail,
-    };
-    return Panel(
-      title: 'Phone',
-      child: ListView(children: [
-        Text(phone?.name ?? (r.bluetoothReady ? 'None connected' : 'Bluetooth unavailable'),
-            key: const ValueKey('media-phone'),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: phone == null ? p.textDim : p.text)),
-        for (final k in r.known)
-          Text('${k.name}: paired, not connected',
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: note),
-        const SizedBox(height: 10),
-        _button(
-          'media-pair',
-          open
-              ? (pairing.phase == PairingPhase.open
-                  ? 'Stop pairing · ${formatTrackTime(Duration(seconds: pairing.secondsLeft))}'
-                  : 'Stop pairing')
-              : 'Pair a phone',
-          open ? Icons.bluetooth_disabled_rounded : Icons.bluetooth_searching_rounded,
-          !r.bluetoothReady || _busy || pairing.phase == PairingPhase.closing
-              ? null
-              : open
-                  ? () => _run(() async => CommandResult(ok: await audio.closePairing()))
-                  : () => _run(() => audio.openPairing()),
-          emphasis: open,
-        ),
-        const SizedBox(height: 6),
-        Text(windowText,
-            key: const ValueKey('media-pairing'),
-            style: TextStyle(
-                fontSize: 14, color: pairing.phase == PairingPhase.failed ? p.advisory : (open ? p.text : p.textDim))),
-        const SizedBox(height: 10),
-        Text(
-            switch (r.dsp) {
-              DspPhase.applied => 'Speakers: crossover, fader and sub applied.',
-              DspPhase.starting => 'Speakers: starting the crossover…',
-              DspPhase.notRunning =>
-                'Speakers: crossover not running${r.dspDetail.isEmpty ? '' : ' (${r.dspDetail})'}.',
-            },
-            key: const ValueKey('media-dsp'),
-            style: TextStyle(fontSize: 13, color: r.dsp == DspPhase.notRunning && !r.simulated ? p.advisory : p.textDim)),
-      ]),
-    );
-  }
-
-  Widget _question(PasskeyQuestion q, AudioSource audio) {
-    final p = Palette.of(context);
-    return Container(
-      key: const ValueKey('media-question'),
-      decoration: BoxDecoration(
-        color: p.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: p.accent, width: 2),
-      ),
-      padding: const EdgeInsets.all(10),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('${q.phoneName} wants to pair',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: p.text)),
-        const SizedBox(height: 6),
-        if (q.passkey != null) ...[
-          Text('Does the phone show this code?', style: TextStyle(fontSize: 15, color: p.textDim)),
-          Text('${q.code.substring(0, 3)} ${q.code.substring(3)}',
-              key: const ValueKey('media-passkey'),
-              style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, letterSpacing: 2, color: p.text)),
-        ] else
-          Text('It shows no code. Accept only if it is the phone in your hand.',
-              style: TextStyle(fontSize: 15, color: p.advisory)),
-        Text('Refused by itself in ${q.secondsLeft} s.', style: TextStyle(fontSize: 13, color: p.textDim)),
-        const Spacer(),
-        _button('media-confirm-yes', q.passkey != null ? 'Yes, it matches' : 'Accept', Icons.check_rounded,
-            _busy ? null : () => _run(() => audio.confirm(q.id, true)),
-            emphasis: true),
-        const SizedBox(height: kGap),
-        _button('media-confirm-no', 'No', Icons.close_rounded,
-            _busy ? null : () => _run(() => audio.confirm(q.id, false))),
-      ]),
-    );
-  }
-
-  Widget _button(String key, String text, IconData icon, VoidCallback? onTap, {bool emphasis = false}) {
-    final p = Palette.of(context);
-    return Opacity(
-      opacity: onTap == null ? 0.45 : 1,
-      child: TapTarget(
-        key: ValueKey(key),
-        label: onTap == null ? '$text (unavailable)' : text,
-        selected: emphasis && onTap != null,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        onTap: onTap ?? () {},
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 28, color: p.text),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(text,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.text)),
-          ),
-        ]),
-      ),
-    );
   }
 }

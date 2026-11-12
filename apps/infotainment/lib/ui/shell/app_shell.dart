@@ -12,6 +12,7 @@ import '../screens/gauges_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/media_screen.dart';
 import '../screens/navigation_screen.dart';
+import '../screens/phones_screen.dart';
 import '../screens/recordings_screen.dart';
 import '../theme.dart';
 import 'alert_banner.dart';
@@ -115,6 +116,7 @@ class _AppShellState extends State<AppShell> {
                   AppScreen.settings => const SettingsScreen(),
                   AppScreen.diagnostics => const DiagnosticsScreen(),
                   AppScreen.recordings => const RecordingsScreen(),
+                  AppScreen.phones => const PhonesScreen(),
                 },
               );
             },
