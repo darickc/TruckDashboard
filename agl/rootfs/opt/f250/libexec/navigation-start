@@ -1,6 +1,6 @@
 #!/bin/bash
 # ExecStart of f250-navigation.service on AGL: navigation with the settings
-# from /etc/default/f250 (ADR-0030; routing ADR-0035).
+# from /etc/default/f250 (ADR-0030; routing ADR-0035; search ADR-0038).
 #
 #   NAV_GPSD            gpsd's address. Default 127.0.0.1:2947.
 #   NAV_SIMULATE        1: a simulated receiver instead of gpsd, labelled
@@ -12,6 +12,9 @@
 #   NAV_ROUTING_TILES   the routing data (make route-region, brought by the
 #                       map stick). Default
 #                       /var/lib/f250/storage/routing/valhalla_tiles.tar.
+#   NAV_SEARCH_INDEX    the search data (make search-region, brought by the
+#                       map stick). Default
+#                       /var/lib/f250/storage/search/search.sqlite.
 #   NAV_COSTING         auto (default) or truck.
 #   NAV_TRUCK_HEIGHT_M, NAV_TRUCK_WIDTH_M, NAV_TRUCK_LENGTH_M,
 #   NAV_TRUCK_WEIGHT_T, NAV_TRUCK_AXLE_LOAD_T
@@ -38,6 +41,7 @@ if [[ -n "${NAV_STALE_AFTER_MS:-}" ]]; then
 fi
 [[ -n "${NAV_VALHALLA:-}" ]] && args+=(--valhalla "$NAV_VALHALLA")
 [[ -n "${NAV_ROUTING_TILES:-}" ]] && args+=(--routing-tiles "$NAV_ROUTING_TILES")
+[[ -n "${NAV_SEARCH_INDEX:-}" ]] && args+=(--search-index "$NAV_SEARCH_INDEX")
 case "${NAV_COSTING:-auto}" in
   auto) ;;
   truck)

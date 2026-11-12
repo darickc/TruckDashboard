@@ -407,10 +407,12 @@ check "routing: data and program elsewhere" "[[ \"\$(nav NAV_VALHALLA=/usr/local
 check "routing: auto ignores truck sizes" "[[ \"\$(nav NAV_COSTING=auto NAV_TRUCK_HEIGHT_M=3)\" == '--listen unix:/run/f250-nav/nav.sock --gpsd 127.0.0.1:2947' ]]"
 check "routing: truck with only the sizes set" "[[ \"\$(nav NAV_COSTING=truck NAV_TRUCK_HEIGHT_M=3.1 NAV_TRUCK_WIDTH_M= NAV_TRUCK_WEIGHT_T=4.5)\" == '--listen unix:/run/f250-nav/nav.sock --gpsd 127.0.0.1:2947 --costing truck --truck-height-m 3.1 --truck-weight-t 4.5' ]]"
 check "routing: an unknown costing refuses to start" "! nav NAV_COSTING=bus"
+check "search: data elsewhere" "[[ \"\$(nav NAV_SEARCH_INDEX=/x/s.sqlite)\" == '--listen unix:/run/f250-nav/nav.sock --gpsd 127.0.0.1:2947 --search-index /x/s.sqlite' ]]"
+check "search: shipped empty, navigation's default the Pi's path" "has_line $DF 'NAV_SEARCH_INDEX=' && grep -q 'default_value = \"/var/lib/f250/storage/search/search.sqlite\"' services/navigation/src/main.rs"
 check "navigation settings shipped, not simulated" "has_line $DF 'NAV_GPSD=' && has_line $DF 'NAV_SIMULATE=0' && has_line $DF 'NAV_STALE_AFTER_MS='"
 check "routing settings shipped: auto, defaults" "has_line $DF 'NAV_COSTING=auto' && for k in VALHALLA ROUTING_TILES TRUCK_HEIGHT_M TRUCK_WIDTH_M TRUCK_LENGTH_M TRUCK_WEIGHT_T TRUCK_AXLE_LOAD_T; do has_line $DF \"NAV_\$k=\" || exit 1; done"
 check "the shipped settings: still gpsd, defaults" "[[ \"\$(set -a; . $DF; set +a; F250_NAV_BIN=$NSTUB bash agl/rootfs/opt/f250/libexec/navigation-start 2>/dev/null)\" == '--listen unix:/run/f250-nav/nav.sock --gpsd 127.0.0.1:2947' ]]"
-check "the wrapper's options exist in navigation" "for o in listen gpsd simulate stale_after_ms valhalla routing_tiles costing truck_height_m truck_width_m truck_length_m truck_weight_t truck_axle_load_t; do grep -q \"^    \$o: \" services/navigation/src/main.rs || exit 1; done"
+check "the wrapper's options exist in navigation" "for o in listen gpsd simulate stale_after_ms valhalla routing_tiles search_index costing truck_height_m truck_width_m truck_length_m truck_weight_t truck_axle_load_t; do grep -q \"^    \$o: \" services/navigation/src/main.rs || exit 1; done"
 check "routing: navigation's defaults are the Pi's paths" "grep -q 'default_value = \"/var/lib/f250/storage/routing/valhalla_tiles.tar\"' services/navigation/src/main.rs && grep -q 'default_value = \"/opt/f250/share/data/valhalla/valhalla-3.9.1.json\"' services/navigation/src/main.rs && grep -q 'default_value = \"/run/f250-nav\"' services/navigation/src/main.rs"
 check "routing: Valhalla's config deployed and built into the image" "grep -q 'services/navigation/valhalla/' tools/dev/deploy.sh && grep -q 'services/navigation/valhalla/valhalla-3.9.1.json' agl/meta-f250/recipes-f250/f250-services/f250-services.bb"
 
@@ -590,7 +592,7 @@ done
 check "usb-export: after the data drive, below recording's priority" "grep -q '^After=var-lib-f250-storage.mount' $UX && grep -qx 'Nice=10' $UX && grep -qx 'IOSchedulingPriority=7' $UX && grep -qx 'Type=notify' $UX"
 check "usb-export: socket agrees with the dashboard in deploy.sh and the image" "grep -qx 'ExecStart=/opt/f250/bin/usb-export --listen unix:/run/f250-export/export.sock' $UX && grep -q '^EXPORT_SOCK=/run/f250-export/export.sock$' tools/dev/deploy.sh && grep -q -- '--dart-define=EXPORT=unix:\$EXPORT_SOCK' tools/dev/deploy.sh && grep -q -- '-DEXPORT=unix:/run/f250-export/export.sock' agl/meta-f250/recipes-f250/f250-dashboard/f250-dashboard.bb"
 check "usb-export: recordings where camera-manager writes them" "grep -q 'default_value = \"/var/lib/f250/storage/video\"' $UXM && grep -q -- '--record-dir \"\$STORAGE/video\"' agl/rootfs/opt/f250/libexec/camera-start && grep -q 'F250_STORAGE:-/var/lib/f250/storage' agl/rootfs/opt/f250/libexec/camera-start"
-check "usb-export: waits on the map import's lock, and knows a map stick by its files" "grep -q 'default_value = \"/run/f250-maps/import.lock\"' $UXM && grep -q 'LOCK=\"\$STATUS_DIR/import.lock\"' agl/rootfs/opt/f250/libexec/map-import && grep -q '\\[\"map.pmtiles\", \"routing.tar\"\\]' services/usb-export/src/exporter.rs && grep -q 'map) SRC_NAME=map.pmtiles' agl/rootfs/opt/f250/libexec/map-import && grep -q 'routing) SRC_NAME=routing.tar' agl/rootfs/opt/f250/libexec/map-import"
+check "usb-export: waits on the map import's lock, and knows a map stick by its files" "grep -q 'default_value = \"/run/f250-maps/import.lock\"' $UXM && grep -q 'LOCK=\"\$STATUS_DIR/import.lock\"' agl/rootfs/opt/f250/libexec/map-import && grep -q '\\[\"map.pmtiles\", \"routing.tar\", \"search.sqlite\"\\]' services/usb-export/src/exporter.rs && grep -q 'map) SRC_NAME=map.pmtiles' agl/rootfs/opt/f250/libexec/map-import && grep -q 'routing) SRC_NAME=routing.tar' agl/rootfs/opt/f250/libexec/map-import"
 check "usb-export: deployed and built into the image" "grep -q -- '-p usb-export' tools/dev/deploy.sh && grep -q '/target/release/usb-export' tools/dev/deploy.sh && grep -q -- '-p usb-export' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'navigation usb-export; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb"
 check "usb-export: stage1 installs, enables and restarts it" "grep -q 'f250-usb-export.service f250-dashboard.service' '$SETUP' && grep -q 'camera-ctl navigation usb-export f250-can' '$SETUP'"
 for p in gpsd gpsd-conf gpsd-udev; do
@@ -844,7 +846,7 @@ python3 tools/maps/map-stick.py --routing "$T/routing.tar" --stick "$D/stick" --
 rc=0; mi "$D" dir "$D/stick" >/dev/null 2>&1 || rc=$?
 check "routing data alone: imported, the map untouched" "[[ $rc == 0 ]] && cmp -s '$T/routing.tar' '$D/storage/$RTS' && cmp -s '$OLD' '$D/storage/maps/map.pmtiles'"
 check "routing data alone: changed names only routing" "grep -qF '\"changed\":[\"routing\"]' '$D/run/status.json' && grep -qF '\"item\":\"routing\"' '$D/run/status.json' && grep -qF 'Routing data updated.' '$D/run/status.json'"
-check "map-stick needs --map or --routing" "! python3 tools/maps/map-stick.py --stick '$D/stick' --any-dir 2>/dev/null"
+check "map-stick needs --map, --routing or --search" "! python3 tools/maps/map-stick.py --stick '$D/stick' --any-dir 2>/dev/null"
 check "map-stick refuses routing data that isn't a tile extract" "! python3 tools/maps/map-stick.py --routing '$T/not-extract.tar' --stick '$D/stick' --any-dir 2>/dev/null && ! python3 tools/maps/map-stick.py --routing '$FIX' --stick '$D/stick' --any-dir 2>/dev/null"
 routing_failing() {   # routing_failing <name> <expected message part> <prepare commands>
   local d; d="$(new_case "r-$1")"
@@ -869,6 +871,52 @@ printf '{"state":"copying","percent":40,"message":"","id":"y","device":"/dev/sdc
 echo partial >"$D/storage/$RTS.part"
 mi "$D" stopped /dev/sdc1 >/dev/null 2>&1 || true
 check "stopped while copying routing data: failed, that copy goes" "[[ \"\$(state_of '$D')\" == failed && ! -e '$D/storage/$RTS.part' ]] && grep -qF 'before the routing data was copied' '$D/run/status.json'"
+echo "map-import: search data (ADR-0038)"
+mk_search() {   # mk_search <file> [application id]: a SQLite file as make search-region writes one
+  python3 - "$1" "${2:-1177695536}" <<'PY'
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+c.execute(f"PRAGMA application_id = {int(sys.argv[2])}")
+c.execute("CREATE TABLE t(x)")
+c.commit()
+c.close()
+PY
+}
+mk_search "$T/search.sqlite"
+mk_search "$T/search-old.sqlite"; python3 -c "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute('CREATE TABLE old(y)'); c.commit()" "$T/search-old.sqlite"
+mk_search "$T/not-search.sqlite" 7
+SRS=search/search.sqlite
+D="$(new_case all-three)"
+python3 tools/maps/map-stick.py --map "$FIX" --routing "$T/routing.tar" --search "$T/search.sqlite" --stick "$D/stick" --any-dir >/dev/null 2>&1 || fail "map-stick wrote no three-item stick"
+check "map-stick writes search data and its checksum" "cmp -s '$T/search.sqlite' '$D/stick/f250/search.sqlite' && grep -qE '^[0-9a-f]{64}  search.sqlite\$' '$D/stick/f250/search.sqlite.sha256'"
+chmod 0755 "$D/stick/f250/search.sqlite"
+rc=0; mi "$D" dir "$D/stick" >/dev/null 2>&1 || rc=$?
+check "map, routing and search data are imported" "[[ $rc == 0 ]] && cmp -s '$FIX' '$D/storage/maps/map.pmtiles' && cmp -s '$T/routing.tar' '$D/storage/$RTS' && cmp -s '$T/search.sqlite' '$D/storage/$SRS'"
+check "status: all three changed" "[[ \"\$(state_of '$D')\" == updated ]] && grep -qF '\"changed\":[\"map\",\"routing\",\"search\"]' '$D/run/status.json' && grep -qF 'Map, routing data and search data updated.' '$D/run/status.json'"
+check "search data isn't executable, its checksum kept" "[[ \"\$(ls -l '$D/storage/$SRS' | cut -c1-10)\" == -rw-r--r-- && \"\$(cat '$D/storage/$SRS.sha256')\" == \"\$(cut -c1-64 '$D/stick/f250/search.sqlite.sha256')\" && ! -e '$D/storage/$SRS.part' ]]"
+rc=0; mi "$D" dir "$D/stick" >/dev/null 2>&1 || rc=$?
+check "the same stick again: all three current" "[[ $rc == 0 && \"\$(state_of '$D')\" == current ]] && grep -qF 'The map, routing data and search data on this stick are already installed.' '$D/run/status.json'"
+D="$(new_case search-only)"
+python3 tools/maps/map-stick.py --search "$T/search.sqlite" --stick "$D/stick" --any-dir >/dev/null 2>&1 || fail "map-stick wrote no search stick"
+rc=0; mi "$D" dir "$D/stick" >/dev/null 2>&1 || rc=$?
+check "search data alone: imported, the map untouched" "[[ $rc == 0 ]] && cmp -s '$T/search.sqlite' '$D/storage/$SRS' && cmp -s '$OLD' '$D/storage/maps/map.pmtiles'"
+check "search data alone: changed names only search" "grep -qF '\"changed\":[\"search\"]' '$D/run/status.json' && grep -qF '\"item\":\"search\"' '$D/run/status.json' && grep -qF 'Search data updated.' '$D/run/status.json'"
+check "map-stick refuses search data that isn't the search index" "! python3 tools/maps/map-stick.py --search '$T/not-search.sqlite' --stick '$D/stick' --any-dir 2>/dev/null && ! python3 tools/maps/map-stick.py --search '$FIX' --stick '$D/stick' --any-dir 2>/dev/null"
+D="$(new_case s-bad)"; mkdir -p "$D/stick/f250" "$D/storage/search"
+cp "$T/search-old.sqlite" "$D/storage/$SRS"
+( cd "$D/stick/f250" && cp "$T/not-search.sqlite" search.sqlite && { shasum -a 256 search.sqlite 2>/dev/null || sha256sum search.sqlite; } >search.sqlite.sha256 )
+mi "$D" dir "$D/stick" >/dev/null 2>&1 && fail "bad search data: exited 0"
+check "search data that isn't the index: failed, the old kept" "[[ \"\$(state_of '$D')\" == failed ]] && grep -qF \"isn't navigation's search data\" '$D/run/status.json' && cmp -s '$T/search-old.sqlite' '$D/storage/$SRS'"
+D="$(new_case map-routing-then-bad-search)"; mkdir -p "$D/stick/f250"
+python3 tools/maps/map-stick.py --map "$FIX" --routing "$T/routing.tar" --stick "$D/stick" --any-dir >/dev/null 2>&1 || true
+cp "$T/search.sqlite" "$D/stick/f250/search.sqlite"; printf '%064d  search.sqlite\n' 0 >"$D/stick/f250/search.sqlite.sha256"
+mi "$D" dir "$D/stick" >/dev/null 2>&1 && fail "map and routing then bad search data: exited 0"
+check "map and routing, then bad search data: both stay, and the status says so" "[[ \"\$(state_of '$D')\" == failed ]] && grep -qF 'The map and routing data were updated.' '$D/run/status.json' && cmp -s '$T/routing.tar' '$D/storage/$RTS' && [[ ! -e '$D/storage/$SRS' ]]"
+D="$(new_case s-pulled)"; mkdir -p "$D/run" "$D/storage/search"
+printf '{"state":"copying","percent":40,"message":"","id":"z","device":"/dev/sdd1","item":"search","changed":[],"at":"2026-11-12T00:00:00Z"}\n' >"$D/run/status.json"
+echo partial >"$D/storage/$SRS.part"
+mi "$D" stopped /dev/sdd1 >/dev/null 2>&1 || true
+check "stopped while copying search data: failed, that copy goes" "[[ \"\$(state_of '$D')\" == failed && ! -e '$D/storage/$SRS.part' ]] && grep -qF 'before the search data was copied' '$D/run/status.json'"
 
 U=agl/rootfs/etc/systemd/system/f250-map-import@.service
 RULE=agl/rootfs/etc/udev/rules.d/80-f250-map-stick.rules

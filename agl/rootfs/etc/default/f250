@@ -159,11 +159,16 @@ RECORD_CLIP_AFTER_S=60
 # NAV_COSTING  auto (empty: auto) or truck. With truck, NAV_TRUCK_HEIGHT_M,
 #            _WIDTH_M, _LENGTH_M (metres), _WEIGHT_T, _AXLE_LOAD_T (tonnes);
 #            each empty: Valhalla's default, which is a large truck's.
+# Address search (6.5.3, ADR-0038), offline.
+# NAV_SEARCH_INDEX  the search data (empty: /var/lib/f250/storage/search/
+#            search.sqlite), brought by the map stick (make map-stick
+#            SEARCH=...). Without it the search panel says why.
 NAV_GPSD=
 NAV_SIMULATE=0
 NAV_STALE_AFTER_MS=
 NAV_VALHALLA=
 NAV_ROUTING_TILES=
+NAV_SEARCH_INDEX=
 NAV_COSTING=auto
 NAV_TRUCK_HEIGHT_M=
 NAV_TRUCK_WIDTH_M=

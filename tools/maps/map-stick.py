@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
-"""Writes a map and/or routing data onto a USB stick for the truck (ADR-0033).
+"""Writes a map, routing data and/or search data onto a USB stick for the
+truck (ADR-0033).
 
   map-stick.py --map build/maps/region.pmtiles --stick /Volumes/MAPS
   map-stick.py --map build/maps/region.pmtiles \
-               --routing build/routing/valhalla_tiles.tar --stick /Volumes/MAPS
+               --routing build/routing/valhalla_tiles.tar \
+               --search build/search/search.sqlite --stick /Volumes/MAPS
   map-stick.py --routing build/routing/valhalla_tiles.tar --stick /Volumes/MAPS
 
-The stick gets f250/map.pmtiles and/or f250/routing.tar, each with a .sha256
-beside it (the SHA-256, computed while copying). In the truck, the Pi copies
-each onto its data drive, checks it against the checksum, and swaps it in
-(agl/rootfs/opt/f250/libexec/map-import): the map for the dashboard, the
-routing data for navigation (ADR-0035). A file not given is left on the stick
-as it is.
+The stick gets f250/map.pmtiles, f250/routing.tar and/or f250/search.sqlite,
+each with a .sha256 beside it (the SHA-256, computed while copying). In the
+truck, the Pi copies each onto its data drive, checks it against the
+checksum, and swaps it in (agl/rootfs/opt/f250/libexec/map-import): the map
+for the dashboard, the routing data (ADR-0035) and the search data (ADR-0038)
+for navigation. A file not given is left on the stick as it is.
 
 The stick must be exFAT for a file over 4 GB (FAT32's file limit): erase it as
 ExFAT in Disk Utility. Refuses a map that isn't a PMTiles v3 map of vector,
 PNG, JPEG or WebP tiles, routing data that isn't a Valhalla tile extract (a
-tar with index.bin first, as `make route-region` writes), a stick without
-room, and (unless --any-dir, for tests) a folder that isn't a mounted volume.
+tar with index.bin first, as `make route-region` writes), search data that
+isn't navigation's search index (SQLite with application id "F250", as
+`make search-region` writes), a stick without room, and (unless --any-dir, for tests) a folder that isn't a mounted volume.
 
 Python 3 standard library only.
 """
@@ -64,11 +67,34 @@ def tar_problem(path):
     return None
 
 
+SQLITE_MAGIC = b"SQLite format 3\0"
+SEARCH_APP_ID = b"F250"   # PRAGMA application_id 0x46323530 (crates/geocode)
+
+
+def search_problem(path):
+    """As map-import checks it: a SQLite file whose application id is F250
+    (bytes 68-71 of the header)."""
+    with open(path, "rb") as f:
+        h = f.read(100)
+    if len(h) < 100 or h[:16] != SQLITE_MAGIC:
+        return "it isn't a SQLite file"
+    if h[68:72] != SEARCH_APP_ID:
+        return "it isn't navigation's search data (application id isn't F250)"
+    return None
+
+
 # What a stick can carry: (option, name on the stick, check, how to make it).
 ITEMS = [
     ("map", "map.pmtiles", header_problem, "make map-region writes build/maps/region.pmtiles"),
     ("routing", "routing.tar", tar_problem, "make route-region writes build/routing/valhalla_tiles.tar"),
+    ("search", "search.sqlite", search_problem, "make search-region writes build/search/search.sqlite"),
 ]
+WHAT = {"map.pmtiles": "the map", "routing.tar": "the routing data", "search.sqlite": "the search data"}
+
+
+def join_and(parts):
+    """'a', 'a and b', 'a, b and c'."""
+    return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
 
 
 def filesystem(stick):
@@ -130,6 +156,8 @@ def main():
     ap.add_argument("--map", help="the PMTiles map (make map-region writes one)")
     ap.add_argument("--routing",
                     help="Valhalla routing data (make route-region writes build/routing/valhalla_tiles.tar)")
+    ap.add_argument("--search",
+                    help="search data (make search-region writes build/search/search.sqlite)")
     ap.add_argument("--stick", required=True, help="the stick's mount point, e.g. /Volumes/MAPS")
     ap.add_argument("--any-dir", action="store_true",
                     help="allow any folder, not only a mounted volume (tests)")
@@ -138,7 +166,7 @@ def main():
     files = [(name, getattr(a, opt), check, hint)
              for opt, name, check, hint in ITEMS if getattr(a, opt)]
     if not files:
-        die("give --map, --routing or both")
+        die("give --map, --routing, --search or several")
     for name, path, check, hint in files:
         if not os.path.isfile(path):
             die(f"{path} not found ({hint})")
@@ -170,8 +198,7 @@ def main():
 
     for name, path, _, _ in files:
         copy(path, os.path.join(dest_dir, name), sizes[name])
-    what = " and ".join({"map.pmtiles": "the map", "routing.tar": "the routing data"}[n]
-                        for n, _, _, _ in files)
+    what = join_and([WHAT[n] for n, _, _, _ in files])
     print(f"Done. Eject the stick, plug it into the truck with the dashboard on, and "
           f"leave it in until the Nav screen says {what} {'is' if len(files) == 1 else 'are'} updated.")
 

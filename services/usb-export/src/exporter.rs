@@ -186,15 +186,15 @@ impl Exporter {
             Ok(at) => at,
             Err(e) => return unusable(s, format!("It couldn't be mounted: {e}")),
         };
-        let map = ["map.pmtiles", "routing.tar"]
+        let map = ["map.pmtiles", "routing.tar", "search.sqlite"]
             .iter()
             .any(|n| at.join("f250").join(n).is_file());
         let space = self.fs.space(&at);
         self.unmount(&f.device, &at);
         if map {
             s.role = pb::StickRole::Map as i32;
-            s.detail = "A map stick (it has f250/map.pmtiles or f250/routing.tar): recordings \
-                        aren't copied to it. Use another stick."
+            s.detail = "A map stick (it has f250/map.pmtiles, f250/routing.tar or \
+                        f250/search.sqlite): recordings aren't copied to it. Use another stick."
                 .into();
             return s;
         }

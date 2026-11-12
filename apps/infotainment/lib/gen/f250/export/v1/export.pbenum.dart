@@ -27,8 +27,8 @@ class StickRole extends $pb.ProtobufEnum {
   static const StickRole STICK_ROLE_EXPORT =
       StickRole._(2, _omitEnumNames ? '' : 'STICK_ROLE_EXPORT');
 
-  /// It has f250/map.pmtiles or f250/routing.tar: the map import's
-  /// (ADR-0033). Recordings are never copied to a map stick.
+  /// It has f250/map.pmtiles, f250/routing.tar or f250/search.sqlite: the
+  /// map import's (ADR-0033). Recordings are never copied to a map stick.
   static const StickRole STICK_ROLE_MAP =
       StickRole._(3, _omitEnumNames ? '' : 'STICK_ROLE_MAP');
 

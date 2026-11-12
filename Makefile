@@ -56,9 +56,13 @@ MAP     ?= $(MAP_FILE)
 # Valhalla's tiles into ROUTING_TILES; navigation runs Valhalla in Docker on the
 # Mac through tools/dev/valhalla-docker.sh.
 ROUTING_TILES ?= /tmp/f250/routing/valhalla_tiles.tar
+# Search (ADR-0038): `make search-region REGION=north-america/us/kansas` builds
+# the index into SEARCH_INDEX for make navigation and make sim.
+SEARCH_INDEX ?= /tmp/f250/search/search.sqlite
 NAV_ROUTING = --valhalla tools/dev/valhalla-docker.sh \
               --valhalla-config services/navigation/valhalla/valhalla-3.9.1.json \
-              --routing-tiles $(ROUTING_TILES) --run-dir /tmp/f250/nav
+              --routing-tiles $(ROUTING_TILES) --run-dir /tmp/f250/nav \
+              --search-index $(SEARCH_INDEX)
 SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START) \
               --dart-define=VEHICLE_SOURCE=$(SOURCE) --dart-define=GATEWAY=$(GATEWAY) \
               --dart-define=NAV=$(NAV) --dart-define=MAP_FILE=$(MAP_FILE) \
@@ -69,7 +73,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
-        sim gateway navigation route-region map-test-pattern map-region map-assets map-stick map-import-dev map-check console docs-lint \
+        sim gateway navigation route-region search-region map-test-pattern map-region map-assets map-stick map-import-dev map-check console docs-lint \
         pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can \
         agl-test agl-image deploy deploy-build logs build-vm agl-build
 
@@ -241,6 +245,10 @@ route-region: ## Build Valhalla routing data for REGION= (Geofabrik path(s), e.g
 	@test -n "$(REGION)" || { echo "usage: make route-region REGION=north-america/us/kansas [REGION='a b']"; exit 2; }
 	python3 tools/maps/build-routing.py $(foreach r,$(REGION),--region $(r)) --dev-copy $(ROUTING_TILES) $(ROUTE_ARGS)
 
+search-region: ## Build the offline search index for REGION= (Geofabrik path(s)) into $(SEARCH_INDEX) (SEARCH_ARGS= passes build-search.py options, e.g. --bbox=W,S,E,N --name=NAME)
+	@test -n "$(REGION)$(PBF)" || { echo "usage: make search-region REGION=north-america/us/kansas [REGION='a b'] | PBF=file.osm.pbf  [SEARCH_ARGS=...]"; exit 2; }
+	python3 tools/maps/build-search.py $(foreach r,$(REGION),--region $(r)) $(addprefix --pbf ,$(PBF)) --dev-copy $(SEARCH_INDEX) $(SEARCH_ARGS)
+
 map-test-pattern: ## Write a test-pattern map (not map data) to $(MAP_FILE); needs Pillow and pmtiles
 	python3 tools/dev/test-pattern-map.py --out build/maps/test-pattern.mbtiles
 	pmtiles convert build/maps/test-pattern.mbtiles build/maps/test-pattern.pmtiles
@@ -254,9 +262,9 @@ ifeq ($(ESTIMATE),)
 	mkdir -p $(dir $(MAP_FILE)) && cp $(MAP_OUT) $(MAP_FILE)
 endif
 
-map-stick: ## Write MAP= (default $(MAP_OUT)) and ROUTING= (routing data, optional) onto the exFAT USB stick at STICK=/Volumes/<name> (ADR-0033)
-	@test -n "$(STICK)" || { echo "usage: make map-stick STICK=/Volumes/<name> [MAP=build/maps/region.pmtiles] [ROUTING=build/routing/valhalla_tiles.tar]  (MAP= alone: no map)"; exit 2; }
-	python3 tools/maps/map-stick.py $(addprefix --map ,$(if $(filter command line,$(origin MAP)),$(MAP),$(MAP_OUT))) $(addprefix --routing ,$(ROUTING)) --stick "$(STICK)"
+map-stick: ## Write MAP= (default $(MAP_OUT)), ROUTING= and SEARCH= (routing and search data, optional) onto the exFAT USB stick at STICK=/Volumes/<name> (ADR-0033)
+	@test -n "$(STICK)" || { echo "usage: make map-stick STICK=/Volumes/<name> [MAP=build/maps/region.pmtiles] [ROUTING=build/routing/valhalla_tiles.tar] [SEARCH=build/search/search.sqlite]  (MAP= alone: no map)"; exit 2; }
+	python3 tools/maps/map-stick.py $(addprefix --map ,$(if $(filter command line,$(origin MAP)),$(MAP),$(MAP_OUT))) $(addprefix --routing ,$(ROUTING)) $(addprefix --search ,$(SEARCH)) --stick "$(STICK)"
 
 map-import-dev: ## Import a map stick (STICK=/Volumes/<name>) into $(MAP_FILE) as the truck would, for make ui/sim
 	@test -n "$(STICK)" || { echo "usage: make map-import-dev STICK=/Volumes/<name>"; exit 2; }

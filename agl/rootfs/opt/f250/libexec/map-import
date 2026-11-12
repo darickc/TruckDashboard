@@ -1,39 +1,44 @@
 #!/bin/bash
-# Copies an offline map and routing data from a USB stick onto the data
-# drive (ADR-0033; routing data: ADR-0033 amendment 2026-11-11, ADR-0035).
+# Copies an offline map, routing data and search data from a USB stick onto
+# the data drive (ADR-0033; routing data: ADR-0033 amendment 2026-11-11,
+# ADR-0035; search data: ADR-0038).
 # f250-map-import@<dev>.service runs it when the udev rule
 # 80-f250-map-stick.rules sees an exFAT or FAT stick; `make map-stick` on the
 # Mac writes the stick.
 #
 #   map-import device /dev/sdX1   mount the stick read-only, then `dir`
-#   map-import dir <dir>          import <dir>/f250/map.pmtiles and/or
-#                                 <dir>/f250/routing.tar
+#   map-import dir <dir>          import <dir>/f250/map.pmtiles,
+#                                 <dir>/f250/routing.tar and/or
+#                                 <dir>/f250/search.sqlite
 #   map-import stopped /dev/sdX1  ExecStopPost: that stick's unfinished import
 #                                 becomes "failed" (the stick was pulled)
 #
-# A stick carries either file or both, each with its .sha256 beside it:
+# A stick carries any of these files, each with its .sha256 beside it:
 #
-#   f250/map.pmtiles  -> <storage>/maps/map.pmtiles             (the dashboard)
-#   f250/routing.tar  -> <storage>/routing/valhalla_tiles.tar   (navigation)
+#   f250/map.pmtiles   -> <storage>/maps/map.pmtiles             (the dashboard)
+#   f250/routing.tar   -> <storage>/routing/valhalla_tiles.tar   (navigation)
+#   f250/search.sqlite -> <storage>/search/search.sqlite         (navigation)
 #
 # Only those files and their checksums are read; nothing on the stick is run,
 # and the stick is mounted ro,nosuid,nodev,noexec. A stick with neither is
-# left alone, silently: it isn't a map stick. The map goes first; a failure
-# stops the import there.
+# left alone, silently: it isn't a map stick. They go in that order; a
+# failure stops the import there.
 #
 # Each new file is copied next to the old one as <name>.part, then checked
 # (the checksum; for the map the PMTiles v3 header and a tile type the
-# dashboard draws, for the routing data a tar with index.bin first) and only
+# dashboard draws, for the routing data a tar with index.bin first, for the
+# search data a SQLite file with application id "F250") and only
 # then renamed over the old one. Any failure, a full drive or a pulled stick
 # leaves the old file in place. Each installed file's SHA-256 is kept in
 # <name>.sha256 beside it: a stick with the same file (one left in the truck,
 # at every start) is not copied again ("current"). The dashboard reads the
 # status file (JSON: state checking|copying|updated|current|failed, percent,
-# message, id, device, item: map|routing, the file being checked or copied,
-# and changed: the items the import replaced, also when it then failed) and
-# opens the new map when it sees "updated", or "failed" after the map was
-# swapped in, with a new id and "map" in changed. navigation
-# notices new routing data by itself (it checks the file every second).
+# message, id, device, item:
+# map|routing|search, the file being checked or copied, and changed: the
+# items the import replaced, also when it then failed) and opens the new map
+# when it sees "updated", or "failed" after the map was swapped in, with a
+# new id and "map" in changed. navigation notices new routing data by itself
+# (it checks the file every second), and new search data at the next search.
 #
 # Testing: F250_STORAGE (the data drive's mount point), F250_MAP_STATUS_DIR
 # (where status.json and the stick's mount point go), F250_MAP_REQUIRE_MOUNT=0
@@ -98,8 +103,14 @@ fail() {
   local msg="$*"
   log "failed: $*"
   [[ -n "$PART" ]] && rm -f "$PART"
-  # Only the map comes before the routing data: say it was swapped in.
-  [[ ${#CHANGED[@]} -gt 0 ]] && msg="$msg The map was updated."
+  # What came before it on the stick and was swapped in: say so.
+  if [[ ${#CHANGED[@]} -gt 0 ]]; then
+    local done=() c
+    for c in "${CHANGED[@]}"; do
+      case "$c" in map) done+=(map) ;; *) done+=("$c data") ;; esac
+    done
+    msg="$msg The $(join_and "${done[@]}") $(was_were ${#done[@]}) updated."
+  fi
   status failed 0 "$msg"
   exit 1
 }
@@ -136,6 +147,15 @@ tar_problem() {
   [[ "$(head -c 10 "$f" | tr -d '\0')" == index.bin ]] || echo "it isn't a Valhalla tile extract (no index.bin first)"
 }
 
+# Why navigation couldn't search <file>, or nothing: a SQLite file whose
+# application id (header bytes 68-71) is "F250", as make search-region writes
+# it (crates/geocode, ADR-0038).
+sqlite_problem() {
+  local f="$1"
+  [[ "$(head -c 15 "$f")" == "SQLite format 3" ]] || { echo "it isn't a SQLite file"; return; }
+  [[ "$(od -An -c -j68 -N4 "$f" | tr -d ' ')" == F250 ]] || echo "it isn't navigation's search data"
+}
+
 # The items a stick can carry, each optional, imported in this order.
 # item <name>: sets SRC_NAME (in <stick>/f250/), DEST_DIR, DEST_NAME, WHAT
 # (for messages) and CHECK (the file check above).
@@ -145,6 +165,8 @@ item() {
          WHAT="the map"; CHECK=header_problem ;;
     routing) SRC_NAME=routing.tar; DEST_DIR="$STORAGE/routing"; DEST_NAME=valhalla_tiles.tar
              WHAT="the routing data"; CHECK=tar_problem ;;
+    search) SRC_NAME=search.sqlite; DEST_DIR="$STORAGE/search"; DEST_NAME=search.sqlite
+            WHAT="the search data"; CHECK=sqlite_problem ;;
   esac
   DEST="$DEST_DIR/$DEST_NAME"
   PART="$DEST.part"
@@ -219,18 +241,25 @@ import_one() {
   RESULT=updated
 }
 
-join_and() {   # "a", "a and b"
-  if [[ $# -eq 2 ]]; then printf '%s and %s' "$1" "$2"; else printf '%s' "$1"; fi
+join_and() {   # "a", "a and b", "a, b and c"
+  local out="$1"
+  shift
+  while [[ $# -gt 1 ]]; do out="$out, $1"; shift; done
+  [[ $# -eq 1 ]] && out="$out and $1"
+  printf '%s' "$out"
 }
+
+is_are() { if [[ $1 -eq 1 ]]; then echo is; else echo are; fi; }
+was_were() { if [[ $1 -eq 1 ]]; then echo was; else echo were; fi; }
 
 import_dir() {
   local src="$1" name items=() changed=() current=() msg
-  for name in map routing; do
+  for name in map routing search; do
     item "$name"
     [[ -f "$src/f250/$SRC_NAME" ]] && items+=("$name")
   done
   if [[ ${#items[@]} -eq 0 ]]; then
-    log "no f250/map.pmtiles or f250/routing.tar in $src: not a map stick, nothing to do"
+    log "no f250/map.pmtiles, f250/routing.tar or f250/search.sqlite in $src: not a map stick, nothing to do"
     return 0
   fi
   mkdir -p "$STATUS_DIR"
@@ -250,13 +279,13 @@ import_dir() {
     if [[ ${#current[@]} -eq 1 && "${current[0]}" == map ]]; then
       msg="This map is already installed. You can remove the stick."
     else
-      msg="The $(join_and "${current[@]}") on this stick $( [[ ${#current[@]} -eq 1 ]] && echo is || echo are) already installed. You can remove the stick."
+      msg="The $(join_and "${current[@]}") on this stick $(is_are ${#current[@]}) already installed. You can remove the stick."
     fi
     status current 100 "$msg"
     return 0
   fi
   msg="$(cap "$(join_and "${changed[@]}")") updated."
-  [[ ${#current[@]} -gt 0 ]] && msg="$msg The $(join_and "${current[@]}") was already installed."
+  [[ ${#current[@]} -gt 0 ]] && msg="$msg The $(join_and "${current[@]}") $(was_were ${#current[@]}) already installed."
   status updated 100 "$msg You can remove the stick."
 }
 
@@ -268,7 +297,7 @@ stopped() {   # that stick's unit stopped: an import it left unfinished failed
   case "$state" in
     copying|checking)
       ITEM="$(sed -n 's/.*"item":"\([a-z]*\)".*/\1/p' "$STATUS")"
-      [[ "$ITEM" == routing ]] || ITEM=map
+      [[ "$ITEM" == routing || "$ITEM" == search ]] || ITEM=map
       item "$ITEM"
       rm -f "$PART"
       ID="$(sed -n 's/.*"id":"\([^"]*\)".*/\1/p' "$STATUS")"
