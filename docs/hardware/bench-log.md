@@ -2125,7 +2125,7 @@ HAT was fitted: `CAMERA_REAR` now names
 saved truck file, and front and rear recorded onto the NVMe. The owner then
 saved Settings → Cameras on the dashboard (05:01:20), with the same ports and
 `record=` empty. Recording is off since then, and that file replaces
-`/etc/default/f250`'s cameras. Whether recording was meant to be off is asked.
+`/etc/default/f250`'s cameras. The owner: leave recording off.
 
 Clear, after `make deploy` of the working tree (committed next): the owner's
 camera settings file was copied aside, and for a minute the rear camera was
