@@ -82,6 +82,10 @@ class OfflineMap {
   Timer? _watch;
   String? _installedId;
   bool _checkedOnce = false;
+
+  /// A finished import already in the status file when the dashboard
+  /// started: not news, at the first read or any later one.
+  String? _beforeStartId;
   VectorMapStyles? _styles;
 
   ValueListenable<MapFileState> get state => _state;
@@ -115,12 +119,17 @@ class OfflineMap {
       final first = !_checkedOnce;
       _checkedOnce = true;
       if (status == null) return;
+      if (status.id == _beforeStartId) return;
       if (status.mapChanged && status.id != _installedId) {
         _installedId = status.id;
         if (!first) await load();
       }
-      // An import that finished before the dashboard started isn't news.
-      if (first && !status.inProgress) return;
+      // An import that finished before the dashboard started isn't news,
+      // however often it is read again (seen on the Pi, 2026-11-11).
+      if (first && !status.inProgress) {
+        _beforeStartId = status.id;
+        return;
+      }
       _update.value = status;
     } finally {
       _checking = false;

@@ -102,10 +102,18 @@ void main() {
 
     test('an import finished before the dashboard started isn\'t news', () async {
       await map.load();
-      answers.add(status('updated', id: 'old', percent: 100));
+      answers.addAll([
+        status('updated', id: 'old', percent: 100),
+        status('updated', id: 'old', percent: 100), // read again a second later
+        status('current', id: 'new', percent: 100), // a new import after the start is
+      ]);
       await map.checkUpdate();
       expect(map.update.value, isNull);
+      await map.checkUpdate();
+      expect(map.update.value, isNull, reason: 'the same old import, read again');
       expect(opens, 1);
+      await map.checkUpdate();
+      expect(map.update.value!.id, 'new');
     });
 
     test('progress shows, and a new map is opened once it is in place', () async {
