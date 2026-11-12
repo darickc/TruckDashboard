@@ -2362,3 +2362,20 @@ lines and seen. Keep left both phones paired (`bluetoothctl devices Paired`:
 2). Disconnect and Delete themselves weren't tapped on the owner's phones:
 end-to-end tests with the simulated phone only ([SIM]); `Adapter1.RemoveDevice`
 is UNVERIFIED on the Pi.
+
+## 2026-11-12 — Disconnect reconnected at once; fixed [BENCH]
+
+The owner: Disconnect disconnects, then the phone is connected again at once.
+audio-manager's journal: "dashboard: disconnect …", then 1.6 s later "no phone
+connected: trying … every 20 s", and "connecting … by itself": audio-manager
+itself, twice. The mark that holds a disconnected phone back was cleared by
+the next snapshot, in which BlueZ still reported the phone connected. Now it
+is cleared only when the phone goes from not connected to connected. The
+simulated phone now also stays connected for a moment after a disconnect,
+which made the end-to-end test fail before the fix and pass after.
+
+On the Pi after `make deploy` (committed next): Disconnect on the iPhone's
+row, then `bluetoothctl devices Connected` once a second for 20 s: 0 every
+time, and nothing more in audio-manager's journal. Connect brought it back.
+The phone itself didn't reconnect either. Status texts shortened so they fit
+beside the wider buttons: "Last used", "Not connected".

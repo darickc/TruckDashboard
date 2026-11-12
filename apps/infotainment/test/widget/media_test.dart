@@ -271,7 +271,7 @@ void main() {
     await tester.pump();
     expect(key('phones-question'), findsNothing);
     expect(text(tester, 'phones-status-02:00:00:00:00:02'), 'Connected');
-    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Paired · not connected');
+    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Not connected');
     expect(text(tester, 'phones-pairing'), 'Paired with Simulated phone 2.');
     expect(find.textContaining('Pair a phone'), findsOneWidget);
   });
@@ -364,7 +364,7 @@ void main() {
       await h.goTo(AppScreen.phones);
       expect(tester.takeException(), isNull);
       expect(key('phones-row-B0'), findsOneWidget);
-      expect(text(tester, 'phones-status-B0'), 'Last connected · not connected now');
+      expect(text(tester, 'phones-status-B0'), 'Last used');
       expectTouchTargets(tester, 'phones, long names');
     }
   });
@@ -393,7 +393,7 @@ void main() {
     await tester.pump();
     expect(h.services.screens.value, AppScreen.phones);
     expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Connected');
-    expect(text(tester, 'phones-status-02:00:00:00:00:03'), 'Paired · not connected');
+    expect(text(tester, 'phones-status-02:00:00:00:00:03'), 'Not connected');
     expect(key('phones-connect-02:00:00:00:00:01'), findsNothing, reason: 'already connected');
     expectTouchTargets(tester, 'phones');
 
@@ -409,7 +409,7 @@ void main() {
     await tester.pump();
     expect(text(tester, 'phones-status-02:00:00:00:00:03'), 'Connected');
     // One phone at a time; the old one is now just paired.
-    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Paired · not connected');
+    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Not connected');
     expect(key('phones-detail'), findsNothing);
     // The connected phone first.
     final rows = find.byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('phones-row-'));
@@ -418,7 +418,7 @@ void main() {
     // The link drops: the phone connected last is marked, first in the list.
     audio.disconnect();
     await tester.pump();
-    expect(text(tester, 'phones-status-02:00:00:00:00:03'), 'Last connected · not connected now');
+    expect(text(tester, 'phones-status-02:00:00:00:00:03'), 'Last used');
     expect(tester.getRect(key('phones-row-02:00:00:00:00:03')).top,
         lessThan(tester.getRect(key('phones-row-02:00:00:00:00:01')).top));
 
@@ -440,7 +440,7 @@ void main() {
     await tester.tap(key('phones-disconnect-02:00:00:00:00:01'));
     await tester.pump();
     await tester.pump();
-    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Last connected · not connected now');
+    expect(text(tester, 'phones-status-02:00:00:00:00:01'), 'Last used');
     expect(key('phones-connect-02:00:00:00:00:01'), findsOneWidget);
     expect(key('media-title'), findsNothing);
 

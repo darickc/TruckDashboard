@@ -436,8 +436,10 @@ impl Bluetooth for SimPhone {
     }
 
     async fn disconnect(&self, address: &str) -> Result<(), String> {
+        // As BlueZ: the phone is still reported connected for a moment.
+        self.with(|s, _| s.disconnects.push(address.to_string()));
+        tokio::time::sleep(self.cfg.connect_takes).await;
         self.with(|s, _| {
-            s.disconnects.push(address.to_string());
             for p in s.phones.iter_mut().filter(|p| p.address == address) {
                 p.connected = false;
             }

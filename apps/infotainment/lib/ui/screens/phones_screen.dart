@@ -123,8 +123,8 @@ class _PhonesScreenState extends State<PhonesScreen> {
         : connecting
             ? (r.connect.automatic ? 'Reconnecting by itself…' : 'Connecting…')
             : ph.last
-                ? 'Last connected · not connected now'
-                : 'Paired · not connected';
+                ? 'Last used'
+                : 'Not connected';
     final canConnect = !ph.connected && !r.connect.busy && !_busy && r.bluetoothReady;
     if (_confirmDelete == ph.address) return _confirmRow(ph, audio);
     final idle = !_busy && r.bluetoothReady && !connecting;

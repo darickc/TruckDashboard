@@ -500,6 +500,13 @@ impl Manager {
             };
             new.sort_by_key(rank);
         }
+        // A phone that has just connected (it wasn't before) is no longer
+        // held back by the driver's Disconnect. Not on any snapshot that still
+        // shows it connected: BlueZ reports it so for a moment after the
+        // Disconnect is sent (bench-log 2026-11-12).
+        for a in &new {
+            inner.held.remove(a);
+        }
         inner.order.extend(new);
     }
 
@@ -554,7 +561,6 @@ impl Manager {
         let ready = matches!(s.adapter, Adapter::Ready { .. });
         let connected = Self::current(inner, s);
         if let Some(p) = &connected {
-            inner.held.remove(&p.address);
             if inner.last_phone.as_deref() != Some(p.address.as_str()) {
                 inner.last_phone = Some(p.address.clone());
                 self.save_last_phone(&p.address);
