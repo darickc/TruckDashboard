@@ -399,8 +399,9 @@ check "the wrapper's options exist in power-manager" "for o in latitude longitud
 echo "navigation-start"
 NSTUB="$T/navigation"
 printf '#!/bin/sh\necho "$@"\n' >"$NSTUB"; chmod +x "$NSTUB"
-nav() { env -i PATH="$PATH" F250_NAV_BIN="$NSTUB" "$@" bash agl/rootfs/opt/f250/libexec/navigation-start 2>/dev/null; }
-check "nothing set: gpsd on the loopback" "[[ \"\$(nav)\" == '--listen unix:/run/f250-nav/nav.sock --gpsd 127.0.0.1:2947' ]]"
+# NAV_AUDIO_MANAGER= (no voice) unless a check sets it: most checks are about other options.
+nav() { env -i PATH="$PATH" F250_NAV_BIN="$NSTUB" NAV_AUDIO_MANAGER= "$@" bash agl/rootfs/opt/f250/libexec/navigation-start 2>/dev/null; }
+check "nothing set: gpsd on the loopback, prompts through audio-manager (a settings file from before ADR-0040)" "[[ \"\$(env -i PATH=\"\$PATH\" F250_NAV_BIN=$NSTUB bash agl/rootfs/opt/f250/libexec/navigation-start 2>/dev/null)\" == '--listen unix:/run/f250-nav/nav.sock --gpsd 127.0.0.1:2947 --audio-manager unix:/run/f250-audio/audio.sock' ]]"
 check "the shipped settings: gpsd, defaults" "[[ \"\$(nav NAV_GPSD= NAV_SIMULATE=0 NAV_STALE_AFTER_MS=)\" == '--listen unix:/run/f250-nav/nav.sock --gpsd 127.0.0.1:2947' ]]"
 check "another gpsd, a stale limit" "[[ \"\$(nav NAV_GPSD=127.0.0.1:2948 NAV_STALE_AFTER_MS=5000)\" == '--listen unix:/run/f250-nav/nav.sock --gpsd 127.0.0.1:2948 --stale-after-ms 5000' ]]"
 check "simulated: no gpsd" "[[ \"\$(nav NAV_SIMULATE=1 NAV_GPSD=127.0.0.1:2948)\" == '--listen unix:/run/f250-nav/nav.sock --simulate' ]]"

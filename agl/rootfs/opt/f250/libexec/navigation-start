@@ -24,7 +24,9 @@
 #                       is on the SD card then.
 #   NAV_AUDIO_MANAGER   audio-manager's API, which says the prompts and
 #                       pauses the music around them (ADR-0039, ADR-0040).
-#                       Shipped as unix:/run/f250-audio/audio.sock. Empty:
+#                       Shipped as unix:/run/f250-audio/audio.sock, and
+#                       that when the line is missing (a settings file from
+#                       before ADR-0040, which stage1-setup keeps). Empty:
 #                       prompts go to the journal only.
 #   NAV_VOICE_COMMAND   instead, a program that speaks its last argument.
 #                       Not audible under this unit's sandbox (no sound
@@ -74,7 +76,8 @@ esac
 if [[ "${DATA_DRIVE:-0}" == 1 ]]; then
   args+=(--places-dir "$STORAGE/navigation" --places-drive "$STORAGE" --places-fallback-dir "$STATE")
 fi
-[[ -n "${NAV_AUDIO_MANAGER:-}" ]] && args+=(--audio-manager "$NAV_AUDIO_MANAGER")
+NAV_AUDIO_MANAGER="${NAV_AUDIO_MANAGER-unix:/run/f250-audio/audio.sock}"
+[[ -n "$NAV_AUDIO_MANAGER" ]] && args+=(--audio-manager "$NAV_AUDIO_MANAGER")
 [[ -n "${NAV_VOICE_COMMAND:-}" ]] && args+=(--voice-command "$NAV_VOICE_COMMAND")
 case "${NAV_VOICE_UNITS:-imperial}" in
   imperial) ;;
