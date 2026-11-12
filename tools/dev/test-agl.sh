@@ -709,10 +709,20 @@ D="$(new_case ok)"
 python3 tools/maps/map-stick.py --map "$FIX" --stick "$D/stick" --any-dir >/dev/null 2>&1 || fail "map-stick wrote no stick"
 check "map-stick writes the map and its checksum" "cmp -s '$FIX' '$D/stick/f250/map.pmtiles' && grep -qE '^[0-9a-f]{64}  map.pmtiles\$' '$D/stick/f250/map.pmtiles.sha256'"
 echo stale >"$D/storage/maps/map.pmtiles.part"
+chmod 0755 "$D/stick/f250/map.pmtiles"   # as an exFAT stick shows it on the Pi
 rc=0; mi "$D" dir "$D/stick" >"$D/out" 2>&1 || rc=$?
 check "a map stick is imported"        "[[ $rc == 0 ]] && cmp -s '$FIX' '$D/storage/maps/map.pmtiles'"
 check "status: updated, with an id"    "[[ \"\$(state_of '$D')\" == updated ]] && grep -q '\"id\":\"[0-9TZ-]*\"' '$D/run/status.json'"
 check "no copy or lock left behind"    "[[ ! -e '$D/storage/maps/map.pmtiles.part' && ! -e '$D/run/import.lock' ]]"
+check "the installed map isn't executable" "[[ \"\$(ls -l '$D/storage/maps/map.pmtiles' | cut -c1-10)\" == -rw-r--r-- ]]"
+check "the installed map's checksum is kept" "[[ \"\$(cat '$D/storage/maps/map.pmtiles.sha256')\" == \"\$(cut -c1-64 '$D/stick/f250/map.pmtiles.sha256')\" ]]"
+INODE="$(ls -i "$D/storage/maps/map.pmtiles" | awk '{print $1}')"
+rc=0; mi "$D" dir "$D/stick" >/dev/null 2>&1 || rc=$?
+check "the same stick again: current, nothing copied" "[[ $rc == 0 && \"\$(state_of '$D')\" == current && \"\$(ls -i '$D/storage/maps/map.pmtiles' | awk '{print \$1}')\" == '$INODE' ]] && grep -qF 'already installed' '$D/run/status.json'"
+cp "$OLD" "$D/stick/f250/map.pmtiles"
+(cd "$D/stick/f250" && (shasum -a 256 map.pmtiles 2>/dev/null || sha256sum map.pmtiles) >map.pmtiles.sha256)
+rc=0; mi "$D" dir "$D/stick" >/dev/null 2>&1 || rc=$?
+check "a different map on the stick is copied" "[[ $rc == 0 && \"\$(state_of '$D')\" == updated ]] && cmp -s '$OLD' '$D/storage/maps/map.pmtiles'"
 check "map-stick refuses a file that isn't a map" "! python3 tools/maps/map-stick.py --map Makefile --stick '$D/stick' --any-dir 2>/dev/null"
 check "map-stick refuses a folder that isn't a volume" "! python3 tools/maps/map-stick.py --map '$FIX' --stick '$D/stick' 2>/dev/null"
 

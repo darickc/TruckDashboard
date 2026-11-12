@@ -54,7 +54,9 @@ heavy vehicles or trailers** (ADR-0010).
    into the Pi. The status bar shows **MAP n%** while it copies (the Nav tab
    says more); leave the stick in. Then it checks the copy (**MAP CHECK**)
    and swaps it in: **MAP UPDATED**, and the Nav tab shows the new map at
-   once. Remove the stick.
+   once. Remove the stick. A stick with the map that is already installed
+   (one left in the truck, at every start) isn't copied again: **MAP UP TO
+   DATE**.
 
 If anything is wrong (no checksum, a bad copy, not a map, the data drive
 missing or full, the stick pulled early) it shows **MAP UPDATE FAILED** with

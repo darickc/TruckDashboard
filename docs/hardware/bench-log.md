@@ -1938,3 +1938,42 @@ a moving fix (no GPS on the bench), and a full-size map from the NVMe (not
 fitted; reads are by offset, so size shouldn't matter, but unmeasured).
 Also seen: the Nav tab says "Navigation service unavailable" (no navigation
 socket on this card); not part of this test.
+
+## 2026-11-11 — Map update by USB stick (ADR-0033, bench check 17 without the NVMe) [BENCH]
+
+Hardware: the Pi and card of the entry above; a Kingston DataTraveler 3.0
+32 GB stick, erased as exFAT (MBR) on the Mac. No data drive
+Setup: `f250-map-import@.service`, `80-f250-map-stick.rules` and
+`map-import` copied into place by hand, `daemon-reload`, `udevadm control
+--reload`. Bench only: a drop-in in `/run` (gone at reboot) set
+`F250_MAP_REQUIRE_MOUNT=0`, so the import wrote to `/var/lib/f250/storage`
+on the card. The dashboard was rebuilt after the fixes below. Stick written
+with `make map-stick` (the 71 MB eastern Idaho extract; later a 940 MB Idaho
+and Utah one, 75 s to write on the Mac)
+
+Result (journal, `/run/f250-maps/status.json` every 0.2 s, screenshots):
+
+    udev       plugging the stick in started f250-map-import@sda1 within 1 s;
+               exFAT mounted read-only in the unit (exfat module loaded)
+    71 MB      copying at +0 s, cp done within 1 s (into the page cache), sync
+               to the card ~6 s, checksum 0.6 s, "updated" at +7.4 s. The
+               dashboard reopened the map: its open file is the new one, the
+               old one freed. The view stays where it was
+    940 MB     ~94 MB/s from the stick (10% a second) until pulled
+    pulled     stick pulled at 29%: cp "Input/output error", the unit stopped
+               (BindsTo), ExecStopPost wrote failed "The stick was removed
+               before the map was copied. The old map is kept."; no .part, no
+               lock, the old map and its checksum kept; MAP UPDATE FAILED
+    night      the dark style drew on the Pi (the screen was in night mode)
+
+    found and fixed (same day, the second run passed):
+    - progress stayed at "0%" for the whole 71 MB import: cp finished at once
+      and the time went to sync. Now 100% during sync, still "leave the stick in"
+    - the installed map was mode 0755 (cp kept the exFAT modes); now 0644
+    - a stick left in would copy the whole map again at every start. The
+      installed map's SHA-256 is now kept beside it; the same stick again:
+      "current", MAP UP TO DATE, "This map is already installed", nothing copied
+
+Verdict: works onto the card. Not shown: onto the NVMe (not fitted; the real
+mount check), a stick left in across a reboot, a full 19 GB copy's time, and
+a FAT stick.

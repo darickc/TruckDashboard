@@ -246,7 +246,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
               palette: p,
               color: switch (update.state) {
                 MapUpdateState.failed => p.advisory,
-                MapUpdateState.updated => p.ok,
+                MapUpdateState.updated || MapUpdateState.current => p.ok,
                 _ => p.accent,
               },
             ),

@@ -106,6 +106,22 @@ void main() {
       expect(opens, 2);
     });
 
+    test('a stick with the installed map is said so, and nothing reopens', () async {
+      await map.load();
+      final first = (map.state.value as MapReady).reader;
+      answers.addAll([
+        null,
+        status('current', id: 'c', percent: 100, message: 'This map is already installed.'),
+      ]);
+      await map.checkUpdate();
+      await map.checkUpdate();
+      expect(map.update.value!.state, MapUpdateState.current);
+      expect(map.update.value!.inProgress, isFalse);
+      expect(map.update.value!.text, 'This map is already installed.');
+      expect(opens, 1);
+      expect(identical((map.state.value as MapReady).reader, first), isTrue);
+    });
+
     test('a failed import keeps the map and says why', () async {
       await map.load();
       answers.addAll([null, status('failed', id: 'f', message: 'The data drive is full.')]);

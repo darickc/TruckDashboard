@@ -1,8 +1,9 @@
 import 'dart:convert';
 
 /// What the map import (ADR-0033, `/opt/f250/libexec/map-import`) is doing,
-/// from its status file.
-enum MapUpdateState { checking, copying, updated, failed }
+/// from its status file. `current`: the stick's map is the one already
+/// installed, so nothing was copied (a stick left in the truck).
+enum MapUpdateState { checking, copying, updated, current, failed }
 
 class MapUpdateStatus {
   const MapUpdateStatus({

@@ -54,6 +54,7 @@ List<Widget> _mapUpdateChip(MapUpdateStatus? u, DateTime now, Palette p) {
     MapUpdateState.copying => ('MAP ${u.percent}%', p.accent),
     MapUpdateState.checking => ('MAP CHECK', p.accent),
     MapUpdateState.updated => ('MAP UPDATED', p.ok),
+    MapUpdateState.current => ('MAP UP TO DATE', p.ok),
     MapUpdateState.failed => ('MAP UPDATE FAILED', p.advisory),
   };
   return [Pill(text, key: const ValueKey('map-update-chip'), color: color), const SizedBox(width: 10)];

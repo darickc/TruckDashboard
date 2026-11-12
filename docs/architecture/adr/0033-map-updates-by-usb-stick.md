@@ -1,9 +1,10 @@
 # ADR 0033 — Map updates by USB stick, onto the data drive
 
-- **Status:** Accepted (owner, 2026-11-11). [SIM] only: `make agl-test` runs
+- **Status:** Accepted (owner, 2026-11-11). [SIM]: `make agl-test` runs
   the import against folders, `map-stick.py` against a folder, and the
-  dashboard's tests cover the status. Not run on the Pi, with a real stick,
-  or with the NVMe drive yet
+  dashboard's tests cover the status. [BENCH] 2026-11-11 (bench-log): a
+  real exFAT stick on the Pi imported onto the card and the dashboard
+  reopened the map. Not yet with the NVMe drive
 - **Date:** 2026-11-11
 - **Refines:** [ADR-0030](0030-navigation-position-and-raster-map.md) (where the
   map file lives); part of Phase 6.5.3
@@ -50,6 +51,11 @@ Options considered for the update workflow:
      SHA-256 and header again, and only then renames it over `map.pmtiles`.
      Any failure, a full drive, a pulled stick or a power cut leaves the old
      map. A leftover `.part` is removed by the next import.
+   - The installed map's SHA-256 is kept in `map.pmtiles.sha256` beside it
+     (removed before the swap, written after). A stick whose checksum and
+     size match is not copied again: state `current`, "This map is already
+     installed". Otherwise a stick left in the truck would copy the whole
+     map at every start (found on the bench, 2026-11-11).
    - One import at a time (a lock in `/run/f250-maps`). The unit is bound to
      the stick: pulling it stops the unit, and `ExecStopPost` marks that
      stick's import failed.
@@ -57,13 +63,17 @@ Options considered for the update workflow:
      runtime directory, has no network, and may take an hour.
 4. **The dashboard shows it and opens the new map without a restart.** The
    import writes `/run/f250-maps/status.json` (state `checking`, `copying`
-   with a percentage, `updated` or `failed`, a message, an id). The dashboard
-   reads it every second (`MAP_STATUS`): a chip in the status bar on every tab
-   ("MAP 43%", "MAP UPDATED", "MAP UPDATE FAILED") and the message on the Nav
-   tab. A finished import shows for 10 minutes. A new `updated` id reopens the
-   map; the old file is closed, so its space is freed, and the vector layer
-   gets a new tile cache, so no tile of the old map shows. An import that
-   finished before the dashboard started isn't shown.
+   with a percentage, `updated`, `current` or `failed`, a message, an id).
+   The percentage is the copy's size so far; it reads 100% while the copy
+   is flushed to the drive, which on the bench card was most of the time.
+   The dashboard reads it every second (`MAP_STATUS`): a chip in the status
+   bar on every tab ("MAP 43%", "MAP UPDATED", "MAP UP TO DATE", "MAP UPDATE
+   FAILED") and the message on the Nav tab. A finished import shows for 10
+   minutes. A new `updated` id reopens the map (the view stays where it
+   was); the old file is closed, so its space is freed, and the vector layer
+   gets a new tile cache, so no tile of the old map shows. `current` reopens
+   nothing. An import that finished before the dashboard started isn't
+   shown.
 5. **The map's data date** (`f250:protomaps_build`, written by
    `make map-region`) shows beside its attribution, so you can tell which map
    is installed.

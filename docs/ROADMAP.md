@@ -289,13 +289,14 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       style. `make map-region` now builds vector by default (an extract, no Docker); raster stays as `--format`.
       Tests: styles fully parsed, provider, screen day/night, `map-check` for MVT. On the Pi 5 by day (bench-log
       2026-11-11): fills 1.7 s after Nav opens, keeps up with gestures at up to three cores. Night not seen on the Pi.
-      6.5.3 (update workflow) `[SIM]`: map updates by USB stick ([ADR-0033](architecture/adr/0033-map-updates-by-usb-stick.md),
+      6.5.3 (update workflow) `[SIM]` `[BENCH]`: map updates by USB stick ([ADR-0033](architecture/adr/0033-map-updates-by-usb-stick.md),
       owner's choice): `make map-stick` writes the map and its SHA-256 to an exFAT stick; on the Pi a udev rule starts
       `f250-map-import@`, which mounts it read-only, copies to the data drive, checks checksum and header, and swaps it
       in, keeping the old map on any failure. The map moved to `/var/lib/f250/storage/maps/`. The dashboard shows
-      progress on every tab and opens the new map without a restart. Tested by `make agl-test` and app tests;
-      not on the Pi or with a real stick yet (bench check 17).
-      Next: 6.5.2's routing, or 6.5.3's update workflow (copy over Wi-Fi or USB)
+      progress on every tab and opens the new map without a restart. A stick with the installed map isn't copied
+      again (MAP UP TO DATE). Tested by `make agl-test` and app tests, and on the bench Pi with a real exFAT stick
+      onto the card (bench-log 2026-11-11): import, reopen, up to date, pulled stick. Not yet onto the NVMe.
+      Next: 6.5.2's routing
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and
       invalid reverse, the latched choice, moves during reverse, the optional speed limit, missing cameras).

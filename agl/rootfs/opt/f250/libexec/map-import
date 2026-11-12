@@ -16,9 +16,12 @@
 # The new map is copied next to the old one as map.pmtiles.part, then checked
 # (the checksum, the PMTiles v3 header, a tile type the dashboard draws) and
 # only then renamed over map.pmtiles. Any failure, a full drive or a pulled
-# stick leaves the old map in place. The dashboard reads the status file
-# (JSON: state copying|checking|updated|failed, percent, message, id, device) and
-# opens the new map when it sees "updated" with a new id.
+# stick leaves the old map in place. The installed map's SHA-256 is kept in
+# map.pmtiles.sha256 beside it: a stick with the same map (one left in the
+# truck, at every start) is not copied again ("current"). The dashboard reads
+# the status file (JSON: state checking|copying|updated|current|failed,
+# percent, message, id, device) and opens the new map when it sees "updated"
+# with a new id.
 #
 # Testing: F250_STORAGE (the data drive's mount point), F250_MAP_STATUS_DIR
 # (where status.json and the stick's mount point go), F250_MAP_REQUIRE_MOUNT=0
@@ -35,6 +38,7 @@ REQUIRE_MOUNT="${F250_MAP_REQUIRE_MOUNT:-1}"
 MAPS="$STORAGE/maps"
 MAP="$MAPS/map.pmtiles"
 PART="$MAP.part"
+MAP_SUM="$MAP.sha256"   # the installed map's SHA-256, written by this script
 STATUS="$STATUS_DIR/status.json"
 LOCK="$STATUS_DIR/import.lock"
 SPARE=$((64 * 1024 * 1024))   # left free on the drive after the copy
@@ -125,6 +129,13 @@ import_dir() {
   [[ "$want" =~ ^[0-9a-f]{64}$ ]] || fail "map.pmtiles.sha256 on the stick isn't a SHA-256 checksum. The old map is kept."
   problem="$(header_problem "$map")"
   [[ -z "$problem" ]] || fail "The map on the stick can't be used: $problem. The old map is kept."
+  # A stick left in would otherwise copy the whole map again at every start.
+  if [[ -f "$MAP" && -f "$MAP_SUM" && "$(cat "$MAP_SUM")" == "$want" \
+        && "$(size_of "$MAP")" == "$(size_of "$map")" ]]; then
+    log "the map on $src is already installed (sha256 $want): nothing copied"
+    status current 100 "This map is already installed. You can remove the stick."
+    return 0
+  fi
   if [[ "$REQUIRE_MOUNT" != 0 ]] && ! findmnt -rn --mountpoint "$STORAGE" >/dev/null; then
     fail "The data drive isn't mounted at $STORAGE; the map is kept on it. Nothing was copied."
   fi
@@ -146,6 +157,10 @@ import_dir() {
     sleep 1
   done
   wait "$pid" || fail "Copying from the stick failed. The old map is kept."
+  chmod 0644 "$PART"   # cp keeps the stick's modes (exFAT shows 0755)
+  # cp can finish into the page cache long before the drive has it; sync is
+  # the rest of the copy, and the stick must stay in until it's done.
+  status copying 100 "Copying the map from USB: leave the stick in"
   sync
 
   status checking 100 "Checking the copied map"
@@ -154,7 +169,11 @@ import_dir() {
   problem="$(header_problem "$PART")"
   [[ -z "$problem" ]] || fail "The copied map can't be used: $problem. The old map is kept."
 
+  # The installed map's checksum, so the same stick isn't copied again. Gone
+  # before the swap and written after it, so it never names another map.
+  rm -f "$MAP_SUM"
   mv -f "$PART" "$MAP"
+  printf '%s\n' "$got" >"$MAP_SUM.$$" && mv -f "$MAP_SUM.$$" "$MAP_SUM"
   sync
   log "installed $MAP ($size bytes, sha256 $got)"
   status updated 100 "Map updated. You can remove the stick."
