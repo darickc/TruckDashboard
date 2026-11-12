@@ -283,11 +283,12 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       ODbL) rendered locally by a pinned tileserver-gl, WebP, OSM attribution in the metadata, size estimate first
       ([ADR-0031](architecture/adr/0031-raster-map-build.md)). Ran on the Mac for Kansas samples; `make map-check`
       passes with the dashboard's reader. Not on the Pi; the owner's region isn't built yet.
-      6.5.1b `[SIM]`: vector maps ([ADR-0032](architecture/adr/0032-vector-map.md)): the dashboard draws MVT tilesets
+      6.5.1b `[SIM]` `[BENCH]`: vector maps ([ADR-0032](architecture/adr/0032-vector-map.md)): the dashboard draws MVT tilesets
       itself with vector_map_tiles (vector_tile overridden to 4.0.0, which uses protobuf 6), from its own PMTiles
       reader, with the Protomaps light/dark styles, icons and Noto Sans bundled (`make map-assets`). Night is the dark
       style. `make map-region` now builds vector by default (an extract, no Docker); raster stays as `--format`.
-      Tests: styles fully parsed, provider, screen day/night, `map-check` for MVT. Pi drawing speed UNMEASURED.
+      Tests: styles fully parsed, provider, screen day/night, `map-check` for MVT. On the Pi 5 by day (bench-log
+      2026-11-11): fills 1.7 s after Nav opens, keeps up with gestures at up to three cores. Night not seen on the Pi.
       6.5.3 (update workflow) `[SIM]`: map updates by USB stick ([ADR-0033](architecture/adr/0033-map-updates-by-usb-stick.md),
       owner's choice): `make map-stick` writes the map and its SHA-256 to an exFAT stick; on the Pi a udev rule starts
       `f250-map-import@`, which mounts it read-only, copies to the data drive, checks checksum and header, and swaps it

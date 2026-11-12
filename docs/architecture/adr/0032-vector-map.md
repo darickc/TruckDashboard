@@ -1,11 +1,12 @@
 # ADR 0032 — The dashboard draws vector maps itself
 
-- **Status:** Accepted. [SIM] only. Built and tested on the development Mac on
+- **Status:** Accepted. [SIM] and [BENCH]. Built and tested on the development Mac on
   2026-11-11: unit and widget tests, a vector map of the simulator's area,
   and pictures of the Navigation tab by day and night rendered by
   `flutter test`. The macOS app started with a vector map without errors,
-  but its Navigation tab wasn't opened. **Not run on the Pi**: how fast the
-  Pi 5 draws it is unmeasured
+  but its Navigation tab wasn't opened. [BENCH] on the Pi 5 by day,
+  2026-11-11 (bench-log): the map fills 1.7 s after Nav opens and keeps up
+  with zooming and dragging, at up to three of four cores while it moves
 - **Date:** 2026-11-11
 - **Refines:** [ADR-0030](0030-navigation-position-and-raster-map.md) (decision 5,
   raster only, and 8, night by darkening) and
@@ -93,11 +94,13 @@ needs no change either way: every protobuf version reads the same messages.
   Washington–Idaho–Utah's bounding box to zoom 15 at about 1.4 GB if it were
   all rural (WebP: 1.7 GB). The estimate's urban column is far too high for
   real regions; it comes from one city-centre sample.
-- **Pi performance is the open risk (UNVERIFIED).** On the Mac in
-  `flutter test` (debug), a 512 px tile took 10–20 ms to draw and ≤ 5 ms to
-  decode. The Pi 5 is slower; if it can't keep up, rebuild the region as
-  raster (`MAP_ARGS=--format=webp`): the dashboard draws both. Measure with
-  `make pi-run` on the bench and record it in docs/hardware/bench-log.md.
+- **Pi performance, measured on the bench (2026-11-11, bench-log):** the
+  map fills about 1.7 s after the Nav tab opens; while zooming or dragging,
+  undrawn patches fill within about a second, and the dashboard uses up to
+  three of the Pi 5's four cores, back to 3–5% when the map stops. Night
+  style and a moving fix not yet seen on the Pi. If it ever can't keep up,
+  rebuild the region as raster (`MAP_ARGS=--format=webp`): the dashboard
+  draws both.
 - What the rewrite loses: labels are one line in English or the local name;
   some places of interest show earlier than the upstream style intends; town
   and city labels use one weight. A newer `vector_tile_renderer` may parse

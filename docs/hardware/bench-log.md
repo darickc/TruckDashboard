@@ -1899,3 +1899,42 @@ dashboard restarted: screenshot at 6 s, only the existing "Vehicle data
 lost"; at 18 s, "Not polling the truck" first with its reason, "+1 more".
 On the truck, polling should start ~12 s after power, so a normal start
 never shows it. Not yet driven.
+
+## 2026-11-11 — The vector map on the Pi 5 (ADR-0032) [BENCH]
+
+Hardware: Pi 5 with the 7" DSI panel, on the bench, no CAN bus, no GPS fix,
+no data drive (the 7 GB card only)
+Image: AGL 22.0.1 card (the truck card); only the dashboard replaced, with
+`make deploy-build` of `adad6be` (libapp.so and flutter_assets copied by
+hand; the old ones kept in `/root/dashboard-backup-20261111` on the Pi).
+Gateway, CAN and the other services untouched
+Map: 178 MB vector extract of the lower-48 build (Protomaps 20261111),
+-114,40.4,-111,45 to zoom 15, opening on downtown Salt Lake City at zoom 14,
+at `/var/lib/f250/storage/maps/map.pmtiles` on the card
+Method: `agl-screenshooter` as `agl-driver` every ~0.4 s (unchanged frames
+dropped) and `top -b -d 1`, while the owner opened Nav, waited, then zoomed
+and dragged for about a minute. "Undrawn" is the share of the map area still
+the page background (238,240,243); grey beyond the extract's edge is not
+counted
+
+Result:
+
+    Nav opened   63% undrawn at the first frame, 19% at +0.8 s, filled by
+                 +1.7 s (±0.4 s, the sampling interval)
+    gestures     undrawn patches three times (up to 39%), each filled within
+                 about a second; otherwise the map kept up
+    CPU          dashboard (flutter-auto) up to ~300% (three of four cores)
+                 while zooming and dragging, back to 3-5% within a second or
+                 two of the finger lifting; 3-5% on Home and on an idle map
+    log          `Unhandled Exception: Cancelled` 7 times in two sessions:
+                 vector_map_tiles' CancellationException for tiles dropped
+                 mid-gesture. Nothing on screen; no crash
+    seen         labels, road shields, parks and water by day; attribution
+                 "© OpenStreetMap contributors · Protomaps · data 2026-11-11"
+
+Verdict: works, by day. Usable without a raster fallback; it costs most of
+the CPU while the map moves. Not shown: the night style, the map following
+a moving fix (no GPS on the bench), and a full-size map from the NVMe (not
+fitted; reads are by offset, so size shouldn't matter, but unmeasured).
+Also seen: the Nav tab says "Navigation service unavailable" (no navigation
+socket on this card); not part of this test.
