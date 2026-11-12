@@ -867,3 +867,85 @@ async fn no_usable_last_phone_no_attempts() {
         drop(r);
     }
 }
+
+// ---- one phone at a time ----------------------------------------------------
+
+fn listed(m: &pb::WatchAudioResponse, address: &str) -> Option<pb::Phone> {
+    m.phone
+        .iter()
+        .chain(m.known.iter())
+        .find(|p| p.address == address)
+        .cloned()
+}
+
+#[tokio::test]
+async fn a_phone_paired_in_the_window_takes_over_and_the_old_one_is_listed() {
+    let mut r = start(
+        "pair-takes-over",
+        SimConfig {
+            pair_after: Some(Duration::from_millis(200)),
+            ..SimConfig::default()
+        },
+    )
+    .await;
+    let mut s = watch(&mut r.client).await;
+    until(&mut s, "the first phone", |m| {
+        connected_addr(m) == sim::FIRST
+    })
+    .await;
+    r.client
+        .open_pairing(pb::OpenPairingRequest {
+            seconds: 60,
+            source: "test".into(),
+        })
+        .await
+        .unwrap();
+    let m = until(&mut s, "a question", |m| {
+        m.pairing.as_ref().is_some_and(|p| p.question.is_some())
+    })
+    .await;
+    let id = m.pairing.unwrap().question.unwrap().id;
+    r.client
+        .confirm_pairing(pb::ConfirmPairingRequest {
+            id,
+            accept: true,
+            source: "test".into(),
+        })
+        .await
+        .unwrap();
+    let m = until(
+        &mut s,
+        "the new phone in use, the old one disconnected",
+        |m| connected_addr(m) == sim::SECOND && listed(m, sim::FIRST).is_some_and(|p| !p.connected),
+    )
+    .await;
+    assert!(m.phone.as_ref().unwrap().last);
+    assert_eq!(r.sim.disconnects(), [sim::FIRST]);
+}
+
+#[tokio::test]
+async fn a_paired_phone_connecting_by_itself_takes_over() {
+    let mut r = start("connects-itself", quiet(true)).await;
+    r.sim.add_paired("02:00:00:00:00:03", "Third phone");
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "both listed", |m| {
+        listed(m, "02:00:00:00:00:03").is_some()
+    })
+    .await;
+    assert_eq!(connected_addr(&m), sim::FIRST);
+    // It comes into range and connects; BlueZ keeps the first connected too.
+    r.sim.connect_also("02:00:00:00:00:03");
+    let m = until(&mut s, "the newest in use, the first disconnected", |m| {
+        connected_addr(m) == "02:00:00:00:00:03"
+            && listed(m, sim::FIRST).is_some_and(|p| !p.connected)
+    })
+    .await;
+    assert_eq!(m.known.len(), 1, "every paired phone listed once");
+    assert_eq!(r.sim.disconnects(), [sim::FIRST]);
+    // And back: the driver connects the first again.
+    assert!(connect(&mut r.client, sim::FIRST).await.accepted);
+    until(&mut s, "the first again", |m| {
+        connected_addr(m) == sim::FIRST
+    })
+    .await;
+}

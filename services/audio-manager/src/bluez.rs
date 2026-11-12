@@ -10,7 +10,7 @@
 //!   `Pairable` and their timeouts), and keeps it closed at start.
 //! - Sends Play/Pause/Next/Previous to the phone's `MediaPlayer1`.
 //! - Connects a paired phone (`Device1.Connect`), disconnecting any other
-//!   connected phone first (`Device1.Disconnect`).
+//!   connected phone first, and disconnects one (`Device1.Disconnect`).
 //!
 //! Interfaces, properties and the agent's methods are from BlueZ 5.86's
 //! doc/org.bluez.*.rst; the D-Bus policy that lets a non-root user do this is
@@ -516,6 +516,25 @@ impl Bluetooth for Arc<Bluez> {
             .await
             .map_err(err)?;
         let r = tokio::time::timeout(CONNECT_WAIT, d.call_method("Connect", &())).await;
+        let _ = self.refresh(&conn).await;
+        match r {
+            Err(_) => Err(format!("no answer in {} s", CONNECT_WAIT.as_secs())),
+            Ok(Err(e)) => Err(bluez_reason(&e)),
+            Ok(Ok(_)) => Ok(()),
+        }
+    }
+
+    async fn disconnect(&self, address: &str) -> Result<(), String> {
+        let conn = lock(&self.conn).clone().ok_or("BlueZ isn't connected")?;
+        let path = lock(&self.paths)
+            .devices
+            .get(address)
+            .cloned()
+            .ok_or("BlueZ doesn't know that phone")?;
+        let d = Proxy::new(&conn, BLUEZ, path, "org.bluez.Device1")
+            .await
+            .map_err(err)?;
+        let r = tokio::time::timeout(CONNECT_WAIT, d.call_method("Disconnect", &())).await;
         let _ = self.refresh(&conn).await;
         match r {
             Err(_) => Err(format!("no answer in {} s", CONNECT_WAIT.as_secs())),

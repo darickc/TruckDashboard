@@ -127,6 +127,11 @@ struct Inner {
     /// As of the last snapshot.
     had_phone: bool,
     adapter_ready: bool,
+    /// The connected phones, in the order they connected (the newest
+    /// last): one phone at a time, the newest kept.
+    order: Vec<String>,
+    /// Phones asked to disconnect and not gone yet.
+    disconnecting: BTreeSet<String>,
 }
 
 pub struct Manager {
@@ -229,6 +234,8 @@ impl Manager {
                 next_auto: Instant::now(),
                 had_phone: false,
                 adapter_ready: false,
+                order: Vec::new(),
+                disconnecting: BTreeSet::new(),
             }),
             cfg,
             bt,
@@ -368,7 +375,9 @@ impl Manager {
                 }
             }
             inner.paired = paired;
+            self.follow_order(inner, &s);
             inner.seen = true;
+            self.one_phone(inner, &s);
             self.follow_connection(inner, &s, now);
             // A phone gone (or another one) isn't resumed by us later.
             if s.player.is_none() {
@@ -457,11 +466,89 @@ impl Manager {
 
     // ---- connecting phones ------------------------------------------------------
 
+    /// Keeps the order the connected phones connected in. Phones already
+    /// connected at the first snapshot: the last phone kept, else the one
+    /// with the player, else the first.
+    fn follow_order(&self, inner: &mut Inner, s: &Snapshot) {
+        let connected: Vec<&crate::model::Phone> =
+            s.phones.iter().filter(|p| p.connected).collect();
+        inner
+            .order
+            .retain(|a| connected.iter().any(|p| &p.address == a));
+        inner
+            .disconnecting
+            .retain(|a| connected.iter().any(|p| &p.address == a));
+        let mut new: Vec<String> = connected
+            .iter()
+            .map(|p| p.address.clone())
+            .filter(|a| !inner.order.contains(a))
+            .collect();
+        if !inner.seen && new.len() > 1 {
+            let player = s.player.as_ref().map(|pl| pl.address.clone());
+            let rank = |a: &String| {
+                if inner.last_phone.as_ref() == Some(a) {
+                    2
+                } else if player.as_ref() == Some(a) {
+                    1
+                } else {
+                    0
+                }
+            };
+            new.sort_by_key(rank);
+        }
+        inner.order.extend(new);
+    }
+
+    /// The phone in use: the connected phone that connected last.
+    fn current(inner: &Inner, s: &Snapshot) -> Option<crate::model::Phone> {
+        inner
+            .order
+            .iter()
+            .rev()
+            .find_map(|a| s.phones.iter().find(|p| p.connected && &p.address == a))
+            .or_else(|| s.connected_phone())
+            .cloned()
+    }
+
+    /// One phone at a time (ADR-0039 decision 3a): when another phone
+    /// connects (a phone paired in the window, one coming into range), the
+    /// newest is kept and the others are disconnected. Not while the driver's
+    /// own connection runs: it disconnects the others itself.
+    fn one_phone(self: &Arc<Self>, inner: &mut Inner, s: &Snapshot) {
+        if inner.attempt.as_ref().is_some_and(|a| !a.automatic) {
+            return;
+        }
+        let Some(keep) = Self::current(inner, s) else {
+            return;
+        };
+        let others: Vec<crate::model::Phone> = s
+            .phones
+            .iter()
+            .filter(|p| p.connected && p.address != keep.address)
+            .filter(|p| !inner.disconnecting.contains(&p.address))
+            .cloned()
+            .collect();
+        for p in others {
+            eprintln!(
+                "[audio] {} ({}) is the phone in use: disconnecting {} ({}), one phone at a time",
+                keep.name, keep.address, p.name, p.address
+            );
+            inner.disconnecting.insert(p.address.clone());
+            let me = Arc::clone(self);
+            tokio::spawn(async move {
+                if let Err(e) = me.bt.disconnect(&p.address).await {
+                    eprintln!("[audio] disconnecting {} ({}): {e}", p.name, p.address);
+                    me.lock().disconnecting.remove(&p.address);
+                }
+            });
+        }
+    }
+
     /// Keeps the last phone up to date, and starts reconnecting by itself at
     /// start, when Bluetooth comes back, and when the link drops.
     fn follow_connection(&self, inner: &mut Inner, s: &Snapshot, now: Instant) {
         let ready = matches!(s.adapter, Adapter::Ready { .. });
-        let connected = s.connected_phone().cloned();
+        let connected = Self::current(inner, s);
         if let Some(p) = &connected {
             if inner.last_phone.as_deref() != Some(p.address.as_str()) {
                 inner.last_phone = Some(p.address.clone());
@@ -571,8 +658,9 @@ impl Manager {
                 .bt
                 .snapshot()
                 .borrow()
-                .connected_phone()
-                .is_some_and(|p| p.address == address);
+                .phones
+                .iter()
+                .any(|p| p.connected && p.address == address);
             {
                 let mut inner = me.lock();
                 inner.attempt = None;
@@ -812,7 +900,7 @@ impl Manager {
             Adapter::Ready { .. } => (pb::BluetoothState::Ready, String::new()),
             Adapter::Unavailable(why) => (pb::BluetoothState::Unavailable, why.clone()),
         };
-        let phone = s.connected_phone().cloned();
+        let phone = Self::current(&inner, &s);
         let to_pb = |p: &crate::model::Phone| pb::Phone {
             address: p.address.clone(),
             name: p.name.clone(),
@@ -864,10 +952,13 @@ impl Manager {
             bluetooth: bluetooth.into(),
             bluetooth_detail,
             phone: phone.as_ref().map(to_pb),
+            // Every other paired phone, connected or not: a phone is never
+            // left out of the list (one still connected is being
+            // disconnected, one phone at a time).
             known: s
                 .phones
                 .iter()
-                .filter(|p| !p.connected)
+                .filter(|p| phone.as_ref().is_none_or(|c| c.address != p.address))
                 .map(to_pb)
                 .collect(),
             now_playing,

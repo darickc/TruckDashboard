@@ -62,6 +62,7 @@ struct State {
     reachable: bool,
     /// Connections asked for, by address (tests).
     connects: Vec<String>,
+    disconnects: Vec<String>,
 }
 
 impl State {
@@ -164,6 +165,7 @@ impl SimPhone {
             window_gen: 0,
             reachable: true,
             connects: Vec::new(),
+            disconnects: Vec::new(),
         };
         let snap = watch::Sender::new(state.snapshot(now));
         SimPhone {
@@ -237,6 +239,42 @@ impl SimPhone {
         });
     }
 
+    /// A paired phone connects by itself, as a phone does when it comes
+    /// into range: other connected phones stay connected (BlueZ allows it).
+    pub fn connect_also(&self, address: &str) {
+        self.with(|s, now| {
+            for p in s
+                .phones
+                .iter_mut()
+                .filter(|p| p.address == address && p.paired)
+            {
+                p.connected = true;
+            }
+            s.rebase(now);
+        });
+    }
+
+    /// Adds a phone paired earlier (not connected).
+    pub fn add_paired(&self, address: &str, name: &str) {
+        self.with(|s, _| {
+            s.phones.push(Phone {
+                address: address.into(),
+                name: name.into(),
+                connected: false,
+                paired: true,
+            });
+        });
+    }
+
+    /// The disconnections asked for so far, by address.
+    pub fn disconnects(&self) -> Vec<String> {
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .disconnects
+            .clone()
+    }
+
     /// The phones answer a connection or not (out of range).
     pub fn set_reachable(&self, yes: bool) {
         self.with(|s, _| s.reachable = yes);
@@ -293,10 +331,9 @@ impl SimPhone {
                 return;
             }
             if rx.await == Ok(true) {
+                // As BlueZ does: the new phone connects and the old one stays
+                // connected too (audio-manager keeps one).
                 me.with(|s, now| {
-                    for p in &mut s.phones {
-                        p.connected = false;
-                    }
                     s.phones.push(Phone {
                         address: SECOND.into(),
                         name: "Simulated phone 2".into(),
@@ -382,6 +419,16 @@ impl Bluetooth for SimPhone {
                 p.connected = p.address == address;
             }
             s.rebase(now);
+            Ok(())
+        })
+    }
+
+    async fn disconnect(&self, address: &str) -> Result<(), String> {
+        self.with(|s, _| {
+            s.disconnects.push(address.to_string());
+            for p in s.phones.iter_mut().filter(|p| p.address == address) {
+                p.connected = false;
+            }
             Ok(())
         })
     }

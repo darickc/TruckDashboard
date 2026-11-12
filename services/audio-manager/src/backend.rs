@@ -20,4 +20,6 @@ pub trait Bluetooth: Send + Sync {
     /// Connects a paired phone, disconnecting any other phone first (one
     /// phone at a time). Returns once it is connected or has failed.
     async fn connect(&self, address: &str) -> Result<(), String>;
+    /// Disconnects a phone (it stays paired).
+    async fn disconnect(&self, address: &str) -> Result<(), String>;
 }
