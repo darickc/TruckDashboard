@@ -24,7 +24,9 @@ Power button lives in Settings beside a new Restart.
    Settings, Diagnostics (`lib/ui/screens/home_screen.dart`). Each is
    256 × 206 px (256 × 180 under an alert), well above the 60 px minimum.
 3. **Back at the top left of every other screen**, in a 60 px header with
-   the screen's name (`lib/ui/shell/screen_header.dart`). Screens are a
+   the screen's name (`lib/ui/shell/screen_header.dart`; since the
+   [amendment](#amendment-back-in-the-status-bar-2026-11-11), Back is in the
+   status bar). Screens are a
    stack whose bottom is always Home (`ScreenHistory` in
    `lib/ui/app_scope.dart`): Back pops one, and a screen already in the
    stack is returned to rather than stacked twice, so Back never cycles.
@@ -60,3 +62,27 @@ Power button lives in Settings beside a new Restart.
 2. Settings → Restart → Restart: the Pi reboots, and after the reboot
    `journalctl -b -1 -u f250-dashboard` shows "restart: requested from the
    dashboard" (agl.md check 7).
+
+## Amendment: Back in the status bar (2026-11-11)
+
+The owner wants Back at the very top of the screen, level with the clock,
+and the link status centred. Decision 3 changes:
+
+- **Back is at the status bar's left**, 12 px from the panel's edge
+  (`lib/ui/shell/nav_buttons.dart`). There is no header row and no screen
+  title: the screen starts right under the status bar and the alert banner.
+- **The status bar is 60 px high** outside camera mode, Home included, so
+  Back is a full touch target and the clock doesn't move between screens.
+  Camera mode keeps it 44 px high: it has no Back, and the camera's window
+  sits right under it (`kStatusBarHeight`).
+- **The data source and link status are centred** on the panel. The scenario
+  name follows Back at the left. The REC, map and camera chips and the clock
+  are at the right, and the chips shorten rather than overflow.
+- **Home beside Back is a 60 × 60 house**, without the word, so Back, Home
+  and the centred link status fit on one row.
+
+Every screen but Home gains 52 px of height: the 60 px header and its 8 px
+gap are gone, and the bar is 16 px taller. Home loses 16 px, so its buttons
+are 256 × 198 (256 × 172 under an alert). [SIM]: widget tests at 800×480.
+Checked on the bench Pi's panel: see the bench log.
+

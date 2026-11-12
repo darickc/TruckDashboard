@@ -2052,3 +2052,21 @@ under navigation's sandbox, fast and small for a one-state extract. Not
 shown: a multi-state extract (time, memory, the 30 s limit), the import
 through udev from a real stick and onto the NVMe, a flashed image of this
 commit, rerouting with a real receiver.
+
+## 2026-11-11 — Back in the status bar, link status centred (ADR-0034 amendment) [BENCH]
+
+`SKIP_BUILD=1 make deploy PI=root@raspberrypi5.local` of the working tree
+(committed next). The bench Pi now runs on simulated data at the owner's
+request (`TRANSPORT=sim`, `TRANSMIT=0`, `CAN_AUTO_ACTIVE=0`; the truck's file is
+kept as `/etc/default/f250.truck`, to be put back before a drive), so the
+status bar reads "SIMULATED · Link up" and "Not polling the truck" doesn't show.
+
+Screenshots (agl-screenshooter) and taps (a uinput touchscreen):
+- Home: the 60 px status bar with the scenario name at the left, the link
+  status centred, the clock at the right; the six buttons below it.
+- Settings: Back at the very top left, level with the clock; the section
+  row starts right under the bar. No header row.
+- A tap on Back: Home. Nothing in the dashboard's journal about an overflow.
+
+Not seen: Back and Home together (no screen opens another yet; widget tests
+only), camera mode's 44 px bar with this build.

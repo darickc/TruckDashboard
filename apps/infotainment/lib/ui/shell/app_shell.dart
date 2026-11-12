@@ -15,11 +15,11 @@ import '../screens/navigation_screen.dart';
 import '../theme.dart';
 import 'alert_banner.dart';
 import 'camera_mode.dart';
-import 'screen_header.dart';
 import 'status_bar.dart';
 
 /// Status bar, alert banner, then the screen showing: Home's buttons, or
-/// another screen under its Back/Home header (screen_header.dart).
+/// another screen, with Back (and Home) at the status bar's left
+/// (nav_buttons.dart).
 ///
 /// The alert banner sits *above* the screen area, outside any screen, so no
 /// screen can hide it. While camera-manager shows a camera, the shell
@@ -94,7 +94,7 @@ class _AppShellState extends State<AppShell> {
 
   Widget _screens(AppServices s) {
     return Column(children: [
-      const StatusBar(),
+      const StatusBar(navigation: true),
       const AlertBanner(),
       Expanded(
         child: Padding(
@@ -103,7 +103,7 @@ class _AppShellState extends State<AppShell> {
             listenable: s.screens,
             builder: (context, _) {
               final screen = s.screens.value;
-              final body = KeyedSubtree(
+              return KeyedSubtree(
                 key: ValueKey('screen-${screen.name}'),
                 child: switch (screen) {
                   AppScreen.home => const HomeScreen(),
@@ -115,13 +115,6 @@ class _AppShellState extends State<AppShell> {
                   AppScreen.diagnostics => const DiagnosticsScreen(),
                 },
               );
-              final previous = s.screens.previous;
-              if (previous == null) return body;
-              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                ScreenHeader(current: screen, previous: previous),
-                const SizedBox(height: kGap),
-                Expanded(child: body),
-              ]);
             },
           ),
         ),

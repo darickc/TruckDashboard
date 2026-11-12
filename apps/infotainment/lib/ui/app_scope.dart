@@ -17,7 +17,7 @@ import '../telemetry/telemetry_store.dart';
 import 'banner_alerts.dart';
 
 /// The dashboard's screens. Home is a grid of buttons to the others; every
-/// other screen has Back at its top left (shell/screen_header.dart).
+/// other screen has Back at its top left (shell/nav_buttons.dart).
 enum AppScreen { home, gauges, media, navigation, cameras, settings, diagnostics }
 
 /// Which screen is showing, and the way back to Home: a stack whose bottom is

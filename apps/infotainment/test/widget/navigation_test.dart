@@ -63,16 +63,50 @@ void main() {
     }
   });
 
-  testWidgets('Back is a 60 px target at the top left, under the status bar', (tester) async {
+  testWidgets('Back is a 60 px target at the very top left, in the status bar', (tester) async {
     final h = await Harness.start(tester);
+    final clock = find.byKey(const ValueKey('status-clock'));
     for (final screen in homeButtons) {
       await h.goTo(screen);
       final r = tester.getRect(back);
-      expect(r.left, kGap, reason: screen.name);
-      expect(r.top, kStatusBarHeight + kGap, reason: screen.name);
+      expect(r.left, 12, reason: '${screen.name}: the status bar\'s padding');
+      expect(r.top, 0, reason: screen.name);
       expect(r.height, greaterThanOrEqualTo(kMinTouch), reason: screen.name);
       expect(r.width, greaterThanOrEqualTo(kMinTouch), reason: screen.name);
+      expect(tester.getCenter(clock).dy, r.center.dy, reason: '${screen.name}: level with the clock');
+      // Nothing between the status bar and the screen: no header row.
+      final body = tester.getRect(find.byKey(ValueKey('screen-${screen.name}')));
+      expect(body.top, kMinTouch + kGap, reason: screen.name);
     }
+  });
+
+  testWidgets('the status bar is the same height on Home and every screen', (tester) async {
+    final h = await Harness.start(tester);
+    final clock = find.byKey(const ValueKey('status-clock'));
+    final onHome = tester.getRect(clock);
+    expect(tester.getRect(find.byKey(const ValueKey('screen-home'))).top, kMinTouch + kGap);
+    for (final screen in homeButtons) {
+      await h.goTo(screen);
+      expect(tester.getRect(clock), onHome, reason: '${screen.name}: the clock doesn\'t move');
+    }
+  });
+
+  testWidgets('the link status is centred on the panel, with and without Back and Home',
+      (tester) async {
+    final h = await Harness.start(tester);
+    final link = find.byKey(const ValueKey('status-link'));
+    void expectCentred(String why) {
+      expect(tester.getCenter(link).dx, closeTo(kScreenSize.width / 2, 0.5), reason: why);
+      expect(tester.takeException(), isNull, reason: why);
+    }
+
+    expectCentred('Home');
+    await h.goTo(AppScreen.settings);
+    expectCentred('Back');
+    h.services.screens.open(AppScreen.diagnostics);
+    await tester.pump();
+    expect(home, findsOneWidget);
+    expectCentred('Back and Home');
   });
 
   testWidgets('a screen opened from another has Back to it and Home beside Back', (tester) async {
@@ -121,14 +155,6 @@ void main() {
     expect(s.stack, [AppScreen.home, AppScreen.settings], reason: 'the screen showing');
     s.open(AppScreen.home);
     expect(s.stack, [AppScreen.home]);
-  });
-
-  testWidgets('the screen title names the screen', (tester) async {
-    final h = await Harness.start(tester);
-    await h.goTo(AppScreen.navigation);
-    expect(h.textOf('screen-title'), 'Nav');
-    await h.goTo(AppScreen.diagnostics);
-    expect(h.textOf('screen-title'), 'Diagnostics');
   });
 
   testWidgets('placeholders say they are not implemented', (tester) async {

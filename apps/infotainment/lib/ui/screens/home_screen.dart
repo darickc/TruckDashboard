@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
-import '../shell/screen_header.dart';
+import '../shell/nav_buttons.dart';
 import '../theme.dart';
 import '../widgets/tap_target.dart';
 
@@ -16,7 +16,7 @@ const homeButtons = [
 ];
 
 /// Home: one large button per screen, three across and two down. Every
-/// other screen has Back at its top left (shell/screen_header.dart). Alerts
+/// other screen has Back at its top left (shell/nav_buttons.dart). Alerts
 /// show above it in the banner, as on every screen.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});

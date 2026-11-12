@@ -7,6 +7,7 @@ import '../app_scope.dart';
 import '../presentation.dart';
 import '../theme.dart';
 import '../widgets/badges.dart';
+import 'nav_buttons.dart';
 
 String linkLabel(LinkState s) => switch (s) {
       LinkState.connecting => 'Connecting',
@@ -81,10 +82,19 @@ Widget? _recordingChip(CameraStatus c, Palette p) {
   return Pill(text, key: const ValueKey('rec-chip'), color: color, filled: filled);
 }
 
-/// Always-visible strip: data source, link health, chips, and the clock at
-/// the right edge. Nothing here is tappable; it is for glancing.
+/// Always-visible strip. Left: Back (and Home) outside camera mode, then
+/// the scenario name. Centre, on the panel's centre line: the data source and
+/// link health. Right: chips, and the clock at the right edge. Only Back and
+/// Home are tappable; the rest is for glancing.
+///
+/// [navigation] is the shell's normal mode: the bar holds Back, so it is a
+/// full touch target high (kMinTouch) on every screen, Home included, and
+/// nothing moves between screens. Camera mode keeps it 44 high, with no
+/// Back: the camera's window sits right under it.
 class StatusBar extends StatelessWidget {
-  const StatusBar({super.key});
+  const StatusBar({super.key, this.navigation = false});
+
+  final bool navigation;
 
   @override
   Widget build(BuildContext context) {
@@ -98,55 +108,65 @@ class StatusBar extends StatelessWidget {
         final now = DateTime.now();
         final clock = formatClock(now);
         final rec = _recordingChip(s.cameras.status.value, p);
+        // The two sides share what the centre leaves equally, so the centre
+        // is on the panel's centre line. Chips are Flexible and ellipsize
+        // rather than overflow. The clock is the right side's last child, so
+        // it is flush right. (A loose Flexible beside a Spacer once left
+        // blank space after the clock: on the truck, with no scenario name,
+        // it sat half the free width left of the edge.)
+        List<Widget> flexible(List<Widget> chip) =>
+            [for (final w in chip) w is SizedBox ? w : Flexible(child: w)];
         return Container(
-          height: kStatusBarHeight,
+          height: navigation ? kMinTouch : kStatusBarHeight,
           color: p.surface,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(children: [
-            if (source.simulated) ...[
-              Pill('SIMULATED', key: const ValueKey('simulated-badge'), color: p.simulated, filled: true),
-              const SizedBox(width: 8),
-            ],
-            Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(color: linkColor(link, p), shape: BoxShape.circle)),
-            const SizedBox(width: 6),
-            Text(linkLabel(link),
-                key: const ValueKey('link-state'),
-                style: TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w600, color: linkColor(link, p))),
-            const SizedBox(width: 6),
-            Text('· ${formatAge(s.store.clock.now() - s.store.linkSince)}',
-                style: TextStyle(fontSize: 13, color: p.textDim)),
-            const SizedBox(width: 12),
-            // The scenario name and the REC pill share the middle; the clock
-            // is the last child of a row that the middle always fills, so it
-            // is flush right. (The middle used to be a loose Flexible beside
-            // a Spacer: the part of its share the name didn't use stayed
-            // blank after the clock, and on the truck, with no scenario
-            // name, that pushed the clock half the free width left.)
             Expanded(
-              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              child: Row(children: [
+                if (navigation) const NavButtons(),
                 Flexible(
-                  child: Text(source.scenario ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, color: p.textDim)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(source.scenario ?? '',
+                        key: const ValueKey('status-scenario'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: p.textDim)),
+                  ),
                 ),
-                // Three quarters of the middle at most, so it ellipsizes
-                // (after "REC") rather than overflow.
-                if (rec != null)
-                  Flexible(flex: 3, child: Padding(padding: const EdgeInsets.only(left: 10), child: rec)),
               ]),
             ),
-            const SizedBox(width: 10),
-            ..._mapUpdateChip(s.map.update.value, now, p),
-            ..._cameraChip(s.cameras.status.value, p),
-            Text(clock,
-                key: const ValueKey('status-clock'),
-                style: TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.w600, fontFeatures: tabular, color: p.text)),
+            Row(key: const ValueKey('status-link'), mainAxisSize: MainAxisSize.min, children: [
+              if (source.simulated) ...[
+                Pill('SIMULATED', key: const ValueKey('simulated-badge'), color: p.simulated, filled: true),
+                const SizedBox(width: 8),
+              ],
+              Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(color: linkColor(link, p), shape: BoxShape.circle)),
+              const SizedBox(width: 6),
+              Text(linkLabel(link),
+                  key: const ValueKey('link-state'),
+                  style: TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w600, color: linkColor(link, p))),
+              const SizedBox(width: 6),
+              Text('· ${formatAge(s.store.clock.now() - s.store.linkSince)}',
+                  style: TextStyle(fontSize: 13, color: p.textDim)),
+            ]),
+            Expanded(
+              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                const SizedBox(width: 10),
+                if (rec != null)
+                  Flexible(flex: 3, child: Padding(padding: const EdgeInsets.only(right: 10), child: rec)),
+                ...flexible(_mapUpdateChip(s.map.update.value, now, p)),
+                ...flexible(_cameraChip(s.cameras.status.value, p)),
+                Text(clock,
+                    key: const ValueKey('status-clock'),
+                    style: TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.w600, fontFeatures: tabular, color: p.text)),
+              ]),
+            ),
           ]),
         );
       },
