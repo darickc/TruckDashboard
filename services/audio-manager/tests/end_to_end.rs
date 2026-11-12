@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use audio_manager::backend::Bluetooth;
 use audio_manager::dsp::{Limits, Settings};
-use audio_manager::manager::{Config, Manager};
+use audio_manager::manager::{Config, Manager, Reconnect};
 use audio_manager::pairing;
 use audio_manager::runner::NoDsp;
 use audio_manager::server::Api;
@@ -62,20 +62,34 @@ struct Running {
 }
 
 async fn start(test: &str, sim_cfg: SimConfig) -> Running {
+    start_with(test, sim_cfg, |_, _| {}).await
+}
+
+/// `start`, with the manager's configuration changed first (reconnecting,
+/// the last phone's file in the test's directory).
+async fn start_with(
+    test: &str,
+    sim_cfg: SimConfig,
+    change: impl FnOnce(&mut Config, &std::path::Path),
+) -> Running {
     let dir = dir(test);
     let (agent_tx, agent_rx) = mpsc::channel(8);
     let sim = SimPhone::new(sim_cfg, agent_tx);
     let bt: Arc<dyn Bluetooth> = Arc::new(sim.clone());
+    let mut cfg = Config {
+        pairing: pairing::Config::default(),
+        name: "F-250".into(),
+        limits: Limits::default(),
+        defaults: Settings::default(),
+        settings_file: Some(dir.join("speakers.json")),
+        simulated: true,
+        prompt_hold: Duration::from_millis(300),
+        last_phone_file: None,
+        reconnect: Reconnect::OFF,
+    };
+    change(&mut cfg, &dir);
     let manager = Manager::new(
-        Config {
-            pairing: pairing::Config::default(),
-            name: "F-250".into(),
-            limits: Limits::default(),
-            defaults: Settings::default(),
-            settings_file: Some(dir.join("speakers.json")),
-            simulated: true,
-            prompt_hold: Duration::from_millis(300),
-        },
+        cfg,
         bt,
         Arc::new(NoDsp::new("simulated: no PipeWire")),
         Arc::new(SimVoice {
@@ -479,6 +493,8 @@ async fn speaker_settings_are_validated_saved_and_kept() {
         settings_file: Some(r.dir.join("speakers.json")),
         simulated: true,
         prompt_hold: Duration::from_secs(1),
+        last_phone_file: None,
+        reconnect: Reconnect::OFF,
     };
     let (loaded, problem) = audio_manager::manager::load_settings(&cfg);
     assert!(problem.is_none(), "{file}");
@@ -662,4 +678,192 @@ async fn music_that_was_paused_stays_paused_and_prompts_can_be_stopped() {
         !speak(&mut r.client, " \n ").await.accepted,
         "nothing to say"
     );
+}
+
+// ---- connecting paired phones (the Phones screen; the last phone again) ----
+
+fn quiet(start_connected: bool) -> SimConfig {
+    SimConfig {
+        pair_after: None,
+        start_connected,
+        connect_takes: Duration::from_millis(200),
+        ..SimConfig::default()
+    }
+}
+
+fn connected_addr(m: &pb::WatchAudioResponse) -> &str {
+    m.phone
+        .as_ref()
+        .filter(|p| p.connected)
+        .map_or("", |p| p.address.as_str())
+}
+
+fn attempt(m: &pb::WatchAudioResponse) -> pb::ConnectAttempt {
+    m.connect.clone().unwrap_or_default()
+}
+
+async fn connect(c: &mut Client, address: &str) -> pb::ConnectPhoneResponse {
+    c.connect_phone(pb::ConnectPhoneRequest {
+        address: address.into(),
+        source: "test".into(),
+    })
+    .await
+    .expect("connect_phone")
+    .into_inner()
+}
+
+#[tokio::test]
+async fn a_paired_phone_is_connected_from_the_list_and_remembered() {
+    let mut r = start_with("connect", quiet(false), |c, d| {
+        c.last_phone_file = Some(d.join("last-phone"));
+    })
+    .await;
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "the paired phone listed", |m| !m.known.is_empty()).await;
+    assert_eq!(connected_addr(&m), "");
+    assert_eq!(m.known[0].address, sim::FIRST);
+    assert!(!m.known[0].last, "nothing connected yet: no last phone");
+
+    let no = connect(&mut r.client, "02:00:00:00:00:09").await;
+    assert!(!no.accepted);
+    assert_eq!(no.detail, "That phone isn't paired.");
+
+    let ok = connect(&mut r.client, &sim::FIRST.to_lowercase()).await;
+    assert!(ok.accepted, "{}", ok.detail);
+    assert_eq!(ok.detail, "Connecting to Simulated phone…");
+    let again = connect(&mut r.client, sim::FIRST).await;
+    assert!(!again.accepted);
+    assert_eq!(again.detail, "Already connecting to Simulated phone.");
+    until(&mut s, "connecting shown", |m| {
+        attempt(m).address == sim::FIRST && !attempt(m).automatic
+    })
+    .await;
+    let m = until(&mut s, "connected", |m| connected_addr(m) == sim::FIRST).await;
+    assert!(m.phone.as_ref().unwrap().last);
+    let m = until(&mut s, "the attempt over", |m| {
+        attempt(m).address.is_empty()
+    })
+    .await;
+    assert_eq!(attempt(&m).detail, "");
+    assert_eq!(
+        std::fs::read_to_string(r.dir.join("last-phone")).unwrap(),
+        format!("{}\n", sim::FIRST)
+    );
+    let dup = connect(&mut r.client, sim::FIRST).await;
+    assert!(!dup.accepted);
+    assert_eq!(dup.detail, "Simulated phone is already connected.");
+}
+
+#[tokio::test]
+async fn a_failed_connection_says_why() {
+    let mut r = start("connect-fails", quiet(false)).await;
+    r.sim.set_reachable(false);
+    let mut s = watch(&mut r.client).await;
+    until(&mut s, "listed", |m| !m.known.is_empty()).await;
+    assert!(connect(&mut r.client, sim::FIRST).await.accepted);
+    let m = until(&mut s, "the failure", |m| !attempt(m).detail.is_empty()).await;
+    assert_eq!(
+        attempt(&m).detail,
+        "Couldn't connect to Simulated phone: simulated: the phone didn't answer (out of range)."
+    );
+    assert_eq!(connected_addr(&m), "");
+    assert!(attempt(&m).address.is_empty());
+}
+
+#[tokio::test]
+async fn the_last_phone_is_reconnected_by_itself_at_start_and_after_a_drop() {
+    let mut r = start_with("reconnect", quiet(false), |c, d| {
+        std::fs::write(
+            d.join("last-phone"),
+            format!("{}\n", sim::FIRST.to_lowercase()),
+        )
+        .unwrap();
+        c.last_phone_file = Some(d.join("last-phone"));
+        c.reconnect = Reconnect {
+            every: Duration::from_secs(1),
+            window: Duration::from_secs(30),
+        };
+    })
+    .await;
+    r.sim.set_reachable(false);
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "the last phone marked", |m| {
+        m.known.iter().any(|k| k.last)
+    })
+    .await;
+    assert_eq!(m.known[0].address, sim::FIRST);
+    let m = until(&mut s, "an automatic attempt failing", |m| {
+        attempt(m).detail.starts_with("Couldn't reach")
+    })
+    .await;
+    assert_eq!(
+        attempt(&m).detail,
+        "Couldn't reach Simulated phone (simulated: the phone didn't answer (out of range)); trying again in 1 s."
+    );
+    until(&mut s, "an automatic attempt shown", |m| {
+        attempt(m).automatic
+    })
+    .await;
+    r.sim.set_reachable(true);
+    until(&mut s, "connected by itself", |m| {
+        connected_addr(m) == sim::FIRST
+    })
+    .await;
+    let tries = r.sim.connects().len();
+    assert!(tries >= 2, "{tries}");
+
+    // The link drops: tried again by itself.
+    r.sim.disconnect();
+    until(&mut s, "gone", |m| connected_addr(m).is_empty()).await;
+    until(&mut s, "back by itself", |m| {
+        connected_addr(m) == sim::FIRST
+    })
+    .await;
+    assert!(r.sim.connects().len() > tries);
+}
+
+#[tokio::test]
+async fn reconnecting_gives_up_after_its_window() {
+    let mut r = start_with("give-up", quiet(false), |c, d| {
+        std::fs::write(d.join("last-phone"), sim::FIRST).unwrap();
+        c.last_phone_file = Some(d.join("last-phone"));
+        c.reconnect = Reconnect {
+            every: Duration::from_secs(1),
+            window: Duration::from_secs(2),
+        };
+    })
+    .await;
+    r.sim.set_reachable(false);
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "gave up", |m| {
+        attempt(m).detail.starts_with("Stopped")
+    })
+    .await;
+    assert_eq!(
+        attempt(&m).detail,
+        "Stopped trying to reach Simulated phone after 1 min. Tap it to connect."
+    );
+    let n = r.sim.connects().len();
+    tokio::time::sleep(Duration::from_millis(2500)).await;
+    assert_eq!(r.sim.connects().len(), n, "no more attempts");
+}
+
+#[tokio::test]
+async fn no_usable_last_phone_no_attempts() {
+    for (name, file) in [("no-last", None), ("bad-last", Some("not an address"))] {
+        let r = start_with(name, quiet(false), |c, d| {
+            if let Some(text) = file {
+                std::fs::write(d.join("last-phone"), text).unwrap();
+            }
+            c.last_phone_file = Some(d.join("last-phone"));
+            c.reconnect = Reconnect {
+                every: Duration::from_secs(1),
+                window: Duration::from_secs(30),
+            };
+        })
+        .await;
+        tokio::time::sleep(Duration::from_millis(2500)).await;
+        assert!(r.sim.connects().is_empty(), "{name}");
+        drop(r);
+    }
 }

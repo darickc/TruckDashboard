@@ -17,4 +17,7 @@ pub trait Bluetooth: Send + Sync {
     /// Marks a phone paired in the window as trusted, so it reconnects
     /// without asking again.
     async fn trust(&self, address: &str) -> Result<(), String>;
+    /// Connects a paired phone, disconnecting any other phone first (one
+    /// phone at a time). Returns once it is connected or has failed.
+    async fn connect(&self, address: &str) -> Result<(), String>;
 }

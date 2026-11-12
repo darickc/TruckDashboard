@@ -429,7 +429,7 @@ echo "audio-start (ADR-0039)"
 ASTUB="$T/audio-manager"
 printf '#!/bin/sh\necho "$@"\n' >"$ASTUB"; chmod +x "$ASTUB"
 aud() { env -i PATH="$PATH" F250_AUDIO_BIN="$ASTUB" "$@" bash agl/rootfs/opt/f250/libexec/audio-start 2>/dev/null; }
-ABASE='--listen unix:/run/f250-audio/audio.sock --settings-file /var/lib/f250-audio/speakers.json --dsp-conf /run/f250-audio/speakers.conf'
+ABASE='--listen unix:/run/f250-audio/audio.sock --settings-file /var/lib/f250-audio/speakers.json --dsp-conf /run/f250-audio/speakers.conf --last-phone-file /var/lib/f250-audio/last-phone'
 AVOICE='--voice-command /opt/f250/libexec/speak-prompt'
 check "nothing set: BlueZ, the filter-chain, defaults" "[[ \"\$(aud)\" == \"$ABASE $AVOICE\" ]]"
 check "the shipped settings: the same" "[[ \"\$(set -a; . $DF; set +a; F250_AUDIO_BIN=$ASTUB bash agl/rootfs/opt/f250/libexec/audio-start 2>/dev/null)\" == \"$ABASE $AVOICE\" ]]"
@@ -438,6 +438,7 @@ check "no filter-chain" "[[ \"\$(aud AUDIO_DSP=0)\" == \"$ABASE --no-dsp $AVOICE
 check "an unknown AUDIO_DSP refuses to start" "! aud AUDIO_DSP=maybe"
 check "the DAC's node and channel map" "[[ \"\$(aud AUDIO_DAC_NODE=alsa_output.dac8x AUDIO_DAC_POSITIONS=AUX0,AUX1,AUX2,AUX3,AUX4,AUX5,AUX6,AUX7 AUDIO_FRONT=0,1 AUDIO_REAR=2,3 AUDIO_SUB=4,5)\" == \"$ABASE --dac-node alsa_output.dac8x --dac-positions AUX0,AUX1,AUX2,AUX3,AUX4,AUX5,AUX6,AUX7 --front 0,1 --rear 2,3 --sub 4,5 $AVOICE\" ]]"
 check "name, adapter, window, crossover" "[[ \"\$(aud AUDIO_ADAPTER=hci1 AUDIO_NAME=Truck AUDIO_PAIR_WINDOW_S=60 AUDIO_CROSSOVER_HZ=90)\" == \"$ABASE --adapter hci1 --name Truck --pair-window-s 60 --crossover-hz 90 $AVOICE\" ]]"
+check "phones: reconnect timing" "[[ \"\$(aud AUDIO_RECONNECT_EVERY_S=10 AUDIO_RECONNECT_FOR_S=0)\" == \"$ABASE $AVOICE --reconnect-every-s 10 --reconnect-for-s 0\" ]] && has_line $DF 'AUDIO_RECONNECT_EVERY_S=' && has_line $DF 'AUDIO_RECONNECT_FOR_S=' && grep -q 'default_value_t = 20)\]' services/audio-manager/src/main.rs && grep -q 'default_value_t = 300)\]' services/audio-manager/src/main.rs && grep -q '20 and 300, examples' agl/rootfs/opt/f250/libexec/audio-start"
 check "voice: none, another program, a hold" "[[ \"\$(aud AUDIO_VOICE=none)\" == \"$ABASE\" ]] && [[ \"\$(aud AUDIO_VOICE=/usr/bin/say AUDIO_PROMPT_HOLD_MS=5000)\" == \"$ABASE --voice-command /usr/bin/say --prompt-hold-ms 5000\" ]]"
 SP=agl/rootfs/opt/f250/libexec/speak-prompt
 printf '#!/bin/sh\nwhile getopts m:o: o; do case $o in m) v=$OPTARG;; o) w=$OPTARG;; esac; done\nread t; echo "$v|$t" >"$w"\n' >"$T/tts"; chmod +x "$T/tts"

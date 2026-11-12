@@ -69,12 +69,14 @@ class Phone extends $pb.GeneratedMessage {
     $core.String? name,
     $core.bool? connected,
     $core.bool? paired,
+    $core.bool? last,
   }) {
     final result = Phone._();
     if (address != null) result.address = address;
     if (name != null) result.name = name;
     if (connected != null) result.connected = connected;
     if (paired != null) result.paired = paired;
+    if (last != null) result.last = last;
     return result;
   }
 
@@ -95,6 +97,7 @@ class Phone extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'name')
     ..aOB(3, _omitFieldNames ? '' : 'connected')
     ..aOB(4, _omitFieldNames ? '' : 'paired')
+    ..aOB(5, _omitFieldNames ? '' : 'last')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -154,6 +157,117 @@ class Phone extends $pb.GeneratedMessage {
   $core.bool hasPaired() => $_has(3);
   @$pb.TagNumber(4)
   void clearPaired() => $_clearField(4);
+
+  /// The phone connected most recently: the one audio-manager reconnects to
+  /// by itself (at start, and after the link drops, for a limited time).
+  @$pb.TagNumber(5)
+  $core.bool get last => $_getBF(4);
+  @$pb.TagNumber(5)
+  set last($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasLast() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearLast() => $_clearField(5);
+}
+
+/// A connection to a paired phone being tried (ConnectPhone, or
+/// audio-manager reconnecting the last phone by itself), and how the last one
+/// went.
+class ConnectAttempt extends $pb.GeneratedMessage {
+  factory ConnectAttempt({
+    $core.String? address,
+    $core.String? name,
+    $core.bool? automatic,
+    $core.String? detail,
+  }) {
+    final result = ConnectAttempt._();
+    if (address != null) result.address = address;
+    if (name != null) result.name = name;
+    if (automatic != null) result.automatic = automatic;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  ConnectAttempt._();
+
+  factory ConnectAttempt.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ConnectAttempt()..mergeFromBuffer(data, registry);
+  factory ConnectAttempt.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ConnectAttempt()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConnectAttempt',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: ConnectAttempt.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'address')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOB(3, _omitFieldNames ? '' : 'automatic')
+    ..aOS(4, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConnectAttempt clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConnectAttempt copyWith(void Function(ConnectAttempt) updates) =>
+      super.copyWith((message) => updates(message as ConnectAttempt))
+          as ConnectAttempt;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ConnectAttempt() / ConnectAttempt.new instead')
+  static ConnectAttempt create() => ConnectAttempt._();
+  static $pb.GeneratedMessage $_createMessage() => ConnectAttempt._();
+  @$core.override
+  ConnectAttempt createEmptyInstance() => ConnectAttempt._();
+  @$core.pragma('dart2js:noInline')
+  static ConnectAttempt getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ConnectAttempt>(
+          ConnectAttempt.$_createMessage);
+  static ConnectAttempt? _defaultInstance;
+
+  /// The phone being connected now; empty: none.
+  @$pb.TagNumber(1)
+  $core.String get address => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set address($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAddress() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAddress() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  /// audio-manager is trying by itself, not because the driver asked.
+  @$pb.TagNumber(3)
+  $core.bool get automatic => $_getBF(2);
+  @$pb.TagNumber(3)
+  set automatic($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasAutomatic() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAutomatic() => $_clearField(3);
+
+  /// What happened last ("Couldn't reach Pixel 8: …"), for the screen; may
+  /// be empty.
+  @$pb.TagNumber(4)
+  $core.String get detail => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set detail($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDetail() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDetail() => $_clearField(4);
 }
 
 /// The connected phone's player (AVRCP, BlueZ MediaPlayer1). Present only
@@ -556,6 +670,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     $core.String? dspDetail,
     $core.bool? simulated,
     Prompts? prompts,
+    ConnectAttempt? connect,
   }) {
     final result = WatchAudioResponse._();
     if (bluetooth != null) result.bluetooth = bluetooth;
@@ -569,6 +684,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     if (dspDetail != null) result.dspDetail = dspDetail;
     if (simulated != null) result.simulated = simulated;
     if (prompts != null) result.prompts = prompts;
+    if (connect != null) result.connect = connect;
     return result;
   }
 
@@ -602,6 +718,8 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     ..aOB(10, _omitFieldNames ? '' : 'simulated')
     ..aOM<Prompts>(11, _omitFieldNames ? '' : 'prompts',
         subBuilder: Prompts.$_createMessage)
+    ..aOM<ConnectAttempt>(12, _omitFieldNames ? '' : 'connect',
+        subBuilder: ConnectAttempt.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -731,6 +849,17 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
   void clearPrompts() => $_clearField(11);
   @$pb.TagNumber(11)
   Prompts ensurePrompts() => $_ensure(10);
+
+  @$pb.TagNumber(12)
+  ConnectAttempt get connect => $_getN(11);
+  @$pb.TagNumber(12)
+  set connect(ConnectAttempt value) => $_setField(12, value);
+  @$pb.TagNumber(12)
+  $core.bool hasConnect() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearConnect() => $_clearField(12);
+  @$pb.TagNumber(12)
+  ConnectAttempt ensureConnect() => $_ensure(11);
 }
 
 /// Spoken prompts (Speak).
@@ -1225,6 +1354,148 @@ class ClosePairingResponse extends $pb.GeneratedMessage {
   $core.bool hasClosing() => $_has(0);
   @$pb.TagNumber(1)
   void clearClosing() => $_clearField(1);
+}
+
+class ConnectPhoneRequest extends $pb.GeneratedMessage {
+  factory ConnectPhoneRequest({
+    $core.String? address,
+    $core.String? source,
+  }) {
+    final result = ConnectPhoneRequest._();
+    if (address != null) result.address = address;
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  ConnectPhoneRequest._();
+
+  factory ConnectPhoneRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ConnectPhoneRequest()..mergeFromBuffer(data, registry);
+  factory ConnectPhoneRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ConnectPhoneRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConnectPhoneRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: ConnectPhoneRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'address')
+    ..aOS(2, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConnectPhoneRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConnectPhoneRequest copyWith(void Function(ConnectPhoneRequest) updates) =>
+      super.copyWith((message) => updates(message as ConnectPhoneRequest))
+          as ConnectPhoneRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use ConnectPhoneRequest() / ConnectPhoneRequest.new instead')
+  static ConnectPhoneRequest create() => ConnectPhoneRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ConnectPhoneRequest._();
+  @$core.override
+  ConnectPhoneRequest createEmptyInstance() => ConnectPhoneRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ConnectPhoneRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConnectPhoneRequest>(
+          ConnectPhoneRequest.$_createMessage);
+  static ConnectPhoneRequest? _defaultInstance;
+
+  /// Phone.address of a phone in `known`.
+  @$pb.TagNumber(1)
+  $core.String get address => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set address($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAddress() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAddress() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get source => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set source($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSource() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSource() => $_clearField(2);
+}
+
+class ConnectPhoneResponse extends $pb.GeneratedMessage {
+  factory ConnectPhoneResponse({
+    $core.bool? accepted,
+    $core.String? detail,
+  }) {
+    final result = ConnectPhoneResponse._();
+    if (accepted != null) result.accepted = accepted;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  ConnectPhoneResponse._();
+
+  factory ConnectPhoneResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ConnectPhoneResponse()..mergeFromBuffer(data, registry);
+  factory ConnectPhoneResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ConnectPhoneResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ConnectPhoneResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: ConnectPhoneResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'accepted')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConnectPhoneResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ConnectPhoneResponse copyWith(void Function(ConnectPhoneResponse) updates) =>
+      super.copyWith((message) => updates(message as ConnectPhoneResponse))
+          as ConnectPhoneResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ConnectPhoneResponse() / ConnectPhoneResponse.new instead')
+  static ConnectPhoneResponse create() => ConnectPhoneResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ConnectPhoneResponse._();
+  @$core.override
+  ConnectPhoneResponse createEmptyInstance() => ConnectPhoneResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ConnectPhoneResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ConnectPhoneResponse>(
+          ConnectPhoneResponse.$_createMessage);
+  static ConnectPhoneResponse? _defaultInstance;
+
+  /// True: the attempt has started.
+  @$pb.TagNumber(1)
+  $core.bool get accepted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set accepted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAccepted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccepted() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
 }
 
 class ConfirmPairingRequest extends $pb.GeneratedMessage {

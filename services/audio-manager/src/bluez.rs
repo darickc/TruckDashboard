@@ -9,6 +9,8 @@
 //! - Opens and closes the window through `Adapter1` (`Discoverable`,
 //!   `Pairable` and their timeouts), and keeps it closed at start.
 //! - Sends Play/Pause/Next/Previous to the phone's `MediaPlayer1`.
+//! - Connects a paired phone (`Device1.Connect`), disconnecting any other
+//!   connected phone first (`Device1.Disconnect`).
 //!
 //! Interfaces, properties and the agent's methods are from BlueZ 5.86's
 //! doc/org.bluez.*.rst; the D-Bus policy that lets a non-root user do this is
@@ -36,6 +38,9 @@ const CAPABILITY: &str = "DisplayYesNo";
 /// How long a pairing question waits at most (BlueZ's own D-Bus call times
 /// out about here too; the window's own limit is shorter).
 const AGENT_WAIT: Duration = Duration::from_secs(60);
+/// How long `Device1.Connect` may take (a phone out of range takes BlueZ's
+/// page timeout, a few seconds; this is the backstop).
+const CONNECT_WAIT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, zbus::DBusError)]
 #[zbus(prefix = "org.bluez.Error")]
@@ -479,6 +484,58 @@ impl Bluetooth for Arc<Bluez> {
             .await
             .map_err(err)?;
         d.set_property("Trusted", true).await.map_err(err)
+    }
+
+    async fn connect(&self, address: &str) -> Result<(), String> {
+        let conn = lock(&self.conn).clone().ok_or("BlueZ isn't connected")?;
+        let (target, others) = {
+            let p = lock(&self.paths);
+            let target = p
+                .devices
+                .get(address)
+                .cloned()
+                .ok_or("BlueZ doesn't know that phone")?;
+            let snap = self.snap.borrow();
+            let others: Vec<String> = snap
+                .phones
+                .iter()
+                .filter(|ph| ph.connected && ph.address != address)
+                .filter_map(|ph| p.devices.get(&ph.address).cloned())
+                .collect();
+            (target, others)
+        };
+        for path in others {
+            let d = Proxy::new(&conn, BLUEZ, path.as_str(), "org.bluez.Device1")
+                .await
+                .map_err(err)?;
+            if let Err(e) = d.call_method("Disconnect", &()).await {
+                eprintln!("[audio] BlueZ: disconnecting {path}: {e}");
+            }
+        }
+        let d = Proxy::new(&conn, BLUEZ, target, "org.bluez.Device1")
+            .await
+            .map_err(err)?;
+        let r = tokio::time::timeout(CONNECT_WAIT, d.call_method("Connect", &())).await;
+        let _ = self.refresh(&conn).await;
+        match r {
+            Err(_) => Err(format!("no answer in {} s", CONNECT_WAIT.as_secs())),
+            Ok(Err(e)) => Err(bluez_reason(&e)),
+            Ok(Ok(_)) => Ok(()),
+        }
+    }
+}
+
+/// BlueZ's error, shorter: its name without the prefix, and its message.
+fn bluez_reason(e: &zbus::Error) -> String {
+    match e {
+        zbus::Error::MethodError(name, msg, _) => {
+            let name = name.as_str().trim_start_matches("org.bluez.Error.");
+            match msg {
+                Some(m) if !m.is_empty() => format!("{name}: {m}"),
+                _ => name.to_string(),
+            }
+        }
+        other => other.to_string(),
     }
 }
 

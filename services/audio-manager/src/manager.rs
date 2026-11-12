@@ -1,7 +1,8 @@
 //! audio-manager's core: follows the Bluetooth backend, runs the pairing
-//! window and the pairing agent's questions, keeps the speaker settings, and
-//! publishes what the dashboard shows (`f250.audio.v1.WatchAudioResponse`)
-//! on each change and once a second.
+//! window and the pairing agent's questions, connects paired phones (the
+//! driver's choice, or the last phone again by itself), keeps the speaker
+//! settings, and publishes what the dashboard shows
+//! (`f250.audio.v1.WatchAudioResponse`) on each change and once a second.
 //!
 //! Honesty rules (CLAUDE.md rule 4): the track is published only while its
 //! phone is connected; nothing is current once Bluetooth is gone.
@@ -35,6 +36,69 @@ pub struct Config {
     pub simulated: bool,
     /// The music resumes this long after the last prompt (an example).
     pub prompt_hold: Duration,
+    /// Where the address of the phone connected last is kept; None: only in
+    /// memory.
+    pub last_phone_file: Option<PathBuf>,
+    pub reconnect: Reconnect,
+}
+
+/// Reconnecting the last phone by itself: at start, when Bluetooth comes
+/// back, and after the link drops, an attempt every `every` until a phone is
+/// connected or `window` has passed. Examples (configuration).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Reconnect {
+    pub every: Duration,
+    /// Zero: never by itself.
+    pub window: Duration,
+}
+
+impl Reconnect {
+    pub const OFF: Reconnect = Reconnect {
+        every: Duration::from_secs(20),
+        window: Duration::ZERO,
+    };
+}
+
+/// A connection being tried.
+#[derive(Debug, Clone)]
+struct Attempt {
+    address: String,
+    name: String,
+    automatic: bool,
+}
+
+/// A Bluetooth address as BlueZ writes it (AA:BB:CC:DD:EE:FF).
+pub fn is_address(a: &str) -> bool {
+    a.len() == 17
+        && a.split(':').count() == 6
+        && a.split(':')
+            .all(|p| p.len() == 2 && p.chars().all(|c| c.is_ascii_hexdigit()))
+}
+
+/// Reads the last phone's address; None (with why, when it isn't just
+/// missing) when there isn't a usable one.
+pub fn load_last_phone(path: Option<&std::path::Path>) -> (Option<String>, Option<String>) {
+    let Some(path) = path else {
+        return (None, None);
+    };
+    match std::fs::read_to_string(path) {
+        Ok(text) => {
+            let a = text.trim().to_ascii_uppercase();
+            if is_address(&a) {
+                (Some(a), None)
+            } else {
+                (
+                    None,
+                    Some(format!(
+                        "{}: not a Bluetooth address; ignored",
+                        path.display()
+                    )),
+                )
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => (None, None),
+        Err(e) => (None, Some(format!("{}: {e}", path.display()))),
+    }
 }
 
 struct Inner {
@@ -52,6 +116,17 @@ struct Inner {
     /// Counts prompts, so an old one's end doesn't end a newer one.
     prompt_gen: u64,
     prompt_detail: String,
+    /// The phone connected most recently (its address).
+    last_phone: Option<String>,
+    attempt: Option<Attempt>,
+    /// How the last attempt went, for the screen.
+    connect_detail: String,
+    /// Reconnecting by itself until then.
+    auto_until: Option<Instant>,
+    next_auto: Instant,
+    /// As of the last snapshot.
+    had_phone: bool,
+    adapter_ready: bool,
 }
 
 pub struct Manager {
@@ -131,6 +206,10 @@ impl Manager {
         if let Some(p) = problem {
             eprintln!("[audio] speaker settings: {p}");
         }
+        let (last_phone, problem) = load_last_phone(cfg.last_phone_file.as_deref());
+        if let Some(p) = problem {
+            eprintln!("[audio] last phone: {p}");
+        }
         Arc::new(Manager {
             inner: Mutex::new(Inner {
                 window: Window::new(cfg.pairing),
@@ -143,6 +222,13 @@ impl Manager {
                 saying: None,
                 prompt_gen: 0,
                 prompt_detail: String::new(),
+                last_phone,
+                attempt: None,
+                connect_detail: String::new(),
+                auto_until: None,
+                next_auto: Instant::now(),
+                had_phone: false,
+                adapter_ready: false,
             }),
             cfg,
             bt,
@@ -283,6 +369,7 @@ impl Manager {
             }
             inner.paired = paired;
             inner.seen = true;
+            self.follow_connection(inner, &s, now);
             // A phone gone (or another one) isn't resumed by us later.
             if s.player.is_none() {
                 inner.prompts.forget();
@@ -337,6 +424,8 @@ impl Manager {
             }
             let out = inner.window.tick(now);
             self.carry_out(inner, out);
+            let snap = self.bt.snapshot().borrow().clone();
+            self.reconnect_tick(inner, &snap, now);
             let paused = self
                 .bt
                 .snapshot()
@@ -364,6 +453,180 @@ impl Manager {
                 eprintln!("[audio] prompts: {}: {e}", cmd.method());
             }
         });
+    }
+
+    // ---- connecting phones ------------------------------------------------------
+
+    /// Keeps the last phone up to date, and starts reconnecting by itself at
+    /// start, when Bluetooth comes back, and when the link drops.
+    fn follow_connection(&self, inner: &mut Inner, s: &Snapshot, now: Instant) {
+        let ready = matches!(s.adapter, Adapter::Ready { .. });
+        let connected = s.connected_phone().cloned();
+        if let Some(p) = &connected {
+            if inner.last_phone.as_deref() != Some(p.address.as_str()) {
+                inner.last_phone = Some(p.address.clone());
+                self.save_last_phone(&p.address);
+            }
+            if inner.auto_until.take().is_some() {
+                eprintln!("[audio] {} ({}) connected", p.name, p.address);
+            }
+            if inner.attempt.is_none() {
+                inner.connect_detail.clear();
+            }
+        } else if ready
+            && (!inner.adapter_ready || inner.had_phone)
+            && !self.cfg.reconnect.window.is_zero()
+            && let Some(last) = inner.last_phone.clone()
+        {
+            inner.auto_until = Some(now + self.cfg.reconnect.window);
+            inner.next_auto = now;
+            eprintln!(
+                "[audio] no phone connected: trying {last} every {} s for {} s",
+                self.cfg.reconnect.every.as_secs(),
+                self.cfg.reconnect.window.as_secs()
+            );
+        }
+        if !ready {
+            inner.auto_until = None;
+        }
+        inner.had_phone = connected.is_some();
+        inner.adapter_ready = ready;
+    }
+
+    fn save_last_phone(&self, address: &str) {
+        let Some(path) = &self.cfg.last_phone_file else {
+            return;
+        };
+        let tmp = path.with_extension("new");
+        if let Err(e) =
+            std::fs::write(&tmp, format!("{address}\n")).and_then(|()| std::fs::rename(&tmp, path))
+        {
+            eprintln!("[audio] last phone not saved ({}): {e}", path.display());
+        }
+    }
+
+    /// Once a second: the next automatic attempt, or giving up.
+    fn reconnect_tick(self: &Arc<Self>, inner: &mut Inner, s: &Snapshot, now: Instant) {
+        let Some(until) = inner.auto_until else {
+            return;
+        };
+        let last = inner.last_phone.clone().unwrap_or_default();
+        let phone = s
+            .phones
+            .iter()
+            .find(|p| p.paired && p.address == last)
+            .cloned();
+        let Some(phone) = phone else {
+            // Not paired any more (removed on the phone or in BlueZ).
+            inner.auto_until = None;
+            return;
+        };
+        if now >= until {
+            inner.auto_until = None;
+            if s.connected_phone().is_none() && inner.attempt.is_none() {
+                inner.connect_detail = format!(
+                    "Stopped trying to reach {} after {} min. Tap it to connect.",
+                    phone.name,
+                    self.cfg.reconnect.window.as_secs().div_ceil(60)
+                );
+                eprintln!("[audio] stopped trying to reconnect {}", phone.address);
+            }
+            return;
+        }
+        let window_closed = matches!(inner.window.state(), State::Closed | State::Failed);
+        if inner.attempt.is_some()
+            || now < inner.next_auto
+            || s.connected_phone().is_some()
+            || !window_closed
+        {
+            return;
+        }
+        inner.next_auto = now + self.cfg.reconnect.every;
+        self.begin_connect(inner, phone.address, phone.name, true);
+    }
+
+    /// Starts a connection on its own task; the outcome comes back to
+    /// `connect_detail`.
+    fn begin_connect(
+        self: &Arc<Self>,
+        inner: &mut Inner,
+        address: String,
+        name: String,
+        automatic: bool,
+    ) {
+        inner.attempt = Some(Attempt {
+            address: address.clone(),
+            name: name.clone(),
+            automatic,
+        });
+        inner.connect_detail.clear();
+        eprintln!(
+            "[audio] connecting {name} ({address}){}",
+            if automatic { " by itself" } else { "" }
+        );
+        let me = Arc::clone(self);
+        tokio::spawn(async move {
+            let r = me.bt.connect(&address).await;
+            let connected = me
+                .bt
+                .snapshot()
+                .borrow()
+                .connected_phone()
+                .is_some_and(|p| p.address == address);
+            {
+                let mut inner = me.lock();
+                inner.attempt = None;
+                inner.connect_detail = match (&r, connected) {
+                    (_, true) | (Ok(()), _) => String::new(),
+                    (Err(e), false) if automatic && inner.auto_until.is_some() => format!(
+                        "Couldn't reach {name} ({e}); trying again in {} s.",
+                        me.cfg.reconnect.every.as_secs()
+                    ),
+                    (Err(e), false) => format!("Couldn't connect to {name}: {e}."),
+                };
+            }
+            match &r {
+                Ok(()) => eprintln!("[audio] connected {name} ({address})"),
+                Err(e) => eprintln!("[audio] connecting {name} ({address}): {e}"),
+            }
+            me.publish();
+        });
+    }
+
+    /// The driver chose a paired phone. Ok: what is happening, for the
+    /// screen.
+    pub fn connect_phone(self: &Arc<Self>, address: &str, source: &str) -> Result<String, String> {
+        let s = self.bt.snapshot().borrow().clone();
+        if !matches!(s.adapter, Adapter::Ready { .. }) {
+            return Err("Bluetooth is unavailable.".into());
+        }
+        let Some(phone) = s
+            .phones
+            .iter()
+            .find(|p| p.paired && p.address == address)
+            .cloned()
+        else {
+            return Err("That phone isn't paired.".into());
+        };
+        if phone.connected {
+            return Err(format!("{} is already connected.", phone.name));
+        }
+        let msg = {
+            let mut inner = self.lock();
+            if let Some(a) = &inner.attempt {
+                return Err(format!("Already connecting to {}.", a.name));
+            }
+            // The driver's choice replaces trying the last phone by itself.
+            inner.auto_until = None;
+            eprintln!(
+                "[audio] {source}: connect {} ({})",
+                phone.name, phone.address
+            );
+            self.begin_connect(&mut inner, phone.address.clone(), phone.name.clone(), false);
+            format!("Connecting to {}…", phone.name)
+        };
+        self.publish();
+        Ok(msg)
     }
 
     // ---- spoken prompts (navigation) -----------------------------------------
@@ -555,6 +818,7 @@ impl Manager {
             name: p.name.clone(),
             connected: p.connected,
             paired: p.paired,
+            last: inner.last_phone.as_deref() == Some(p.address.as_str()),
         };
         // Only the connected phone's player, never a gone phone's track.
         let now_playing = s
@@ -618,6 +882,20 @@ impl Manager {
             dsp: dsp.into(),
             dsp_detail,
             simulated: self.cfg.simulated,
+            connect: Some(pb::ConnectAttempt {
+                address: inner
+                    .attempt
+                    .as_ref()
+                    .map(|a| a.address.clone())
+                    .unwrap_or_default(),
+                name: inner
+                    .attempt
+                    .as_ref()
+                    .map(|a| a.name.clone())
+                    .unwrap_or_default(),
+                automatic: inner.attempt.as_ref().is_some_and(|a| a.automatic),
+                detail: inner.connect_detail.clone(),
+            }),
             prompts: Some(pb::Prompts {
                 available: self.voice.available().is_ok(),
                 speaking: inner.prompts.speaking(),

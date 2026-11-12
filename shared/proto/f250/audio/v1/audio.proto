@@ -27,6 +27,12 @@ service AudioService {
   rpc OpenPairing(OpenPairingRequest) returns (OpenPairingResponse);
   // Closes the pairing window now.
   rpc ClosePairing(ClosePairingRequest) returns (ClosePairingResponse);
+  // Connects a phone paired before (one in `known`), disconnecting any
+  // other first: one phone at a time. Returns at once; the attempt and its
+  // outcome are in WatchAudioResponse.connect. Refused, with a reason, for
+  // a phone that isn't paired, without Bluetooth, or while another attempt
+  // runs.
+  rpc ConnectPhone(ConnectPhoneRequest) returns (ConnectPhoneResponse);
   // Answers a passkey question (Pairing.confirmation).
   rpc ConfirmPairing(ConfirmPairingRequest) returns (ConfirmPairingResponse);
   // The speaker settings, their limits, and whether they are applied.
@@ -63,6 +69,23 @@ message Phone {
   string name = 2;
   bool connected = 3;
   bool paired = 4;
+  // The phone connected most recently: the one audio-manager reconnects to
+  // by itself (at start, and after the link drops, for a limited time).
+  bool last = 5;
+}
+
+// A connection to a paired phone being tried (ConnectPhone, or
+// audio-manager reconnecting the last phone by itself), and how the last one
+// went.
+message ConnectAttempt {
+  // The phone being connected now; empty: none.
+  string address = 1;
+  string name = 2;
+  // audio-manager is trying by itself, not because the driver asked.
+  bool automatic = 3;
+  // What happened last ("Couldn't reach Pixel 8: …"), for the screen; may
+  // be empty.
+  string detail = 4;
 }
 
 enum PlayState {
@@ -166,6 +189,7 @@ message WatchAudioResponse {
   // The service runs a simulated phone: nothing is real.
   bool simulated = 10;
   Prompts prompts = 11;
+  ConnectAttempt connect = 12;
 }
 
 // Spoken prompts (Speak).
@@ -218,6 +242,18 @@ message ClosePairingRequest {
 message ClosePairingResponse {
   // False: it wasn't open.
   bool closing = 1;
+}
+
+message ConnectPhoneRequest {
+  // Phone.address of a phone in `known`.
+  string address = 1;
+  string source = 2;
+}
+
+message ConnectPhoneResponse {
+  // True: the attempt has started.
+  bool accepted = 1;
+  string detail = 2;
 }
 
 message ConfirmPairingRequest {

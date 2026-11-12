@@ -72,6 +72,18 @@ class AudioServiceClient extends $grpc.Client {
     return $createUnaryCall(_$closePairing, request, options: options);
   }
 
+  /// Connects a phone paired before (one in `known`), disconnecting any
+  /// other first: one phone at a time. Returns at once; the attempt and its
+  /// outcome are in WatchAudioResponse.connect. Refused, with a reason, for
+  /// a phone that isn't paired, without Bluetooth, or while another attempt
+  /// runs.
+  $grpc.ResponseFuture<$0.ConnectPhoneResponse> connectPhone(
+    $0.ConnectPhoneRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$connectPhone, request, options: options);
+  }
+
   /// Answers a passkey question (Pairing.confirmation).
   $grpc.ResponseFuture<$0.ConfirmPairingResponse> confirmPairing(
     $0.ConfirmPairingRequest request, {
@@ -139,6 +151,11 @@ class AudioServiceClient extends $grpc.Client {
           '/f250.audio.v1.AudioService/ClosePairing',
           ($0.ClosePairingRequest value) => value.writeToBuffer(),
           $0.ClosePairingResponse.fromBuffer);
+  static final _$connectPhone =
+      $grpc.ClientMethod<$0.ConnectPhoneRequest, $0.ConnectPhoneResponse>(
+          '/f250.audio.v1.AudioService/ConnectPhone',
+          ($0.ConnectPhoneRequest value) => value.writeToBuffer(),
+          $0.ConnectPhoneResponse.fromBuffer);
   static final _$confirmPairing =
       $grpc.ClientMethod<$0.ConfirmPairingRequest, $0.ConfirmPairingResponse>(
           '/f250.audio.v1.AudioService/ConfirmPairing',
@@ -202,6 +219,15 @@ abstract class AudioServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.ClosePairingRequest.fromBuffer(value),
             ($0.ClosePairingResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.ConnectPhoneRequest, $0.ConnectPhoneResponse>(
+            'ConnectPhone',
+            connectPhone_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.ConnectPhoneRequest.fromBuffer(value),
+            ($0.ConnectPhoneResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.ConfirmPairingRequest,
             $0.ConfirmPairingResponse>(
         'ConfirmPairing',
@@ -279,6 +305,15 @@ abstract class AudioServiceBase extends $grpc.Service {
 
   $async.Future<$0.ClosePairingResponse> closePairing(
       $grpc.ServiceCall call, $0.ClosePairingRequest request);
+
+  $async.Future<$0.ConnectPhoneResponse> connectPhone_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ConnectPhoneRequest> $request) async {
+    return connectPhone($call, await $request);
+  }
+
+  $async.Future<$0.ConnectPhoneResponse> connectPhone(
+      $grpc.ServiceCall call, $0.ConnectPhoneRequest request);
 
   $async.Future<$0.ConfirmPairingResponse> confirmPairing_Pre(
       $grpc.ServiceCall $call,

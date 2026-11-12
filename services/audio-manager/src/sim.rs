@@ -23,6 +23,10 @@ pub struct SimConfig {
     pub pair_after: Option<Duration>,
     /// The phone connects on its own after a link loss, this long after.
     pub reconnect_after: Option<Duration>,
+    /// The first phone is connected at start (else paired, not connected).
+    pub start_connected: bool,
+    /// How long a connection asked for (`connect`) takes.
+    pub connect_takes: Duration,
 }
 
 impl Default for SimConfig {
@@ -30,6 +34,8 @@ impl Default for SimConfig {
         SimConfig {
             pair_after: Some(Duration::from_secs(5)),
             reconnect_after: None,
+            start_connected: true,
+            connect_takes: Duration::from_secs(1),
         }
     }
 }
@@ -52,6 +58,10 @@ struct State {
     at: Instant,
     /// Counts window openings, so an old pairing timer does nothing.
     window_gen: u64,
+    /// The phones answer a connection (in range, Bluetooth on).
+    reachable: bool,
+    /// Connections asked for, by address (tests).
+    connects: Vec<String>,
 }
 
 impl State {
@@ -143,7 +153,7 @@ impl SimPhone {
             phones: vec![Phone {
                 address: FIRST.into(),
                 name: "Simulated phone".into(),
-                connected: true,
+                connected: cfg.start_connected,
                 paired: true,
             }],
             playlist: playlist(),
@@ -152,6 +162,8 @@ impl SimPhone {
             position_ms: 0,
             at: now,
             window_gen: 0,
+            reachable: true,
+            connects: Vec::new(),
         };
         let snap = watch::Sender::new(state.snapshot(now));
         SimPhone {
@@ -223,6 +235,20 @@ impl SimPhone {
             }
             s.rebase(now);
         });
+    }
+
+    /// The phones answer a connection or not (out of range).
+    pub fn set_reachable(&self, yes: bool) {
+        self.with(|s, _| s.reachable = yes);
+    }
+
+    /// The connections asked for so far, by address.
+    pub fn connects(&self) -> Vec<String> {
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .connects
+            .clone()
     }
 
     /// Bluetooth (BlueZ, the adapter) goes away or comes back. A restarted
@@ -334,5 +360,29 @@ impl Bluetooth for SimPhone {
 
     async fn trust(&self, _address: &str) -> Result<(), String> {
         Ok(())
+    }
+
+    async fn connect(&self, address: &str) -> Result<(), String> {
+        self.with(|s, _| {
+            s.connects.push(address.to_string());
+            if !s.adapter_up {
+                return Err("simulated: Bluetooth is off".to_string());
+            }
+            if !s.phones.iter().any(|p| p.paired && p.address == address) {
+                return Err("not a paired phone".to_string());
+            }
+            Ok(())
+        })?;
+        tokio::time::sleep(self.cfg.connect_takes).await;
+        self.with(|s, now| {
+            if !s.reachable {
+                return Err("simulated: the phone didn't answer (out of range)".to_string());
+            }
+            for p in &mut s.phones {
+                p.connected = p.address == address;
+            }
+            s.rebase(now);
+            Ok(())
+        })
     }
 }

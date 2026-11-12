@@ -12,7 +12,7 @@ use std::time::Duration;
 use audio_manager::backend::Bluetooth;
 use audio_manager::bluez::Bluez;
 use audio_manager::dsp::{ChannelMap, Limits, Settings, Target, render};
-use audio_manager::manager::{Config, Manager, load_settings};
+use audio_manager::manager::{Config, Manager, Reconnect, load_settings};
 use audio_manager::pairing;
 use audio_manager::runner::{Dsp, NoDsp, PipewireConfig, PipewireDsp};
 use audio_manager::server::Api;
@@ -98,6 +98,18 @@ struct Args {
     /// example value.
     #[arg(long, default_value_t = 1000)]
     prompt_hold_ms: u64,
+    /// Where the phone connected last is remembered (its address). Empty:
+    /// in memory only.
+    #[arg(long, default_value = "")]
+    last_phone_file: String,
+    /// Reconnecting the last phone by itself: an attempt this often,
+    /// seconds. An example value.
+    #[arg(long, default_value_t = 20)]
+    reconnect_every_s: u64,
+    /// ... for this long after start, Bluetooth coming back or the link
+    /// dropping, seconds; 0: never by itself. An example value.
+    #[arg(long, default_value_t = 300)]
+    reconnect_for_s: u64,
 }
 
 #[tokio::main]
@@ -137,6 +149,12 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         settings_file,
         simulated: args.simulate,
         prompt_hold: Duration::from_millis(args.prompt_hold_ms),
+        last_phone_file: (!args.last_phone_file.is_empty())
+            .then(|| PathBuf::from(&args.last_phone_file)),
+        reconnect: Reconnect {
+            every: Duration::from_secs(args.reconnect_every_s.max(1)),
+            window: Duration::from_secs(args.reconnect_for_s),
+        },
     };
     let target = Target {
         dac_node: args.dac_node.clone(),

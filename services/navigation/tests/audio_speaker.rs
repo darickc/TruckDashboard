@@ -97,6 +97,13 @@ impl AudioService for Fake {
         Err(Status::unimplemented("fake"))
     }
 
+    async fn connect_phone(
+        &self,
+        _: Request<pb::ConnectPhoneRequest>,
+    ) -> Result<Response<pb::ConnectPhoneResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
     async fn get_speaker_settings(
         &self,
         _: Request<pb::GetSpeakerSettingsRequest>,

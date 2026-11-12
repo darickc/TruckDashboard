@@ -230,3 +230,10 @@ AUDIO_CROSSOVER_HZ=
 #            (empty: 1000, an example), so close prompts don't let it back in.
 AUDIO_VOICE=
 AUDIO_PROMPT_HOLD_MS=
+# Phones (the Media screen's Phones): with none connected, audio-manager tries
+# the phone connected last (kept in /var/lib/f250-audio/last-phone) by itself
+# after start, Bluetooth coming back or the link dropping.
+# AUDIO_RECONNECT_EVERY_S  between attempts (empty: 20, an example).
+# AUDIO_RECONNECT_FOR_S  for this long (empty: 300, an example); 0: never.
+AUDIO_RECONNECT_EVERY_S=
+AUDIO_RECONNECT_FOR_S=

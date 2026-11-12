@@ -106,6 +106,27 @@ impl AudioService for Api {
         Ok(Response::new(pb::ClosePairingResponse { closing }))
     }
 
+    async fn connect_phone(
+        &self,
+        req: Request<pb::ConnectPhoneRequest>,
+    ) -> Result<Response<pb::ConnectPhoneResponse>, Status> {
+        let req = req.into_inner();
+        let address = req.address.trim().to_ascii_uppercase();
+        let r = self
+            .manager
+            .connect_phone(&address, &source_of(&req.source));
+        Ok(Response::new(match r {
+            Ok(detail) => pb::ConnectPhoneResponse {
+                accepted: true,
+                detail,
+            },
+            Err(detail) => pb::ConnectPhoneResponse {
+                accepted: false,
+                detail,
+            },
+        }))
+    }
+
     async fn confirm_pairing(
         &self,
         req: Request<pb::ConfirmPairingRequest>,

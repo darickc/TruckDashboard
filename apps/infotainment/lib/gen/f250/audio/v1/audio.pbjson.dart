@@ -121,13 +121,32 @@ const Phone$json = {
     {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
     {'1': 'connected', '3': 3, '4': 1, '5': 8, '10': 'connected'},
     {'1': 'paired', '3': 4, '4': 1, '5': 8, '10': 'paired'},
+    {'1': 'last', '3': 5, '4': 1, '5': 8, '10': 'last'},
   ],
 };
 
 /// Descriptor for `Phone`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List phoneDescriptor = $convert.base64Decode(
     'CgVQaG9uZRIYCgdhZGRyZXNzGAEgASgJUgdhZGRyZXNzEhIKBG5hbWUYAiABKAlSBG5hbWUSHA'
-    'oJY29ubmVjdGVkGAMgASgIUgljb25uZWN0ZWQSFgoGcGFpcmVkGAQgASgIUgZwYWlyZWQ=');
+    'oJY29ubmVjdGVkGAMgASgIUgljb25uZWN0ZWQSFgoGcGFpcmVkGAQgASgIUgZwYWlyZWQSEgoE'
+    'bGFzdBgFIAEoCFIEbGFzdA==');
+
+@$core.Deprecated('Use connectAttemptDescriptor instead')
+const ConnectAttempt$json = {
+  '1': 'ConnectAttempt',
+  '2': [
+    {'1': 'address', '3': 1, '4': 1, '5': 9, '10': 'address'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'automatic', '3': 3, '4': 1, '5': 8, '10': 'automatic'},
+    {'1': 'detail', '3': 4, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `ConnectAttempt`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List connectAttemptDescriptor = $convert.base64Decode(
+    'Cg5Db25uZWN0QXR0ZW1wdBIYCgdhZGRyZXNzGAEgASgJUgdhZGRyZXNzEhIKBG5hbWUYAiABKA'
+    'lSBG5hbWUSHAoJYXV0b21hdGljGAMgASgIUglhdXRvbWF0aWMSFgoGZGV0YWlsGAQgASgJUgZk'
+    'ZXRhaWw=');
 
 @$core.Deprecated('Use nowPlayingDescriptor instead')
 const NowPlaying$json = {
@@ -276,6 +295,14 @@ const WatchAudioResponse$json = {
       '6': '.f250.audio.v1.Prompts',
       '10': 'prompts'
     },
+    {
+      '1': 'connect',
+      '3': 12,
+      '4': 1,
+      '5': 11,
+      '6': '.f250.audio.v1.ConnectAttempt',
+      '10': 'connect'
+    },
   ],
 };
 
@@ -290,7 +317,8 @@ final $typed_data.Uint8List watchAudioResponseDescriptor = $convert.base64Decode
     'djEuUGFpcmluZ1IHcGFpcmluZxIpCgNkc3AYCCABKA4yFy5mMjUwLmF1ZGlvLnYxLkRzcFN0YX'
     'RlUgNkc3ASHQoKZHNwX2RldGFpbBgJIAEoCVIJZHNwRGV0YWlsEhwKCXNpbXVsYXRlZBgKIAEo'
     'CFIJc2ltdWxhdGVkEjAKB3Byb21wdHMYCyABKAsyFi5mMjUwLmF1ZGlvLnYxLlByb21wdHNSB3'
-    'Byb21wdHM=');
+    'Byb21wdHMSNwoHY29ubmVjdBgMIAEoCzIdLmYyNTAuYXVkaW8udjEuQ29ubmVjdEF0dGVtcHRS'
+    'B2Nvbm5lY3Q=');
 
 @$core.Deprecated('Use promptsDescriptor instead')
 const Prompts$json = {
@@ -397,6 +425,34 @@ const ClosePairingResponse$json = {
 final $typed_data.Uint8List closePairingResponseDescriptor =
     $convert.base64Decode(
         'ChRDbG9zZVBhaXJpbmdSZXNwb25zZRIYCgdjbG9zaW5nGAEgASgIUgdjbG9zaW5n');
+
+@$core.Deprecated('Use connectPhoneRequestDescriptor instead')
+const ConnectPhoneRequest$json = {
+  '1': 'ConnectPhoneRequest',
+  '2': [
+    {'1': 'address', '3': 1, '4': 1, '5': 9, '10': 'address'},
+    {'1': 'source', '3': 2, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `ConnectPhoneRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List connectPhoneRequestDescriptor = $convert.base64Decode(
+    'ChNDb25uZWN0UGhvbmVSZXF1ZXN0EhgKB2FkZHJlc3MYASABKAlSB2FkZHJlc3MSFgoGc291cm'
+    'NlGAIgASgJUgZzb3VyY2U=');
+
+@$core.Deprecated('Use connectPhoneResponseDescriptor instead')
+const ConnectPhoneResponse$json = {
+  '1': 'ConnectPhoneResponse',
+  '2': [
+    {'1': 'accepted', '3': 1, '4': 1, '5': 8, '10': 'accepted'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `ConnectPhoneResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List connectPhoneResponseDescriptor = $convert.base64Decode(
+    'ChRDb25uZWN0UGhvbmVSZXNwb25zZRIaCghhY2NlcHRlZBgBIAEoCFIIYWNjZXB0ZWQSFgoGZG'
+    'V0YWlsGAIgASgJUgZkZXRhaWw=');
 
 @$core.Deprecated('Use confirmPairingRequestDescriptor instead')
 const ConfirmPairingRequest$json = {
