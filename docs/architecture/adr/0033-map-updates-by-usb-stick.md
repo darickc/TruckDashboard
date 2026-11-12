@@ -163,3 +163,16 @@ tests cover the new fields. [BENCH] 2026-11-11: the script imported Kansas's
 routing data on the bench Pi from a folder (no stick: not yet with a real
 stick or the NVMe), see the bench log. The map's limits apply: the drive needs
 room for the old and new routing data during an import.
+
+## Amendment: search data on the same stick (2026-11-12)
+
+A stick may also carry `f250/search.sqlite`, navigation's offline search
+index ([ADR-0038](0038-offline-address-search.md)), with its `.sha256`:
+`make map-stick SEARCH=build/search/search.sqlite`. The import takes it after
+the map and the routing data, checks its checksum, its SQLite header and its
+application id ("F250"), and swaps it in at
+`/var/lib/f250/storage/search/search.sqlite`. The status file's `item` can be
+`search`; the dashboard shows "Copying search data from USB" and doesn't
+reopen the map for it. navigation opens the new file at the next search.
+`usb-export` treats a stick with only search data as a map stick. [SIM]
+(`make agl-test`); not yet with a real stick.

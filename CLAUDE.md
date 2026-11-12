@@ -70,12 +70,12 @@ project has.
 firmware/esp32/      PlatformIO firmware (C++17); auxiliary controller, ELM reference implementation
 shared/signals/      signal registry (YAML); imports/torque/exportedPIDs.csv
 shared/proto/        versioned gRPC/protobuf API (f250.<domain>.v1); `make proto` regenerates Dart
-crates/              Rust libraries: elm (MX+ client), telemetry, powerstroke-sim, proto, sd-notify, camera-policy, recording, daylight, clock-sync, gpsd
+crates/              Rust libraries: elm (MX+ client), telemetry, powerstroke-sim, proto, sd-notify, camera-policy, recording, daylight, clock-sync, gpsd, geocode
 services/            Rust daemons: vehicle-gateway, recorder, power-manager, camera-manager, navigation (audio in Phase 6)
 apps/infotainment/   Flutter UI, 800×480 (simulated data source today)
 simulator/           Power Stroke scenarios (f250.scenario.v1) + Dart engine; Rust transport in Phase 3
 agl/                 AGL Stage 1: release pin, boot config, rootfs files, target scripts; meta-f250 in 5.4
-tools/               pid-importer, can-monitor, diagnostics, dev/ helpers
+tools/               pid-importer, can-monitor, search-index, diagnostics, maps/ and dev/ helpers
 docs/                architecture/ (ADRs), hardware/, wiring/, setup/, safety/, diagnostics/, esp32/
 ```
 
@@ -97,8 +97,9 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make sim` | Rust gateway and navigation (simulated; routes once `make route-region` has run) + macOS app over gRPC. `make gateway` / `make navigation` / `make console` run one alone |
 | `make map-test-pattern` | A test-pattern map (not map data) at `/tmp/f250/maps/map.pmtiles` for `make ui`/`make sim`; needs Pillow and `pmtiles`. See [docs/setup/maps.md](docs/setup/maps.md) |
 | `make map-region BBOX=w,s,e,n MAXZOOM=n` / `map-check` | A real map of a region from OpenStreetMap data into `build/maps/region.pmtiles` and `/tmp/f250/maps/map.pmtiles`: vector by default (a Protomaps extract the dashboard draws; ADR-0032), or raster with `MAP_ARGS=--format=webp` (rendered by tileserver-gl in Docker; ADR-0031). `ESTIMATE=1` prints size per zoom only, `YES=1` allows >100k tiles. `map-check MAP=...` checks a file with the dashboard's reader |
-| `make map-stick STICK=/Volumes/<name>` / `map-import-dev` | Write the map (`MAP=`, default `build/maps/region.pmtiles`) and its checksum onto an exFAT USB stick, which the Pi imports onto its data drive when plugged in (ADR-0033). `map-import-dev` runs that import into `/tmp/f250/maps/` for `make ui` |
+| `make map-stick STICK=/Volumes/<name>` / `map-import-dev` | Write the map (`MAP=`, default `build/maps/region.pmtiles`; `ROUTING=` and `SEARCH=` add routing and search data) and its checksum onto an exFAT USB stick, which the Pi imports onto its data drive when plugged in (ADR-0033). `map-import-dev` runs that import into `/tmp/f250/maps/` for `make ui` |
 | `make route-region REGION=<geofabrik path>` | Valhalla routing data for a region (e.g. `north-america/us/kansas`; several separated by spaces) from Geofabrik's OpenStreetMap extract, built in Valhalla's pinned Docker image into `build/routing/valhalla_tiles.tar` and `/tmp/f250/routing/`, where `make navigation`/`make sim` route with Valhalla in Docker (ADR-0035). See [docs/setup/maps.md](docs/setup/maps.md#routing) |
+| `make search-region REGION=<geofabrik path>` | The offline address search index for a region from the same Geofabrik extract (`tools/search-index`; with osmium, each result's state), into `build/search/search.sqlite` and `/tmp/f250/search/` for `make navigation`/`make sim` (ADR-0038). `SEARCH_ARGS="--bbox=W,S,E,N --name=..."` clips it. See [docs/setup/maps.md](docs/setup/maps.md#search) |
 | `make map-assets` | Regenerate the vector map's styles, icons and fonts in `apps/infotainment/assets/map/` from pinned inputs (ADR-0032); needs Node and curl |
 | `make rust-test` / `make rust-lint` | Cargo workspace tests / fmt + clippy (needs `protoc`) |
 | `make pi-setup` / `pi-build` / `pi-run` | On the Pi (Raspberry Pi OS, Phase 3.5): install the tools, release-build, run gateway + recorder + app. `pi-run` uses the simulator unless `TRANSPORT=obdlink` or `TRANSPORT=can`, and polls only with `TRANSMIT=1`. `CAPTURE=1` also candumps `can0` into the session. See [docs/setup/raspberry-pi.md](docs/setup/raspberry-pi.md) |

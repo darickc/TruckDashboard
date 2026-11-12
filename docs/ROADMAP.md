@@ -317,7 +317,15 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       flashed image of this commit, a real stick for routing data, a multi-state extract on the Pi. The whole US builds on
       the Mac (2026-11-12): 67 min, 21 GB, Seattle to Miami in 1.6 s in Docker; the build now runs in two processes so it fits
       in Docker's 8 GB.
-      Next: 6.5.4's docs; bench check 18 with a stick and the NVMe
+      6.5.3 (address search) `[SIM]` ([ADR-0038](architecture/adr/0038-offline-address-search.md)): `make search-region`
+      builds a SQLite FTS5 index of OSM addresses, streets, towns and named places from the routing data's Geofabrik extract
+      (`tools/search-index`, `crates/geocode`), with each row's state from OSM's boundaries; it goes on the map stick
+      (`make map-stick SEARCH=...`, imported to `/var/lib/f250/storage/search/`). navigation serves
+      `f250.nav.v1.SearchService.Search`, ranked near the latest fix; every result says whether it is the address, only the
+      street, only the town or a place. The Nav screen: Search, an on-screen keyboard, results, Show and Route here. No typing
+      lockout (owner, 2026-11-12): a "type only when parked" warning while moving. Kansas 37 MB, the lower 48 4.9 GB
+      (1–75 ms a search on the Mac). Not yet on the Pi (bench check 20).
+      Next: 6.5.4's docs; bench check 18 with a stick and the NVMe; bench check 20 (search on the Pi)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and
       invalid reverse, the latched choice, moves during reverse, the optional speed limit, missing cameras).

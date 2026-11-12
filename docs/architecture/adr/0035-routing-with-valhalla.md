@@ -77,7 +77,8 @@ worked. It now does. Facts checked on 2026-11-11:
    for heavy vehicles or trailers"** (ADR-0010).
 6. **Destinations come from a long-press on the map**, then **Route here**.
    Searching by address needs an offline geocoder, which is a separate job
-   and not done.
+   and not done. *Since 2026-11-12 also from address search:
+   [ADR-0038](0038-offline-address-search.md).*
 7. **Packaging, in stages:**
    - **Routing data:** `make route-region REGION=<Geofabrik path>` builds it on
      the Mac in the pinned image. It downloads the region's extract from

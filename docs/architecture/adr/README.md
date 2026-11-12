@@ -46,5 +46,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0035](0035-routing-with-valhalla.md) | Routing with Valhalla, one `valhalla_service` per request, in services/navigation | Accepted ([SIM]; real Valhalla on the Mac; not on the Pi) |
 | [0036](0036-clear-advisories.md) | Advisories can be cleared from the alert banner; critical alerts can't | Accepted (owner; [SIM], seen on the bench Pi) |
 | [0037](0037-recordings-to-a-usb-stick.md) | Dashcam recordings are copied to a USB stick from the dashboard by `usb-export` (`f250.export.v1`); map sticks are left alone | Accepted (owner asked; [SIM] only) |
+| [0038](0038-offline-address-search.md) | Offline address search: a SQLite FTS5 index of OSM addresses, streets, towns and places, on the map stick, served by navigation (`SearchService`) | Accepted ([SIM] only; not on the Pi) |
 
 New ADRs use the next number and the same headings.

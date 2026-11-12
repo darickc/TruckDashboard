@@ -187,8 +187,9 @@ current fix, or if the navigation service stops answering, guidance pauses:
 the line turns grey and no distances are shown. Those limits are examples
 in `/etc/default/f250` and `navigation --help`.
 
-There is no address search yet (it needs an offline geocoder), no voice and
-no arrival time by the clock (the Pi has no clock source in the truck).
+To route to an address or a place, use **Search** ([below](#search)). There
+is no voice and no arrival time by the clock (the Pi has no clock source in
+the truck).
 
 ### Routing data
 
@@ -269,6 +270,61 @@ unmeasured. Other settings in `/etc/default/f250`:
 |---|---|---|
 | `NAV_COSTING` | `auto` | `auto` routes as a car; `truck` uses Valhalla's truck model |
 | `NAV_TRUCK_HEIGHT_M`, `_WIDTH_M`, `_LENGTH_M`, `_WEIGHT_T`, `_AXLE_LOAD_T` | empty | `truck` only. Empty is Valhalla's default, a large truck's. Set only what you have measured |
+
+## Search
+
+**Search** (the magnifier under the map buttons) finds addresses, streets,
+towns and named places offline, nearest first, as you type on the on-screen
+keyboard ([ADR-0038](../architecture/adr/0038-offline-address-search.md)).
+Each result has **Show** (on the map, then Route here or Cancel) and **Route
+here**. Every result says what it is, and OpenStreetMap's house numbers are
+sparse outside towns, so often it is only the street or the town:
+
+| Label | Means |
+|---|---|
+| ADDRESS | The house number you typed, on that street |
+| STREET | A street. "Street only: no house number 125 in the map data" when the number isn't there: the route ends on the street |
+| TOWN | A town, and "Town only: “elm avenue” not found" when the rest of what you typed isn't there |
+| PLACE | A named business, park, school… |
+
+Abbreviations work both ways ("n main st" finds "North Main Street"), and the
+last word may be unfinished (three letters; two for a town). Add the state's
+short name to pick a town ("kansas city mo"). Misspellings find nothing.
+Typing while moving isn't locked out (owner's decision); the panel asks to
+type only when parked.
+
+### Search data
+
+`make search-region` builds the index from the same Geofabrik extract as the
+routing data (downloaded once for both), with `tools/search-index`, and with
+osmium (`brew install osmium-tool`) the state of every result:
+
+```bash
+make search-region REGION=north-america/us/kansas
+make search-region REGION=north-america/us SEARCH_ARGS="--bbox=-124.85,24.4,-66.88,49.38 --name='Lower 48 states'"
+```
+
+The result is `build/search/search.sqlite`, also copied to
+`/tmp/f250/search/` for `make navigation` and `make sim`. Kansas: 37 MB in
+2 s. The lower 48: 4.9 GB in about 8 minutes, with about 10 GB of memory at
+the peak [SIM, 2026-11-12]. On the Mac, from a terminal:
+
+```bash
+cargo run --release -p search-index -- query build/search/search.sqlite "120 n main st" --near 39.81,-98.56
+cargo run -p navigation --example search -- tcp:127.0.0.1:50253 "main st"
+```
+
+On the Pi it comes on the map stick, with or without the map and the routing
+data:
+
+```bash
+make map-stick STICK=/Volumes/<name> SEARCH=build/search/search.sqlite
+```
+
+The import puts it at `/var/lib/f250/storage/search/search.sqlite`
+(`NAV_SEARCH_INDEX`), and navigation opens it at the next search: no restart.
+Until then the panel says "Search unavailable: no search data at …". Bench
+check 20 in [agl.md](agl.md).
 
 ## GPS
 

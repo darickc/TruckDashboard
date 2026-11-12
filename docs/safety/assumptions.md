@@ -55,8 +55,10 @@ These steps need a person to inspect and sign off in
 
 - Touch targets are at least 60×60 px (about 11 mm on the 7" panel).
 - Glanceable layouts with large numerals.
-- Text entry (navigation search) is meant for when the truck is parked. Whether
-  to lock it out while moving is an owner decision, recorded when navigation
-  lands.
+- Text entry (navigation search) is meant for when the truck is parked.
+  **Owner's decision (2026-11-12): no lockout.** Typing always works; while the
+  truck is moving (above 8 km/h / 5 mph by a current vehicle speed, else a
+  current GPS speed; an example value) the search panel says "The truck is
+  moving: type only when parked" ([ADR-0038](../architecture/adr/0038-offline-address-search.md)).
 - Critical alerts are visible on every screen. Nothing else interrupts the
   driver.
