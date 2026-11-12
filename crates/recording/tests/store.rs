@@ -189,3 +189,21 @@ fn camera_names_cannot_escape_the_store() {
     }
     fs::remove_dir_all(&root).ok();
 }
+
+#[test]
+fn an_existing_store_is_read_without_creating_anything() {
+    let root = temp("existing");
+    fs::create_dir_all(root.join("front")).expect("mkdir");
+    fs::write(
+        root.join("front").join(name("front", 3, 1).file_name()),
+        b"abc",
+    )
+    .expect("write");
+    let store = Store::existing(&root);
+    let scan = store.scan().expect("scan without protected/");
+    assert_eq!(scan.segments.len(), 1);
+    assert_eq!(scan.segments[0].bytes, 3);
+    assert!(!root.join("protected").exists(), "nothing created");
+    assert!(!root.join(".state").exists(), "nothing created");
+    assert!(Store::existing(root.join("missing")).scan().is_err());
+}

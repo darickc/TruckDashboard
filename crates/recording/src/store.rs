@@ -69,6 +69,13 @@ impl Store {
         Ok(Store { root })
     }
 
+    /// The recordings at `root` as they are, for reading only: nothing is
+    /// created, and a missing `protected/` is no saved clips. For a reader
+    /// such as usb-export (ADR-0037) whose view of the drive is read-only.
+    pub fn existing(root: impl Into<PathBuf>) -> Store {
+        Store { root: root.into() }
+    }
+
     pub fn root(&self) -> &Path {
         &self.root
     }
@@ -136,7 +143,13 @@ impl Store {
     }
 
     fn scan_dir(&self, dir: &Path, protected: bool, scan: &mut Scan) -> io::Result<()> {
-        for entry in fs::read_dir(dir)? {
+        let entries = match fs::read_dir(dir) {
+            Ok(e) => e,
+            // No saved clips yet (a Store opened with `existing`).
+            Err(e) if protected && e.kind() == io::ErrorKind::NotFound => return Ok(()),
+            Err(e) => return Err(e),
+        };
+        for entry in entries {
             let entry = entry?;
             let name = entry.file_name();
             let name = name.to_string_lossy();

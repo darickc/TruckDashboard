@@ -1,0 +1,183 @@
+syntax = "proto3";
+
+// Copying dashcam recordings to a USB stick plugged into the head unit,
+// served by services/usb-export
+// (docs/architecture/adr/0037-recordings-to-a-usb-stick.md). The dashboard
+// lists, selects and shows progress; it never touches the stick or the data
+// drive itself (CLAUDE.md rule 5). Copy only: nothing on the data drive is
+// ever moved or deleted through this API.
+package f250.export.v1;
+
+service ExportService {
+  // The recordings on the data drive now (front, rear and saved clips), in
+  // recording order.
+  rpc ListRecordings(ListRecordingsRequest) returns (ListRecordingsResponse);
+  // The USB sticks plugged in and the copy, now and then again each time
+  // either changes. A client that loses the stream must assume nothing
+  // about a copy in progress: it never says "safe to unplug" on its own.
+  rpc WatchExport(WatchExportRequest) returns (stream WatchExportResponse);
+  // Starts copying the given recordings to a stick. Refused, with a reason,
+  // while another copy runs, when the stick isn't an export stick, or when
+  // the recordings don't fit.
+  rpc StartCopy(StartCopyRequest) returns (StartCopyResponse);
+  // Stops the copy after the file being written is abandoned (its partial
+  // copy is removed); the files already finished stay on the stick, which
+  // is then synced and unmounted.
+  rpc CancelCopy(CancelCopyRequest) returns (CancelCopyResponse);
+}
+
+// One segment file on the data drive (crates/recording's names, ADR-0027
+// decision 10).
+message Recording {
+  // The camera's directory: "front" or "rear".
+  string camera = 1;
+  // b00042-s000317.mkv or b00042-s000317-20261110T143000Z.mkv.
+  string file_name = 2;
+  // A saved clip (in protected/): kept from retention by "Save clip".
+  bool protected = 3;
+  uint64 bytes = 4;
+  // The head unit's run and the segment's place in it: they order the
+  // recordings whatever the clock said.
+  uint32 boot = 5;
+  uint32 seq = 6;
+  // UTC seconds when the segment started, only when the clock was trusted
+  // while it was recorded; 0: the time isn't known.
+  uint64 wall_time = 7;
+  // Probably still being written (the newest of its camera, changed in the
+  // last few seconds): it can't be copied yet.
+  bool being_written = 8;
+}
+
+message ListRecordingsRequest {}
+
+message ListRecordingsResponse {
+  repeated Recording recordings = 1;
+  // The data drive is mounted. Without it there are no recordings.
+  bool drive_mounted = 2;
+  // Why the list may be incomplete or empty, in words for the screen; empty
+  // when nothing is wrong.
+  string problem = 3;
+}
+
+// What a stick is to the head unit.
+enum StickRole {
+  STICK_ROLE_UNSPECIFIED = 0;
+  // Being looked at: mounted read-only for a moment to read its free space.
+  STICK_ROLE_CHECKING = 1;
+  // An exFAT or FAT stick without map data: recordings can be copied to it.
+  STICK_ROLE_EXPORT = 2;
+  // It has f250/map.pmtiles or f250/routing.tar: the map import's
+  // (ADR-0033). Recordings are never copied to a map stick.
+  STICK_ROLE_MAP = 3;
+  // Not usable: another filesystem, none, or it couldn't be mounted.
+  // `detail` says why.
+  STICK_ROLE_UNUSABLE = 4;
+}
+
+message Stick {
+  // The kernel's name for the filesystem's device ("sda1", or "sda" for a
+  // stick without a partition table). Names the stick in StartCopy.
+  string device = 1;
+  // The filesystem's label, and the stick's vendor and model, for the
+  // screen; any may be empty.
+  string label = 2;
+  string model = 3;
+  // "exfat", "vfat", ... as udev reports it.
+  string filesystem = 4;
+  StickRole role = 5;
+  // From the last check (when it was plugged in, and after each copy).
+  uint64 free_bytes = 6;
+  uint64 total_bytes = 7;
+  // The largest file the filesystem holds (4 GiB - 1 on FAT); 0: no limit
+  // that matters.
+  uint64 max_file_bytes = 8;
+  // The device's write-protect switch is on (read-only), as the kernel
+  // reports it.
+  bool read_only = 9;
+  // Why it is unusable or what it is, in words for the screen.
+  string detail = 10;
+}
+
+enum CopyState {
+  COPY_STATE_UNSPECIFIED = 0;
+  // No copy since the service started.
+  COPY_STATE_IDLE = 1;
+  // Mounting the stick and checking it has room.
+  COPY_STATE_PREPARING = 2;
+  COPY_STATE_COPYING = 3;
+  // Every file is written: flushing the stick and unmounting it. The stick
+  // must stay in.
+  COPY_STATE_FINISHING = 4;
+  // Done: every file is on the stick, which is synced and unmounted.
+  COPY_STATE_DONE = 5;
+  // Stopped by a problem (`detail`): no stick, full, read-only, removed.
+  COPY_STATE_FAILED = 6;
+  // Stopped by CancelCopy.
+  COPY_STATE_CANCELLED = 7;
+}
+
+message Copy {
+  CopyState state = 1;
+  // The stick (Stick.device).
+  string device = 2;
+  uint32 files_total = 3;
+  // Finished, counting the ones skipped below.
+  uint32 files_done = 4;
+  // Already on the stick with the same size: not copied again.
+  uint32 files_skipped = 5;
+  // Gone from the data drive before they were copied (retention).
+  uint32 files_missing = 6;
+  uint64 bytes_total = 7;
+  uint64 bytes_done = 8;
+  // The file being copied, as camera/file_name.
+  string current = 9;
+  // What happened, in words for the screen.
+  string detail = 10;
+  // The stick is synced and unmounted (or was never mounted): it can be
+  // pulled out. False while copying or finishing, and after a failure that
+  // couldn't unmount it.
+  bool safe_to_unplug = 11;
+  // The folder on the stick the recordings go to.
+  string folder = 12;
+  // Counts up with each copy started, so a client can tell copies apart.
+  uint64 id = 13;
+}
+
+message WatchExportRequest {}
+
+message WatchExportResponse {
+  repeated Stick sticks = 1;
+  Copy copy = 2;
+}
+
+// A recording to copy, as ListRecordings named it. The service finds it on
+// the drive itself; nothing here is used as a path.
+message RecordingRef {
+  string camera = 1;
+  string file_name = 2;
+  bool protected = 3;
+}
+
+message StartCopyRequest {
+  // Stick.device.
+  string device = 1;
+  repeated RecordingRef recordings = 2;
+  // Who asked ("dashboard"), for the log.
+  string source = 3;
+}
+
+message StartCopyResponse {
+  bool started = 1;
+  // Why not, in words for the screen.
+  string detail = 2;
+  uint64 id = 3;
+}
+
+message CancelCopyRequest {
+  string source = 1;
+}
+
+message CancelCopyResponse {
+  // False: no copy was running.
+  bool cancelling = 1;
+}

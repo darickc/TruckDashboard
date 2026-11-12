@@ -10,6 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "f250/power/v1/display.proto",
         "f250/nav/v1/position.proto",
         "f250/nav/v1/route.proto",
+        "f250/export/v1/export.proto",
     ];
     for f in files {
         println!("cargo:rerun-if-changed={root}/{f}");

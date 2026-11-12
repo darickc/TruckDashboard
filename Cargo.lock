@@ -1927,6 +1927,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
+name = "usb-export"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "f250-proto",
+ "f250-recording",
+ "f250-sd-notify",
+ "rustix",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+]
+
+[[package]]
 name = "utf8parse"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

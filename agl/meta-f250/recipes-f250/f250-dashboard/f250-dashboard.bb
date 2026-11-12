@@ -17,7 +17,7 @@ PUBSPEC_APPNAME = "f250_infotainment"
 # The same defines as `make deploy` (tools/dev/deploy.sh): live data from the
 # gateway's socket, the camera view from camera-manager's. The socket paths
 # are the units' RuntimeDirectory.
-APP_AOT_EXTRA:append = " -DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock -DCAMERAS=unix:/run/f250-camera/camera.sock -DPOWER=unix:/run/f250-power/power.sock -DNAV=unix:/run/f250-nav/nav.sock -DMAP_FILE=/var/lib/f250/storage/maps/map.pmtiles -DMAP_STATUS=/run/f250-maps/status.json"
+APP_AOT_EXTRA:append = " -DVEHICLE_SOURCE=gateway -DGATEWAY=unix:/run/f250/vehicle.sock -DCAMERAS=unix:/run/f250-camera/camera.sock -DPOWER=unix:/run/f250-power/power.sock -DNAV=unix:/run/f250-nav/nav.sock -DMAP_FILE=/var/lib/f250/storage/maps/map.pmtiles -DMAP_STATUS=/run/f250-maps/status.json -DEXPORT=unix:/run/f250-export/export.sock"
 
 # flutter-auto's settings for the bundle: background surface, 800x480,
 # fullscreen. Installed as <bundle>/config.toml by the class.

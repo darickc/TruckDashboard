@@ -1,0 +1,33 @@
+[package]
+name = "usb-export"
+version = "0.1.0"
+description = "Copies dashcam recordings to a USB stick for the dashboard, served as f250.export.v1 (ADR-0037)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "usb_export"
+path = "src/lib.rs"
+
+[[bin]]
+name = "usb-export"
+path = "src/main.rs"
+
+[dependencies]
+f250-proto = { path = "../../crates/proto" }
+f250-recording = { path = "../../crates/recording" }
+f250-sd-notify = { path = "../../crates/sd-notify", features = ["tokio"] }
+# A stick's free space (statvfs) and syncfs.
+rustix = { version = "1.1", features = ["fs"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal"] }
+tokio-stream = { version = "0.1", features = ["net", "sync"] }
+tonic = "0.14"
+clap = { version = "4", features = ["derive"] }
+
+[dev-dependencies]
+f250-recording = { path = "../../crates/recording" }
+
+[lints]
+workspace = true

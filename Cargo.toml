@@ -18,6 +18,7 @@ members = [
     "services/power-manager",
     "services/camera-manager",
     "services/navigation",
+    "services/usb-export",
     "tools/obd-console",
     "tools/can-monitor",
     "tools/pid-importer",

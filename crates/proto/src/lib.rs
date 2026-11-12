@@ -26,3 +26,9 @@ pub mod nav {
         tonic::include_proto!("f250.nav.v1");
     }
 }
+
+pub mod export {
+    pub mod v1 {
+        tonic::include_proto!("f250.export.v1");
+    }
+}

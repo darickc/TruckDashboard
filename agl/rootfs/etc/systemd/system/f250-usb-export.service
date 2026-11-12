@@ -1,0 +1,80 @@
+# Copies dashcam recordings to a USB stick for the dashboard (ADR-0037).
+# Serves f250.export.v1 on /run/f250-export/export.sock; the dashboard lists
+# the recordings, chooses and shows progress through it, and never touches a
+# stick itself (CLAUDE.md rule 5).
+#
+# It looks for USB sticks every 2 s (sysfs and udev's database), mounts a new
+# one read-only for a moment to read its free space and to see whether it is
+# a map stick (f250/map.pmtiles or f250/routing.tar: left to
+# f250-map-import@, ADR-0033), and mounts an export stick read-write only
+# while copying, then syncs and unmounts it. Mounts are in this unit's own
+# namespace (PrivateMounts), under its runtime directory: nothing else sees
+# the stick mounted. Copy only: the recordings are read through group f250
+# (camera-manager writes them agl-driver:f250, 0660) and never changed.
+#
+# User root for mount(2) (CAP_SYS_ADMIN, the only capability kept; the
+# exFAT module is loaded by ExecStartPre, outside the sandbox); group f250 so the socket (UMask 0007) is open
+# to the dashboard (agl-driver is in f250) and the recordings are readable
+# without CAP_DAC_OVERRIDE. Writes nowhere but its runtime directory and the
+# stick. Nothing here touches the vehicle bus (ADR-0007).
+#
+# Status: [SIM] (make agl-test, cargo tests with a directory for a stick).
+# Not yet run on the Pi with a stick; see ADR-0037 and bench check 19 in
+# docs/setup/agl.md.
+[Unit]
+Description=F-250 recordings to a USB stick
+After=var-lib-f250-storage.mount systemd-udevd.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=root
+Group=f250
+# The exFAT driver is a module in the 22.0.1 image (as for the map import).
+ExecStartPre=-+modprobe -qa exfat vfat
+ExecStart=/opt/f250/bin/usb-export --listen unix:/run/f250-export/export.sock
+Restart=on-failure
+RestartSec=2
+# A copy in progress is cancelled at stop: the partial file is removed and
+# the stick synced and unmounted (usb-export waits 2 s for that).
+TimeoutStopSec=10
+UMask=0007
+RuntimeDirectory=f250-export
+RuntimeDirectoryMode=0750
+# Below camera-manager's recording, which must never wait on a copy.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+# Sandbox (ADR-0021), like map-import's: it mounts, so CAP_SYS_ADMIN and
+# @mount, in a private mount namespace; only block devices of the sd kind
+# (USB sticks); no network.
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_SYS_ADMIN
+PrivateMounts=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+DevicePolicy=closed
+DeviceAllow=block-sd rw
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @mount
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target
