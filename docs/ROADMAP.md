@@ -325,7 +325,21 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       street, only the town or a place. The Nav screen: Search, an on-screen keyboard, results, Show and Route here. No typing
       lockout (owner, 2026-11-12): a "type only when parked" warning while moving. Kansas 37 MB, the lower 48 4.9 GB
       (1–75 ms a search on the Mac). Not yet on the Pi (bench check 20).
-      Next: 6.5.4's docs; bench check 18 with a stick and the NVMe; bench check 20 (search on the Pi)
+      6.5.2 (saved places and spoken directions) `[SIM]` ([ADR-0040](architecture/adr/0040-saved-places-and-spoken-directions.md)):
+      navigation keeps Home, up to 50 named favourites and the 10 latest destinations in `places.json` on the data drive (the
+      SD card, saying so, while a drive is expected but not mounted), written atomically; a corrupt file is kept aside as
+      `.bad` and reported, never fatal. `f250.nav.v1.PlacesService`; `SetDestination` names its destination and adds a recent
+      one. The Nav screen: Places (Route here in one tap, Edit → Delete in two), Save on a pin, a search result and the route,
+      names typed on the on-screen keyboard (the moving warning, no lockout). Spoken directions: a pure prompter on the
+      guide's state speaks Valhalla's own verbal instructions (approaching, at the maneuver, continue, rerouting, arrival)
+      with distances composed in miles or metric at example distances, only from a current fix; mute on the route's
+      buttons, kept across restarts (`SetVoice`). Speech goes through a `Speaker` trait: the journal by default, or a
+      program (`make sim VOICE=say` on the Mac). Tests: storage (corruption, limits, atomic write, read-only), every prompt
+      transition, end to end over gRPC, widget tests at 800×480 with and without an alert. Ran against the real Valhalla on
+      the Mac. **Not on the Pi, and not audible there:** the image has no audio stack and the service's sandbox no sound
+      devices; Flite (in AGL's layers, BSD, ~2.8 MB) is the candidate engine, wired through audio-manager (ADR-0039) later.
+      Next: 6.5.4's docs; bench check 18 with a stick and the NVMe; bench check 20 (search on the Pi); bench check 21 (places
+      and the voice on the Pi); a voice through audio-manager
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and
       invalid reverse, the latched choice, moves during reverse, the optional speed limit, missing cameras).

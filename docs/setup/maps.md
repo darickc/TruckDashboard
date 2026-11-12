@@ -187,9 +187,10 @@ current fix, or if the navigation service stops answering, guidance pauses:
 the line turns grey and no distances are shown. Those limits are examples
 in `/etc/default/f250` and `navigation --help`.
 
-To route to an address or a place, use **Search** ([below](#search)). There
-is no voice and no arrival time by the clock (the Pi has no clock source in
-the truck).
+To route to an address or a place, use **Search** ([below](#search)), or a
+saved place ([Places](#saved-places)). There is no arrival time by the clock
+(the Pi has no clock source in the truck). Directions are spoken
+([below](#spoken-directions)).
 
 ### Routing data
 
@@ -331,6 +332,56 @@ The import puts it at `/var/lib/f250/storage/search/search.sqlite`
 (`NAV_SEARCH_INDEX`), and navigation opens it at the next search: no restart.
 Until then the panel says "Search unavailable: no search data at …". Bench
 check 20 in [agl.md](agl.md).
+
+## Saved places
+
+**Places** (bottom left, when there's no route) lists Home, the favourites
+and the recent destinations ([ADR-0040](../architecture/adr/0040-saved-places-and-spoken-directions.md)).
+Each has **Route here** (one tap) and **Edit** (rename, delete, or make a
+recent one a favourite or Home). To save a place, tap **Save** on a pin
+(long-press the map, or **Show** from search), the star on a search result,
+or the star with the route. A favourite needs a name, typed on the on-screen
+keyboard; typing while moving works, with a warning.
+
+| | |
+|---|---|
+| Home | One; saving another replaces it |
+| Favourites | At most 50, named (40 characters) |
+| Recent | Every destination routed to, newest first, the last 10; one within 50 m of another replaces it |
+
+navigation keeps them in `places.json`, written atomically:
+
+| Where | When |
+|---|---|
+| `/var/lib/f250/storage/navigation/` | the data drive with `DATA_DRIVE=1`; the SD card with `DATA_DRIVE=0` |
+| `/var/lib/f250-nav/` | `DATA_DRIVE=1` but nothing mounted there at start: the panel says so, and places saved then stay on the card |
+| `/tmp/f250/navigation/` | `make navigation` and `make sim` on the Mac (`NAV_STATE=`) |
+
+A file that can't be read as places is renamed `places.json.bad` and a new
+list starts; the panel says so at the top. The file is plain JSON, readable
+on the drive.
+
+## Spoken directions
+
+navigation speaks the next turn from Valhalla's own words: "In half a mile,
+turn right onto US 36." as it approaches, "Turn right onto US 36, US 281."
+just before, "Continue for 12 miles." after a turn with a long way to the
+next, "Off the route. Finding a new one." and "New route." when rerouting,
+and the arrival. **Nothing is said without a current position**, and a turn
+passed while the fix was stale isn't announced late.
+
+When, by default (examples to tune on the truck, `navigation --help`): the
+approaching prompt 30 s ahead at the current speed (between 400 m and
+2.5 km), the last one 8 s ahead (50–300 m). Distances in miles and feet;
+`NAV_VOICE_UNITS=metric` for metres.
+
+The route's buttons have the mute toggle: **Voice**, **Muted**, or **No
+audio** when the prompts only reach the log. Muting is kept across restarts.
+
+| Where prompts go | |
+|---|---|
+| The Mac | navigation's log; `make sim VOICE=say` (or `make navigation VOICE=say`) speaks them with macOS's voice |
+| The Pi | **the journal only, for now** (`journalctl -u f250-navigation`): the image has no speech engine or audio stack, and audio comes with audio-manager (ADR-0039). Flite is the candidate engine (ADR-0040) |
 
 ## GPS
 

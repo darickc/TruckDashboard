@@ -78,7 +78,7 @@ flowchart LR
     REC[recorder<br/>SQLite]
     PWR[power-manager]
     CAM[camera-manager]
-    NAV[navigation<br/>gpsd client · Valhalla · search]
+    NAV[navigation<br/>gpsd client · Valhalla · search · places · voice]
     AUD[audio-manager]
     UI[Flutter UI<br/>800×480]
   end
@@ -139,7 +139,7 @@ x86_64 PC. See
 | [`apps/infotainment/`](apps/infotainment/README.md) | Flutter touchscreen UI |
 | [`simulator/powerstroke/`](simulator/powerstroke/README.md) | Scenario simulator and scenario files |
 | `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto`, `sd-notify` (systemd readiness and watchdog), `camera-policy` (which camera shows), `recording` (dashcam retention and saved clips), `daylight` (the sun, day/night and brightness), `clock-sync` (is the clock trustworthy), `gpsd` (gpsd's reports and an honest position tracker), `geocode` (the offline search index and its ranking) |
-| `services/` | `vehicle-gateway`, `recorder`, `power-manager` (power key, camera switch, day/night and the backlight, `f250.power.v1`), `camera-manager` (the camera on screen, front and rear recording, `f250.camera.v1`), `navigation` (the position from gpsd, routes from Valhalla and offline address search, `f250.nav.v1`), `usb-export` (dashcam recordings to a USB stick, `f250.export.v1`) |
+| `services/` | `vehicle-gateway`, `recorder`, `power-manager` (power key, camera switch, day/night and the backlight, `f250.power.v1`), `camera-manager` (the camera on screen, front and rear recording, `f250.camera.v1`), `navigation` (the position from gpsd, routes from Valhalla, offline address search, saved places and spoken directions, `f250.nav.v1`), `usb-export` (dashcam recordings to a USB stick, `f250.export.v1`) |
 | `tools/obd-console/` | Diagnostics console for the gateway |
 | `tools/pid-importer/` | The Torque PID export against the signal registry: candidates, rejections, drift check |
 | `tools/search-index/` | Builds navigation's offline address search index from OpenStreetMap extracts (`make search-region`) |

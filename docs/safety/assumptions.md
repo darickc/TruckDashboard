@@ -60,5 +60,9 @@ These steps need a person to inspect and sign off in
   truck is moving (above 8 km/h / 5 mph by a current vehicle speed, else a
   current GPS speed; an example value) the search panel says "The truck is
   moving: type only when parked" ([ADR-0038](../architecture/adr/0038-offline-address-search.md)).
+  Naming a saved place works the same way ([ADR-0040](../architecture/adr/0040-saved-places-and-spoken-directions.md)).
+- Spoken directions are made only from a current position: a stale fix is
+  silent, and a turn passed while stale is never announced late
+  (ADR-0040). They can be muted from the route's buttons.
 - Critical alerts are visible on every screen. Nothing else interrupts the
   driver.
