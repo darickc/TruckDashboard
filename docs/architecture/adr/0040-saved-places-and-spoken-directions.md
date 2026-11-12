@@ -155,10 +155,10 @@ who reads miles.
     | Piper | **No recipe**, and no `onnxruntime` recipe (only a ROS vendor package in meta-ros). The original repository was archived on 2025-10-06; development moved to OHF-Voice/piper1-gpl, GPL-3.0, which embeds espeak-ng and needs ONNX Runtime and a voice model of tens of MB | GPL-3.0 (now) | Unmeasured; a large runtime | C (web sources disagree on -only vs -or-later) |
 
     Flite needs no new layer, is BSD-licensed, is small, and AGL already uses
-    it for the same job. Its voice is plainer than Piper's. Choosing it, and
-    packaging it into `agl-f250`, waits for decision 15: until something can
-    play audio for navigation, a speech engine in the image would speak to
-    nothing.
+    it for the same job. Its voice is plainer than Piper's. *Taken up by
+    audio-manager (2026-11-12, ADR-0039 decision 9 as amended, its branch):
+    its `speak-prompt` runs Flite 1.06 with the slt voice and plays the
+    result, and `flite` joins `agl-f250-base.inc` there.*
 15. **What's left to connect** (with audio-manager, ADR-0039):
     - the image has **no audio userspace at all** today: the `agl-f250`
       manifest of 2026-11-12 has no PipeWire, WirePlumber or ALSA utilities
@@ -205,6 +205,24 @@ who reads miles.
     (cutting off an older one) and `stop` cancels it, and audio-manager does
     pause → speak → resume in one place. navigation's sandbox then stays
     without audio access.
+
+    **How audio-manager does it** (2026-11-12, its branch
+    `claude/audio-manager-ed81f3`, [SIM]; ADR-0039 decision 9 as amended):
+    `f250.audio.v1` gains `Speak{text, source}` (returns at once, a newer
+    prompt cuts off an older one, refused with a reason without a voice or
+    text) and `StopSpeaking{source}`, and `WatchAudio` reports
+    `prompts{available, speaking, music_paused, detail}`. The prompt plays
+    with `media.role = "Speech-High"`, which AGL's policy already lets cork
+    Multimedia, so no AGL configuration changes; AVRCP Pause and Play as
+    above, with the hold in `AUDIO_PROMPT_HOLD_MS` (3 s, an example).
+17. **What's left in navigation** once both branches are merged: an
+    `AudioManagerSpeaker` (`speak` → `Speak`, spawned so the guide's loop
+    never waits; `stop` → `StopSpeaking`; `status` from `WatchAudio`'s
+    `prompts`, not audible while audio-manager isn't connected), chosen in
+    `main.rs` by an `--audio-manager` endpoint (`unix:/run/f250-audio/audio.sock`
+    on the Pi, `tcp:127.0.0.1:50254` under `make sim`). The service needs
+    only that socket: it is in group f250 and its sandbox already allows
+    `AF_UNIX`. Then bench check 22 can hear a prompt.
 
 ## Consequences
 
