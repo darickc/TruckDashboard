@@ -49,5 +49,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0038](0038-offline-address-search.md) | Offline address search: a SQLite FTS5 index of OSM addresses, streets, towns and places, on the map stick, served by navigation (`SearchService`) | Accepted ([SIM] only; not on the Pi) |
 | [0039](0039-audio-manager.md) | audio-manager: Bluetooth A2DP sink and AVRCP through BlueZ and PipeWire, a pairing window opened from the dashboard with the code confirmed on screen, and the speakers' filter-chain as its own PipeWire client (`f250.audio.v1`) | Proposed ([SIM] only; not on the Pi) |
 | [0040](0040-saved-places-and-spoken-directions.md) | Saved places (Home, favourites, recents) and spoken directions from Valhalla's words, in navigation (`PlacesService`, `SetVoice`); Flite the Pi's candidate engine; audio through audio-manager (ADR-0039) | Accepted ([SIM] only; not on the Pi, never heard there) |
+| [0041](0041-us-census-address-ranges.md) | US Census TIGER/Line address ranges (ADDRFEAT 2026) in the search index: a house number OSM lacks is estimated along its street and labelled ESTIMATED | Accepted ([SIM] only; not on the Pi) |
 
 New ADRs use the next number and the same headings.

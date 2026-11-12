@@ -63,8 +63,9 @@ web search on 2026-11-12. They are listed with their status in the
      the addresses that carry it as `addr:postcode` (30,468 in the lower 48,
      OSM 2026-11-11). OSM streets don't carry ZIP codes; addresses often do.
    - The file says what it is: `PRAGMA application_id` "F250" and
-     `user_version` 3 (2 since `place.state`, 3 since `postcodes`, both
-     2026-11-12; older files are refused). The search refuses anything else.
+     `user_version` 4 (2 since `place.state`, 3 since `postcodes`, 4 since
+     the US Census address ranges of [ADR-0041](0041-us-census-address-ranges.md),
+     all 2026-11-12; older files are refused). The search refuses anything else.
 2. **It comes on the map stick** as `f250/search.sqlite`, with its checksum,
    next to the map and the routing data (`make map-stick SEARCH=...`). The
    import checks it (checksum, SQLite header, application id) and swaps it in
@@ -124,12 +125,15 @@ web search on 2026-11-12. They are listed with their status in the
   is unmeasured.**
 - A US-sized index, routing data and map don't fit one 29 GB stick together;
   the import takes any subset.
-- No fuzzy matching (a misspelt word finds nothing), no house-number
-  interpolation along a street (OSM has few `addr:interpolation` lines; the
-  ranges openstreetmap.org's own search shows for rural US addresses come from
-  the US Census Bureau's TIGER data that Nominatim adds, not from OSM: an
-  address it finds can be missing here, bench-log 2026-11-12), no places mapped only as relations, no saved
-  places and no recent searches. Each is a later piece.
+- No fuzzy matching (a misspelt word finds nothing), no places mapped only
+  as relations, no saved places and no recent searches. Each is a later
+  piece. House numbers OSM lacks: the ranges openstreetmap.org's own search
+  shows for rural US addresses come from the US Census Bureau's TIGER data
+  that Nominatim adds, not from OSM (bench-log 2026-11-12). **Amended
+  2026-11-12:** the index now carries those ranges too and estimates the
+  number along its street, labelled ESTIMATED
+  ([ADR-0041](0041-us-census-address-ranges.md)). OSM's own
+  `addr:interpolation` lines are still not read.
 - Same-named towns in a state are told apart only by distance.
 - OSM data is ODbL. The footer names OpenStreetMap; the map's attribution is
   on screen as before.

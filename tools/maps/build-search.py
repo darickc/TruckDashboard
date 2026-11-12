@@ -24,9 +24,10 @@
   build-search.py --pbf my-extract.osm.pbf --name "My region"
   build-search.py --pbf my-extract.osm.pbf --tiger-states KS,NE
 
-Needs curl and cargo (and osmium for --bbox). Kansas builds in about 2 s into
-35 MB; the lower 48 in about 8 min into 4.9 GB, with 10 GB of memory at its
-peak [BENCH, 2026-11-12, M-series Mac].
+Needs curl and cargo (and osmium for --bbox). Kansas builds in about 3 s into
+63 MB with the Census ranges (37 MB without); the lower 48 in about 7 min into
+5.2 GB without them, about 10 min and 7 GB with 85 % of them, with 17.5 GB of
+memory at its peak either way [SIM, 2026-11-12, M-series Mac, ADR-0041].
 
 `make map-stick SEARCH=build/search/search.sqlite` puts it on the map stick.
 """
