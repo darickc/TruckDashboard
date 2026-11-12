@@ -115,6 +115,13 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
      audio-manager's start with several connected, the last phone is kept
      (else the one with the player). The list shows every paired phone,
      whatever its state.
+   - **Disconnect and Delete** (amended 2026-11-12, owner), in each row.
+     `DisconnectPhone` disconnects the connected phone; it stays paired and
+     the last phone, but audio-manager doesn't reconnect it by itself until
+     it connects again (in memory: after a restart it does). `ForgetPhone`
+     removes the pairing (`Adapter1.RemoveDevice`), disconnecting it first;
+     a forgotten last phone is no longer remembered or tried. Delete asks
+     again in the row ("Delete …? Pair it again to use it.": Delete / Keep).
    - `ConnectPhone(address)` returns at once; `WatchAudioResponse.connect`
      says what is being tried and how the last attempt went ("Couldn't
      connect to Pixel 8: …"). **One phone at a time:** any other connected
@@ -301,8 +308,7 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
 - Album art (AVRCP 1.6 cover art over OBEX): not done.
 - Several phones connected at once: not offered; one phone at a time
   (decision 3a). A preferred phone other than the last one: not decided.
-- Forgetting a paired phone from the screen: not done (`bluetoothctl
-  remove` on the Pi).
+
 
 ## To verify on the Pi (bench check 21)
 

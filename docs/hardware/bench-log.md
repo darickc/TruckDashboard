@@ -2349,3 +2349,16 @@ On the Pi after the import: the same query 8 results in 70 ms, ranked from
 the ZIP code: the right street first, 6.1 km from the middle of its ZIP code,
 marked "no such number". The ZIP code alone: its area (408 addresses).
 "main st <ZIP>": that town's Main Street first.
+
+## 2026-11-12 — Disconnect and Delete on Phones (ADR-0039 amended) [BENCH]
+
+`make deploy` of the working tree (committed next). On the panel: the
+connected phone's row has Disconnect and a delete icon, the other's Connect
+and the icon, all 60 px. "Disconnect" was cut to "Disconn…" at 150 px; widened
+(the pairing column narrowed to 270 px) and seen whole. Delete on the
+not-connected phone asked again in its row ("Delete …? Pair it again to use
+it.", Delete / Keep); the question first ran to "Dele…"; reflowed into two
+lines and seen. Keep left both phones paired (`bluetoothctl devices Paired`:
+2). Disconnect and Delete themselves weren't tapped on the owner's phones:
+end-to-end tests with the simulated phone only ([SIM]); `Adapter1.RemoveDevice`
+is UNVERIFIED on the Pi.
