@@ -51,7 +51,9 @@ image (manifest and layer sources, 2026-11-06):
    snapshot runs only on the engine it was built for.
 6. **The dashboard's Power button** keeps its contract (exit status 42):
    the unit treats 42 as success, and `ExecStopPost` (as root) powers off
-   only on that status.
+   only on that status. Amended by [ADR-0034](0034-home-buttons-and-back.md):
+   Power is on the Settings screen, beside Restart, whose exit status 43 the
+   unit also treats as success and `ExecStopPost` turns into a reboot.
 
 ## Consequences
 

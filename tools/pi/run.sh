@@ -19,9 +19,10 @@
 # Each run gets its own directory under $DATA_DIR (default ~/f250-data) with
 # the recorder database, the adapter traffic log and every process's log.
 #
-# In the kiosk (cage on the Pi's screen) the dashboard has a Power button. The
-# app then exits with POWER_OFF_EXIT; this script stops the recorder and the
-# gateway as usual, then powers the Pi off. It is offered only when logind says
+# In the kiosk (cage on the Pi's screen) the dashboard's Settings screen has
+# Power and Restart. The app then exits with POWER_OFF_EXIT or RESTART_EXIT;
+# this script stops the recorder and the gateway as usual, then powers the Pi
+# off or reboots it. They are offered only when logind says
 # this session may power off without a password (CanPowerOff = yes: polkit's
 # default for the active session on a seat, i.e. the user at the screen).
 set -euo pipefail
@@ -49,8 +50,9 @@ for bin in "$GW_BIN" "$REC_BIN"; do
   [[ -x "$bin" ]] || { echo "$bin not found: run 'make pi-build' first"; exit 1; }
 done
 [[ "$UI" == 0 || -x "$APP_BIN" ]] || { echo "app bundle not found: run 'make pi-build' first"; exit 1; }
-# apps/infotainment/lib/core/power.dart: powerOffExitCode.
+# apps/infotainment/lib/core/power.dart: powerOffExitCode, restartExitCode.
 POWER_OFF_EXIT=42
+RESTART_EXIT=43
 # The gateway replaces a stale socket, which would cut off one still running.
 if pgrep -x vehicle-gateway >/dev/null; then
   echo "A vehicle-gateway is already running (pid $(pgrep -x vehicle-gateway | tr '\n' ' ')). Stop it first."
@@ -243,6 +245,13 @@ if [[ ${#APP_CMD[@]} -gt 0 ]]; then
     cleanup
     sync
     exec systemctl poweroff
+  fi
+  if [[ "$POWER_OFF" == 1 && "$app_status" == "$RESTART_EXIT" ]]; then
+    echo "restart: requested from the dashboard" | tee -a "$SESSION/session.txt"
+    trap - EXIT
+    cleanup
+    sync
+    exec systemctl reboot
   fi
   exit "$app_status"
 else

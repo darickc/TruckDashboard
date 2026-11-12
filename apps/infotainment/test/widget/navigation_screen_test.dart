@@ -74,7 +74,7 @@ void main() {
 
   testWidgets('the simulated receiver: a current 3D fix, labelled simulated', (tester) async {
     final h = await Harness.start(tester);
-    await h.goTo(AppTab.navigation);
+    await h.goTo(AppScreen.navigation);
     expect(
       textOf('nav-status'),
       allOf(contains('3D FIX'), contains('SIMULATED'), contains('9 SATS')),
@@ -87,7 +87,7 @@ void main() {
 
   testWidgets('a fix that stops updating becomes "last known", with its age', (tester) async {
     final h = await Harness.start(tester);
-    await h.goTo(AppTab.navigation);
+    await h.goTo(AppScreen.navigation);
     expect(find.byKey(const ValueKey('nav-marker-current')), findsOneWidget);
     // No step: the simulated receiver says nothing for 4 s.
     h.clock.advance(const Duration(seconds: 4));
@@ -116,7 +116,7 @@ void main() {
       ),
     );
     final h = await Harness.start(tester, position: src);
-    await h.goTo(AppTab.navigation);
+    await h.goTo(AppScreen.navigation);
     expect(textOf('nav-status'), contains('LAST KNOWN · 20 S AGO'));
     expect(textOf('nav-why'), 'No GPS fix yet (needs a view of the sky)');
     expect(find.byKey(const ValueKey('nav-marker-stale')), findsOneWidget);
@@ -129,7 +129,7 @@ void main() {
       const PositionState(link: PositionLink.lost, detail: 'connection refused'),
     );
     final h = await Harness.start(tester, position: src);
-    await h.goTo(AppTab.navigation);
+    await h.goTo(AppScreen.navigation);
     expect(textOf('nav-status'), contains('NO POSITION'));
     expect(textOf('nav-why'), 'Navigation service unavailable: connection refused');
     expect(find.byKey(const ValueKey('nav-marker-current')), findsNothing);
@@ -143,7 +143,7 @@ void main() {
       PositionState(link: PositionLink.connected, report: report(clock.now())),
     );
     final h = await Harness.start(tester, position: src);
-    await h.goTo(AppTab.navigation);
+    await h.goTo(AppScreen.navigation);
     expect(find.byKey(const ValueKey('nav-marker-current')), findsOneWidget);
     src.value = PositionState(
       link: PositionLink.lost,
@@ -164,7 +164,7 @@ void main() {
     );
     await map.load();
     final h = await Harness.start(tester, map: map);
-    await h.goTo(AppTab.navigation);
+    await h.goTo(AppScreen.navigation);
     expect(textOf('nav-map-problem'), contains('AVIF tiles can\'t be decoded'));
     expect(textOf('nav-map-problem'), contains('The position is still shown'));
   });
@@ -175,7 +175,7 @@ void main() {
       await tester.runAsync(map.load);
       expect(map.state.value, isA<MapReady>());
       final h = await Harness.start(tester, map: map, theme: theme);
-      await h.goTo(AppTab.navigation);
+      await h.goTo(AppScreen.navigation);
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
       await tester.pump();
       expect(find.byKey(const ValueKey('nav-map-problem')), findsNothing);
@@ -191,7 +191,7 @@ void main() {
       expect((map.state.value as MapReady).vector, isNotNull);
       // The fixture covers Lebanon, Kansas; the simulated fix is beside it.
       final h = await Harness.start(tester, map: map, theme: theme);
-      await h.goTo(AppTab.navigation);
+      await h.goTo(AppScreen.navigation);
       for (var i = 0; i < 20; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
         await tester.pump(const Duration(milliseconds: 100));
@@ -219,7 +219,7 @@ void main() {
     });
   }
 
-  testWidgets('a map stick shows its progress on every tab, and the result on Nav (ADR-0033)',
+  testWidgets('a map stick shows its progress on every screen, and the result on Nav (ADR-0033)',
       (tester) async {
     final answers = <String>[
       '{"state":"copying","percent":43,"message":"","id":"n","device":"/dev/sda1","at":"2026-11-11T12:00:00Z"}',
@@ -236,8 +236,8 @@ void main() {
     await tester.runAsync(map.checkUpdate);
     final h = await Harness.start(tester, map: map);
     await tester.pump();
-    expect(textOf('map-update-chip'), 'MAP 43%', reason: 'in the status bar on the Home tab');
-    await h.goTo(AppTab.navigation);
+    expect(textOf('map-update-chip'), 'MAP 43%', reason: 'in the status bar on the Home screen');
+    await h.goTo(AppScreen.navigation);
     expect(textOf('nav-map-update'), 'Copying the map from USB: 43%. Leave the stick in.');
     await tester.runAsync(map.checkUpdate);
     await tester.pump();
@@ -248,7 +248,7 @@ void main() {
 
   testWidgets('dragging stops following; the locate button follows again', (tester) async {
     final h = await Harness.start(tester);
-    await h.goTo(AppTab.navigation);
+    await h.goTo(AppScreen.navigation);
     Semantics follow() => tester.widget<Semantics>(
       find
           .descendant(

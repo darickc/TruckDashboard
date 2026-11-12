@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../harness.dart';
 
 Future<void> _openDeveloper(WidgetTester tester, Harness h) async {
-  await h.goTo(AppTab.diagnostics);
+  await h.goTo(AppScreen.diagnostics);
   await tester.tap(find.byKey(const ValueKey('diag-developer')));
   await tester.pump();
   await tester.scrollUntilVisible(find.byKey(const ValueKey('speed-scale-+1%')), 80,
@@ -51,9 +51,12 @@ void main() {
     expect(h.textOf('diag-source-rpm'), 'SAE');
   });
 
-  testWidgets('speed is back on the Home summary', (tester) async {
+  testWidgets('speed is on the towing gauges', (tester) async {
     final h = await Harness.start(tester);
     await h.advance(const Duration(seconds: 120));
-    expect(h.textOf('compact-speed'), matches(RegExp(r'^\d+ mph$')));
+    await h.goTo(AppScreen.gauges);
+    await tester.tap(find.byKey(const ValueKey('profile-towing')));
+    await tester.pump();
+    expect(h.textOf('value-speed'), matches(RegExp(r'^\d+$')));
   });
 }

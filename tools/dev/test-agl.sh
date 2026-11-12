@@ -489,9 +489,14 @@ SB="$T/sbin"; mkdir -p "$SB"
 printf '#!/bin/sh\necho "systemctl $*" >>"%s/poweroff.log"\n' "$T" >"$SB/systemctl"; chmod +x "$SB/systemctl"
 env -i PATH="$SB:$PATH" EXIT_CODE=exited EXIT_STATUS=1 bash "$STOPPED" >/dev/null
 env -i PATH="$SB:$PATH" EXIT_CODE=killed EXIT_STATUS=TERM bash "$STOPPED" >/dev/null
-check "no power off on a crash or stop" "[[ ! -e '$T/poweroff.log' ]]"
+env -i PATH="$SB:$PATH" EXIT_CODE=exited EXIT_STATUS=0 bash "$STOPPED" >/dev/null
+env -i PATH="$SB:$PATH" EXIT_CODE=killed EXIT_STATUS=42 bash "$STOPPED" >/dev/null
+check "no power off or reboot on a crash or stop" "[[ ! -e '$T/poweroff.log' ]]"
 env -i PATH="$SB:$PATH" EXIT_CODE=exited EXIT_STATUS=42 bash "$STOPPED" >/dev/null
-check "power off on exit 42"  "has_line '$T/poweroff.log' 'systemctl poweroff --no-block'"
+check "power off on exit 42"  "has_line '$T/poweroff.log' 'systemctl poweroff --no-block' && ! grep -q reboot '$T/poweroff.log'"
+rm -f "$T/poweroff.log"
+env -i PATH="$SB:$PATH" EXIT_CODE=exited EXIT_STATUS=43 bash "$STOPPED" >/dev/null
+check "reboot on exit 43"     "has_line '$T/poweroff.log' 'systemctl reboot --no-block' && ! grep -q poweroff '$T/poweroff.log'"
 
 echo "power-manager-stopped"
 PMSTOPPED=agl/rootfs/opt/f250/libexec/power-manager-stopped
@@ -506,7 +511,7 @@ check "power-manager: power off on exit 42" "has_line '$T/poweroff.log' 'systemc
 check "power-manager: exit code matches the service" "grep -q 'pub const POWER_OFF_EXIT: u8 = 42;' services/power-manager/src/lib.rs"
 
 echo "units"
-check "dashboard treats 42 as success" "grep -qx 'SuccessExitStatus=42' agl/rootfs/etc/systemd/system/f250-dashboard.service"
+check "dashboard treats 42 and 43 as success" "grep -qx 'SuccessExitStatus=42 43' agl/rootfs/etc/systemd/system/f250-dashboard.service"
 check "dashboard is bound to the compositor" "grep -qx 'BindsTo=agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard.service && grep -qx 'PartOf=agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard.service"
 check "dashboard starts with the compositor" "grep -qx 'WantedBy=graphical.target agl-compositor.service' agl/rootfs/etc/systemd/system/f250-dashboard.service"
 check "dashboard never restarts alone" "! grep -q '^Restart=' agl/rootfs/etc/systemd/system/f250-dashboard.service"
@@ -516,7 +521,8 @@ check "compositor restarts after a crash" "grep -qx 'Restart=on-failure' agl/roo
 check "journal mount: SD card to the journal's place" "grep -qx 'What=/var/lib/journal' agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount && grep -qx 'Where=/var/volatile/log/journal' agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount && grep -qx 'Before=systemd-journal-flush.service' agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount"
 check "journal mount unit name matches Where=" "[[ \"\$(basename agl/rootfs/etc/systemd/system/var-volatile-log-journal.mount)\" == var-volatile-log-journal.mount ]] && grep -q '^JOURNAL_WHERE=/var/volatile/log/journal$' '$SETUP'"
 check "journal is persistent and capped" "grep -qx 'Storage=persistent' agl/rootfs/etc/systemd/journald.conf.d/50-f250.conf && grep -qx 'SystemMaxUse=50M' agl/rootfs/etc/systemd/journald.conf.d/50-f250.conf"
-check "power-off code matches the app" "grep -q 'const powerOffExitCode = 42;' apps/infotainment/lib/core/power.dart"
+check "power-off code matches the app" "grep -q 'const powerOffExitCode = 42;' apps/infotainment/lib/core/power.dart && grep -qx 'POWER_OFF_EXIT=42' '$STOPPED' && grep -qx 'POWER_OFF_EXIT=42' tools/pi/run.sh"
+check "restart code matches the app" "grep -q 'const restartExitCode = 43;' apps/infotainment/lib/core/power.dart && grep -qx 'RESTART_EXIT=43' '$STOPPED' && grep -qx 'RESTART_EXIT=43' tools/pi/run.sh"
 check "socket path matches the build"  "grep -q 'SOCK=/run/f250/vehicle.sock' tools/dev/deploy.sh && grep -q 'F250_SOCK:-/run/f250/vehicle.sock' '$REC' && grep -q 'F250_SOCK:-/run/f250/vehicle.sock' '$GW'"
 check "recorder starts via its wrapper" "grep -qx 'ExecStart=/opt/f250/libexec/recorder-start' agl/rootfs/etc/systemd/system/f250-recorder.service"
 check "services ordered after the drive" "grep -qx 'After=var-lib-f250-storage.mount' agl/rootfs/etc/systemd/system/f250-recorder.service && grep -qx 'After=var-lib-f250-storage.mount' agl/rootfs/etc/systemd/system/f250-gateway.service"

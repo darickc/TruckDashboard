@@ -87,7 +87,7 @@ flowchart TB
 | `services/vehicle-gateway` | Rust | 3–4 | Transports (simulated, SocketCAN, OBDLink), scheduler, recovery, health, API |
 | `services/recorder` | Rust | 3 | Telemetry and event persistence, retention, export |
 | `services/power-manager` | Rust | 6 | Power state machine, GPIO ownership, backlight, day/night (ADR-0028; serves `f250.power.v1`). Not the amplifier remote, which is on ACC (ADR-0014) |
-| `services/camera-manager` | Rust | 6 | Camera selection policy, capture pipelines, front and rear recording, camera assignment from the Settings tab (ADR-0026, ADR-0027, ADR-0029) |
+| `services/camera-manager` | Rust | 6 | Camera selection policy, capture pipelines, front and rear recording, camera assignment from the Settings screen (ADR-0026, ADR-0027, ADR-0029) |
 | `services/audio-manager` | Rust | 6 | Pairing window, A2DP sink policy, AVRCP, volume limits |
 | navigation backend | Rust (`services/navigation`) + Valhalla | 6 | Position from gpsd (6.4, [ADR-0030](adr/0030-navigation-position-and-raster-map.md), [SIM]); routing (ADR-010) |
 | `apps/infotainment` | Flutter 3.38.3 | 2 | The 800×480 UI, using simulated data first |

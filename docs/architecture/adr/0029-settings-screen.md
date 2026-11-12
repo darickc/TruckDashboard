@@ -10,6 +10,10 @@
   will, comes later"), [ADR-0026](0026-camera-manager-interfaces.md),
   [ADR-0028](0028-day-night-and-backlight.md)
 
+> **Amended by [ADR-0034](0034-home-buttons-and-back.md) (2026-11-11):** there
+> are no tabs any more. Settings is a screen opened from Home, with Back at
+> its top left, and Power and Restart at the right of its section buttons.
+
 ## Context
 
 The driver's settings were scattered: day/night and units under

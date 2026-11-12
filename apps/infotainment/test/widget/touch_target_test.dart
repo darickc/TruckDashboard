@@ -30,26 +30,35 @@ void main() {
   testWidgets('every tappable is at least 60×60 on every screen', (tester) async {
     final h = await Harness.start(tester);
     await h.advance(const Duration(seconds: 5));
-    for (final tab in AppTab.values) {
-      await h.goTo(tab);
-      expectAllTargetsLargeEnough(tester, tab.name);
+    for (final screen in AppScreen.values) {
+      await h.goTo(screen);
+      expectAllTargetsLargeEnough(tester, screen.name);
     }
     for (final section in ['signals', 'link', 'dtcs', 'events', 'developer']) {
-      await h.goTo(AppTab.diagnostics);
+      await h.goTo(AppScreen.diagnostics);
       await tester.tap(find.byKey(ValueKey('diag-$section')));
       await tester.pump();
       expectAllTargetsLargeEnough(tester, 'diagnostics/$section');
     }
   });
 
-  testWidgets('the power button and the shutdown question are 60×60 too', (tester) async {
+  testWidgets('Home, Back/Home, Power, Restart and their questions are 60×60 too', (tester) async {
     final h = await Harness.start(tester, power: _AllowPowerOff());
-    expectAllTargetsLargeEnough(tester, 'with power button');
-    await tester.tap(find.byKey(const ValueKey('nav-power')));
+    expectAllTargetsLargeEnough(tester, 'home');
+    await h.goTo(AppScreen.settings);
+    expectAllTargetsLargeEnough(tester, 'settings with power buttons');
+    for (final b in ['settings-power', 'settings-restart']) {
+      await tester.tap(find.byKey(ValueKey(b)));
+      await tester.pump();
+      expectAllTargetsLargeEnough(tester, '$b question');
+      await tester.tap(find.byKey(const ValueKey('power-cancel')));
+      await tester.pump();
+    }
+    // Back and Home both showing.
+    h.services.screens.open(AppScreen.diagnostics);
     await tester.pump();
-    expectAllTargetsLargeEnough(tester, 'shutdown question');
-    await h.goTo(AppTab.diagnostics);
-    expectAllTargetsLargeEnough(tester, 'shutdown question over diagnostics');
+    expect(find.byKey(const ValueKey('nav-home')), findsOneWidget);
+    expectAllTargetsLargeEnough(tester, 'diagnostics from settings');
   });
 }
 
@@ -59,4 +68,7 @@ class _AllowPowerOff implements PowerControl {
 
   @override
   void powerOff() {}
+
+  @override
+  void restart() {}
 }

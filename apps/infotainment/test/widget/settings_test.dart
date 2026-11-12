@@ -11,7 +11,7 @@ import '../fake_cameras.dart';
 import '../harness.dart';
 
 Future<void> openSection(WidgetTester tester, Harness h, String section) async {
-  await h.goTo(AppTab.settings);
+  await h.goTo(AppScreen.settings);
   await tester.tap(find.byKey(ValueKey('settings-$section')));
   await tester.pumpAndSettle();
 }
@@ -49,15 +49,15 @@ FakeCameras connectedFake({String recordingUnavailable = ''}) {
 void main() {
   setUpAll(loadTestAssets);
 
-  testWidgets('the Settings tab: Display first, Units moved here and kept', (tester) async {
+  testWidgets('the Settings screen: Display first, Units moved here and kept', (tester) async {
     final h = await Harness.start(tester);
-    await h.goTo(AppTab.settings);
+    await h.goTo(AppScreen.settings);
     expect(find.byKey(const ValueKey('display-detail')), findsOneWidget, reason: 'Display first');
     await openSection(tester, h, 'units');
     await tap(tester, 'units-metric');
     expect(h.services.settings.units, UnitSystem.metric);
     // No longer under Diagnostics → Developer.
-    await h.goTo(AppTab.diagnostics);
+    await h.goTo(AppScreen.diagnostics);
     await tester.tap(find.byKey(const ValueKey('diag-developer')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('units-metric')), findsNothing);

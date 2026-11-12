@@ -379,6 +379,13 @@ Diagnostics → Developer, which keeps the simulator and speed calibration. Unit
 `F250_SETTINGS_FILE` (`/var/lib/f250-dashboard/settings.json` on AGL). Flutter tests for each state at 800×480 in both
 themes; checked in the browser with the simulated camera-manager.
 
+Home buttons and Back `[SIM]` ([ADR-0034](architecture/adr/0034-home-buttons-and-back.md), 2026-11-11): the bottom
+bar is gone; Home is a 3 × 2 grid of buttons to Gauges, Media, Nav, Cameras, Settings and Diagnostics; every other
+screen has Back at its top left (and Home beside it when Back wouldn't go Home). Power moved to Settings beside a new
+Restart (exit status 43: `dashboard-stopped` and `run.sh` reboot). The status bar clock is flush right again (a loose
+`Flexible` beside a `Spacer` had left blank space after it, worst with no scenario name, as on the truck). Widget
+tests for each; `make agl-test` checks the exit codes agree. Not yet on the Pi's panel.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [ ] 7.1 Wiring diagrams

@@ -25,20 +25,20 @@ void main() {
       testWidgets('all screens lay out: $name, ${theme.name}', (tester) async {
         final h = await Harness.start(tester, scenario: scenario, theme: theme);
         await h.advance(at);
-        for (final tab in AppTab.values) {
-          await h.goTo(tab);
-          expect(tester.takeException(), isNull, reason: '${tab.name}: $name');
-          expect(find.byKey(ValueKey('screen-${tab.name}')), findsOneWidget);
+        for (final screen in AppScreen.values) {
+          await h.goTo(screen);
+          expect(tester.takeException(), isNull, reason: '${screen.name}: $name');
+          expect(find.byKey(ValueKey('screen-${screen.name}')), findsOneWidget);
         }
         // Diagnostics sub-sections too.
-        await h.goTo(AppTab.diagnostics);
+        await h.goTo(AppScreen.diagnostics);
         for (final section in ['signals', 'link', 'dtcs', 'events', 'developer']) {
           await tester.tap(find.byKey(ValueKey('diag-$section')));
           await tester.pump();
           expect(tester.takeException(), isNull, reason: 'diagnostics/$section: $name');
         }
         // Both gauge profiles.
-        await h.goTo(AppTab.gauges);
+        await h.goTo(AppScreen.gauges);
         for (final p in ['engine', 'towing']) {
           await tester.tap(find.byKey(ValueKey('profile-$p')));
           await tester.pump();
@@ -52,8 +52,8 @@ void main() {
     final h = await Harness.start(tester);
     h.services.settings.units = UnitSystem.metric;
     await h.advance(const Duration(seconds: 20));
-    for (final tab in AppTab.values) {
-      await h.goTo(tab);
+    for (final screen in AppScreen.values) {
+      await h.goTo(screen);
       expect(tester.takeException(), isNull);
     }
   });

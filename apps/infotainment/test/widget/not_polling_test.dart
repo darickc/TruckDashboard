@@ -79,14 +79,14 @@ void main() {
         find.descendant(
             of: find.byKey(const ValueKey('alert-banner')), matching: find.text('Vehicle data lost')),
         findsNothing);
-    for (final tab in AppTab.values) {
-      await h.goTo(tab);
+    for (final screen in AppScreen.values) {
+      await h.goTo(screen);
       expect(
           find.descendant(
               of: find.byKey(const ValueKey('alert-banner')),
               matching: find.text('Not polling the truck')),
           findsOneWidget,
-          reason: '$tab');
+          reason: '$screen');
     }
     h.store.source = gateway(transmit: true, detail: null);
     await h.advance(const Duration(seconds: 1));

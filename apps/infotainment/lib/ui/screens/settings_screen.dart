@@ -7,11 +7,13 @@ import '../app_scope.dart';
 import '../theme.dart';
 import '../widgets/display_settings.dart';
 import '../widgets/panel.dart';
+import '../widgets/power_buttons.dart';
 import '../widgets/tap_target.dart';
 
 /// The driver's settings (ADR-0029): Display (power-manager, ADR-0028),
 /// Cameras (camera-manager: which USB port is which camera, and which
-/// record), Units (the dashboard's own, kept in its settings file).
+/// record), Units (the dashboard's own, kept in its settings file). Restart
+/// and Power, when the launcher offers them, at the right of the sections.
 enum SettingsSection { display, cameras, units }
 
 const _labels = {
@@ -33,9 +35,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      SizedBox(
-        height: kMinTouch,
-        child: Row(children: [
+      // Restart and Power at the right of the sections: the driver's only
+      // way to shut down before key-off.
+      PowerRow(
+        leading: Row(children: [
           for (final (i, d) in SettingsSection.values.indexed) ...[
             if (i > 0) const SizedBox(width: kGap),
             Expanded(

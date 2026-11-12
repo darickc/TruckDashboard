@@ -7,7 +7,6 @@ import '../core/settings.dart';
 /// (devicePixelRatio 1.0; confirm the flutter-auto setting in Phase 5).
 const kScreenSize = Size(800, 480);
 const kStatusBarHeight = 44.0;
-const kNavBarHeight = 64.0;
 const kAlertBannerHeight = 52.0;
 
 /// Camera mode's button column (shell/camera_mode.dart). The camera window

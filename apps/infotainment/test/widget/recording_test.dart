@@ -1,6 +1,7 @@
 import 'package:f250_infotainment/cameras/camera_state.dart';
 import 'package:f250_infotainment/cameras/simulated_camera_source.dart';
 import 'package:f250_infotainment/core/settings.dart';
+import 'package:f250_infotainment/telemetry/source_info.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/theme.dart';
 import 'package:f250_infotainment/ui/widgets/save_clip_button.dart';
@@ -59,6 +60,37 @@ void main() {
     expect(clockRight(), withRec);
   });
 
+  testWidgets('the clock is flush right whatever the middle holds (the truck: no scenario name)',
+      (tester) async {
+    final cams = FakeCameras(up(CameraView.none, recording: RecordingStatus.off));
+    final h = await Harness.start(tester, cameras: cams);
+    final edge = 800 - 12.0; // the status bar's padding
+    double clockRight() => tester.getTopRight(find.byKey(const ValueKey('status-clock'))).dx;
+    Future<void> expectFlush(String why) async {
+      await tester.pump();
+      expect(clockRight(), edge, reason: why);
+      expect(tester.takeException(), isNull, reason: why);
+    }
+
+    await expectFlush('simulator, scenario name, no REC');
+    // On the Pi the gateway names no scenario: the middle is empty. Before
+    // the fix, the clock sat about half the free width left of the edge.
+    h.store.source = const SourceInfo(transport: 'gateway: can:can0', simulated: false);
+    await expectFlush('gateway, no scenario name, no REC');
+    cams.status = up(CameraView.none, recording: rec([frontRec, rearRec]));
+    await expectFlush('gateway, REC');
+    expect(tester.getTopRight(find.byKey(const ValueKey('rec-chip'))).dx, lessThan(edge));
+    cams.status = const CameraStatus(link: CameraLink.down);
+    await expectFlush('cameras offline chip');
+    expect(tester.getTopRight(find.byKey(const ValueKey('camera-chip'))).dx, lessThan(edge));
+    h.store.source = const SourceInfo(
+        transport: 'simulator (in-app)',
+        simulated: true,
+        scenario: 'a scenario name far too long to fit in the status bar beside everything else');
+    cams.status = up(CameraView.none, recording: rec([frontRec, rearDown]));
+    await expectFlush('long name and a long NOT RECORDING pill');
+  });
+
   testWidgets('REC lists the cameras recording, only while camera-manager reports it',
       (tester) async {
     final cams = FakeCameras(up(CameraView.none, recording: rec([frontRec, rearRec])));
@@ -90,7 +122,7 @@ void main() {
     await tester.pump();
     expect(find.byKey(const ValueKey('rec-chip')), findsNothing);
     expect(find.text('CAMERAS OFFLINE'), findsOneWidget);
-    await h.goTo(AppTab.cameras);
+    await h.goTo(AppScreen.cameras);
     expect(find.byKey(const ValueKey('cameras-save-clip')), findsNothing);
   });
 
@@ -100,9 +132,9 @@ void main() {
     final h = await Harness.start(tester, scenario: 'warm_idle', cameras: cams);
     await h.advance(const Duration(seconds: 5));
     expect(pillText(tester, 'rec-chip'), 'NOT RECORDING: REAR');
-    for (final tab in AppTab.values) {
-      await h.goTo(tab);
-      expect(h.textOf('alert-title'), 'Rear camera not recording', reason: tab.name);
+    for (final screen in AppScreen.values) {
+      await h.goTo(screen);
+      expect(h.textOf('alert-title'), 'Rear camera not recording', reason: screen.name);
     }
     // In camera mode the alert takes the status bar's place.
     cams.status = up(rearLive, recording: rec([frontRec, rearDown]));
@@ -173,10 +205,10 @@ void main() {
     expect(find.byKey(const ValueKey('camera-rec-dot-front')), findsNothing);
   });
 
-  testWidgets('the Cameras tab reports recording and saves a clip', (tester) async {
+  testWidgets('the Cameras screen reports recording and saves a clip', (tester) async {
     final cams = FakeCameras(up(CameraView.none, recording: rec([frontRec, rearDown], clock: false, pending: 3)));
     final h = await Harness.start(tester, cameras: cams);
-    await h.goTo(AppTab.cameras);
+    await h.goTo(AppScreen.cameras);
     expect(h.textOf('recording-front'), 'Front: recording (b00042-s000317.mkv)');
     expect(h.textOf('recording-rear'), 'Rear: not recording: no frame for 1000 ms');
     expect(h.textOf('recording-drive'), 'Drive: 412.3 GB free · video 38.4 GB');
@@ -218,7 +250,7 @@ void main() {
     final sim = SimulatedCameraSource();
     final h = await Harness.start(tester, cameras: sim);
     expect(pillText(tester, 'rec-chip'), 'SIM REC FRONT REAR');
-    await h.goTo(AppTab.cameras);
+    await h.goTo(AppScreen.cameras);
     expect(find.byKey(const ValueKey('recording-simulated')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('cameras-save-clip')));
     await tester.pump();
@@ -252,7 +284,7 @@ void main() {
         for (final r in states) {
           for (final view in [CameraView.none, rearLive]) {
             cams.status = up(view, recording: r);
-            await h.goTo(AppTab.cameras);
+            await h.goTo(AppScreen.cameras);
             expect(tester.takeException(), isNull, reason: '$r $view alert=$alert');
             // Every button on screen is a full touch target.
             for (final e in find.byType(InkWell).evaluate()) {

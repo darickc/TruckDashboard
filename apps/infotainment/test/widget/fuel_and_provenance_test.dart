@@ -13,18 +13,10 @@ Finder _badgeIn(String signalId) => find.descendant(
 void main() {
   setUpAll(loadTestAssets);
 
-  testWidgets('Home shows fuel level, flagged unverified', (tester) async {
-    final h = await Harness.start(tester);
-    await h.advance(const Duration(seconds: 6)); // first fuel poll is at 5 s
-    expect(h.textOf('compact-fuel_level'), matches(RegExp(r'^\d+ %$')));
-    expect(find.byKey(const ValueKey('unverified-fuel_level')), findsOneWidget);
-    expect(find.byKey(const ValueKey('unverified-rpm')), findsNothing, reason: 'RPM is SAE');
-  });
-
   testWidgets('towing profile has a fuel tile', (tester) async {
     final h = await Harness.start(tester);
     await h.advance(const Duration(seconds: 6));
-    await h.goTo(AppTab.gauges);
+    await h.goTo(AppScreen.gauges);
     await tester.tap(find.byKey(const ValueKey('profile-towing')));
     await tester.pump();
     expect(h.textOf('value-fuel_level'), matches(RegExp(r'^\d+$')));
@@ -37,6 +29,7 @@ void main() {
   testWidgets('computed values inherit unverified status from their inputs', (tester) async {
     final h = await Harness.start(tester);
     await h.advance(const Duration(seconds: 6));
+    await h.goTo(AppScreen.gauges);
     // EOT−ECT uses EOT (imported, unverified); trans temp is verified on the truck.
     expect(_badgeIn('eot_ect_delta'), findsOneWidget);
     expect(_badgeIn('trans_temp'), findsNothing);
@@ -46,6 +39,9 @@ void main() {
   testWidgets('fuel goes stale with everything else when the link drops', (tester) async {
     final h = await Harness.start(tester, scenario: 'link_loss');
     await h.advance(const Duration(seconds: 115)); // > 15 s after the drop at 90 s
-    expect(h.textOf('compact-fuel_level'), startsWith('STALE'));
+    await h.goTo(AppScreen.gauges);
+    await tester.tap(find.byKey(const ValueKey('profile-towing')));
+    await tester.pump();
+    expect(h.textOf('status-fuel_level'), startsWith('STALE'));
   });
 }

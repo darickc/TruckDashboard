@@ -15,14 +15,15 @@ import '../screens/navigation_screen.dart';
 import '../theme.dart';
 import 'alert_banner.dart';
 import 'camera_mode.dart';
-import 'nav_bar.dart';
+import 'screen_header.dart';
 import 'status_bar.dart';
 
-/// Status bar, alert banner, the active screen and the nav bar.
+/// Status bar, alert banner, then the screen showing: Home's buttons, or
+/// another screen under its Back/Home header (screen_header.dart).
 ///
 /// The alert banner sits *above* the screen area, outside any screen, so no
 /// screen can hide it. While camera-manager shows a camera, the shell
-/// switches to camera mode (camera_mode.dart) on every tab: the camera's
+/// switches to camera mode (camera_mode.dart) on every screen: the camera's
 /// window covers x 220–800, y 44–480 whatever the dashboard shows, and an
 /// alert takes the status bar's place above it.
 class AppShell extends StatefulWidget {
@@ -93,29 +94,38 @@ class _AppShellState extends State<AppShell> {
 
   Widget _screens(AppServices s) {
     return Column(children: [
-        const StatusBar(),
-        const AlertBanner(),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(kGap),
-            child: ValueListenableBuilder(
-              valueListenable: s.tab,
-              builder: (context, tab, _) => KeyedSubtree(
-                key: ValueKey('screen-${tab.name}'),
-                child: switch (tab) {
-                  AppTab.home => const HomeScreen(),
-                  AppTab.gauges => const GaugesScreen(),
-                  AppTab.media => const MediaScreen(),
-                  AppTab.navigation => const NavigationScreen(),
-                  AppTab.cameras => const CamerasScreen(),
-                  AppTab.settings => const SettingsScreen(),
-                  AppTab.diagnostics => const DiagnosticsScreen(),
+      const StatusBar(),
+      const AlertBanner(),
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.all(kGap),
+          child: ListenableBuilder(
+            listenable: s.screens,
+            builder: (context, _) {
+              final screen = s.screens.value;
+              final body = KeyedSubtree(
+                key: ValueKey('screen-${screen.name}'),
+                child: switch (screen) {
+                  AppScreen.home => const HomeScreen(),
+                  AppScreen.gauges => const GaugesScreen(),
+                  AppScreen.media => const MediaScreen(),
+                  AppScreen.navigation => const NavigationScreen(),
+                  AppScreen.cameras => const CamerasScreen(),
+                  AppScreen.settings => const SettingsScreen(),
+                  AppScreen.diagnostics => const DiagnosticsScreen(),
                 },
-              ),
-            ),
+              );
+              final previous = s.screens.previous;
+              if (previous == null) return body;
+              return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                ScreenHeader(current: screen, previous: previous),
+                const SizedBox(height: kGap),
+                Expanded(child: body),
+              ]);
+            },
           ),
         ),
-        const NavBar(),
-      ]);
+      ),
+    ]);
   }
 }

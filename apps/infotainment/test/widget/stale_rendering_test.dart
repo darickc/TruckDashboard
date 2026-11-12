@@ -11,6 +11,7 @@ void main() {
   testWidgets('current values render plainly', (tester) async {
     final h = await Harness.start(tester, scenario: 'eot_ect_freeze');
     await h.advance(const Duration(seconds: 60));
+    await h.goTo(AppScreen.gauges);
     expect(h.textOf('status-eot'), isEmpty);
     expect(h.textOf('value-eot'), matches(RegExp(r'^\d+$')));
     expect(h.textOf('value-eot_ect_delta'), matches(RegExp(r'^-?\d+$')));
@@ -20,6 +21,7 @@ void main() {
   testWidgets('a frozen EOT shows its last value, its age and a stale warning',
       (tester) async {
     final h = await Harness.start(tester, scenario: 'eot_ect_freeze');
+    await h.goTo(AppScreen.gauges);
     await h.advance(const Duration(seconds: 119));
     final lastEot = h.textOf('value-eot');
     await h.advance(const Duration(seconds: 61)); // t = 180 s, frozen since 120 s
@@ -34,6 +36,7 @@ void main() {
   testWidgets('the EOT−ECT delta disappears rather than use a frozen input', (tester) async {
     final h = await Harness.start(tester, scenario: 'eot_ect_freeze');
     await h.advance(const Duration(seconds: 180));
+    await h.goTo(AppScreen.gauges);
     expect(h.textOf('value-eot_ect_delta'), '—');
     expect(h.textOf('status-eot_ect_delta'), contains('stale'));
   });
@@ -41,9 +44,9 @@ void main() {
   testWidgets('gauges and the diagnostics list agree on stale state', (tester) async {
     final h = await Harness.start(tester, scenario: 'eot_ect_freeze');
     await h.advance(const Duration(seconds: 180));
-    await h.goTo(AppTab.gauges);
+    await h.goTo(AppScreen.gauges);
     expect(h.textOf('status-eot'), startsWith('STALE'));
-    await h.goTo(AppTab.diagnostics);
+    await h.goTo(AppScreen.diagnostics);
     expect(find.descendant(
             of: find.byKey(const ValueKey('diag-row-eot')), matching: find.text('STALE')),
         findsOneWidget);
@@ -52,7 +55,7 @@ void main() {
   testWidgets('unsupported and implausible values never show a number', (tester) async {
     final h = await Harness.start(tester, scenario: 'bad_responses');
     await h.advance(const Duration(seconds: 310));
-    await h.goTo(AppTab.gauges);
+    await h.goTo(AppScreen.gauges);
     expect(h.textOf('value-icp'), '—');
     expect(h.textOf('status-icp'), 'Not supported (NRC 31)');
     expect(h.textOf('value-trans_temp'), '—');
@@ -62,7 +65,7 @@ void main() {
   testWidgets('a missing aux sensor is listed as disabled, not as no data', (tester) async {
     final h = await Harness.start(tester);
     await h.advance(const Duration(seconds: 5));
-    await h.goTo(AppTab.diagnostics);
+    await h.goTo(AppScreen.diagnostics);
     await tester.scrollUntilVisible(find.byKey(const ValueKey('diag-row-egt')), 40,
         scrollable: find.byType(Scrollable).last);
     expect(find.descendant(

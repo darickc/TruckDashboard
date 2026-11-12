@@ -178,18 +178,20 @@ See [gateway.md](gateway.md#diagnosing-with-obd-console) for the commands.
 There is no ignition sensing yet, so shut the Pi down **before key-off**. Then
 wait until the screen goes dark and the green light stops blinking.
 
-**From the dashboard:** tap **Power** at the right end of the nav bar, then
-**Shut down**. The question replaces the tabs for 8 seconds and then goes away
-unless you answer it. The app exits, `run.sh` stops the recorder and the gateway
-as it would for `make pi-stop`, writes `power off: requested from the dashboard`
-to `session.txt`, and powers off. The Power button appears only:
+**From the dashboard:** Home → **Settings**, tap **Power** at the right of the
+section buttons, then **Shut down**. The question replaces the section buttons
+for 8 seconds and then goes away unless you answer it. The app exits, `run.sh`
+stops the recorder and the gateway as it would for `make pi-stop`, writes
+`power off: requested from the dashboard` to `session.txt`, and powers off.
+**Restart** beside it does the same, then reboots (`restart: requested from
+the dashboard`). Power and Restart appear only:
 
 - with `make pi-run` or `make pi-start` in the kiosk (`cage` on the Pi's
   screen), not in a desktop session or with `UI=headless`
 - when logind lets that session power off without a password (`CanPowerOff`
   is `yes`). That is polkit's default for the active session on a seat, the
   user at the screen (`allow_active` in `org.freedesktop.login1.policy` on the
-  Pi's Raspberry Pi OS Lite). No sudo, no sudoers change. Otherwise `run.sh` says "No Power button" at startup, and
+  Pi's Raspberry Pi OS Lite). No sudo, no sudoers change. Otherwise `run.sh` says "No Power button" at startup (Restart isn't offered either), and
   `session.txt` records `power btn: not offered`
 
 **Over SSH:**

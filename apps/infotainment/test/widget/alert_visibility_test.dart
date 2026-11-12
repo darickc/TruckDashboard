@@ -16,10 +16,10 @@ void main() {
   testWidgets('link loss shows a critical banner on every screen', (tester) async {
     final h = await Harness.start(tester, scenario: 'link_loss');
     await h.advance(const Duration(seconds: 100));
-    for (final tab in AppTab.values) {
-      await h.goTo(tab);
-      expect(find.byKey(const ValueKey('alert-banner')), findsOneWidget, reason: tab.name);
-      expect(h.textOf('alert-title'), 'Vehicle data lost', reason: tab.name);
+    for (final screen in AppScreen.values) {
+      await h.goTo(screen);
+      expect(find.byKey(const ValueKey('alert-banner')), findsOneWidget, reason: screen.name);
+      expect(h.textOf('alert-title'), 'Vehicle data lost', reason: screen.name);
     }
     expect(h.textOf('link-state'), 'Link down');
   });
@@ -27,10 +27,10 @@ void main() {
   testWidgets('EOT/ECT freeze names the frozen signal on every screen', (tester) async {
     final h = await Harness.start(tester, scenario: 'eot_ect_freeze');
     await h.advance(const Duration(seconds: 200));
-    for (final tab in AppTab.values) {
-      await h.goTo(tab);
+    for (final screen in AppScreen.values) {
+      await h.goTo(screen);
       expect(h.textOf('alert-title'), matches(RegExp(r'^(EOT|ECT) not updating$')),
-          reason: tab.name);
+          reason: screen.name);
     }
     expect(h.textOf('link-state'), 'Degraded');
   });

@@ -47,7 +47,7 @@ List<Widget> _cameraChip(CameraStatus c, Palette p) {
 }
 
 /// A map stick being imported (ADR-0033), or one that just finished, so it
-/// shows on every tab: the Nav tab says more.
+/// shows on every screen: the Nav screen says more.
 List<Widget> _mapUpdateChip(MapUpdateStatus? u, DateTime now, Palette p) {
   if (u == null || !u.shownAt(now)) return const [];
   final (String text, Color color) = switch (u.state) {
@@ -63,12 +63,11 @@ List<Widget> _mapUpdateChip(MapUpdateStatus? u, DateTime now, Palette p) {
 /// Recording (ADR-0027 decision 9), only as camera-manager reports it: the
 /// recorded cameras that are recording ("REC FRONT REAR"), or, if any camera
 /// set to record isn't, which ("NOT RECORDING: REAR") in the advisory
-/// colour. "SIM" in front of either with the simulated source. Nothing
-/// without camera-manager or with recording off: then a spacer, which keeps
-/// the clock at the right edge.
-List<Widget> _recordingChip(CameraStatus c, Palette p) {
+/// colour. "SIM" in front of either with the simulated source. Null without
+/// camera-manager or with recording off.
+Widget? _recordingChip(CameraStatus c, Palette p) {
   final r = c.recording;
-  if (r == null || r.isOff) return const [Spacer()];
+  if (r == null || r.isOff) return null;
   String names(Iterable<CameraRecording> cams) =>
       cams.map((x) => cameraShortName(x.camera).toUpperCase()).join(' ');
   final sim = c.simulated ? 'SIM ' : '';
@@ -79,21 +78,11 @@ List<Widget> _recordingChip(CameraStatus c, Palette p) {
       : rec.isNotEmpty
           ? ('${sim}REC ${names(rec)}', c.simulated ? p.simulated : p.critical, !c.simulated)
           : ('${sim}REC STARTING', p.stale, false);
-  // Right-aligned in three quarters of the space the scenario name and it
-  // share, so it ellipsizes (after "REC") rather than overflow, and the
-  // clock stays at the right edge.
-  return [
-    Expanded(
-        flex: 3,
-        child: Align(
-            alignment: Alignment.centerRight,
-            child: Pill(text, key: const ValueKey('rec-chip'), color: color, filled: filled))),
-    const SizedBox(width: 10),
-  ];
+  return Pill(text, key: const ValueKey('rec-chip'), color: color, filled: filled);
 }
 
-/// Always-visible strip: data source, link health, clock. Nothing here is
-/// tappable; it is for glancing.
+/// Always-visible strip: data source, link health, chips, and the clock at
+/// the right edge. Nothing here is tappable; it is for glancing.
 class StatusBar extends StatelessWidget {
   const StatusBar({super.key});
 
@@ -108,6 +97,7 @@ class StatusBar extends StatelessWidget {
         final source = s.store.source;
         final now = DateTime.now();
         final clock = formatClock(now);
+        final rec = _recordingChip(s.cameras.status.value, p);
         return Container(
           height: kStatusBarHeight,
           color: p.surface,
@@ -130,15 +120,27 @@ class StatusBar extends StatelessWidget {
             Text('· ${formatAge(s.store.clock.now() - s.store.linkSince)}',
                 style: TextStyle(fontSize: 13, color: p.textDim)),
             const SizedBox(width: 12),
-            // Loose: a short name leaves its space blank, so a REC pill
-            // beside it stays right-aligned.
-            Flexible(
-              child: Text(source.scenario ?? '',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 13, color: p.textDim)),
+            // The scenario name and the REC pill share the middle; the clock
+            // is the last child of a row that the middle always fills, so it
+            // is flush right. (The middle used to be a loose Flexible beside
+            // a Spacer: the part of its share the name didn't use stayed
+            // blank after the clock, and on the truck, with no scenario
+            // name, that pushed the clock half the free width left.)
+            Expanded(
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Flexible(
+                  child: Text(source.scenario ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13, color: p.textDim)),
+                ),
+                // Three quarters of the middle at most, so it ellipsizes
+                // (after "REC") rather than overflow.
+                if (rec != null)
+                  Flexible(flex: 3, child: Padding(padding: const EdgeInsets.only(left: 10), child: rec)),
+              ]),
             ),
-            ..._recordingChip(s.cameras.status.value, p),
+            const SizedBox(width: 10),
             ..._mapUpdateChip(s.map.update.value, now, p),
             ..._cameraChip(s.cameras.status.value, p),
             Text(clock,

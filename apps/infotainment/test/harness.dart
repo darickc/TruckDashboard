@@ -86,8 +86,11 @@ class Harness {
     await tester.pump();
   }
 
-  Future<void> goTo(AppTab tab) async {
-    services.tab.value = tab;
+  /// Shows [screen] as if opened from Home.
+  Future<void> goTo(AppScreen screen) async {
+    services.screens
+      ..home()
+      ..open(screen);
     await tester.pump();
   }
 

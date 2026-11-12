@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../harness.dart';
 
 Future<void> _openProfile(WidgetTester tester, Harness h, String id) async {
-  await h.goTo(AppTab.gauges);
+  await h.goTo(AppScreen.gauges);
   await tester.tap(find.byKey(ValueKey('profile-$id')));
   await tester.pump();
 }

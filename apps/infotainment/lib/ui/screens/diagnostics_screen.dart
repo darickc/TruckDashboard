@@ -315,7 +315,7 @@ class _EventList extends StatelessWidget {
 }
 
 /// Simulator scenario selection and the speed-calibration procedure. The
-/// driver's preferences are on the Settings tab (ADR-0029).
+/// driver's preferences are on the Settings screen (ADR-0029).
 class _Developer extends StatelessWidget {
   const _Developer();
 

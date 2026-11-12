@@ -33,14 +33,14 @@ void main() {
     expect(rectOf(tester, 'camera-area'), cameraWindow, reason: why);
     expect(rectOf(tester, 'camera-controls'), const Rect.fromLTWH(0, 44, 220, 436), reason: why);
     expect(find.byKey(const ValueKey('camera-strip')), findsNothing, reason: '$why: no strip');
-    expect(find.byKey(const ValueKey('nav-home')), findsNothing, reason: '$why: nav bar replaced');
+    expect(find.byKey(const ValueKey('nav-back')), findsNothing, reason: '$why: screen replaced');
     expect(tester.takeException(), isNull, reason: why);
   }
 
-  testWidgets('a camera from the Cameras tab: starting, then live (simulated, no picture)',
+  testWidgets('a camera from the Cameras screen: starting, then live (simulated, no picture)',
       (tester) async {
     final h = await Harness.start(tester);
-    await h.goTo(AppTab.cameras);
+    await h.goTo(AppScreen.cameras);
     expect(find.text('SIMULATED: NO PICTURE'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('cameras-open-rear')));
@@ -55,21 +55,21 @@ void main() {
     expect(h.textOf('camera-area-title'), 'SIMULATED: no camera picture');
   });
 
-  testWidgets('camera mode comes up on any tab, as the switch would bring it', (tester) async {
+  testWidgets('camera mode comes up on any screen, as the switch would bring it', (tester) async {
     final h = await Harness.start(tester);
-    await h.goTo(AppTab.gauges);
+    await h.goTo(AppScreen.gauges);
     await h.services.cameras.move(SwitchMove.left);
     await tester.pump();
     expectCameraMode(tester, 'from gauges');
     expect(find.text('LEFT CAMERA'), findsOneWidget);
     expect(selected(tester, 'camera-left'), isTrue);
 
-    // Close goes back to the tab the driver was on.
+    // Close goes back to the screen the driver was on.
     await tester.tap(find.byKey(const ValueKey('camera-close')));
     await tester.pump();
     expect(find.byKey(const ValueKey('camera-area')), findsNothing);
     expect(find.byKey(const ValueKey('screen-gauges')), findsOneWidget);
-    expect(find.byKey(const ValueKey('nav-home')), findsOneWidget);
+    expect(find.byKey(const ValueKey('nav-back')), findsOneWidget);
   });
 
   testWidgets('camera buttons are switch moves, and the current camera is marked', (tester) async {
@@ -133,9 +133,9 @@ void main() {
     expect(area.color, Colors.black);
   });
 
-  testWidgets('the front camera opens from the Cameras tab and its button', (tester) async {
+  testWidgets('the front camera opens from the Cameras screen and its button', (tester) async {
     final h = await Harness.start(tester);
-    await h.goTo(AppTab.cameras);
+    await h.goTo(AppScreen.cameras);
     await tester.tap(find.byKey(const ValueKey('cameras-open-front')));
     await tester.pump();
     expectCameraMode(tester, 'front');
@@ -170,7 +170,7 @@ void main() {
     await tester.pump();
     expect(find.byKey(const ValueKey('camera-area')), findsNothing);
     expect(find.text('CAMERAS OFFLINE'), findsOneWidget);
-    await h.goTo(AppTab.cameras);
+    await h.goTo(AppScreen.cameras);
     expect(find.textContaining("camera-manager isn't reachable: connection refused"), findsOneWidget);
     expect(find.byKey(const ValueKey('cameras-open-rear')), findsNothing);
 
@@ -180,10 +180,10 @@ void main() {
     expect(find.text('Connecting to camera-manager…'), findsOneWidget);
   });
 
-  testWidgets('the Cameras tab reports reverse and the speed limit', (tester) async {
+  testWidgets('the Cameras screen reports reverse and the speed limit', (tester) async {
     final cams = FakeCameras(up(const CameraView(reverse: ReverseStatus.unknown, blockedBySpeed: true)));
     final h = await Harness.start(tester, cameras: cams);
-    await h.goTo(AppTab.cameras);
+    await h.goTo(AppScreen.cameras);
     expect(find.textContaining('Reverse signal unknown'), findsOneWidget);
     expect(find.textContaining('Hidden above the speed limit'), findsOneWidget);
     expect(find.text('CONNECTED'), findsOneWidget);

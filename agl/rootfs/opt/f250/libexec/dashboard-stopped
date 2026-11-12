@@ -1,17 +1,27 @@
 #!/bin/bash
 # ExecStopPost of f250-dashboard.service (runs as root, the `+` prefix).
 #
-# The dashboard's Power button ends the app with exit status 42
-# (apps/infotainment/lib/core/power.dart, powerOffExitCode). That is the only
-# case that powers off; a crash or a `systemctl stop` doesn't.
-# `systemctl poweroff` stops the recorder before the gateway (unit ordering),
-# the same order tools/pi/run.sh uses.
+# The dashboard's Settings screen has Power and Restart. Power ends the app
+# with exit status 42, Restart with 43 (apps/infotainment/lib/core/power.dart,
+# powerOffExitCode and restartExitCode). Those are the only cases that power
+# off or reboot; a crash or a `systemctl stop` doesn't.
+# `systemctl poweroff` and `systemctl reboot` stop the recorder before the
+# gateway (unit ordering), the same order tools/pi/run.sh uses.
 #
-# Status: [BENCH] on AGL 22.0.1 (bench-log 2026-11-06, check 7).
+# Status: power off [BENCH] on AGL 22.0.1 (bench-log 2026-11-06, check 7).
+# Restart [SIM]: make agl-test only.
 set -u
 POWER_OFF_EXIT=42
-if [[ "${EXIT_CODE:-}" == exited && "${EXIT_STATUS:-}" == "$POWER_OFF_EXIT" ]]; then
-  echo "power off: requested from the dashboard"
-  exec systemctl poweroff --no-block
-fi
+RESTART_EXIT=43
+[[ "${EXIT_CODE:-}" == exited ]] || exit 0
+case "${EXIT_STATUS:-}" in
+  "$POWER_OFF_EXIT")
+    echo "power off: requested from the dashboard"
+    exec systemctl poweroff --no-block
+    ;;
+  "$RESTART_EXIT")
+    echo "restart: requested from the dashboard"
+    exec systemctl reboot --no-block
+    ;;
+esac
 exit 0

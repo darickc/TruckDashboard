@@ -14,4 +14,7 @@ class _ExitPowerControl implements PowerControl {
 
   @override
   void powerOff() => exit(powerOffExitCode);
+
+  @override
+  void restart() => exit(restartExitCode);
 }

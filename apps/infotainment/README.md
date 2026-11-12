@@ -31,7 +31,7 @@ Switch between them in the app under **Diagnostics → Developer**.
 | `lib/telemetry/` | `TelemetryStore`: validity, staleness, computed signals, link state, warnings with hysteresis, event log |
 | `lib/data/` | `VehicleDataSource` interface; the simulated source and scenario controller. The gRPC gateway source arrives in Phase 3 |
 | `lib/config/` | Loads `assets/config/` (warning rules, gauge profiles) and checks it against the catalog |
-| `lib/ui/` | Shell (status bar, global alert banner, nav bar), gauge widgets, screens |
+| `lib/ui/` | Shell (status bar, global alert banner, Back/Home header), gauge widgets, screens (Home is a grid of buttons to the others; ADR-0034) |
 | `test/unit/`, `test/widget/` | Logic tests and 800×480 widget tests |
 
 ## Rules this app enforces

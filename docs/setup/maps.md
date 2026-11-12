@@ -51,16 +51,16 @@ heavy vehicles or trailers** (ADR-0010).
    on the stick and writes its checksum, `f250/map.pmtiles.sha256`. Eject the
    stick.
 3. In the truck, with the dashboard on (key at ACC or running), plug the stick
-   into the Pi. The status bar shows **MAP n%** while it copies (the Nav tab
+   into the Pi. The status bar shows **MAP n%** while it copies (the Nav screen
    says more); leave the stick in. Then it checks the copy (**MAP CHECK**)
-   and swaps it in: **MAP UPDATED**, and the Nav tab shows the new map at
+   and swaps it in: **MAP UPDATED**, and the Nav screen shows the new map at
    once. Remove the stick. A stick with the map that is already installed
    (one left in the truck, at every start) isn't copied again: **MAP UP TO
    DATE**.
 
 If anything is wrong (no checksum, a bad copy, not a map, the data drive
 missing or full, the stick pulled early) it shows **MAP UPDATE FAILED** with
-the reason on the Nav tab, and the old map stays. A stick without
+the reason on the Nav screen, and the old map stays. A stick without
 `f250/map.pmtiles` is ignored. On the Pi, `journalctl -u 'f250-map-import@*'`
 shows what happened.
 

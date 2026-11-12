@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../cameras/camera_state.dart';
@@ -14,7 +15,55 @@ import '../telemetry/calibration.dart';
 import '../telemetry/telemetry_store.dart';
 import 'banner_alerts.dart';
 
-enum AppTab { home, gauges, media, navigation, cameras, settings, diagnostics }
+/// The dashboard's screens. Home is a grid of buttons to the others; every
+/// other screen has Back at its top left (shell/screen_header.dart).
+enum AppScreen { home, gauges, media, navigation, cameras, settings, diagnostics }
+
+/// Which screen is showing, and the way back to Home: a stack whose bottom is
+/// always Home. Back pops one screen; Home clears the stack.
+class ScreenHistory extends ChangeNotifier implements ValueListenable<AppScreen> {
+  final _stack = [AppScreen.home];
+
+  /// The screen showing.
+  @override
+  AppScreen get value => _stack.last;
+
+  /// Home, then each screen opened since, the one showing last.
+  List<AppScreen> get stack => List.unmodifiable(_stack);
+
+  /// The screen Back returns to, or null on Home.
+  AppScreen? get previous => _stack.length > 1 ? _stack[_stack.length - 2] : null;
+
+  /// Opens [screen] on top of the one showing, so Back returns to it.
+  /// Opening Home, or the screen already showing, doesn't stack.
+  void open(AppScreen screen) {
+    if (screen == AppScreen.home) return home();
+    if (screen == value) return;
+    // A screen already in the stack is returned to rather than stacked
+    // twice, so Back never cycles.
+    final at = _stack.indexOf(screen);
+    if (at >= 0) {
+      _stack.removeRange(at + 1, _stack.length);
+    } else {
+      _stack.add(screen);
+    }
+    notifyListeners();
+  }
+
+  /// Returns to the previous screen. Does nothing on Home.
+  void back() {
+    if (_stack.length == 1) return;
+    _stack.removeLast();
+    notifyListeners();
+  }
+
+  /// Returns straight to Home.
+  void home() {
+    if (_stack.length == 1) return;
+    _stack.removeRange(1, _stack.length);
+    notifyListeners();
+  }
+}
 
 /// The app's services, created once in main() (or a test) and handed down.
 class AppServices {
@@ -74,7 +123,8 @@ class AppServices {
   /// timer (tests pump refreshes explicitly).
   final Duration? refreshPeriod;
 
-  final tab = ValueNotifier(AppTab.home);
+  /// The screen showing and the way back to Home.
+  final screens = ScreenHistory();
 
   /// "Not polling the truck" shows only once it has lasted this long
   /// (banner_alerts.dart).
