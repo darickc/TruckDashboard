@@ -2209,7 +2209,7 @@ filter:
                phone's AVRCP pause: not testable without a phone
     fader      Settings → Speakers → Front: live, "Front 1 (Rear −2 dB)"
 
-    PROBLEM (open): the speakers' filter is bypassed when it restarts
+    PROBLEM (fixed in the next entry): the speakers' filter is bypassed when it restarts
     while WirePlumber's policy instance has the chain linked. At boot it
     comes up right (Multimedia → eq-sink → f250.speakers → DAC). After
     `systemctl restart f250-audio-manager`, or a **crossover change on
@@ -2251,3 +2251,38 @@ stick (check 19: needs a stick), pairing and playing from a phone, the DAC8x
 and the amps, rerouting with a real receiver, a flashed 2455712 image. Also
 noticed: Settings → Display wraps "Brightness (night) 40 %" with the % alone
 on the next line.
+
+## 2026-11-12 — The speakers' filter kept in the chain: live crossover, relink after a start (ADR-0039 amended) [BENCH]
+
+The open problem of the entry above, fixed and measured on the same Pi, the
+same stand-in DAC (a null sink with the DAC's 8 positions, removed after)
+and the same 40 + 440 Hz tones.
+
+- Why it happened: WirePlumber's policy instance doesn't relink a chain
+  when a smart filter reappears later; it does on any change to its
+  `filters` metadata (`linking/rescan.lua`). Written by hand as `f250`
+  (audio-manager's user and groups, `systemd-run`) while the tones played:
+  relinked through the filter within the next half second.
+- The builtin biquads' `Freq` changes live (`pw-cli set-param f250.speakers
+  Props '{ params = [ "hp_fl1:Freq" 200.0 … ] }'`): doors' 40 Hz to −56 dB,
+  the sub's 40 Hz −24 dB with its low-pass at 20 Hz, back to the exact 80 Hz
+  readings, no gap.
+
+So audio-manager now changes the crossover live like the fader, and writes
+`f250.speakers.started` into the `filters` metadata after every start of
+the filter-chain. `make deploy` of the working tree (committed next), then,
+with the tones playing through it all (quarter-second windows at the DAC):
+
+    crossover + ×4 on Settings → Speakers (80 → 120 Hz), then Defaults:
+               live each time, the doors' 40 Hz 177 → 37 and back, the sub
+               unchanged; no restart in the journal, never full range
+    systemctl restart f250-audio-manager:
+               full range on FL (no high-pass) for ~1.25 s, then through the
+               filter again (before: until the next stream started)
+    pkill the filter's pipewire (a crash):
+               full range for ~2 s (1 s backoff, 1 s settle), then through the
+               filter again
+
+Verdict: fixed for the driver's controls. A crash or restart of the filter
+still gives the doors full range for 1–2 s (ADR-0039 Consequences). Not
+shown: the DAC8x itself, a phone's stream (A2DP) instead of pw-play.
