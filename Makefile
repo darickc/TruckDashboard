@@ -40,6 +40,11 @@ GATEWAY  ?= tcp:127.0.0.1:50251
 # Position: sim (the app's simulated receiver) or services/navigation's endpoint.
 NAV      ?= sim
 NAV_LISTEN ?= tcp:127.0.0.1:50253
+# Bluetooth audio and the speakers (ADR-0039): sim (the app's simulated phone)
+# or services/audio-manager's endpoint. `make sim` runs audio-manager's own
+# simulated phone on AUDIO_LISTEN.
+AUDIO    ?= sim
+AUDIO_LISTEN ?= tcp:127.0.0.1:50254
 # The offline map (PMTiles, vector or raster; ADR-0030, ADR-0032);
 # `make map-test-pattern` writes a raster one there. The macOS app's sandbox
 # may read /tmp/f250/maps/ only.
@@ -66,14 +71,14 @@ NAV_ROUTING = --valhalla tools/dev/valhalla-docker.sh \
 SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START) \
               --dart-define=VEHICLE_SOURCE=$(SOURCE) --dart-define=GATEWAY=$(GATEWAY) \
               --dart-define=NAV=$(NAV) --dart-define=MAP_FILE=$(MAP_FILE) \
-              --dart-define=MAP_STATUS=$(MAP_STATUS)
+              --dart-define=MAP_STATUS=$(MAP_STATUS) --dart-define=AUDIO=$(AUDIO)
 
 .PHONY: help setup doctor test lint \
         fw-test fw-build \
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
-        sim gateway navigation route-region search-region map-test-pattern map-region map-assets map-stick map-import-dev map-check console docs-lint \
+        sim gateway navigation audio route-region search-region map-test-pattern map-region map-assets map-stick map-import-dev map-check console docs-lint \
         pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can \
         agl-test agl-image deploy deploy-build logs build-vm agl-build
 
@@ -179,7 +184,7 @@ endif
 ui-test: ## Flutter widget/unit tests (+ integration tests against the real gateway)
 ifneq ($(HAVE_APP),)
 ifneq ($(HAVE_CARGO),)
-	cargo build -q -p vehicle-gateway -p camera-manager
+	cargo build -q -p vehicle-gateway -p camera-manager -p audio-manager
 endif
 	cd $(APP_DIR) && $(FLUTTER) test -r expanded
 else
@@ -235,11 +240,14 @@ pi-can: ## On the Pi: direct-CAN adapter, CMD=status|listen|active|down|capture|
 gateway: ## Run the vehicle gateway with the simulator (SCENARIO=, START=) on $(GATEWAY)
 	cargo run -q -p vehicle-gateway -- --listen $(GATEWAY) --scenario $(SCENARIO) --sim-start-s $(START)
 
-sim: ## Gateway and navigation (simulated) + the macOS app reading from them over gRPC
-	NAV_ROUTING="$(NAV_ROUTING)" tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)"
+sim: ## Gateway, navigation and audio-manager (simulated) + the macOS app reading from them over gRPC
+	NAV_ROUTING="$(NAV_ROUTING)" tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)" "$(AUDIO_LISTEN)"
 
 navigation: ## Run services/navigation with a simulated receiver on $(NAV_LISTEN), routing with Valhalla in Docker
 	cargo run -q -p navigation -- --listen $(NAV_LISTEN) --simulate $(NAV_ROUTING)
+
+audio: ## Run services/audio-manager with a simulated phone (no Bluetooth, no PipeWire) on $(AUDIO_LISTEN)
+	mkdir -p /tmp/f250/audio && cargo run -q -p audio-manager -- --listen $(AUDIO_LISTEN) --simulate --settings-file /tmp/f250/audio/speakers.json
 
 route-region: ## Build Valhalla routing data for REGION= (Geofabrik path(s), e.g. north-america/us/kansas) into $(ROUTING_TILES) (ROUTE_ARGS= passes build-routing.py options); needs Docker
 	@test -n "$(REGION)" || { echo "usage: make route-region REGION=north-america/us/kansas [REGION='a b']"; exit 2; }

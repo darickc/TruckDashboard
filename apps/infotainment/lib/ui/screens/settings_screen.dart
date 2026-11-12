@@ -8,17 +8,20 @@ import '../theme.dart';
 import '../widgets/display_settings.dart';
 import '../widgets/panel.dart';
 import '../widgets/power_buttons.dart';
+import '../widgets/speaker_settings.dart';
 import '../widgets/tap_target.dart';
 
 /// The driver's settings (ADR-0029): Display (power-manager, ADR-0028),
 /// Cameras (camera-manager: which USB port is which camera, and which
-/// record), Units (the dashboard's own, kept in its settings file). Restart
+/// record), Speakers (audio-manager: fader, balance, sub level, crossover;
+/// ADR-0039), Units (the dashboard's own, kept in its settings file). Restart
 /// and Power, when the launcher offers them, at the right of the sections.
-enum SettingsSection { display, cameras, units }
+enum SettingsSection { display, cameras, speakers, units }
 
 const _labels = {
   SettingsSection.display: 'Display',
   SettingsSection.cameras: 'Cameras',
+  SettingsSection.speakers: 'Speakers',
   SettingsSection.units: 'Units',
 };
 
@@ -62,6 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: switch (_section) {
             SettingsSection.display => ListView(children: const [DisplaySettings()]),
             SettingsSection.cameras => const CameraSettingsView(),
+            SettingsSection.speakers => const SpeakerSettingsView(),
             SettingsSection.units => const _Units(),
           },
         ),

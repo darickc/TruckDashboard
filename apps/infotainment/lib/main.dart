@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'audio/audio_connection.dart';
+import 'audio/audio_state.dart';
 import 'cameras/camera_connection.dart';
 import 'cameras/camera_state.dart';
 import 'cameras/simulated_camera_source.dart';
@@ -66,6 +68,11 @@ const _mapStatus = String.fromEnvironment('MAP_STATUS');
 /// (`unix:/run/f250-export/export.sock` on the Pi). Default: `sim`.
 const _export = String.fromEnvironment('EXPORT', defaultValue: 'sim');
 
+/// Bluetooth audio and the speakers (ADR-0039): `sim` (no audio-manager: a
+/// simulated phone, labelled simulated) or audio-manager's endpoint
+/// (`unix:/run/f250-audio/audio.sock` on the Pi). Default: `sim`.
+const _audio = String.fromEnvironment('AUDIO', defaultValue: 'sim');
+
 /// In-app simulator start point (`make ui-web SCENARIO=eot_ect_freeze START=110`).
 const _scenario = String.fromEnvironment('SCENARIO', defaultValue: 'drive_cycle');
 const _startSeconds = int.fromEnvironment('SIM_START_S');
@@ -85,6 +92,7 @@ Future<void> main() async {
             mapFile: _mapFile,
             mapStatus: _mapStatus,
             export: _export,
+            audio: _audio,
             scenario: _scenario,
             startAt: const Duration(seconds: _startSeconds))));
   } catch (e) {
@@ -102,6 +110,7 @@ Future<AppServices> createServices(
   String mapFile = '',
   String mapStatus = '',
   String export = 'sim',
+  String audio = 'sim',
   String scenario = 'drive_cycle',
   Duration startAt = Duration.zero,
 }) async {
@@ -138,6 +147,9 @@ Future<AppServices> createServices(
   final ExportSource exports =
       export == 'sim' ? SimulatedExportSource() : connectUsbExport(GatewayEndpoint.parse(export));
   exports.start();
+  final AudioSource audioSource =
+      audio == 'sim' ? SimulatedAudioSource() : connectAudioManager(GatewayEndpoint.parse(audio));
+  audioSource.start();
   final map = OfflineMap(mapFile, statusPath: mapStatus);
   unawaited(map.load().then((_) => map.watch()));
   switch (source) {
@@ -155,6 +167,7 @@ Future<AppServices> createServices(
           search: search,
           map: map,
           exports: exports,
+          audio: audioSource,
           power: PowerControl.forPlatform());
     case 'sim':
       final scenarios = await SimulationController.loadAll(bundle);
@@ -174,6 +187,7 @@ Future<AppServices> createServices(
           search: search,
           map: map,
           exports: exports,
+          audio: audioSource,
           power: PowerControl.forPlatform());
     default:
       throw FormatException('VEHICLE_SOURCE must be sim or gateway, got "$source"');

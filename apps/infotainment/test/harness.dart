@@ -1,3 +1,4 @@
+import 'package:f250_infotainment/audio/audio_state.dart';
 import 'package:f250_infotainment/cameras/camera_state.dart';
 import 'package:f250_infotainment/cameras/simulated_camera_source.dart';
 import 'package:f250_infotainment/config/app_config.dart';
@@ -51,7 +52,8 @@ class Harness {
       RouteSource? route,
       SearchSource? search,
       OfflineMap? map,
-      ExportSource? exports}) async {
+      ExportSource? exports,
+      AudioSource? audio}) async {
     tester.view.physicalSize = const Size(800, 480);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -78,6 +80,7 @@ class Harness {
       search: search,
       map: map,
       exports: exports,
+      audio: audio,
       power: power,
       refreshPeriod: null,
     );
