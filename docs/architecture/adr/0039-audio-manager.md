@@ -220,21 +220,33 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
 - The Media screen works on the Mac against a simulated phone, the same
   code paths as the Pi except the zbus calls and the `pipewire`/`pw-cli`
   processes.
-- **The head unit needs PipeWire running system-wide.** The meta-f250 images
-  haven't carried it before; an image build will show whether the four
-  packages are enough (UNVERIFIED until `make agl-build`).
+- **The head unit needs PipeWire running system-wide.** The `agl-f250`
+  image of 2455712 carries it (PipeWire 1.6.8, WirePlumber 0.5.14, flite),
+  and on the bench Pi those packages run (bench-log 2026-11-12; installed
+  on the card with `rpm -i`, the image not yet flashed).
+- **OPEN, before the amps are connected (bench-log 2026-11-12):** when
+  the filter-chain restarts while WirePlumber's policy instance has the
+  chain linked (a crossover change, a crash, a restart of audio-manager),
+  `eq-output-stream` is linked straight to the DAC instead of to
+  `f250.speakers`. With music playing that lasts: the stereo mix reaches
+  FL and FR full range (40 Hz at full level: **the doors' high-pass is
+  off**), the rears and the subs get nothing. A new stream starting (or a
+  reboot, or `systemctl restart wireplumber@policy`) relinks it through
+  the filter. Measured on a null sink standing in for the DAC8x. A fix
+  must make the chain right after every restart of the filter, with music
+  already playing, and be checked the same way.
 - A crash of audio-manager leaves the window closed (BlueZ's own timeouts)
   and the music playing (PipeWire carries it), without the crossover until
   audio-manager starts the filter-chain again: the stereo mix then goes
-  straight to the default sink, unfiltered. Which DAC8x channels it reaches
-  then (PipeWire's channel mixing of stereo onto 8 channels) is UNVERIFIED,
-  and with it whether the subs or the doors get full range; check it on the
-  bench (check 21) before the amps are connected.
+  straight to the default sink, unfiltered: on the bench's 8-channel
+  stand-in, full range on FL and FR and nothing on the other six
+  (bench-log 2026-11-12). Which DAC8x jacks FL and FR are is still
+  UNVERIFIED (its channel map, check 21).
 - The pairing window answers ADR-0023's question about incoming pairing:
   refused unless audio-manager's agent says yes inside the window.
 - A second filter-chain process means one more PipeWire client and its
-  graph: CPU cost on the Pi 5 is UNVERIFIED (expected small: 10 biquads at
-  48 kHz).
+  graph: on the Pi 5 it costs about 12 µs per 2048-frame quantum
+  (`pw-top`, bench-log 2026-11-12).
 
 ## Not decided here
 

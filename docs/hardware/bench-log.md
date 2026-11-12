@@ -2134,3 +2134,120 @@ not recording" with Clear at its right; a tap on Clear (uinput): the banner
 gone, the status bar's "NOT RECORDING: R…" still there, and still no banner
 20 s later through camera-manager's 10 s retries. The owner's file was
 restored byte for byte (`diff`) and camera-manager restarted.
+
+## 2026-11-12 — Main (2455712) on the bench Pi: bench checks 18–22 without a stick or a phone [BENCH]
+
+Hardware: the Pi 5 (8 GB), its card and the NVMe of the entries above. No
+DAC8x, no phone, no USB stick, no GPS receiver (`NAV_SIMULATE=1`; the bench
+runs on simulated CAN, `TRANSPORT=sim`). Tested from the Mac over SSH, the
+screen through agl-screenshooter and a uinput touchscreen.
+
+Image: the meta-f250 card from f3bf43b, updated in place:
+- `make deploy` of 2455712 (then of the fixes below);
+- the 122 packages the new `agl-f250` image (2455712, built in the VM in
+  3 min from sstate) has and the card didn't, installed with `rpm -i` from
+  the VM's feed: PipeWire 1.6.8, WirePlumber 0.5.14 and AGL's configs,
+  pipewire-tools, flite 1.06 and its voice, gpsd 3.27.5, smartmontools.
+  `rpm -i --test` first: no missing dependencies. gpsd's `%post` failed
+  (it restarts `gpsdctl@.service` without an instance: harmless on a
+  running card, not run on a flashed image). The card now has the image's
+  2,602 packages. The image itself wasn't flashed.
+
+The data: the lower-48 map (18.8 GB), routing data (20.9 GB) and search data
+went over Ethernet (~83 MB/s; 264, 297 and 59 s) into a stick-shaped folder
+on the NVMe, then `map-import dir` (not udev, no stick):
+
+    import     all three in 369 s, checksums matched; "Map, routing data and
+               search data updated"; MAP n% and MAP UPDATED on the status bar,
+               the line on the Nav screen. Again with only new search data:
+               map and routing "already installed: nothing copied", search
+               in 40 s
+    map        the lower 48 draws on the Pi (Kansas: US 281, Salem)
+    routing    from the simulated position in Kansas, page cache dropped
+               first: Denver 582 km 0.6 s, Chicago 1,102 km 0.8 s, Seattle
+               2,641 km 1.0 s, Miami 2,773 km 1.6 s, Bangor ME 3,045 km 1.9 s;
+               warm the same. navigation's cgroup peak 451 MB (with page cache)
+    search     0.06–0.35 s per search over the forwarded socket ("1600
+               pennsylvania ave washington" → the Oval Office, DC, 0.35 s);
+               results name their state (Mankato KS and Mankato MN apart);
+               Search → Route here routes
+
+    found and fixed:
+    - the lower-48 search index (built 07:48) predated `place.state`
+      (07:53), and both said schema version 1: every search on the Pi failed
+      with "no such column: p.state". SCHEMA_VERSION is now 2; the old file is
+      refused with "search data version 1; this navigation reads version 2
+      (rebuild it with make search-region)", seen on the Pi. The lower 48
+      rebuilt with states: 5.2 GB, 527 s, 45,183,980 of 45.2 M rows with a
+      state. Still open: the import checks the application id, not the
+      version, so an old index is swapped in and then refused; and with the
+      keyboard up the panel shows only the message's first line (the path)
+    - `navigation --example route` failed half the time with "no route N:
+      replaced or cleared": the guidance's first message names the route the
+      new destination replaces. The example now skips it (a tool fix only)
+
+Audio (check 21 without a phone or DAC): `pipewire`, `wireplumber@audio`,
+`@bluetooth`, `@policy` active; `audio.sock` `f250 f250 srwxrwx---`;
+`systemd-analyze security`: audio-manager 0.6, navigation 0.9, usb-export 1.5.
+Media → **Pair a phone**: `Discoverable: yes`, `Pairable: yes`, 120 s, "F-250",
+the countdown on screen; **Stop pairing**: both `no`. No sound card has a sink
+(no HDMI connected, the USB cards are the webcams' microphones), so a null
+sink with the DAC's 8 positions stood in for the DAC8x (`pw-cli create-node`,
+then a bench-only `pipewire.conf.d` file to have it at boot; removed after),
+recorded with `pw-record --target bench.dac` and measured with a Goertzel
+filter:
+
+    crossover  two tones (40 + 440 Hz) at the "DAC": FL FR RL RR pass 440 Hz,
+               40 Hz −24.6 dB; FC and LFE (the sub's two legs) pass 40 Hz
+               (−0.5 dB), 440 Hz −59 dB; SL SR silent. As designed (80 Hz LR4)
+    DSP cost   f250.speakers 12 µs per 2048-frame quantum (pw-top)
+    voice      flite makes a prompt in 0.13–0.15 s; navigation → audio-manager
+               → speak-prompt → pw-play works in both sandboxes. A 440 Hz
+               Multimedia "music" stream drops ≥ 13 dB (mostly ~40 dB) within
+               0.2 s of navigation's request and comes back as the 2.85 s
+               phrase ends: AGL's Speech-High cork. The 1 s hold is for the
+               phone's AVRCP pause: not testable without a phone
+    fader      Settings → Speakers → Front: live, "Front 1 (Rear −2 dB)"
+
+    PROBLEM (open): the speakers' filter is bypassed when it restarts
+    while WirePlumber's policy instance has the chain linked. At boot it
+    comes up right (Multimedia → eq-sink → f250.speakers → DAC). After
+    `systemctl restart f250-audio-manager`, or a **crossover change on
+    Settings → Speakers** (which restarts the filter), `eq-output-stream`
+    is linked straight to the DAC. Measured with the 40 + 440 Hz tones
+    playing through the restart: from then on FL gets both tones at full
+    level (no high-pass: 40 Hz on the doors), RL, FC and LFE nothing, for
+    as long as the stream plays (12 s here). The doors' high-pass is off,
+    which ADR-0039 says never happens. A new stream starting relinks it
+    through the filter (a tone started after the restart measured right),
+    and so do a reboot and `systemctl restart wireplumber@policy` (4 of 4).
+    Deleting the direct links doesn't make WirePlumber relink: the
+    equalizer goes silent. Harmless today (no DAC, no amps), but it must
+    be fixed before the amps are connected. Also: "spa.cpu: Can't read
+    cpuinfo" from the filter and pw-play (ProcSubset=pid); cosmetic at that
+    DSP cost
+
+Saved places and voice (check 22): "saved places in
+/var/lib/f250/storage/navigation/places.json (the data drive)"; a route from
+the Mac became a recent; while routing, ☆ → name "shop" → **Favourite**: in
+`places.json`. **Muted**: `voice.json` `{"muted": true}` on the drive, kept
+through a reboot. `echo x > places.json`, restart: kept as `places.json.bad`,
+"a new list started", the message on the panel. The test places and the mute
+were removed afterwards.
+
+    found and fixed: `/etc/default/f250` is kept across deploys, so the
+    bench's file had no `NAV_AUDIO_MANAGER` and navigation logged "voice:
+    the log only". navigation-start now uses audio-manager's socket when the
+    line is missing (empty still means the journal only). The truck file
+    `/etc/default/f250.truck` gets the same default
+
+After a reboot with the bench files removed: all services active, no failed
+units, `stage1-setup.sh --check` all passed. At boot navigation logs one
+"voice: … transport error" (it starts 0.6 s before audio-manager) and then
+connects.
+
+Not shown: the import through udev from a real stick, recordings to a USB
+stick (check 19: needs a stick), pairing and playing from a phone, the DAC8x
+and the amps, rerouting with a real receiver, a flashed 2455712 image. Also
+noticed: Settings → Display wraps "Brightness (night) 40 %" with the % alone
+on the next line.
