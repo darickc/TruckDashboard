@@ -153,6 +153,10 @@ fn fixture() -> Index {
     for p in &places {
         w.add(p).unwrap();
     }
+    // Made-up ZIP codes: 99001 is Fairview's, 99002 Port Ellis's.
+    w.add_postcode("99001", FAIRVIEW.0, FAIRVIEW.1, 40).unwrap();
+    w.add_postcode("99002", PORT_ELLIS.0, PORT_ELLIS.1, 25)
+        .unwrap();
     let counts = w
         .finish(&Meta {
             regions: vec!["Testland".into()],
@@ -162,6 +166,7 @@ fn fixture() -> Index {
         .unwrap();
     assert_eq!(counts.addresses, 3);
     assert_eq!(counts.localities, 7);
+    assert_eq!(counts.postcodes, 2);
     Index::open(&path).unwrap()
 }
 
@@ -414,4 +419,59 @@ fn refuses_other_files() {
             .unwrap_err()
             .contains("make search-region")
     );
+}
+
+#[test]
+fn a_zip_code_ranks_from_its_area_and_is_never_a_word_to_match() {
+    let ix = fixture();
+    // Near Fairview, but the ZIP code is Port Ellis's: its Main Street first.
+    let f = ix.find("main st, 99002", Some(FAIRVIEW), 8).unwrap();
+    assert_eq!(f.hits[0].title, "Main Street");
+    assert!(
+        f.hits[0].subtitle.contains("Port Ellis"),
+        "{:?}",
+        titles(&f.hits)
+    );
+    assert_eq!(f.postcode.as_ref().unwrap().at, Some(PORT_ELLIS));
+    assert!(f.hits[0].unmatched.is_empty());
+    // With a house number and ZIP+4: the address.
+    let f = ix
+        .find("120 main st 99002-1234", Some(FAIRVIEW), 8)
+        .unwrap();
+    assert_eq!(f.hits[0].kind, Match::Address);
+    assert!(
+        f.hits[0].subtitle.contains("Port Ellis"),
+        "{:?}",
+        titles(&f.hits)
+    );
+    // Without it, Fairview's comes first, as before.
+    assert!(
+        ix.search("main st", Some(FAIRVIEW), 8).unwrap()[0]
+            .subtitle
+            .contains("Fairview")
+    );
+}
+
+#[test]
+fn a_zip_code_the_data_lacks_is_said_and_the_search_still_finds() {
+    let ix = fixture();
+    let f = ix.find("elm ave 12345", Some(FAIRVIEW), 8).unwrap();
+    assert_eq!(f.postcode.as_ref().unwrap().at, None);
+    assert_eq!(f.hits[0].title, "Elm Avenue");
+    assert_eq!(f.hits[0].unmatched, ["12345"]);
+}
+
+#[test]
+fn a_zip_code_alone_finds_its_area() {
+    let ix = fixture();
+    let f = ix.find("99001", None, 8).unwrap();
+    assert_eq!(f.hits.len(), 1);
+    assert_eq!(f.hits[0].kind, Match::Locality);
+    assert_eq!(f.hits[0].title, "99001");
+    assert_eq!(
+        f.hits[0].subtitle,
+        "ZIP code · the middle of its 40 addresses"
+    );
+    assert_eq!((f.hits[0].lat, f.hits[0].lon), FAIRVIEW);
+    assert!(ix.find("12345", None, 8).unwrap().hits.is_empty());
 }

@@ -11,7 +11,8 @@ package f250.nav.v1;
 import "f250/nav/v1/route.proto";
 
 service SearchService {
-  // Results for a typed query, best first, ranked near the truck. Cheap
+  // Results for a typed query, best first, ranked near the truck (or near
+  // the ZIP code it ends with: SearchResponse.postcode). Cheap
   // enough to call on every keystroke. Never fails for a missing index:
   // `available` is false and `detail` says why.
   rpc Search(SearchRequest) returns (SearchResponse);
@@ -65,6 +66,9 @@ enum RankedFrom {
   RANKED_FROM_CURRENT = 2;
   // The last known fix, `position_age_s` old.
   RANKED_FROM_LAST_KNOWN = 3;
+  // The ZIP code the query ended with (`postcode`): the middle of its
+  // addresses in the data.
+  RANKED_FROM_POSTCODE = 4;
 }
 
 message SearchResponse {
@@ -81,4 +85,9 @@ message SearchResponse {
   double position_age_s = 7;
   // The query this answers, so a client typing fast can drop stale answers.
   string query = 8;
+  // A ZIP code the query ended with (five digits; empty: none). It is never
+  // a word to match: with `postcode_found` the results are ranked from it;
+  // without, the data doesn't have it and the results say it is unmatched.
+  string postcode = 9;
+  bool postcode_found = 10;
 }

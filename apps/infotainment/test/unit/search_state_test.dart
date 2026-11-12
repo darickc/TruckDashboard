@@ -82,6 +82,12 @@ void main() {
     expect(a.dataDate, '2026-11-11');
     expect(a.rankedFrom, RankedFrom.lastKnown);
     expect(a.positionAgeS, 90);
+    expect((a.postcode, a.postcodeFound), ('', false));
+    final z = searchAnswerFromPb(
+        pb.SearchResponse(
+            available: true, rankedFrom: pb.RankedFrom.RANKED_FROM_POSTCODE, postcode: '99002', postcodeFound: true),
+        'q');
+    expect((z.rankedFrom, z.postcode, z.postcodeFound), (RankedFrom.postcode, '99002', true));
     expect(a.results, hasLength(2));
     expect(a.results[0].kind, SearchMatch.street);
     expect(a.results[0].location, const LatLng(26.001, -90));

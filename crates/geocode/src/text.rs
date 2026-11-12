@@ -123,6 +123,18 @@ pub fn house_number(text: &str) -> Option<String> {
 
 /// Whether a query word looks like a house number: digits, optionally a
 /// letter or two after them ("123", "12b"), but not an ordinal ("3rd").
+/// A US ZIP code as five digits: "99001" and "99001-1234" (ZIP+4) give
+/// "99001"; anything else, None.
+pub fn zip5(value: &str) -> Option<String> {
+    let v = value.trim();
+    let (five, four) = match v.split_once('-') {
+        Some((a, b)) => (a, Some(b)),
+        None => (v, None),
+    };
+    let digits = |s: &str, n: usize| s.len() == n && s.bytes().all(|b| b.is_ascii_digit());
+    (digits(five, 5) && four.is_none_or(|f| digits(f, 4))).then(|| five.to_string())
+}
+
 pub fn looks_like_house_number(word: &str) -> bool {
     let digits = word.chars().take_while(char::is_ascii_digit).count();
     let rest = &word[digits..];
@@ -160,6 +172,23 @@ fn fold(c: char) -> char {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn zip_codes() {
+        assert_eq!(zip5("99001").as_deref(), Some("99001"));
+        assert_eq!(zip5(" 99001-1234 ").as_deref(), Some("99001"));
+        for bad in [
+            "9900",
+            "990011",
+            "99001-12",
+            "ABCDE",
+            "",
+            "99001;99002",
+            "V6B 1A1",
+        ] {
+            assert_eq!(zip5(bad), None, "{bad}");
+        }
+    }
     use super::*;
 
     #[test]

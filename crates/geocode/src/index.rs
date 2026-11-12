@@ -31,7 +31,8 @@ pub const APPLICATION_ID: i32 = 0x4632_3530;
 /// 2: `place.state` (each row's state). Version 1 files built before it was
 /// added still said 1, and every search on them failed with "no such column:
 /// p.state" (bench-log 2026-11-12); they are now refused as version 1.
-pub const SCHEMA_VERSION: i32 = 2;
+/// 3: `postcodes`, where each ZIP code is (the middle of its addresses).
+pub const SCHEMA_VERSION: i32 = 3;
 
 /// What a row is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -179,6 +180,8 @@ pub struct Counts {
     pub streets: u64,
     pub localities: u64,
     pub pois: u64,
+    /// ZIP codes with a position.
+    pub postcodes: u64,
 }
 
 impl Counts {
@@ -216,6 +219,12 @@ CREATE VIRTUAL TABLE towns USING fts5(
   name,
   content = '', detail = 'none', tokenize = 'unicode61 remove_diacritics 2'
 );
+CREATE TABLE postcodes(
+  code TEXT PRIMARY KEY,
+  lat REAL NOT NULL,
+  lon REAL NOT NULL,
+  addresses INTEGER NOT NULL
+) WITHOUT ROWID;
 CREATE VIRTUAL TABLE addrs USING fts5(
   number, street, name, locality, cells,
   content = '', detail = 'column', tokenize = 'unicode61 remove_diacritics 2'
@@ -322,6 +331,22 @@ impl Writer {
         Ok(())
     }
 
+    /// Where ZIP code `code` (five digits) is: the middle of the `addresses`
+    /// addresses that carry it.
+    pub fn add_postcode(
+        &mut self,
+        code: &str,
+        lat: f64,
+        lon: f64,
+        addresses: u64,
+    ) -> rusqlite::Result<()> {
+        self.conn
+            .prepare_cached("INSERT OR REPLACE INTO postcodes(code, lat, lon, addresses) VALUES (?1, ?2, ?3, ?4)")?
+            .execute(params![code, lat, lon, i64::try_from(addresses).unwrap_or(i64::MAX)])?;
+        self.counts.postcodes += 1;
+        Ok(())
+    }
+
     /// Writes `meta`, merges the full-text index and compacts the file.
     pub fn finish(self, meta: &Meta) -> rusqlite::Result<Counts> {
         let c = self.counts;
@@ -333,6 +358,7 @@ impl Writer {
             ("streets", c.streets.to_string()),
             ("localities", c.localities.to_string()),
             ("pois", c.pois.to_string()),
+            ("postcodes", c.postcodes.to_string()),
             ("source", "© OpenStreetMap contributors, ODbL".to_string()),
         ];
         for (k, v) in rows {

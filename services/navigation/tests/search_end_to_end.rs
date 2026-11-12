@@ -78,6 +78,8 @@ fn write_index(path: &Path) {
     ] {
         w.add(&p).unwrap();
     }
+    // A made-up ZIP code at Hillsdale.
+    w.add_postcode("99002", 26.1, -89.8, 12).unwrap();
     w.finish(&Meta {
         regions: vec!["Gulf test".into()],
         data_date: Some("2026-11-11".into()),
@@ -164,6 +166,22 @@ async fn searches_ranked_from_the_position() {
     assert_eq!(r.ranked_from, pb::RankedFrom::LastKnown as i32);
     assert_eq!(r.position_age_s, 60.0);
     assert_eq!(r.results[0].subtitle, "near Hillsdale");
+
+    // Ending with a ZIP code: ranked from it, not from the truck (back at
+    // Fairview now, current).
+    tx.send(fix(26.0, -90.0, true)).unwrap();
+    let r = search(&mut c, "main st 99002").await;
+    assert_eq!(r.ranked_from, pb::RankedFrom::Postcode as i32);
+    assert_eq!((r.postcode.as_str(), r.postcode_found), ("99002", true));
+    assert_eq!(r.results[0].subtitle, "near Hillsdale");
+    assert!(r.results[0].unmatched_words.is_empty());
+    // One the data lacks: ranked as usual, and said.
+    let r = search(&mut c, "main st 12345").await;
+    assert_eq!(r.ranked_from, pb::RankedFrom::Current as i32);
+    assert_eq!((r.postcode.as_str(), r.postcode_found), ("12345", false));
+    assert_eq!(r.results[0].subtitle, "near Fairview");
+    assert_eq!(r.results[0].unmatched_words, ["12345"]);
+    tx.send(fix(26.1, -89.8, false)).unwrap();
 
     // A house number that isn't there.
     let r = search(&mut c, "12 main st").await;

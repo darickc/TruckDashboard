@@ -263,7 +263,11 @@ class _NavSearchPanelState extends State<NavSearchPanel> {
       RankedFrom.current => 'Nearest first',
       RankedFrom.lastKnown => 'Nearest to the last known position (${formatDuration(a.positionAgeS)} old)',
       RankedFrom.none => 'Not sorted by distance: no position',
+      RankedFrom.postcode => 'Nearest to ZIP code ${a.postcode} first',
     };
+    final zip = a.postcode.isNotEmpty && !a.postcodeFound
+        ? ' ZIP code ${a.postcode} isn\'t in the search data, so it wasn\'t used.'
+        : '';
     final data = [
       if (a.regions.isNotEmpty) a.regions.join(', '),
       'OpenStreetMap${a.dataDate.isEmpty ? '' : ' ${a.dataDate}'}',
@@ -272,7 +276,7 @@ class _NavSearchPanelState extends State<NavSearchPanel> {
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
       child: Text(
         [
-          '$ranked. Search data: $data. House numbers are sparse outside towns.',
+          '$ranked.$zip Search data: $data. House numbers are sparse outside towns.',
           if (!widget.canRoute) 'Routing is unavailable: Show puts a result on the map.',
         ].join(' '),
         key: const ValueKey('nav-search-footer'),

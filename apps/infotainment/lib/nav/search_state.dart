@@ -10,7 +10,7 @@ import 'package:latlong2/latlong.dart';
 /// so.
 enum SearchMatch { address, street, locality, place }
 
-enum RankedFrom { none, current, lastKnown }
+enum RankedFrom { none, current, lastKnown, postcode }
 
 @immutable
 class SearchResult {
@@ -57,6 +57,8 @@ class SearchAnswer {
     this.dataDate = '',
     this.rankedFrom = RankedFrom.none,
     this.positionAgeS = 0,
+    this.postcode = '',
+    this.postcodeFound = false,
   });
 
   /// The query this answers.
@@ -74,6 +76,11 @@ class SearchAnswer {
   final String dataDate;
   final RankedFrom rankedFrom;
   final double positionAgeS;
+
+  /// A ZIP code the query ended with (empty: none): never a word to match.
+  /// Found: the results are ranked from it; not: the data doesn't have it.
+  final String postcode;
+  final bool postcodeFound;
 }
 
 abstract class SearchSource {

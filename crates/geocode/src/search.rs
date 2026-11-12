@@ -28,6 +28,13 @@
 //!
 //! The search never pretends: a street found for "123 main st" is a street
 //! (`house_number_missing`), a town is a town.
+//!
+//! A ZIP code at the end ("120 elm ave, 99001", or ZIP+4) is not a word to
+//! match: OpenStreetMap streets don't carry one. It says where to look: the
+//! results are ranked from the middle of that ZIP code's addresses
+//! (`postcodes`) instead of from the truck. A ZIP code the data doesn't
+//! have is said (`Found::postcode`, and each result's unmatched words). A
+//! ZIP code alone finds its area.
 
 use std::path::Path;
 
@@ -89,6 +96,24 @@ impl std::fmt::Debug for Index {
 
 /// Distance in the score: this much per tenfold distance in km (+1).
 const DISTANCE_WEIGHT: f64 = 1.5;
+/// What a search found, and what it made of a ZIP code in the query.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Found {
+    pub hits: Vec<Hit>,
+    pub postcode: Option<Postcode>,
+}
+
+/// A ZIP code the query ended with.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Postcode {
+    /// Five digits.
+    pub code: String,
+    /// The middle of its addresses; None: not in the data (the results are
+    /// ranked from the truck as usual).
+    pub at: Option<(f64, f64)>,
+    pub addresses: u64,
+}
+
 /// The asked house number found.
 const ADDRESS_BONUS: f64 = 3.0;
 /// Every word of the result's own name is in the query: much for a town
@@ -150,10 +175,89 @@ impl Index {
         near: Option<(f64, f64)>,
         limit: usize,
     ) -> rusqlite::Result<Vec<Hit>> {
+        Ok(self.find(query, near, limit)?.hits)
+    }
+
+    /// Where ZIP code `code` is, if the data has it.
+    pub fn postcode(&self, code: &str) -> rusqlite::Result<Option<Postcode>> {
+        let mut st = self
+            .conn
+            .prepare_cached("SELECT lat, lon, addresses FROM postcodes WHERE code = ?1")?;
+        let mut rows = st.query(params![code])?;
+        Ok(match rows.next()? {
+            Some(r) => Some(Postcode {
+                code: code.to_string(),
+                at: Some((r.get(0)?, r.get(1)?)),
+                addresses: u64::try_from(r.get::<_, i64>(2)?).unwrap_or(0),
+            }),
+            None => None,
+        })
+    }
+
+    /// `search`, and what was made of a ZIP code at the end of the query:
+    /// the results are ranked from it when the data has it.
+    pub fn find(
+        &self,
+        query: &str,
+        near: Option<(f64, f64)>,
+        limit: usize,
+    ) -> rusqlite::Result<Found> {
         let q = Parsed::new(query);
-        if q.words.is_empty() || limit == 0 {
-            return Ok(Vec::new());
+        let postcode = match &q.postcode {
+            Some(code) => Some(self.postcode(code)?.unwrap_or(Postcode {
+                code: code.clone(),
+                at: None,
+                addresses: 0,
+            })),
+            None => None,
+        };
+        let near = postcode.as_ref().and_then(|p| p.at).or(near);
+        if limit == 0 {
+            return Ok(Found {
+                hits: Vec::new(),
+                postcode,
+            });
         }
+        if q.words.is_empty() {
+            // A ZIP code alone: its area.
+            let hits = match (&postcode, &q.number) {
+                (
+                    Some(Postcode {
+                        code,
+                        at: Some((lat, lon)),
+                        addresses,
+                    }),
+                    None,
+                ) => vec![Hit {
+                    kind: Match::Locality,
+                    title: code.clone(),
+                    subtitle: format!("ZIP code · the middle of its {addresses} addresses"),
+                    lat: *lat,
+                    lon: *lon,
+                    distance_m: None,
+                    house_number_missing: false,
+                    unmatched: Vec::new(),
+                    score: 0.0,
+                }],
+                _ => Vec::new(),
+            };
+            return Ok(Found { hits, postcode });
+        }
+        let mut hits = self.hits(&q, near, limit)?;
+        if let Some(Postcode { code, at: None, .. }) = &postcode {
+            for h in &mut hits {
+                h.unmatched.push(code.clone());
+            }
+        }
+        Ok(Found { hits, postcode })
+    }
+
+    fn hits(
+        &self,
+        q: &Parsed,
+        near: Option<(f64, f64)>,
+        limit: usize,
+    ) -> rusqlite::Result<Vec<Hit>> {
         let mut found: Vec<Row> = Vec::new();
         if let Some(n) = &q.number {
             let mut fts = format!(
@@ -177,7 +281,7 @@ impl Index {
             &mut found,
         )?;
 
-        let mut hits: Vec<Hit> = found.iter().map(|r| score(r, &q, near, false)).collect();
+        let mut hits: Vec<Hit> = found.iter().map(|r| score(r, q, near, false)).collect();
         if hits.is_empty() {
             let mut rows = Vec::new();
             if let Some(loose) = q.any_word("name locality", MIN_PREFIX) {
@@ -188,8 +292,8 @@ impl Index {
             }
             hits = rows
                 .iter()
-                .filter(|r| r.named_by(&q))
-                .map(|r| score(r, &q, near, true))
+                .filter(|r| r.named_by(q))
+                .map(|r| score(r, q, near, true))
                 .filter(|h| h.unmatched.len() < q.words.len())
                 .collect();
         }
@@ -287,6 +391,7 @@ fn read_info(conn: &Connection) -> rusqlite::Result<Info> {
             "streets" => info.counts.streets = n(),
             "localities" => info.counts.localities = n(),
             "pois" => info.counts.pois = n(),
+            "postcodes" => info.counts.postcodes = n(),
             _ => {}
         }
     }
@@ -319,6 +424,8 @@ fn in_columns(columns: &str, expr: &str) -> String {
 #[derive(Debug, PartialEq)]
 struct Parsed {
     number: Option<String>,
+    /// A ZIP code the query ended with (five digits).
+    postcode: Option<String>,
     words: Vec<String>,
     /// The last word may be unfinished: the query doesn't end in a space.
     typing: bool,
@@ -327,6 +434,22 @@ struct Parsed {
 impl Parsed {
     fn new(query: &str) -> Parsed {
         let mut words = text::words(query);
+        let mut postcode = None;
+        // ZIP+4 ("99001-1234" splits into two words), or five digits last:
+        // after other words, or alone. A first word of five digits followed
+        // by words is a house number ("12345 main st").
+        let n = words.len();
+        let all = |w: &str, len: usize| w.len() == len && w.bytes().all(|b| b.is_ascii_digit());
+        if n >= 2
+            && all(&words[n - 1], 4)
+            && all(&words[n - 2], 5)
+            && (n > 2 || query.contains('-'))
+        {
+            words.pop();
+            postcode = words.pop();
+        } else if n >= 1 && all(&words[n - 1], 5) {
+            postcode = words.pop();
+        }
         let mut number = None;
         if words
             .first()
@@ -336,6 +459,7 @@ impl Parsed {
         }
         Parsed {
             number,
+            postcode,
             words,
             typing: query.chars().last().is_some_and(char::is_alphanumeric),
         }
@@ -660,6 +784,28 @@ mod tests {
         let q = Parsed::new("123");
         assert_eq!(q.number.as_deref(), Some("123"));
         assert!(q.words.is_empty());
+    }
+
+    #[test]
+    fn a_zip_code_at_the_end_is_not_a_word() {
+        let q = Parsed::new("120 elm ave, 99001");
+        assert_eq!(q.number.as_deref(), Some("120"));
+        assert_eq!(q.postcode.as_deref(), Some("99001"));
+        assert_eq!(q.words, ["elm", "ave"]);
+        let q = Parsed::new("elm ave 99001-1234");
+        assert_eq!(q.postcode.as_deref(), Some("99001"));
+        assert_eq!(q.words, ["elm", "ave"]);
+        let q = Parsed::new("99001");
+        assert_eq!(
+            (q.postcode.as_deref(), q.number, q.words.len()),
+            (Some("99001"), None, 0)
+        );
+        // Five digits first, then words: a house number.
+        let q = Parsed::new("12345 main st");
+        assert_eq!((q.number.as_deref(), q.postcode), (Some("12345"), None));
+        // Other numbers stay words.
+        assert_eq!(Parsed::new("county road 12").postcode, None);
+        assert_eq!(Parsed::new("county road 1234").postcode, None);
     }
 
     #[test]

@@ -118,6 +118,11 @@ pub fn build(o: &Options) -> Result<Summary, String> {
         placed.push((f.feature, lat, lon));
     }
 
+    let postcodes = postcodes(&placed);
+    say(&format!(
+        "{} ZIP codes placed from their addresses",
+        postcodes.len()
+    ));
     say("assigning towns and joining streets");
     let mut places = assemble(placed);
     if let Some(path) = &o.states {
@@ -146,6 +151,10 @@ pub fn build(o: &Options) -> Result<Summary, String> {
     for p in &places {
         w.add(p).map_err(|e| format!("{}: {e}", part.display()))?;
     }
+    for (code, lat, lon, n) in &postcodes {
+        w.add_postcode(code, *lat, *lon, *n)
+            .map_err(|e| format!("{}: {e}", part.display()))?;
+    }
     let data_date = o.data_date.clone().or_else(|| all.timestamp.map(date_of));
     let counts = w
         .finish(&Meta {
@@ -160,6 +169,34 @@ pub fn build(o: &Options) -> Result<Summary, String> {
         data_date,
         missing_nodes,
     })
+}
+
+/// Where each ZIP code is: the median latitude and longitude of the
+/// addresses (and named places) that carry it, so a few mistyped ones far
+/// away don't move it. Sorted by code.
+pub fn postcodes(placed: &[(Feature, f64, f64)]) -> Vec<(String, f64, f64, u64)> {
+    let mut by: std::collections::BTreeMap<&str, (Vec<f64>, Vec<f64>)> = Default::default();
+    for (f, lat, lon) in placed {
+        let addr = match f {
+            Feature::Address(a) | Feature::Poi { addr: Some(a), .. } => a,
+            _ => continue,
+        };
+        if let Some(code) = &addr.postcode {
+            let e = by.entry(code.as_str()).or_default();
+            e.0.push(*lat);
+            e.1.push(*lon);
+        }
+    }
+    let median = |v: &mut Vec<f64>| {
+        v.sort_by(f64::total_cmp);
+        v[v.len() / 2]
+    };
+    by.into_iter()
+        .map(|(code, (mut lats, mut lons))| {
+            let n = lats.len() as u64;
+            (code.to_string(), median(&mut lats), median(&mut lons), n)
+        })
+        .collect()
 }
 
 fn blocks(pbf: &Path) -> Result<BlobReader<std::io::BufReader<std::fs::File>>, String> {
@@ -607,6 +644,36 @@ mod tests {
     }
 
     #[test]
+    fn zip_codes_sit_at_the_middle_of_their_addresses() {
+        let a = |pc: Option<&str>, lat: f64, lon: f64| {
+            (
+                Feature::Address(Addr {
+                    number: "1".into(),
+                    street: "Elm Avenue".into(),
+                    city: None,
+                    postcode: pc.map(str::to_string),
+                }),
+                lat,
+                lon,
+            )
+        };
+        let placed = vec![
+            a(Some("99001"), 38.50, -97.50),
+            a(Some("99001"), 38.52, -97.52),
+            a(Some("99001"), 38.51, -97.51),
+            // A mistyped one far away doesn't move the middle.
+            a(Some("99001"), 45.0, -120.0),
+            a(Some("99001"), 38.505, -97.505),
+            a(Some("99002"), 38.80, -104.40),
+            a(None, 10.0, 10.0),
+        ];
+        let p = postcodes(&placed);
+        assert_eq!(p.len(), 2);
+        assert_eq!(p[0], ("99001".to_string(), 38.51, -97.51, 5));
+        assert_eq!(p[1], ("99002".to_string(), 38.80, -104.40, 1));
+    }
+
+    #[test]
     fn a_bigger_place_reaches_farther() {
         let rows = assemble(vec![
             town("Big City", "city", 38.0, -97.0),
@@ -617,6 +684,7 @@ mod tests {
                     number: "5".into(),
                     street: "Elm".into(),
                     city: None,
+                    postcode: None,
                 }),
                 38.17,
                 -97.0,
@@ -627,6 +695,7 @@ mod tests {
                     number: "6".into(),
                     street: "Elm".into(),
                     city: Some("Tiny".into()),
+                    postcode: None,
                 }),
                 38.17,
                 -97.0,

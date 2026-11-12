@@ -41,6 +41,7 @@ const RankedFrom$json = {
     {'1': 'RANKED_FROM_NONE', '2': 1},
     {'1': 'RANKED_FROM_CURRENT', '2': 2},
     {'1': 'RANKED_FROM_LAST_KNOWN', '2': 3},
+    {'1': 'RANKED_FROM_POSTCODE', '2': 4},
   ],
 };
 
@@ -48,7 +49,7 @@ const RankedFrom$json = {
 final $typed_data.Uint8List rankedFromDescriptor = $convert.base64Decode(
     'CgpSYW5rZWRGcm9tEhsKF1JBTktFRF9GUk9NX1VOU1BFQ0lGSUVEEAASFAoQUkFOS0VEX0ZST0'
     '1fTk9ORRABEhcKE1JBTktFRF9GUk9NX0NVUlJFTlQQAhIaChZSQU5LRURfRlJPTV9MQVNUX0tO'
-    'T1dOEAM=');
+    'T1dOEAMSGAoUUkFOS0VEX0ZST01fUE9TVENPREUQBA==');
 
 @$core.Deprecated('Use searchRequestDescriptor instead')
 const SearchRequest$json = {
@@ -144,6 +145,8 @@ const SearchResponse$json = {
     },
     {'1': 'position_age_s', '3': 7, '4': 1, '5': 1, '10': 'positionAgeS'},
     {'1': 'query', '3': 8, '4': 1, '5': 9, '10': 'query'},
+    {'1': 'postcode', '3': 9, '4': 1, '5': 9, '10': 'postcode'},
+    {'1': 'postcode_found', '3': 10, '4': 1, '5': 8, '10': 'postcodeFound'},
   ],
 };
 
@@ -154,4 +157,5 @@ final $typed_data.Uint8List searchResponseDescriptor = $convert.base64Decode(
     'dWx0UgdyZXN1bHRzEhgKB3JlZ2lvbnMYBCADKAlSB3JlZ2lvbnMSGwoJZGF0YV9kYXRlGAUgAS'
     'gJUghkYXRhRGF0ZRI4CgtyYW5rZWRfZnJvbRgGIAEoDjIXLmYyNTAubmF2LnYxLlJhbmtlZEZy'
     'b21SCnJhbmtlZEZyb20SJAoOcG9zaXRpb25fYWdlX3MYByABKAFSDHBvc2l0aW9uQWdlUxIUCg'
-    'VxdWVyeRgIIAEoCVIFcXVlcnk=');
+    'VxdWVyeRgIIAEoCVIFcXVlcnkSGgoIcG9zdGNvZGUYCSABKAlSCHBvc3Rjb2RlEiUKDnBvc3Rj'
+    'b2RlX2ZvdW5kGAogASgIUg1wb3N0Y29kZUZvdW5k');

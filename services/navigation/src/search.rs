@@ -56,6 +56,9 @@ pub struct Answer {
     pub hits: Vec<Hit>,
     pub regions: Vec<String>,
     pub data_date: Option<String>,
+    /// A ZIP code the query ended with, and where it is (None: not in the
+    /// data).
+    pub postcode: Option<geocode::search::Postcode>,
 }
 
 impl Searcher {
@@ -111,11 +114,12 @@ impl Searcher {
             State::Closed => Err(format!("no search data at {}", self.path.display())),
             State::Bad(_, why) => Err(why.clone()),
             State::Open(_, ix) => {
-                let hits = ix
-                    .search(query, near, limit)
+                let found = ix
+                    .find(query, near, limit)
                     .map_err(|e| format!("search failed: {e}"))?;
                 Ok(Answer {
-                    hits,
+                    hits: found.hits,
+                    postcode: found.postcode,
                     regions: ix.info.regions.clone(),
                     data_date: ix.info.data_date.clone(),
                 })

@@ -86,12 +86,13 @@ fn run(cmd: Cmd) -> Result<(), String> {
             let size = std::fs::metadata(&out).map(|m| m.len()).unwrap_or(0);
             let c = s.counts;
             println!(
-                "{}: {} addresses, {} streets, {} towns, {} named places; {:.0} MB; OSM data {}; {:.0} s{}",
+                "{}: {} addresses, {} streets, {} towns, {} named places, {} ZIP codes; {:.0} MB; OSM data {}; {:.0} s{}",
                 out.display(),
                 c.addresses,
                 c.streets,
                 c.localities,
                 c.pois,
+                c.postcodes,
                 size as f64 / 1e6,
                 s.data_date.as_deref().unwrap_or("of unknown date"),
                 start.elapsed().as_secs_f64(),
@@ -113,8 +114,12 @@ fn run(cmd: Cmd) -> Result<(), String> {
             println!("data date: {}", i.data_date.as_deref().unwrap_or("unknown"));
             println!("built:     {}", i.built_at);
             println!(
-                "rows:      {} addresses, {} streets, {} towns, {} named places",
-                i.counts.addresses, i.counts.streets, i.counts.localities, i.counts.pois
+                "rows:      {} addresses, {} streets, {} towns, {} named places, {} ZIP codes",
+                i.counts.addresses,
+                i.counts.streets,
+                i.counts.localities,
+                i.counts.pois,
+                i.counts.postcodes
             );
             Ok(())
         }

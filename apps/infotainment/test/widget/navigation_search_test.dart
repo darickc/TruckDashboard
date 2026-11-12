@@ -31,6 +31,10 @@ class FakeSearchSource implements SearchSource {
   @override
   Future<SearchAnswer> search(String query, {int limit = 8}) async {
     queries.add(query);
+    // A last word of five digits is a ZIP code, as navigation reads it;
+    // only 99002 is in this made-up data.
+    final last = query.trim().split(RegExp(r'[\s,]+')).last;
+    final zip = RegExp(r'^\d{5}$').hasMatch(last) ? last : '';
     return SearchAnswer(
       query: query,
       available: available,
@@ -38,7 +42,9 @@ class FakeSearchSource implements SearchSource {
       results: answers[query.trim()] ?? const [],
       regions: const ['Testland'],
       dataDate: '2026-11-11',
-      rankedFrom: RankedFrom.current,
+      rankedFrom: zip == '99002' ? RankedFrom.postcode : RankedFrom.current,
+      postcode: zip,
+      postcodeFound: zip == '99002',
     );
   }
 }
@@ -145,6 +151,26 @@ void main() {
     await tester.pump();
     expect(route.destinations, [mainStreet.location]);
     expect(find.byKey(const ValueKey('nav-search')), findsNothing);
+  });
+
+  testWidgets('a ZIP code at the end: ranked from it, or said to be missing', (tester) async {
+    final (_, _, search) = await open(tester);
+    search.answers['main 99002'] = const [mainStreet];
+    search.answers['main 12345'] = const [mainStreet];
+    await openSearch(tester);
+    await type(tester, 'main 99002');
+    await tester.tap(find.byKey(const ValueKey('osk-done')));
+    await tester.pump();
+    expect(textOf('nav-search-footer'), startsWith('Nearest to ZIP code 99002 first.'));
+    await tester.tap(find.byKey(const ValueKey('nav-search-clear')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('nav-search-field')));
+    await tester.pump();
+    await type(tester, 'main 12345');
+    await tester.tap(find.byKey(const ValueKey('osk-done')));
+    await tester.pump();
+    expect(textOf('nav-search-footer'),
+        startsWith("Nearest first. ZIP code 12345 isn't in the search data, so it wasn't used."));
   });
 
   testWidgets('an address comes back as one, with no note', (tester) async {

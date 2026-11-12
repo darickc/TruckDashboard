@@ -8,7 +8,8 @@
 //!   `office`, `healthcare`, `historic`, `craft` or `railway=station`: a named
 //!   place, with its address if it has one. Street furniture (benches,
 //!   parking, toilets, …) is left out.
-//! - Otherwise `addr:housenumber` with `addr:street`: an address.
+//! - Otherwise `addr:housenumber` with `addr:street`: an address. Its
+//!   `addr:postcode` (a US ZIP code) places the ZIP code (`postcodes`).
 //!
 //! Relations (multipolygons, routes) are not read: a place mapped only as a
 //! multipolygon is missing. Address interpolation lines are not read either.
@@ -38,6 +39,8 @@ pub struct Addr {
     pub street: String,
     /// `addr:city`, if tagged.
     pub city: Option<String>,
+    /// `addr:postcode` as a five-digit ZIP code, if it is one.
+    pub postcode: Option<String>,
 }
 
 const PLACES: &[&str] = &[
@@ -154,6 +157,7 @@ pub fn classify(tags: &[(&str, &str)], is_way: bool) -> Option<Feature> {
             number: n.to_string(),
             street: s.to_string(),
             city: get("addr:city").map(str::to_string),
+            postcode: get("addr:postcode").and_then(geocode::text::zip5),
         }),
         _ => None,
     };
@@ -190,7 +194,26 @@ mod tests {
             number: n.into(),
             street: s.into(),
             city: c.map(str::to_string),
+            postcode: None,
         }
+    }
+
+    #[test]
+    fn an_address_keeps_its_zip_code() {
+        let a = |pc: &str| match classify(
+            &[
+                ("addr:housenumber", "120"),
+                ("addr:street", "North Main Street"),
+                ("addr:postcode", pc),
+            ],
+            false,
+        ) {
+            Some(Feature::Address(a)) => a.postcode,
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(a("99001").as_deref(), Some("99001"));
+        assert_eq!(a("99001-1234").as_deref(), Some("99001"));
+        assert_eq!(a("not a zip"), None);
     }
 
     #[test]

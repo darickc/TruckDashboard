@@ -240,6 +240,8 @@ class SearchResponse extends $pb.GeneratedMessage {
     RankedFrom? rankedFrom,
     $core.double? positionAgeS,
     $core.String? query,
+    $core.String? postcode,
+    $core.bool? postcodeFound,
   }) {
     final result = SearchResponse._();
     if (available != null) result.available = available;
@@ -250,6 +252,8 @@ class SearchResponse extends $pb.GeneratedMessage {
     if (rankedFrom != null) result.rankedFrom = rankedFrom;
     if (positionAgeS != null) result.positionAgeS = positionAgeS;
     if (query != null) result.query = query;
+    if (postcode != null) result.postcode = postcode;
+    if (postcodeFound != null) result.postcodeFound = postcodeFound;
     return result;
   }
 
@@ -276,6 +280,8 @@ class SearchResponse extends $pb.GeneratedMessage {
         enumValues: RankedFrom.values)
     ..aD(7, _omitFieldNames ? '' : 'positionAgeS')
     ..aOS(8, _omitFieldNames ? '' : 'query')
+    ..aOS(9, _omitFieldNames ? '' : 'postcode')
+    ..aOB(10, _omitFieldNames ? '' : 'postcodeFound')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -364,6 +370,27 @@ class SearchResponse extends $pb.GeneratedMessage {
   $core.bool hasQuery() => $_has(7);
   @$pb.TagNumber(8)
   void clearQuery() => $_clearField(8);
+
+  /// A ZIP code the query ended with (five digits; empty: none). It is never
+  /// a word to match: with `postcode_found` the results are ranked from it;
+  /// without, the data doesn't have it and the results say it is unmatched.
+  @$pb.TagNumber(9)
+  $core.String get postcode => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set postcode($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasPostcode() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearPostcode() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.bool get postcodeFound => $_getBF(9);
+  @$pb.TagNumber(10)
+  set postcodeFound($core.bool value) => $_setBool(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasPostcodeFound() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearPostcodeFound() => $_clearField(10);
 }
 
 const $core.bool _omitFieldNames =

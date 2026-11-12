@@ -67,15 +67,21 @@ class RankedFrom extends $pb.ProtobufEnum {
   static const RankedFrom RANKED_FROM_LAST_KNOWN =
       RankedFrom._(3, _omitEnumNames ? '' : 'RANKED_FROM_LAST_KNOWN');
 
+  /// The ZIP code the query ended with (`postcode`): the middle of its
+  /// addresses in the data.
+  static const RankedFrom RANKED_FROM_POSTCODE =
+      RankedFrom._(4, _omitEnumNames ? '' : 'RANKED_FROM_POSTCODE');
+
   static const $core.List<RankedFrom> values = <RankedFrom>[
     RANKED_FROM_UNSPECIFIED,
     RANKED_FROM_NONE,
     RANKED_FROM_CURRENT,
     RANKED_FROM_LAST_KNOWN,
+    RANKED_FROM_POSTCODE,
   ];
 
   static final $core.List<RankedFrom?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 3);
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
   static RankedFrom? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

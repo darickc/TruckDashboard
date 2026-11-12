@@ -255,16 +255,25 @@ impl SearchService for Api {
             .await
             .map_err(|e| Status::internal(format!("search task: {e}")))?;
         Ok(Response::new(match answer {
-            Ok(a) => pb::SearchResponse {
-                available: true,
-                detail: String::new(),
-                results: a.hits.iter().map(search::hit_to_pb).collect(),
-                regions: a.regions,
-                data_date: a.data_date.unwrap_or_default(),
-                ranked_from: from as i32,
-                position_age_s: age,
-                query,
-            },
+            Ok(a) => {
+                let found = a.postcode.as_ref().is_some_and(|p| p.at.is_some());
+                pb::SearchResponse {
+                    available: true,
+                    detail: String::new(),
+                    results: a.hits.iter().map(search::hit_to_pb).collect(),
+                    regions: a.regions,
+                    data_date: a.data_date.unwrap_or_default(),
+                    ranked_from: if found {
+                        pb::RankedFrom::Postcode as i32
+                    } else {
+                        from as i32
+                    },
+                    position_age_s: if found { 0.0 } else { age },
+                    query,
+                    postcode: a.postcode.map(|p| p.code).unwrap_or_default(),
+                    postcode_found: found,
+                }
+            }
             Err(why) => pb::SearchResponse {
                 available: false,
                 detail: why,

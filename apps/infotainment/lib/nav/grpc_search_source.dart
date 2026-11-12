@@ -92,7 +92,10 @@ SearchAnswer searchAnswerFromPb(pb.SearchResponse r, String asked) => SearchAnsw
   rankedFrom: switch (r.rankedFrom) {
     pb.RankedFrom.RANKED_FROM_CURRENT => RankedFrom.current,
     pb.RankedFrom.RANKED_FROM_LAST_KNOWN => RankedFrom.lastKnown,
+    pb.RankedFrom.RANKED_FROM_POSTCODE => RankedFrom.postcode,
     _ => RankedFrom.none,
   },
   positionAgeS: r.positionAgeS,
+  postcode: r.postcode,
+  postcodeFound: r.postcodeFound,
 );

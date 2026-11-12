@@ -32,7 +32,8 @@ class SearchServiceClient extends $grpc.Client {
 
   SearchServiceClient(super.channel, {super.options, super.interceptors});
 
-  /// Results for a typed query, best first, ranked near the truck. Cheap
+  /// Results for a typed query, best first, ranked near the truck (or near
+  /// the ZIP code it ends with: SearchResponse.postcode). Cheap
   /// enough to call on every keystroke. Never fails for a missing index:
   /// `available` is false and `detail` says why.
   $grpc.ResponseFuture<$0.SearchResponse> search(
