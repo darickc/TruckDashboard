@@ -342,13 +342,13 @@ impl ValhallaCli {
 impl Router for ValhallaCli {
     fn check(&self) -> Result<(), String> {
         if !self.program_found() {
-            return Err(format!(
-                "{} isn't installed (Valhalla isn't in this image yet)",
-                self.program.display()
-            ));
+            return Err(format!("{} isn't installed", self.program.display()));
         }
         if !self.tiles.is_file() {
-            return Err(format!("no routing data at {}", self.tiles.display()));
+            return Err(format!(
+                "no routing data at {} (it comes on the map stick)",
+                self.tiles.display()
+            ));
         }
         if !self.template.is_file() {
             return Err(format!(

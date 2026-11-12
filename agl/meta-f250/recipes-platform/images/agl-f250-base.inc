@@ -36,6 +36,7 @@ IMAGE_INSTALL += " \
     gpsd \
     gpsd-conf \
     gpsd-udev \
+    valhalla \
 "
 
 # weston-ini-conf-flutter: the compositor's configuration for flutter-auto
@@ -59,6 +60,10 @@ IMAGE_INSTALL += " \
 # demo image's manifest, which had all three (and gpsd-machine-conf, left out:
 # its contents are UNVERIFIED). UNVERIFIED in a meta-f250 build until the
 # next `make agl-build`.
+#
+# valhalla: valhalla_service, which services/navigation runs once per route
+# (ADR-0035; recipes-navigation/valhalla). Its routing data comes on the map
+# stick (ADR-0033 amendment).
 #
 # Recording front and rear (ADR-0027): matroskamux (matroska) and
 # splitmuxsink (multifile), from gst-plugins-good. matroska pulls

@@ -671,7 +671,7 @@ check "images start from the compositor image, not the demo" "grep -qx 'require 
 for i in agl-f250 agl-f250-release; do
   check "$i uses the shared base" "grep -qx 'require agl-f250-base.inc' $IMG/$i.bb"
 done
-for p in f250-system f250-services f250-dashboard weston-ini-conf-flutter bluez5 avahi-daemon rsync \
+for p in f250-system f250-services f250-dashboard valhalla weston-ini-conf-flutter bluez5 avahi-daemon rsync \
          gstreamer1.0-plugins-good-video4linux2 gstreamer1.0-plugins-good-jpeg \
          gstreamer1.0-plugins-base-videoconvertscale \
          gstreamer1.0-plugins-bad-waylandsink; do
@@ -702,6 +702,18 @@ for u in kuksa-can-provider.service can-dev-helper.service; do
 done
 check "oFono disabled in the image and by preset" "grep -qx 'disable ofono.service' agl/rootfs/etc/systemd/system-preset/00-f250.preset && grep -q 'disable ofono.service' agl/meta-f250/recipes-platform/images/agl-f250-base.inc"
 check "f250-system skips configure and compile" "grep -q '^do_compile\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb && grep -q '^do_configure\[noexec\] = \"1\"' $M/recipes-f250/f250-system/f250-system.bb"
+
+echo "valhalla recipe (ADR-0035)"
+VB=$M/recipes-navigation/valhalla/valhalla_3.9.1.bb
+check "valhalla: tag 3.9.1's commit, with its submodules" "grep -q '^SRC_URI = \"gitsm://github.com/valhalla/valhalla.git;protocol=https;nobranch=1' $VB && grep -qx 'SRCREV = \"bafb69902220615a48307d5c790fb6c943802ba4\"' $VB"
+for o in ENABLE_TOOLS=ON ENABLE_DATA_TOOLS=OFF ENABLE_SERVICES=OFF ENABLE_HTTP=OFF ENABLE_PYTHON_BINDINGS=OFF \
+         ENABLE_NODE_BINDINGS=OFF ENABLE_TESTS=OFF ENABLE_GEOTIFF=OFF ENABLE_LZ4=OFF BUILD_SHARED_LIBS=OFF; do
+  check "valhalla: -D$o" "grep -qx '    -D$o \\\\' $VB"
+done
+check "valhalla: protoc from the build host" "grep -q 'protobuf-native' $VB && grep -q 'CMAKE_PROJECT_valhalla_INCLUDE=\${UNPACKDIR}/protoc-native.cmake' $VB && grep -q 'add_executable(protobuf::protoc IMPORTED)' $M/recipes-navigation/valhalla/files/protoc-native.cmake"
+check "valhalla: only valhalla_service is packaged" "grep -qx 'FILES:\${PN} = \"\${bindir}/valhalla_service\"' $VB"
+check "valhalla: navigation looks for it on PATH" "grep -q 'default_value = \"valhalla_service\"' services/navigation/src/main.rs"
+check "valhalla: the config template is 3.9.1's" "[[ -f services/navigation/valhalla/valhalla-3.9.1.json ]] && [[ \"\$(basename $VB)\" == valhalla_3.9.1.bb ]]"
 
 echo "map-import (ADR-0033)"
 MI=agl/rootfs/opt/f250/libexec/map-import
@@ -784,6 +796,58 @@ mi "$D" stopped /dev/sdb1 >/dev/null 2>&1 || true
 check "stopped: a pulled stick's import fails, the copy goes" "[[ \"\$(state_of '$D')\" == failed && ! -e '$D/storage/maps/map.pmtiles.part' ]] && grep -qF 'stick was removed' '$D/run/status.json' && grep -qF '\"id\":\"x\"' '$D/run/status.json'"
 check "stopped: the old map is kept"   "cmp -s '$OLD' '$D/storage/maps/map.pmtiles'"
 
+# Routing data on the stick (ADR-0033 amendment): a small tile extract as
+# valhalla_build_extract writes one, index.bin first.
+mk_tar() {   # mk_tar <out> <name>...: a ustar file of small members, owned by root
+  python3 -I - "$@" <<'PY'
+import io, sys, tarfile
+with tarfile.open(sys.argv[1], "w", format=tarfile.USTAR_FORMAT) as t:
+    for name in sys.argv[2:]:
+        data = name.encode()
+        info = tarfile.TarInfo(name); info.size = len(data)
+        t.addfile(info, io.BytesIO(data))
+PY
+}
+mk_tar "$T/routing.tar" index.bin 0/002/809.gph
+mk_tar "$T/not-extract.tar" 0/002/809.gph
+mk_tar "$T/routing-old.tar" index.bin 0/002/810.gph
+RTS=routing/valhalla_tiles.tar
+D="$(new_case routing)"
+python3 tools/maps/map-stick.py --map "$FIX" --routing "$T/routing.tar" --stick "$D/stick" --any-dir >/dev/null 2>&1 || fail "map-stick wrote no map and routing stick"
+check "map-stick writes routing data and its checksum" "cmp -s '$T/routing.tar' '$D/stick/f250/routing.tar' && grep -qE '^[0-9a-f]{64}  routing.tar\$' '$D/stick/f250/routing.tar.sha256'"
+chmod 0755 "$D/stick/f250/routing.tar"
+rc=0; mi "$D" dir "$D/stick" >/dev/null 2>&1 || rc=$?
+check "map and routing data are imported" "[[ $rc == 0 ]] && cmp -s '$FIX' '$D/storage/maps/map.pmtiles' && cmp -s '$T/routing.tar' '$D/storage/$RTS'"
+check "status: both changed, in one import" "[[ \"\$(state_of '$D')\" == updated ]] && grep -qF '\"changed\":[\"map\",\"routing\"]' '$D/run/status.json' && grep -qF 'Map and routing data updated.' '$D/run/status.json'"
+check "routing data isn't executable, its checksum kept" "[[ \"\$(ls -l '$D/storage/$RTS' | cut -c1-10)\" == -rw-r--r-- && \"\$(cat '$D/storage/$RTS.sha256')\" == \"\$(cut -c1-64 '$D/stick/f250/routing.tar.sha256')\" && ! -e '$D/storage/$RTS.part' ]]"
+rc=0; mi "$D" dir "$D/stick" >/dev/null 2>&1 || rc=$?
+check "the same stick again: both current" "[[ $rc == 0 && \"\$(state_of '$D')\" == current ]] && grep -qF 'The map and routing data on this stick are already installed.' '$D/run/status.json' && grep -qF '\"changed\":[]' '$D/run/status.json'"
+D="$(new_case routing-only)"
+python3 tools/maps/map-stick.py --routing "$T/routing.tar" --stick "$D/stick" --any-dir >/dev/null 2>&1 || fail "map-stick wrote no routing stick"
+rc=0; mi "$D" dir "$D/stick" >/dev/null 2>&1 || rc=$?
+check "routing data alone: imported, the map untouched" "[[ $rc == 0 ]] && cmp -s '$T/routing.tar' '$D/storage/$RTS' && cmp -s '$OLD' '$D/storage/maps/map.pmtiles'"
+check "routing data alone: changed names only routing" "grep -qF '\"changed\":[\"routing\"]' '$D/run/status.json' && grep -qF '\"item\":\"routing\"' '$D/run/status.json' && grep -qF 'Routing data updated.' '$D/run/status.json'"
+check "map-stick needs --map or --routing" "! python3 tools/maps/map-stick.py --stick '$D/stick' --any-dir 2>/dev/null"
+check "map-stick refuses routing data that isn't a tile extract" "! python3 tools/maps/map-stick.py --routing '$T/not-extract.tar' --stick '$D/stick' --any-dir 2>/dev/null && ! python3 tools/maps/map-stick.py --routing '$FIX' --stick '$D/stick' --any-dir 2>/dev/null"
+routing_failing() {   # routing_failing <name> <expected message part> <prepare commands>
+  local d; d="$(new_case "r-$1")"
+  mkdir -p "$d/stick/f250" "$d/storage/routing"
+  cp "$T/routing-old.tar" "$d/storage/$RTS"
+  ( cd "$d/stick/f250" && eval "$3" ) || true
+  mi "$d" dir "$d/stick" >/dev/null 2>&1 && fail "routing $1: exited 0"
+  check "routing $1: failed, saying so" "[[ \"\$(state_of '$d')\" == failed ]] && grep -qF -- '$2' '$d/run/status.json' && grep -qF '\"item\":\"routing\"' '$d/run/status.json'"
+  check "routing $1: the old routing data is kept" "cmp -s '$T/routing-old.tar' '$d/storage/$RTS' && [[ ! -e '$d/storage/$RTS.part' ]]"
+}
+routing_failing "no checksum" "no routing.tar.sha256" "cp '$T/not-extract.tar' routing.tar"
+routing_failing "a wrong checksum" "match its checksum" "cp '$T/routing.tar' routing.tar; printf '%064d  routing.tar\n' 0 >routing.tar.sha256"
+routing_failing "not an extract" "no index.bin first" "cp '$T/not-extract.tar' routing.tar; (shasum -a 256 routing.tar 2>/dev/null || sha256sum routing.tar) >routing.tar.sha256"
+routing_failing "not a tar" "a tar file" "cp '$PWD/$FIX' routing.tar; (shasum -a 256 routing.tar 2>/dev/null || sha256sum routing.tar) >routing.tar.sha256"
+D="$(new_case r-pulled)"; mkdir -p "$D/run" "$D/storage/routing"
+printf '{"state":"copying","percent":40,"message":"","id":"y","device":"/dev/sdc1","item":"routing","changed":["map"],"at":"2026-11-11T00:00:00Z"}\n' >"$D/run/status.json"
+echo partial >"$D/storage/$RTS.part"
+mi "$D" stopped /dev/sdc1 >/dev/null 2>&1 || true
+check "stopped while copying routing data: failed, that copy goes" "[[ \"\$(state_of '$D')\" == failed && ! -e '$D/storage/$RTS.part' ]] && grep -qF 'before the routing data was copied' '$D/run/status.json'"
+
 U=agl/rootfs/etc/systemd/system/f250-map-import@.service
 RULE=agl/rootfs/etc/udev/rules.d/80-f250-map-stick.rules
 check "udev: USB exFAT/FAT filesystems start the import" "grep -qF 'ENV{ID_BUS}==\"usb\"' $RULE && grep -qF 'ENV{ID_FS_TYPE}==\"exfat|vfat\"' $RULE && grep -qF 'ENV{SYSTEMD_WANTS}+=\"f250-map-import@%k.service\"' $RULE"
@@ -792,7 +856,7 @@ check "unit: bound to the stick, long enough for a big map" "has_line $U 'BindsT
 check "unit: status kept for the dashboard" "has_line $U 'RuntimeDirectory=f250-maps' && has_line $U 'RuntimeDirectoryPreserve=yes' && has_line $U 'RuntimeDirectoryMode=0755'"
 check "unit: writes only the data drive, no network" "has_line $U 'ProtectSystem=strict' && has_line $U 'ReadWritePaths=-/var/lib/f250/storage' && has_line $U 'PrivateNetwork=yes' && has_line $U 'PrivateMounts=yes'"
 check "unit: started by udev only (no [Install])" "! grep -q '^\[Install\]' $U"
-check "map path agrees: script, image, deploy" "grep -q 'F250_STORAGE:-/var/lib/f250/storage' $MI && grep -q 'MAPS=\"\$STORAGE/maps\"' $MI && grep -q 'STATUS_DIR=\"\${F250_MAP_STATUS_DIR:-/run/f250-maps}\"' $MI && grep -q -- '-DMAP_FILE=/var/lib/f250/storage/maps/map.pmtiles -DMAP_STATUS=/run/f250-maps/status.json' $M/recipes-f250/f250-dashboard/f250-dashboard.bb"
+check "map path agrees: script, image, deploy" "grep -q 'F250_STORAGE:-/var/lib/f250/storage' $MI && grep -q 'DEST_DIR=\"\$STORAGE/maps\"; DEST_NAME=map.pmtiles' $MI && grep -q 'DEST_DIR=\"\$STORAGE/routing\"; DEST_NAME=valhalla_tiles.tar' $MI && grep -q 'default_value = \"/var/lib/f250/storage/routing/valhalla_tiles.tar\"' services/navigation/src/main.rs && grep -q 'STATUS_DIR=\"\${F250_MAP_STATUS_DIR:-/run/f250-maps}\"' $MI && grep -q -- '-DMAP_FILE=/var/lib/f250/storage/maps/map.pmtiles -DMAP_STATUS=/run/f250-maps/status.json' $M/recipes-f250/f250-dashboard/f250-dashboard.bb"
 
 echo
 echo "agl-test: $PASS passed, $FAIL failed"

@@ -8,8 +8,9 @@
 #   NAV_STALE_AFTER_MS  a fix older than this is never shown as current.
 #                       Default 3000, an example value (navigation's own).
 #   NAV_VALHALLA        valhalla_service, run once per route. Default: on
-#                       PATH. Not in the image yet: routing then says so.
-#   NAV_ROUTING_TILES   the routing data (make route-region). Default
+#                       PATH (/usr/bin in the image).
+#   NAV_ROUTING_TILES   the routing data (make route-region, brought by the
+#                       map stick). Default
 #                       /var/lib/f250/storage/routing/valhalla_tiles.tar.
 #   NAV_COSTING         auto (default) or truck.
 #   NAV_TRUCK_HEIGHT_M, NAV_TRUCK_WIDTH_M, NAV_TRUCK_LENGTH_M,

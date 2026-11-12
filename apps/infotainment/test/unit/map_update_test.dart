@@ -6,8 +6,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 const fixture = 'test/fixtures/maps/vector-z12-15.pmtiles';
 
-String status(String state, {int percent = 0, String id = 'a', String message = 'm', String? at}) =>
+String status(String state,
+        {int percent = 0, String id = 'a', String message = 'm', String? at, String? item, List<String>? changed}) =>
     '{"state":"$state","percent":$percent,"message":"$message","id":"$id","device":"/dev/sda1",'
+    '${item == null ? '' : '"item":"$item",'}'
+    '${changed == null ? '' : '"changed":[${changed.map((c) => '"$c"').join(',')}],'}'
     '"at":"${at ?? DateTime.now().toUtc().toIso8601String()}"}';
 
 void main() {
@@ -26,6 +29,29 @@ void main() {
       expect(s.at, DateTime.utc(2026, 11, 11, 21, 51, 21));
       expect(s.inProgress, isTrue);
       expect(s.text, 'Copying the map from USB: 43%. Leave the stick in.');
+    });
+
+    test('routing data on the stick (ADR-0033 amendment)', () {
+      // As map-import writes it while copying routing data, and when done.
+      final copying = MapUpdateStatus.parse(
+        '{"state":"copying","percent":12,"message":"Copying the routing data from USB: leave the stick in",'
+        '"id":"20261112T032106Z-22578","device":"/dev/sda1","item":"routing","changed":["map"],'
+        '"at":"2026-11-12T03:21:07Z"}',
+      )!;
+      expect(copying.item, 'routing');
+      expect(copying.text, 'Copying routing data from USB: 12%. Leave the stick in.');
+      expect(copying.mapChanged, isFalse, reason: 'not finished');
+      final done = MapUpdateStatus.parse(
+        '{"state":"updated","percent":100,"message":"Routing data updated. The map was already installed. '
+        'You can remove the stick.","id":"x","device":"","item":"routing","changed":["routing"],'
+        '"at":"2026-11-12T03:21:09Z"}',
+      )!;
+      expect(done.changed, ['routing']);
+      expect(done.mapChanged, isFalse);
+      expect(MapUpdateStatus.parse(status('updated', changed: ['map', 'routing']))!.mapChanged, isTrue);
+      expect(MapUpdateStatus.parse(status('updated'))!.mapChanged, isTrue,
+          reason: 'an import that doesn\'t say what changed only ever imported maps');
+      expect(MapUpdateStatus.parse(status('copying'))!.item, 'map');
     });
 
     test('anything else is no status', () {
@@ -102,6 +128,24 @@ void main() {
       expect(identical(first, second), isFalse);
       expect((map.state.value as MapReady).vector!.generation,
           greaterThan(0));
+      await map.checkUpdate();
+      expect(opens, 2);
+    });
+
+    test('routing data alone doesn\'t reopen the map; with a new map it does', () async {
+      await map.load();
+      answers.addAll([
+        null,
+        status('copying', id: 'r', percent: 50, item: 'routing'),
+        status('updated', id: 'r', percent: 100, item: 'routing', changed: ['routing']),
+        status('updated', id: 'b', percent: 100, item: 'routing', changed: ['map', 'routing']),
+      ]);
+      await map.checkUpdate();
+      await map.checkUpdate();
+      expect(map.update.value!.text, 'Copying routing data from USB: 50%. Leave the stick in.');
+      await map.checkUpdate();
+      expect(map.update.value!.state, MapUpdateState.updated);
+      expect(opens, 1);
       await map.checkUpdate();
       expect(opens, 2);
     });

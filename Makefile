@@ -254,9 +254,9 @@ ifeq ($(ESTIMATE),)
 	mkdir -p $(dir $(MAP_FILE)) && cp $(MAP_OUT) $(MAP_FILE)
 endif
 
-map-stick: ## Write MAP= (default $(MAP_OUT)) onto the exFAT USB stick at STICK=/Volumes/<name> for the truck (ADR-0033)
-	@test -n "$(STICK)" || { echo "usage: make map-stick STICK=/Volumes/<name> [MAP=build/maps/region.pmtiles]"; exit 2; }
-	python3 tools/maps/map-stick.py --map $(if $(filter command line,$(origin MAP)),$(MAP),$(MAP_OUT)) --stick "$(STICK)"
+map-stick: ## Write MAP= (default $(MAP_OUT)) and ROUTING= (routing data, optional) onto the exFAT USB stick at STICK=/Volumes/<name> (ADR-0033)
+	@test -n "$(STICK)" || { echo "usage: make map-stick STICK=/Volumes/<name> [MAP=build/maps/region.pmtiles] [ROUTING=build/routing/valhalla_tiles.tar]  (MAP= alone: no map)"; exit 2; }
+	python3 tools/maps/map-stick.py $(addprefix --map ,$(if $(filter command line,$(origin MAP)),$(MAP),$(MAP_OUT))) $(addprefix --routing ,$(ROUTING)) --stick "$(STICK)"
 
 map-import-dev: ## Import a map stick (STICK=/Volumes/<name>) into $(MAP_FILE) as the truck would, for make ui/sim
 	@test -n "$(STICK)" || { echo "usage: make map-import-dev STICK=/Volumes/<name>"; exit 2; }

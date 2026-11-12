@@ -103,9 +103,9 @@ class OfflineMap {
 
   bool _checking = false;
 
-  /// Reads the import status once. A new finished import reopens the map;
-  /// one that finished before the dashboard started is already the map it
-  /// opened.
+  /// Reads the import status once. A new finished import that replaced the
+  /// map reopens it (one that brought only routing data doesn't); one that
+  /// finished before the dashboard started is already the map it opened.
   Future<void> checkUpdate() async {
     if (statusPath.isEmpty || _checking) return;
     _checking = true;
@@ -115,7 +115,7 @@ class OfflineMap {
       final first = !_checkedOnce;
       _checkedOnce = true;
       if (status == null) return;
-      if (status.state == MapUpdateState.updated && status.id != _installedId) {
+      if (status.mapChanged && status.id != _installedId) {
         _installedId = status.id;
         if (!first) await load();
       }
