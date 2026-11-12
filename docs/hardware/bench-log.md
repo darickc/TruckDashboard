@@ -2315,3 +2315,37 @@ Not shown: Connect from the list (one paired phone only: it reconnected by
 itself before a tap could), switching between two phones, giving up after
 300 s with the phone away, a real drag of a slider (the touch tool only
 taps), the speakers themselves (no DAC8x).
+
+## 2026-11-12 — A second phone, and a search ending in a ZIP code (ADR-0038, ADR-0039 amended) [BENCH]
+
+Two reports from the owner at the bench Pi. The phones' names and addresses
+and the owner's address are left out of this log.
+
+**A phone paired in the window wasn't listed.** The owner paired a second
+phone (an iPhone) through Phones: "Paired with …" under Pair a phone, but the
+list showed only the first phone, still in use. BlueZ had both connected
+(`bluetoothctl info`: `Connected: yes` on both); audio-manager assumed one,
+showed the first by name, and left connected phones out of the list. Fixed:
+one phone at a time, the newest kept (the other disconnected), every paired
+phone listed. `make deploy` restarted audio-manager with both still
+connected; it kept the last phone (the iPhone, in `last-phone`) and logged
+"… is the phone in use: disconnecting …, one phone at a time"; Phones then
+showed the iPhone Connected and the first phone with Connect. Not tapped
+(the iPhone was in use).
+
+**An address search found nothing.** A rural address typed as
+"<number> <street> trl, <ZIP>" found 0 results; openstreetmap.org's search
+found it. Two causes:
+- the ZIP code was a word every result had to match, and OSM streets carry
+  none: fixed (ADR-0038 decision 4a), the index now places ZIP codes
+  (30,468; schema version 3; the lower 48 rebuilt in 469 s, 5.2 GB, copied
+  over Ethernet in 69 s, imported in 36 s);
+- that house number isn't in OSM: the raw extract around the street has
+  ~780 addresses and none on it, and no interpolation lines.
+  openstreetmap.org's result (number, street, county, state, ZIP, no town)
+  has the form of the US Census TIGER ranges Nominatim adds. Not fixed.
+
+On the Pi after the import: the same query 8 results in 70 ms, ranked from
+the ZIP code: the right street first, 6.1 km from the middle of its ZIP code,
+marked "no such number". The ZIP code alone: its area (408 addresses).
+"main st <ZIP>": that town's Main Street first.

@@ -107,6 +107,14 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
 3a. **Paired phones and reconnecting** (amended 2026-11-12, owner). The
    Phones screen lists every paired phone, the connected one first, then
    the last one, with **Connect** for the others.
+   - **One phone at a time, whoever connects it** (amended 2026-11-12: a
+     phone paired in the window connected while the first stayed connected;
+     the screen showed the first and the new one nowhere). When a second
+     phone connects (paired in the window, or coming into range), the phone
+     that connected last is kept and the others are disconnected; at
+     audio-manager's start with several connected, the last phone is kept
+     (else the one with the player). The list shows every paired phone,
+     whatever its state.
    - `ConnectPhone(address)` returns at once; `WatchAudioResponse.connect`
      says what is being tried and how the last attempt went ("Couldn't
      connect to Pixel 8: …"). **One phone at a time:** any other connected

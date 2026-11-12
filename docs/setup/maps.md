@@ -296,7 +296,12 @@ sparse outside towns, so often it is only the street or the town:
 
 Abbreviations work both ways ("n main st" finds "North Main Street"), and the
 last word may be unfinished (three letters; two for a town). Add the state's
-short name to pick a town ("kansas city mo"). Misspellings find nothing.
+short name to pick a town ("kansas city mo"), or end with the ZIP code
+("elm ave 99001"): the results are then nearest to that ZIP code instead of
+the truck, and a ZIP code alone shows its area. Misspellings find nothing.
+House numbers that openstreetmap.org's search finds for rural addresses often
+come from US Census data it adds, not from OpenStreetMap, so here the result
+is the street.
 Typing while moving isn't locked out (owner's decision); the panel asks to
 type only when parked.
 

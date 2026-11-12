@@ -59,9 +59,12 @@ web search on 2026-11-12. They are listed with their status in the
      doesn't ask: streets and named places (`terms`), towns (`towns`), and
      anything with a house number (`addrs`). Rows carry their 1° and 5° cell
      as tokens.
+   - `postcodes`: each US ZIP code (five digits) at the median position of
+     the addresses that carry it as `addr:postcode` (30,468 in the lower 48,
+     OSM 2026-11-11). OSM streets don't carry ZIP codes; addresses often do.
    - The file says what it is: `PRAGMA application_id` "F250" and
-     `user_version` 2 (2 since `place.state`, 2026-11-12; files built
-     before that are refused). The search refuses anything else.
+     `user_version` 3 (2 since `place.state`, 3 since `postcodes`, both
+     2026-11-12; older files are refused). The search refuses anything else.
 2. **It comes on the map stick** as `f250/search.sqlite`, with its checksum,
    next to the map and the routing data (`make map-stick SEARCH=...`). The
    import checks it (checksum, SQLite header, application id) and swaps it in
@@ -88,6 +91,14 @@ web search on 2026-11-12. They are listed with their status in the
    data"; a town found when its street isn't there says "Town only: “elm
    avenue” not found". The footer names the data (region, OSM date) and says
    house numbers are sparse.
+4a. **A ZIP code at the end of a query** ("120 elm ave, 99001", ZIP+4
+   too) is not a word to match (amended 2026-11-12: it used to be one, and
+   such a query found nothing). With the ZIP code in `postcodes`, results are
+   ranked from it instead of from the truck (`RANKED_FROM_POSTCODE`; the
+   footer says "Nearest to ZIP code 99001 first"). Without, it is said
+   ("isn't in the search data, so it wasn't used") and listed as unmatched.
+   A ZIP code alone finds its area. Five digits first and followed by words
+   stay a house number ("12345 main st").
 6. **The Nav screen** gets a Search button. The panel has a field, an
    on-screen keyboard (letters, and digits and address punctuation; every key
    at least 60 px), results as they come (150 ms after typing stops), and on
@@ -114,7 +125,10 @@ web search on 2026-11-12. They are listed with their status in the
 - A US-sized index, routing data and map don't fit one 29 GB stick together;
   the import takes any subset.
 - No fuzzy matching (a misspelt word finds nothing), no house-number
-  interpolation along a street, no places mapped only as relations, no saved
+  interpolation along a street (OSM has few `addr:interpolation` lines; the
+  ranges openstreetmap.org's own search shows for rural US addresses come from
+  the US Census Bureau's TIGER data that Nominatim adds, not from OSM: an
+  address it finds can be missing here, bench-log 2026-11-12), no places mapped only as relations, no saved
   places and no recent searches. Each is a later piece.
 - Same-named towns in a state are told apart only by distance.
 - OSM data is ODbL. The footer names OpenStreetMap; the map's attribution is
