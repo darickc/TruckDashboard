@@ -93,6 +93,12 @@ async fn start_live_change_and_restart() {
     let state = dsp.state();
     dsp.start(Settings::default()).await;
     wait("applied", || *state.borrow() == DspState::Applied).await;
+    // "Applied" comes after the settle time, not after the fake has logged
+    // its start: under load the script can still be on its grep.
+    wait("the fake pipewire's start logged", || {
+        !starts(&d).is_empty()
+    })
+    .await;
     assert_eq!(starts(&d), ["crossover 80 Hz"]);
     let conf = std::fs::read_to_string(d.join("run/speakers.conf")).unwrap();
     assert!(conf.contains("filter.smart.target = { node.name = \"dac\" }"));
@@ -172,6 +178,7 @@ async fn a_crash_is_reported_and_restarted() {
         *state.borrow() == DspState::Applied
     })
     .await;
+    wait("the second start logged", || starts(&d).len() >= 2).await;
     assert_eq!(starts(&d).len(), 2);
 }
 
