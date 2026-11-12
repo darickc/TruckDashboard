@@ -237,9 +237,9 @@ sim: ## Gateway and navigation (simulated) + the macOS app reading from them ove
 navigation: ## Run services/navigation with a simulated receiver on $(NAV_LISTEN), routing with Valhalla in Docker
 	cargo run -q -p navigation -- --listen $(NAV_LISTEN) --simulate $(NAV_ROUTING)
 
-route-region: ## Build Valhalla routing data for REGION= (Geofabrik path(s), e.g. north-america/us/kansas) into $(ROUTING_TILES); needs Docker
+route-region: ## Build Valhalla routing data for REGION= (Geofabrik path(s), e.g. north-america/us/kansas) into $(ROUTING_TILES) (ROUTE_ARGS= passes build-routing.py options); needs Docker
 	@test -n "$(REGION)" || { echo "usage: make route-region REGION=north-america/us/kansas [REGION='a b']"; exit 2; }
-	python3 tools/maps/build-routing.py $(foreach r,$(REGION),--region $(r)) --dev-copy $(ROUTING_TILES)
+	python3 tools/maps/build-routing.py $(foreach r,$(REGION),--region $(r)) --dev-copy $(ROUTING_TILES) $(ROUTE_ARGS)
 
 map-test-pattern: ## Write a test-pattern map (not map data) to $(MAP_FILE); needs Pillow and pmtiles
 	python3 tools/dev/test-pattern-map.py --out build/maps/test-pattern.mbtiles

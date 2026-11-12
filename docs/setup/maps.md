@@ -208,6 +208,26 @@ downloaded, about 30 s to build on an M-series Mac, a 312 MB file [BENCH].
 An extract already downloaded for the same date isn't fetched again. Build
 the same region as the map; a route can't leave the routing data.
 
+For many states, build the country: neighbouring Geofabrik extracts overlap at
+their borders. The whole US (`north-america/us`, which includes Alaska and
+Hawaii) is a 12 GB download and builds in 67 minutes on an M-series Mac with
+Docker's 8 GB and 16 CPUs, into a 21 GB file of 17,178 tiles [BENCH,
+2026-11-12]. The build needs about 70 GB free while it runs. With 8 GB, give
+the later stages fewer threads, or they run out of memory:
+
+```bash
+make route-region REGION=north-america/us \
+  ROUTE_ARGS="--concurrency 8 --late-concurrency 3 --out build/routing/us/valhalla_tiles.tar --work build/routing/us-work"
+```
+
+If a build fails after its first half, `ROUTE_ARGS="... --resume enhance"`
+runs only the second half again. On the US data in Docker, a 65 km route took
+0.2–0.4 s, Kansas City to Denver (974 km) 0.3 s and Seattle to Miami
+(5,319 km) 1.6 s, Docker's start included, with a peak of 690 MB in the
+container, page cache counted [BENCH]. A US-sized file is too big for the map
+stick next to the map: a 29 GB stick holds one or the other. The import takes
+a stick with only one of them.
+
 ### On the Mac
 
 ```bash

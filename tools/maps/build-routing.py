@@ -13,6 +13,21 @@
   build-routing.py --region north-america/us/kansas
   build-routing.py --region north-america/us/kansas --region north-america/us/nebraska
   build-routing.py --pbf my-extract.osm.pbf
+  build-routing.py --region north-america/us --concurrency 8 \
+      --out build/routing/us/valhalla_tiles.tar --work build/routing/us-work --dev-copy ''
+  build-routing.py --region north-america/us --late-concurrency 3 --resume enhance ...
+
+Valhalla's tile build runs as two processes: parsing up to "build", then
+"enhance" to the end. Parsing keeps the OSM names in memory, and the first
+process writes them to the work folder instead, so the later stages start
+without them. In one process the US extract ran out of Docker's 8 GB at
+"enhance" with 8 threads, after 55 minutes [BENCH, 2026-11-12].
+--late-concurrency sets the later stages' threads; --resume enhance (or a
+later stage) runs only the second process again, on the work folder the
+first one left.
+
+One extract per area where possible: neighbouring Geofabrik extracts overlap
+at their borders, so for many states the country's extract is the safer input.
 
 Needs Docker and curl. Kansas (118 MB of OSM data) builds in about 30 s on an M-series
 Mac into a 312 MB extract [BENCH, 2026-11-11].
@@ -27,6 +42,10 @@ import subprocess
 import sys
 import tarfile
 import urllib.parse
+
+# Valhalla 3.9.1's tile-build stages from "enhance" on (valhalla_build_tiles --help).
+LATE_STAGES = ("enhance", "filter", "transit", "bss", "hierarchy", "shortcuts",
+               "restrictions", "elevation", "validate", "cleanup")
 
 # --- Pins (record changes in ADR-0035) --------------------------------------
 # Multi-arch index digest of the 3.9.1 release image.
@@ -132,9 +151,19 @@ def main():
     ap.add_argument("--work", default=os.path.join(ROOT, "build/routing/work"))
     ap.add_argument("--dev-copy", default="/tmp/f250/routing/valhalla_tiles.tar",
                     help="also copy the result here for make navigation/sim ('' for none)")
+    ap.add_argument("--concurrency", type=int, default=0,
+                    help="Valhalla's build threads (0: one per CPU Docker has). Fewer for a"
+                         " large region when Docker's memory is small")
+    ap.add_argument("--late-concurrency", type=int, default=0,
+                    help="threads for the stages from enhance on (0: as --concurrency)")
+    ap.add_argument("--resume", metavar="STAGE",
+                    help="run again from this Valhalla stage, enhance or later, on the work"
+                         " folder a failed run left")
     a = ap.parse_args()
     if not a.region and not a.pbf:
         die("give --region (e.g. north-america/us/kansas) or --pbf")
+    if a.resume and a.resume not in LATE_STAGES:
+        die(f"--resume: give one of {', '.join(LATE_STAGES)}; earlier stages need a full build")
     if shutil.which("docker") is None:
         die("docker not found: install Docker Desktop")
     if subprocess.run(["docker", "info"], capture_output=True).returncode != 0:
@@ -149,17 +178,30 @@ def main():
         pbfs.append(p)
 
     work = os.path.abspath(a.work)
-    if os.path.isdir(work):
-        shutil.rmtree(work)  # tiles from an earlier region must not mix in
-    os.makedirs(work)
     inputs = " ".join(f"/input/{i}.osm.pbf" for i in range(len(pbfs)))
+    concurrency = f" --mjolnir-concurrency {a.concurrency}" if a.concurrency > 0 else ""
     say(f"Build routing tiles from {', '.join(os.path.basename(p) for p in pbfs)} in {VALHALLA_IMAGE.split('@')[0]}")
-    docker(work, pbfs, f"""
+    late_jobs = a.late_concurrency or a.concurrency
+    late = f" --concurrency {late_jobs}" if late_jobs > 0 else ""
+    if a.resume:
+        if not os.path.isfile(os.path.join(work, "tiles", "osmdata_unique_strings.bin")):
+            die(f"--resume: {work} has no finished first half to continue from")
+        start = a.resume
+        prepare = ""
+    else:
+        if os.path.isdir(work):
+            shutil.rmtree(work)  # tiles from an earlier region must not mix in
+        os.makedirs(work)
+        start = "enhance"
+        prepare = f"""
 valhalla_build_config --mjolnir-tile-dir /work/tiles --mjolnir-tile-extract /work/valhalla_tiles.tar \\
-  --mjolnir-admin /work/admins.sqlite --mjolnir-timezone /work/timezones.sqlite > /work/valhalla.json
+  --mjolnir-admin /work/admins.sqlite --mjolnir-timezone /work/timezones.sqlite{concurrency} > /work/valhalla.json
 valhalla_build_timezones > /work/timezones.sqlite
 valhalla_build_admins --config /work/valhalla.json {inputs}
-valhalla_build_tiles --config /work/valhalla.json {inputs}
+valhalla_build_tiles --config /work/valhalla.json --end build {inputs}
+"""
+    docker(work, pbfs, prepare + f"""
+valhalla_build_tiles --config /work/valhalla.json --start {start}{late} {inputs}
 valhalla_build_extract --config /work/valhalla.json
 """)
     built = os.path.join(work, "valhalla_tiles.tar")
@@ -168,7 +210,11 @@ valhalla_build_extract --config /work/valhalla.json
     if tiles == 0:
         die(f"{built} has no tiles")
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
-    shutil.copyfile(built, a.out)
+    # Moved, not copied: the work folder is rebuilt from nothing next time,
+    # and a whole country's extract is tens of GB. The loose tiles are in the
+    # extract too.
+    shutil.move(built, a.out)
+    shutil.rmtree(os.path.join(work, "tiles"), ignore_errors=True)
     size = os.path.getsize(a.out)
     when = data_date(pbfs)
     say(f"{a.out}: {tiles} tiles, {size / 1e6:.0f} MB, OpenStreetMap data"

@@ -314,7 +314,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       no prime_server or data tools; in both images), and the routing data on the map stick (`make map-stick ROUTING=...`,
       ADR-0033 amendment; `make agl-test` covers it). Bench Pi 5 (bench-log 2026-11-11): routes under navigation's sandbox
       in 0.13–0.2 s and ~30–40 MB for Kansas, the same answers as the Docker image, a route on the Nav screen. Not yet: a
-      flashed image of this commit, a real stick for routing data, a multi-state extract.
+      flashed image of this commit, a real stick for routing data, a multi-state extract on the Pi. The whole US builds on
+      the Mac (2026-11-12): 67 min, 21 GB, Seattle to Miami in 1.6 s in Docker; the build now runs in two processes so it fits
+      in Docker's 8 GB.
       Next: 6.5.4's docs; bench check 18 with a stick and the NVMe
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and
