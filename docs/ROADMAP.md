@@ -265,7 +265,7 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
 
 ## Phase 6 — Infotainment
 
-- [~] 6.1 audio-manager (A2DP sink, AVRCP, pairing window), and the PipeWire filter-chain for the DAC8x: crossover, fader, sub level ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md))
+- [~] 6.1 audio-manager (A2DP sink, AVRCP, pairing window, a Phones screen that connects paired phones and reconnects the last one by itself), and the PipeWire filter-chain for the DAC8x: crossover, fader, sub level, set with sliders ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md), [ADR-0039](architecture/adr/0039-audio-manager.md))
       `[SIM]` ([ADR-0039](architecture/adr/0039-audio-manager.md)): `services/audio-manager` serves `f250.audio.v1`. BlueZ over
       D-Bus (zbus, behind a trait; a simulated phone on the Mac): now playing from the phone's `MediaPlayer1` (title, artist,
       album, position counted on while playing, state), Play/Pause/Next/Previous, the track gone with the phone. The pairing

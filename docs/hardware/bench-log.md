@@ -2286,3 +2286,32 @@ with the tones playing through it all (quarter-second windows at the DAC):
 Verdict: fixed for the driver's controls. A crash or restart of the filter
 still gives the doors full range for 1–2 s (ADR-0039 Consequences). Not
 shown: the DAC8x itself, a phone's stream (A2DP) instead of pw-play.
+
+## 2026-11-12 — Phones screen, the last phone reconnected by itself, speaker sliders (ADR-0039 amended) [BENCH]
+
+`make deploy` of the working tree (committed next) on the same Pi. The
+owner's phone was already paired and connected, with a track paused; how it
+was paired isn't in the log reviewed here. Its name and address are left
+out of this log.
+
+    Media      the full width: the track, its controls, and Phones at the top
+               right. The phone's name was cut short with room to spare (the
+               name and the empty space split the row); fixed and seen whole
+    Phones     the paired phone listed, "Connected", no Connect button for
+               it; "A new phone" with Pair a phone beside it
+    reconnect  audio-manager wrote /var/lib/f250-audio/last-phone when it saw
+               the phone connected. `bluetoothctl disconnect` of the phone:
+               "no phone connected: trying … every 20 s for 300 s", Connect
+               sent 0.13 s later, the phone connected 1.7 s after that; the
+               track and controls back on Media
+    Speakers   fader, balance and sub level as sliders the full width,
+               crossover −/+ 10 Hz, Defaults at the bottom with the note.
+               A tap on the fader near Front (uinput): "Front 8 (Rear −16
+               dB)", applied (`speakers.json`); on the balance: "Left 8";
+               Defaults put both back. "Applied." used to replace the note
+               that the limits are examples; now it sits above it
+
+Not shown: Connect from the list (one paired phone only: it reconnected by
+itself before a tap could), switching between two phones, giving up after
+300 s with the phone away, a real drag of a slider (the touch tool only
+taps), the speakers themselves (no DAC8x).

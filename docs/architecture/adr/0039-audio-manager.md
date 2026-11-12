@@ -6,10 +6,14 @@
     against the dashboard's client;
   - the BlueZ backend compiles and is linted on the Mac, and the service builds and its tests pass in Linux
     (`make linux-test`, Docker), but it has **never talked to a real BlueZ**; the filter-chain has **never run in a real PipeWire**; nothing has been heard;
-  - the bench Pi didn't answer on 2026-11-12, and the DAC8x isn't fitted. Bench check 21 in
-    [agl.md](../../setup/agl.md#5-bring-up-checks-phase-52) is the next step.
+  - [BENCH] since (bench-log 2026-11-12): PipeWire, the filter-chain and its crossover measured on a
+    stand-in sink; the owner's phone connected through BlueZ, its track and controls on the Media
+    screen, and reconnected by audio-manager after its link was dropped. The DAC8x isn't fitted;
+    pairing a phone through the window and the code question aren't recorded on the bench yet.
 - **Date:** 2026-11-12. Amended the same day (owner): spoken directions pause the music instead of
-  ducking it, and audio-manager says them (decision 9)
+  ducking it, and audio-manager says them (decision 9); the crossover changes live (decision 6);
+  Phones is a screen of its own with the paired phones, and the last phone reconnects by itself
+  (decision 3a); fader, balance and sub level are sliders (decision 7)
 - **Refines:** [ADR-0014](0014-multichannel-dac8x.md) decision 5 (crossover, fader, balance, sub level
   in PipeWire, owned by audio-manager), [ADR-0023](0023-bluetooth-belongs-to-bluez.md) (the pairing
   policy it left to 6.1), [audio-routing.md](../audio-routing.md). Phase 6.1.
@@ -85,7 +89,8 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
      must be registered again).
 
 3. **The pairing window.** Not discoverable and not pairable except while
-   the driver has asked, from the Media screen:
+   the driver has asked, from the **Phones** screen (opened from Media's
+   Phones button; amended 2026-11-12, it was a column of the Media screen):
    - **Pair a phone** opens it for the configured length (**120 s, an
      example**; at most 300 s). audio-manager sets `DiscoverableTimeout` and
      `PairableTimeout` to the same length, then `Pairable` and
@@ -99,11 +104,30 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
    - Pairing outside the window (the MX+ from `bluetoothctl`, which uses
      its own agent) changes nothing.
 
+3a. **Paired phones and reconnecting** (amended 2026-11-12, owner). The
+   Phones screen lists every paired phone, the connected one first, then
+   the last one, with **Connect** for the others.
+   - `ConnectPhone(address)` returns at once; `WatchAudioResponse.connect`
+     says what is being tried and how the last attempt went ("Couldn't
+     connect to Pixel 8: …"). **One phone at a time:** any other connected
+     phone is disconnected first (`Device1.Disconnect`, then
+     `Device1.Connect`, 30 s at most). One attempt at a time.
+   - **The last phone** (connected most recently) is kept in
+     `/var/lib/f250-audio/last-phone` and marked in the list. With no phone
+     connected, audio-manager **tries it by itself** every **20 s** for
+     **300 s** (examples: `AUDIO_RECONNECT_EVERY_S`,
+     `AUDIO_RECONNECT_FOR_S`; 0 turns it off) after its start, Bluetooth
+     coming back, and the link dropping; never while the pairing window is
+     open, and not after the driver chose another phone. Then it says it
+     stopped. Phones usually reconnect to a trusted head unit themselves;
+     this covers the ones that wait to be asked.
+
 4. **The agent: "DisplayYesNo", the code confirmed on the screen.**
    audio-manager registers `org.bluez.Agent1` at `/org/f250/audio/agent`
    and asks to be the default agent.
    - `RequestConfirmation(device, passkey)` inside the window becomes a
-     question on the Media screen: "Pixel 8 wants to pair. Does the phone
+     question on the Phones screen (Media's Phones button says "pairing
+     request" meanwhile): "Pixel 8 wants to pair. Does the phone
      show **246 810**?" **Yes, it matches** / **No**. Unanswered in 30 s:
      refused. One question at a time.
    - `RequestAuthorization` (pairing with no code) is asked the same way,
@@ -154,9 +178,14 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
    - `audio-manager --print-dsp-config` prints what it would run.
 
 7. **The driver's settings** (fader, balance, sub level, crossover) are on
-   **Settings → Speakers**, one step a tap, applied at once, kept in
+   **Settings → Speakers**, applied at once, kept in
    `/var/lib/f250-audio/speakers.json` (a damaged file: the defaults, and
-   the log says so). The Media screen says whether the filter-chain runs.
+   the log says so). Fader, balance and sub level are **sliders** (amended
+   2026-11-12, owner), one step per notch, sent while dragged with the
+   newest value winning; the crossover keeps −/+ steps; **Defaults** is at
+   the bottom, with the note that the limits are examples. The Speakers
+   view says whether they are applied, and Media shows **NO CROSSOVER**
+   when the filter-chain isn't running.
 
 8. **Bluetooth is the A2DP sink only** (`60-f250-bluetooth.conf`:
    `bluez5.roles = [ a2dp_sink ]`, `bluez5.hfphsp-backend = "none"`). The
@@ -262,17 +291,18 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
 - **The volume knob and its cap (6.3):** a master gain node and absolute
   volume over AVRCP go into the same filter-chain and manager.
 - Album art (AVRCP 1.6 cover art over OBEX): not done.
-- Several phones connected at once, and a preferred phone: the policy in
-  audio-routing.md ("last connected wins") is BlueZ's own behaviour today;
-  no switching UI.
+- Several phones connected at once: not offered; one phone at a time
+  (decision 3a). A preferred phone other than the last one: not decided.
+- Forgetting a paired phone from the screen: not done (`bluetoothctl
+  remove` on the Pi).
 
 ## To verify on the Pi (bench check 21)
 
 1. An image (or Stage 1 + `make deploy`) with PipeWire: `systemctl status
    pipewire wireplumber@audio wireplumber@bluetooth wireplumber@policy
    f250-audio-manager`. `systemd-analyze security f250-audio-manager`.
-2. `bluetoothctl show`: `Discoverable: no`, `Pairable: no`. Media → **Pair
-   a phone**: `Discoverable: yes`, `DiscoverableTimeout` 120; the phone
+2. `bluetoothctl show`: `Discoverable: no`, `Pairable: no`. Media →
+   **Phones** → **Pair a phone**: `Discoverable: yes`, `DiscoverableTimeout` 120; the phone
    finds "F-250", shows a code, the screen shows the same code; **Yes**:
    paired, trusted, the window closes. Let one window run out: it closes by
    itself. Kill audio-manager with the window open: BlueZ closes it.
@@ -281,9 +311,12 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
    (equalizer) → `f250.speakers` → the DAC. Title, artist, position and
    Play/Pause/Next/Previous on the Media screen. Walk the phone out of
    range: the track disappears; back in range: it reconnects by itself.
+   With two phones paired: Phones → **Connect** the other one, the first is
+   disconnected; restart audio-manager with neither connected: it connects
+   the last one by itself (`journalctl -u f250-audio-manager`).
 4. With the DAC8x: the node name and positions (`pw-cli i <id>`), a test
    tone per jack to set `AUDIO_FRONT/REAR/SUB`, then the fader, balance and
-   sub level live (no gap) and the crossover (a short gap). Record `top`
+   sub level and the crossover live (no gap). Record `top`
    for the filter-chain process and any xruns (`pw-top`).
 5. Over music, `grpcurl`/navigation's Speak: the music stops at once (cork),
    the phone shows paused, the prompt is heard, and the music resumes about
