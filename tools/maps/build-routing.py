@@ -16,6 +16,12 @@
   build-routing.py --region north-america/us --concurrency 8 \
       --out build/routing/us/valhalla_tiles.tar --work build/routing/us-work --dev-copy ''
   build-routing.py --region north-america/us --late-concurrency 3 --resume enhance ...
+  build-routing.py --region north-america/us --bbox=-124.85,24.4,-66.88,49.38 ...
+
+--bbox w,s,e,n clips the extracts to that box first (osmium extract, whole
+ways kept), e.g. the lower 48 states out of Geofabrik's US, which includes
+Alaska and Hawaii. Use the map's box (`pmtiles show` prints it). Needs
+osmium-tool (brew install osmium-tool).
 
 Valhalla's tile build runs as two processes: parsing up to "build", then
 "enhance" to the end. Parsing keeps the OSM names in memory, and the first
@@ -131,6 +137,35 @@ def data_date(pbfs):
     return max(dates).isoformat() if dates else None
 
 
+def parse_bbox(text):
+    try:
+        w, s, e, n = (float(v) for v in text.split(","))
+    except ValueError:
+        die(f"--bbox {text}: give west,south,east,north in degrees")
+    if not (-180 <= w < e <= 180 and -90 <= s < n <= 90):
+        die(f"--bbox {text}: west must be less than east and south less than north")
+    return w, s, e, n
+
+
+def clip(pbf, bbox):
+    """The extract cut to bbox, next to it; reused while newer than the extract."""
+    if shutil.which("osmium") is None:
+        die("--bbox needs osmium: brew install osmium-tool")
+    tag = "_".join(f"{v:g}" for v in bbox)
+    out = re.sub(r"(\.osm)?\.pbf$", "", pbf) + f".bbox_{tag}.osm.pbf"
+    if os.path.exists(out) and os.path.getmtime(out) > os.path.getmtime(pbf):
+        say(f"{os.path.basename(out)}: already clipped")
+        return out
+    say(f"Clip {os.path.basename(pbf)} to {','.join(f'{v:g}' for v in bbox)}")
+    r = subprocess.run(["osmium", "extract", "--bbox", ",".join(f"{v:g}" for v in bbox),
+                        "--strategy", "complete_ways", "--set-bounds", "--overwrite",
+                        "-o", out + ".part", "-f", "pbf", pbf])
+    if r.returncode != 0:
+        die(f"osmium extract failed (exit {r.returncode})")
+    os.replace(out + ".part", out)
+    return out
+
+
 def docker(work, inputs, script):
     mounts = ["-v", f"{work}:/work"]
     for i, p in enumerate(inputs):
@@ -154,6 +189,8 @@ def main():
     ap.add_argument("--concurrency", type=int, default=0,
                     help="Valhalla's build threads (0: one per CPU Docker has). Fewer for a"
                          " large region when Docker's memory is small")
+    ap.add_argument("--bbox", metavar="W,S,E,N",
+                    help="clip the extracts to this box first (osmium), e.g. the map's")
     ap.add_argument("--late-concurrency", type=int, default=0,
                     help="threads for the stages from enhance on (0: as --concurrency)")
     ap.add_argument("--resume", metavar="STAGE",
@@ -162,6 +199,7 @@ def main():
     a = ap.parse_args()
     if not a.region and not a.pbf:
         die("give --region (e.g. north-america/us/kansas) or --pbf")
+    bbox = parse_bbox(a.bbox) if a.bbox else None
     if a.resume and a.resume not in LATE_STAGES:
         die(f"--resume: give one of {', '.join(LATE_STAGES)}; earlier stages need a full build")
     if shutil.which("docker") is None:
@@ -176,6 +214,9 @@ def main():
         if not os.path.isfile(p):
             die(f"{p}: no such file")
         pbfs.append(p)
+    when = data_date(pbfs)
+    if bbox:
+        pbfs = [clip(p, bbox) for p in pbfs]
 
     work = os.path.abspath(a.work)
     inputs = " ".join(f"/input/{i}.osm.pbf" for i in range(len(pbfs)))
@@ -216,7 +257,6 @@ valhalla_build_extract --config /work/valhalla.json
     shutil.move(built, a.out)
     shutil.rmtree(os.path.join(work, "tiles"), ignore_errors=True)
     size = os.path.getsize(a.out)
-    when = data_date(pbfs)
     say(f"{a.out}: {tiles} tiles, {size / 1e6:.0f} MB, OpenStreetMap data"
         + (f" of {when}" if when else "") + " (© OpenStreetMap contributors, ODbL)")
     if a.dev_copy:

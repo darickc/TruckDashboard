@@ -126,14 +126,16 @@ worked. It now does. Facts checked on 2026-11-11:
   from the card cold; a peak of 28–37 MB (up to 84 MB cold, page cache
   counted), for routes of 23–653 km [BENCH]. A multi-state extract is **not
   measured on the Pi**; the 30 s limit is far off for one state.
-- **The whole US** (2026-11-12, [BENCH] on the Mac): Geofabrik's
-  `north-america/us` (12 GB, Alaska and Hawaii included) builds in 67 minutes
-  into a 21 GB extract of 17,178 tiles. In one `valhalla_build_tiles`
-  process it ran out of Docker's 8 GB at the "enhance" stage with 8 threads,
-  so `build-routing.py` now runs the build in two processes: up to "build",
-  then "enhance" to the end (`--late-concurrency`, `--resume`). Routes on it
-  in the Docker image: 65 km in 0.2–0.4 s, 974 km in 0.3 s, 5,319 km (Seattle
-  to Miami) in 1.6 s with a 690 MB container peak, page cache counted.
+- **The lower 48** (2026-11-12, [BENCH] on the Mac): Geofabrik's
+  `north-america/us` (12 GB) includes Alaska and Hawaii, which the owner
+  doesn't want, so `build-routing.py --bbox` clips it to the lower-48 map's
+  box with osmium first. 72 minutes into a 20.9 GB extract of 15,099 tiles
+  (the whole US: 21 GB, 17,178 tiles). In one `valhalla_build_tiles` process
+  the US ran out of Docker's 8 GB at the "enhance" stage with 8 threads, so
+  the build now runs in two processes: up to "build", then "enhance" to the
+  end (`--late-concurrency`, `--resume`). Routes in the Docker image: 65 km
+  in 0.4 s, 974 km in 0.4 s, 5,319 km (Seattle to Miami) in 1.9 s with a
+  690 MB container peak, page cache counted.
 - No voice prompts, lane guidance, ETA by clock (the Pi has no clock source
   in the truck), address search or saved places. Each is a later piece.
 - OSM data is ODbL. The map's attribution is already on screen, and the

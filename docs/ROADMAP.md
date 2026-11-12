@@ -314,9 +314,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       no prime_server or data tools; in both images), and the routing data on the map stick (`make map-stick ROUTING=...`,
       ADR-0033 amendment; `make agl-test` covers it). Bench Pi 5 (bench-log 2026-11-11): routes under navigation's sandbox
       in 0.13–0.2 s and ~30–40 MB for Kansas, the same answers as the Docker image, a route on the Nav screen. Not yet: a
-      flashed image of this commit, a real stick for routing data, a multi-state extract on the Pi. The whole US builds on
-      the Mac (2026-11-12): 67 min, 21 GB, Seattle to Miami in 1.6 s in Docker; the build now runs in two processes so it fits
-      in Docker's 8 GB.
+      flashed image of this commit, a real stick for routing data, a multi-state extract on the Pi. The lower 48 builds on
+      the Mac (2026-11-12): the US extract clipped to the map's box (`--bbox`, no Alaska or Hawaii), 72 min, 20.9 GB, Seattle to
+      Miami in 1.9 s in Docker; the build runs in two processes so it fits in Docker's 8 GB.
       6.5.3 (address search) `[SIM]` ([ADR-0038](architecture/adr/0038-offline-address-search.md)): `make search-region`
       builds a SQLite FTS5 index of OSM addresses, streets, towns and named places from the routing data's Geofabrik extract
       (`tools/search-index`, `crates/geocode`), with each row's state from OSM's boundaries; it goes on the map stick

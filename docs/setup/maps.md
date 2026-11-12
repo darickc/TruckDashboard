@@ -210,24 +210,30 @@ An extract already downloaded for the same date isn't fetched again. Build
 the same region as the map; a route can't leave the routing data.
 
 For many states, build the country: neighbouring Geofabrik extracts overlap at
-their borders. The whole US (`north-america/us`, which includes Alaska and
-Hawaii) is a 12 GB download and builds in 67 minutes on an M-series Mac with
-Docker's 8 GB and 16 CPUs, into a 21 GB file of 17,178 tiles [BENCH,
-2026-11-12]. The build needs about 70 GB free while it runs. With 8 GB, give
-the later stages fewer threads, or they run out of memory:
+their borders. Geofabrik's `north-america/us` includes Alaska and Hawaii;
+`--bbox` clips it to the map's box first (osmium-tool: `brew install
+osmium-tool`; `pmtiles show` prints a map's bounds). The lower 48, to match
+the lower-48 map:
 
 ```bash
 make route-region REGION=north-america/us \
-  ROUTE_ARGS="--concurrency 8 --late-concurrency 3 --out build/routing/us/valhalla_tiles.tar --work build/routing/us-work"
+  ROUTE_ARGS="--bbox=-124.85,24.4,-66.88,49.38 --concurrency 8 --late-concurrency 3 --out build/routing/lower48/valhalla_tiles.tar --work build/routing/us-work"
 ```
 
-If a build fails after its first half, `ROUTE_ARGS="... --resume enhance"`
-runs only the second half again. On the US data in Docker, a 65 km route took
-0.2–0.4 s, Kansas City to Denver (974 km) 0.3 s and Seattle to Miami
-(5,319 km) 1.6 s, Docker's start included, with a peak of 690 MB in the
-container, page cache counted [BENCH]. A US-sized file is too big for the map
-stick next to the map: a 29 GB stick holds one or the other. The import takes
-a stick with only one of them.
+From the 12 GB US download that took 72 minutes on an M-series Mac with
+Docker's 8 GB and 16 CPUs (3 of them clipping), into a 20.9 GB file of
+15,099 tiles [BENCH, 2026-11-12]. The build needs about 70 GB free while it
+runs. With 8 GB, the later stages need fewer threads (`--late-concurrency`)
+or they run out of memory. If a build fails after its first half,
+`ROUTE_ARGS="... --resume enhance"` runs only the second half again.
+
+On the lower-48 data in Docker, Docker's start included: a 65 km route in
+0.4 s, Kansas City to Denver (974 km) 0.4 s, Key West to West Quoddy Head
+(3,228 km) 0.7 s, Seattle to Miami (5,319 km) 1.9 s with a peak of 690 MB in
+the container, page cache counted. Anchorage and Honolulu get "No suitable
+edges near location" [BENCH]. A file this size is too big for the map stick
+next to the map: a 29 GB stick holds one or the other, and the import takes a
+stick with only one of them.
 
 ### On the Mac
 
