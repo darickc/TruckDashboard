@@ -351,10 +351,12 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       buttons, kept across restarts (`SetVoice`). Speech goes through a `Speaker` trait: the journal by default, or a
       program (`make sim VOICE=say` on the Mac). Tests: storage (corruption, limits, atomic write, read-only), every prompt
       transition, end to end over gRPC, widget tests at 800×480 with and without an alert. Ran against the real Valhalla on
-      the Mac. **Not on the Pi, and not audible there:** the image has no audio stack and the service's sandbox no sound
-      devices; Flite (in AGL's layers, BSD, ~2.8 MB) is the candidate engine, wired through audio-manager (ADR-0039) later.
+      the Mac. Prompts go to audio-manager (merged in, `Speak`/`StopSpeaking`), which says them with Flite and pauses
+      the phone's music, resuming 1 s after the last (owner: pause, not duck); never queued, so never late. Ran on the
+      Mac against audio-manager's simulated phone and the real Valhalla. Valhalla is asked in the voice's units, since
+      its words carry distances. **Not on the Pi; no prompt heard yet.**
       Next: 6.5.4's docs; bench check 18 with a stick and the NVMe; bench check 20 (search on the Pi); bench check 22 (places
-      and the voice on the Pi); a voice through audio-manager, pausing the music (owner, ADR-0040)
+      and the voice on the Pi, after audio-manager's check 21)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and
       invalid reverse, the latched choice, moves during reverse, the optional speed limit, missing cameras).

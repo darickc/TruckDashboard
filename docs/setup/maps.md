@@ -376,15 +376,16 @@ approaching prompt 30 s ahead at the current speed (between 400 m and
 `NAV_VOICE_UNITS=metric` for metres.
 
 The route's buttons have the mute toggle: **Voice**, **Muted**, or **No
-audio** when the prompts only reach the log. Muting is kept across restarts.
-Once prompts are played through audio-manager, the music pauses while one is
-spoken and resumes after (the owner's choice; not built yet, ADR-0040
-decision 16).
+audio** when the prompts can't be heard (audio-manager isn't running or has
+no voice). Muting is kept across restarts. audio-manager says the prompts and
+**pauses the phone's music** while it does, resuming it 1 s after the last
+one (the owner's choice; ADR-0039, ADR-0040 decision 16). A prompt that
+can't be said at once is dropped, never said late.
 
 | Where prompts go | |
 |---|---|
-| The Mac | navigation's log; `make sim VOICE=say` (or `make navigation VOICE=say`) speaks them with macOS's voice |
-| The Pi | **the journal only, for now** (`journalctl -u f250-navigation`): the image has no speech engine or audio stack, and audio comes with audio-manager (ADR-0039). Flite is the candidate engine (ADR-0040) |
+| The Mac | `make sim`: audio-manager's simulated phone, whose music pauses for them; silent unless `VOICE=say`. `make navigation VOICE=say` alone speaks them with no music to pause |
+| The Pi | audio-manager (`NAV_AUDIO_MANAGER`, `/run/f250-audio/audio.sock`), which says them with Flite. **Not heard on the Pi yet.** With `NAV_AUDIO_MANAGER=` they go to `journalctl -u f250-navigation` only |
 
 ## GPS
 

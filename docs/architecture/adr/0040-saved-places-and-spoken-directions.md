@@ -4,8 +4,11 @@
   - the places store, the prompt scheduler, the service and the dashboard are tested (`make test`);
   - navigation ran on the Mac with the simulated receiver and the real Valhalla 3.9.1 (Docker, Kansas data): prompts
     came from Valhalla's own words for that route, and the destination went into the recent places;
-  - **nothing on the Pi.** The bench Pi wasn't reachable on 2026-11-12, and **no prompt has been heard there**: the
-    Pi has no speech engine in its image and no audio path for navigation yet (decision 15).
+  - wired to audio-manager (decision 17, after merging its branch on the owner's word): on the Mac, navigation with
+    the real Valhalla sent its prompts to audio-manager's simulated phone, which paused the music, said them (a silent
+    simulated voice) and resumed it after the 1 s hold;
+  - **nothing on the Pi.** The bench Pi wasn't reachable on 2026-11-12, and **no prompt has been heard there**:
+    audio-manager, PipeWire and Flite are in the images now but no image with them has been built or flashed.
 - **Date:** 2026-11-12
 - **Refines:** [ADR-0035](0035-routing-with-valhalla.md) (its "no voice prompts … or saved places") and
   [ADR-0038](0038-offline-address-search.md) (its "no saved places and no recent searches"). Phase 6.5.2.
@@ -31,9 +34,10 @@ Valhalla already writes the words. Its 3.9.1 answer (the test vector in
 | `verbal_post_transition_instruction` | "Continue for 19 kilometers." (absent on some, e.g. an exit) |
 | `verbal_multi_cue` | true when the pre-transition words include the next maneuver ("Then …") |
 
-The distances in them follow the request's units (kilometres, which the
-guide's parser requires), so they can't be spoken as they are to an owner
-who reads miles.
+The distances in them follow the request's units: asked in kilometres,
+Valhalla says "Then, in 100 meters, turn right." (seen with Kansas data
+on 2026-11-12). Asked in miles, the same words come in feet and miles
+(`tests/data/valhalla-3.9.1-route-auto-miles.json`, the same route).
 
 ## Decision
 
@@ -118,7 +122,9 @@ who reads miles.
     4 s after another; the at-the-maneuver prompt never waits. These are
     **examples to tune on the truck** (CLAUDE.md rule 10), as flags
     (`--voice-far-s`, `--voice-far-min-m`, …). Distances are spoken in miles
-    and feet, or metric with `NAV_VOICE_UNITS=metric`. The dashboard's unit
+    and feet, or metric with `NAV_VOICE_UNITS=metric`. **Valhalla is asked
+    in the same units**, because its own words carry distances; navigation
+    converts its lengths to metres either way. The dashboard's unit
     setting isn't passed to navigation yet.
 11. **Never from stale guidance** (rule 4). Every prompt needs progress the
     guide computed from a current fix in that same update. A prompt that
@@ -192,7 +198,8 @@ who reads miles.
     - **Prompts close together keep it paused**: no resume between
       "Off the route. Finding a new one." and "New route.", or between an
       approaching prompt and the next one a few seconds later. The hold
-      (about 3 s after the last prompt) is an example to tune.
+      (1 s after the last prompt, the owner's choice over 3 s) is an example
+      to tune.
     - **A phone without AVRCP control** (no `MediaPlayer1`): the music is
       silenced for the prompt but the phone plays on, so a few seconds of
       the song are missed. The screen needn't say so; the ADR does.
@@ -214,24 +221,32 @@ who reads miles.
     `prompts{available, speaking, music_paused, detail}`. The prompt plays
     with `media.role = "Speech-High"`, which AGL's policy already lets cork
     Multimedia, so no AGL configuration changes; AVRCP Pause and Play as
-    above, with the hold in `AUDIO_PROMPT_HOLD_MS` (3 s, an example).
-17. **What's left in navigation** once both branches are merged: an
-    `AudioManagerSpeaker` (`speak` → `Speak`, spawned so the guide's loop
-    never waits; `stop` → `StopSpeaking`; `status` from `WatchAudio`'s
-    `prompts`, not audible while audio-manager isn't connected), chosen in
-    `main.rs` by an `--audio-manager` endpoint (`unix:/run/f250-audio/audio.sock`
-    on the Pi, `tcp:127.0.0.1:50254` under `make sim`). The service needs
-    only that socket: it is in group f250 and its sandbox already allows
-    `AF_UNIX`. Then bench check 22 can hear a prompt.
+    above, with the hold in `AUDIO_PROMPT_HOLD_MS` (1 s, an example).
+17. **navigation speaks through audio-manager** (2026-11-12, after merging
+    `claude/audio-manager-ed81f3` into this branch on the owner's word).
+    `AudioManagerSpeaker` (`services/navigation/src/audio_speaker.rs`):
+    `speak` → `Speak` and `stop` → `StopSpeaking`, handed to a task that
+    owns the connection so the guide's loop never waits; `status` follows
+    `WatchAudio`'s `prompts`, and is "not connected" (the screen's "No
+    audio") otherwise. **A prompt is never queued** while audio-manager is
+    unreachable or slow (2 s): it is dropped and logged, not said late.
+    Chosen by `--audio-manager` (`NAV_AUDIO_MANAGER`, shipped as
+    `unix:/run/f250-audio/audio.sock`; `tcp:127.0.0.1:50254` under
+    `make sim`), else `--voice-command`, else the journal. The service needs
+    only that socket: it is in group f250 and its sandbox allows `AF_UNIX`.
+    Tested against a fake `AudioService`, and run against audio-manager's
+    simulated phone.
 
 ## Consequences
 
 - One or two taps to Home, a favourite or a recent destination; the route
   can be saved; every change is on disk before the screen shows it.
-- On the Mac, `make sim` shows places and the voice toggle, and prints
-  prompts in navigation's log (`VOICE=say` speaks them).
-- On the Pi today, prompts go to the journal only and the screen says "No
-  audio". That is the honest state until audio-manager is wired.
+- On the Mac, `make sim` shows places and the voice toggle; navigation
+  sends prompts to audio-manager's simulated phone, which pauses its music
+  for them (`VOICE=say` makes audio-manager speak them aloud).
+- On the Pi, prompts go to audio-manager, which says them with Flite and
+  pauses the phone. Unheard so far: no image with it has been flashed.
+  Without audio-manager the screen says "No audio".
 - Pausing rather than ducking: a prompt is heard clearly, and the music
   resumes where it stopped. AVRCP adds a round trip to the phone at each
   prompt; how long a phone takes to pause and resume is unmeasured.
