@@ -175,3 +175,37 @@ NAV_TRUCK_WIDTH_M=
 NAV_TRUCK_LENGTH_M=
 NAV_TRUCK_WEIGHT_T=
 NAV_TRUCK_AXLE_LOAD_T=
+# Bluetooth audio and the speakers (Phase 6.1, ADR-0039). After editing:
+# systemctl restart f250-audio-manager
+# AUDIO_SIMULATE 1: a simulated phone and no filter-chain, labelled simulated
+#            on the screen (bench without a phone). 0: BlueZ and PipeWire.
+# AUDIO_ADAPTER  the Bluetooth adapter (empty: hci0).
+# AUDIO_NAME     the name phones see while pairing (empty: F-250).
+# AUDIO_PAIR_WINDOW_S  the pairing window's length in seconds (empty: 120,
+#            an example). It opens only from the Media screen and closes by
+#            itself, and when one phone has paired.
+# AUDIO_DSP      0: no filter-chain (no crossover, fader or sub). 1: on.
+# The filter-chain in front of the HiFiBerry DAC8x (ADR-0014). UNVERIFIED
+# until the bench: the DAC's node name and which channel is which jack
+# (docs/wiring/audio.md, a test tone per jack).
+# AUDIO_DAC_NODE  the DAC's PipeWire node name (pw-cli ls Node; empty: the
+#            default sink).
+# AUDIO_DAC_POSITIONS  its channel positions in order (empty:
+#            FL,FR,RL,RR,FC,LFE,SL,SR).
+# AUDIO_FRONT, AUDIO_REAR, AUDIO_SUB  the DAC channels (0-based left,right)
+#            of jacks 1, 2 and 3 (empty: 0,1 / 2,3 / 4,5, examples). The sub
+#            gets (L+R)/2 on both, low-passed.
+# AUDIO_CROSSOVER_HZ  the crossover's default (empty: 80 Hz, an example; tune
+#            it in the truck). The driver changes it, the fader, balance and
+#            sub level under Settings → Speakers.
+AUDIO_SIMULATE=0
+AUDIO_ADAPTER=
+AUDIO_NAME=
+AUDIO_PAIR_WINDOW_S=
+AUDIO_DSP=1
+AUDIO_DAC_NODE=
+AUDIO_DAC_POSITIONS=
+AUDIO_FRONT=
+AUDIO_REAR=
+AUDIO_SUB=
+AUDIO_CROSSOVER_HZ=

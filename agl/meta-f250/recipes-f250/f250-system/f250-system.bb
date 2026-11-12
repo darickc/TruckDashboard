@@ -52,6 +52,7 @@ do_install() {
     f250_wants multi-user.target f250-power-manager.service
     f250_wants multi-user.target f250-navigation.service
     f250_wants multi-user.target f250-usb-export.service
+    f250_wants multi-user.target f250-audio-manager.service
     f250_wants multi-user.target f250-can-auto.service
     f250_wants graphical.target f250-camera-manager.service
     f250_wants graphical.target f250-dashboard.service

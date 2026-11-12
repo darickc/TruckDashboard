@@ -1,0 +1,90 @@
+# Bluetooth audio and the speakers (Phase 6.1, ADR-0039). Serves
+# f250.audio.v1 on /run/f250-audio/audio.sock (group f250, mode 0770 from
+# UMask; agl-driver, which runs the dashboard, is in group f250). The
+# dashboard shows and asks; it never talks to BlueZ or PipeWire (CLAUDE.md
+# rule 5).
+#
+# BlueZ over the system D-Bus (/run/dbus/system_bus_socket): the pairing
+# agent, the pairing window (Adapter1 Discoverable/Pairable with BlueZ's own
+# timeouts as the backstop) and the phone's MediaPlayer1. BlueZ 5.86's
+# bluetooth.conf lets any user send to org.bluez and lets bluetoothd (root)
+# call an agent, so no D-Bus policy of ours is needed (UNVERIFIED on the
+# image: its bluetooth.conf wasn't read from the built package). The audio
+# itself (A2DP sink) is PipeWire's bluez5 plugin through WirePlumber, not
+# this service (60-f250-bluetooth.conf).
+#
+# The speakers' filter-chain (ADR-0014): audio-manager runs `pipewire -c
+# /run/f250-audio/speakers.conf` as its child, a client of the system
+# PipeWire at /run/pipewire/pipewire-0 (pipewire:pipewire 0660, pipewire
+# 1.6.8's pipewire.socket), hence group pipewire and PIPEWIRE_RUNTIME_DIR.
+# Real-time scheduling is allowed for its audio thread (module-rt), within
+# LimitRTPRIO; the image's pipewire.service has CAP_SYS_NICE, this has no
+# capabilities. Fader, balance and sub level change live through pw-cli.
+#
+# Nothing here touches the vehicle bus (ADR-0007).
+#
+# Status: [SIM] (make agl-test; the service's tests against a simulated
+# phone and a fake pipewire/pw-cli). UNVERIFIED on the Pi: everything that
+# talks to the real BlueZ and PipeWire, the sandbox with them, and whether
+# the filter-chain keeps up without xruns.
+[Unit]
+Description=F-250 audio manager (Bluetooth audio, speaker DSP)
+Wants=bluetooth.service pipewire.socket
+After=bluetooth.service pipewire.socket dbus.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=30
+User=f250
+Group=f250
+SupplementaryGroups=pipewire
+EnvironmentFile=-/etc/default/f250
+Environment=PIPEWIRE_RUNTIME_DIR=/run/pipewire
+ExecStart=/opt/f250/libexec/audio-start
+Restart=on-failure
+RestartSec=2
+# Shutdown closes the pairing window and ends the dashboard's streams.
+TimeoutStopSec=10
+UMask=0007
+RuntimeDirectory=f250-audio
+RuntimeDirectoryMode=0750
+# The driver's speaker settings (speakers.json).
+StateDirectory=f250-audio
+StateDirectoryMode=0750
+LimitRTPRIO=88
+LimitNICE=-11
+
+# Sandbox (ADR-0021), like navigation's, except: no network at all (D-Bus
+# and PipeWire are unix sockets on the filesystem), group pipewire mapped
+# (no PrivateUsers), and real-time allowed for the filter-chain (no
+# RestrictRealtime, no ~@resources).
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target
