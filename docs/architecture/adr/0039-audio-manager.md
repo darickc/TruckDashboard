@@ -133,10 +133,16 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
    - **A WirePlumber smart filter** (`filter.smart`, after
      `agl.filter.equalizer-sink`, targeting the DAC's node), so everything
      played reaches it after AGL's role loopbacks and equalizer.
-   - **Fader, balance, sub level** change live with `pw-cli set-param
-     f250.speakers Props '{ params = [ "gain_fl:Gain 1" … ] }'`. A
-     **crossover** change, or a failed live change, restarts the child: a
-     moment of silence, said on screen.
+   - **Fader, balance, sub level and the crossover** change live with
+     `pw-cli set-param f250.speakers Props '{ params = [ "gain_fl:Gain 1"
+     … "hp_fl1:Freq" … ] }'` (amended 2026-11-12: the crossover used to
+     restart the child; a restart bypasses the filter for a moment, see
+     Consequences). Only a failed live change restarts it.
+   - **After every start** the runner writes `f250.speakers.started` (a
+     count) into WirePlumber's `filters` metadata on subject 0 with
+     `pw-metadata`. Any change there makes the policy instance rescan
+     (`linking/rescan.lua`), and the rescan links the chain through the
+     filter that just started. The key itself is read by nothing.
    - Fader and balance: ±10 steps of 2 dB, the last step mutes the far
      pair; sub −20..+6 dB; crossover 50–120 Hz in 10 Hz steps, default
      80 Hz. **All examples** (CLAUDE.md rule 10), validated (limits that
@@ -224,17 +230,18 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
   image of 2455712 carries it (PipeWire 1.6.8, WirePlumber 0.5.14, flite),
   and on the bench Pi those packages run (bench-log 2026-11-12; installed
   on the card with `rpm -i`, the image not yet flashed).
-- **OPEN, before the amps are connected (bench-log 2026-11-12):** when
-  the filter-chain restarts while WirePlumber's policy instance has the
-  chain linked (a crossover change, a crash, a restart of audio-manager),
-  `eq-output-stream` is linked straight to the DAC instead of to
-  `f250.speakers`. With music playing that lasts: the stereo mix reaches
-  FL and FR full range (40 Hz at full level: **the doors' high-pass is
-  off**), the rears and the subs get nothing. A new stream starting (or a
-  reboot, or `systemctl restart wireplumber@policy`) relinks it through
-  the filter. Measured on a null sink standing in for the DAC8x. A fix
-  must make the chain right after every restart of the filter, with music
-  already playing, and be checked the same way.
+- **Found on the bench, fixed (bench-log 2026-11-12):** when the
+  filter-chain restarted while WirePlumber's policy instance had the chain
+  linked (a crossover change, a crash, a restart of audio-manager),
+  `eq-output-stream` stayed linked straight to the DAC instead of to
+  `f250.speakers`. With music playing that lasted: the stereo mix reached
+  FL and FR full range (40 Hz at full level: the doors' high-pass off),
+  the rears and the subs got nothing, until a new stream started. Now the
+  crossover changes live (no restart), and every start asks WirePlumber to
+  relink (decision 6). What is left: **between a restart's stop and the
+  relink (about the settle time, 1 s), the doors still get full range.**
+  That happens only after a crash or a failed live change, not when the
+  driver changes a setting.
 - A crash of audio-manager leaves the window closed (BlueZ's own timeouts)
   and the music playing (PipeWire carries it), without the crossover until
   audio-manager starts the filter-chain again: the stereo mix then goes

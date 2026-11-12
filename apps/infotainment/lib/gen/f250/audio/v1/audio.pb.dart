@@ -1907,8 +1907,8 @@ class SetSpeakerSettingsResponse extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearApplied() => $_clearField(1);
 
-  /// Why not, or what happened (e.g. the crossover restarts the filter-chain:
-  /// a moment of silence).
+  /// Why not, or what happened (e.g. a failed live change was applied by
+  /// restarting the filter-chain).
   @$pb.TagNumber(2)
   $core.String get detail => $_getSZ(1);
   @$pb.TagNumber(2)

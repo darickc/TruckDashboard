@@ -1,8 +1,9 @@
 //! The speakers' filter-chain runner [SIM], against a fake `pipewire` (a
 //! script that records its arguments and the configuration it was given,
-//! then waits) and a fake `pw-cli`: start, a live fader change, a crossover
-//! change that restarts it, a failed live change that falls back to a
-//! restart, and a crash that is restarted.
+//! then waits), a fake `pw-cli` and a fake `pw-metadata`: start, live fader
+//! and crossover changes, a failed live change that falls back to a
+//! restart, a crash that is restarted, and WirePlumber asked to relink after
+//! every start.
 
 #![allow(clippy::unwrap_used)]
 
@@ -28,7 +29,8 @@ fn script(path: &Path, body: &str) {
 
 /// Fake pipewire: appends "start <crossover line>" to starts.log, writes its
 /// pid, then sleeps until killed (or exits at once when `crash` exists).
-fn fakes(d: &Path) -> (PathBuf, PathBuf) {
+/// Fake pw-cli and pw-metadata log their arguments.
+fn fakes(d: &Path) -> (PathBuf, PathBuf, PathBuf) {
     let pw = d.join("pipewire");
     script(
         &pw,
@@ -49,7 +51,20 @@ fn fakes(d: &Path) -> (PathBuf, PathBuf) {
             d = d.display()
         ),
     );
-    (pw, cli)
+    let meta = d.join("pw-metadata");
+    script(
+        &meta,
+        &format!("echo \"$@\" >> {d}/meta.log\nexit 0", d = d.display()),
+    );
+    (pw, cli, meta)
+}
+
+fn relinks(d: &Path) -> Vec<String> {
+    std::fs::read_to_string(d.join("meta.log"))
+        .unwrap_or_default()
+        .lines()
+        .map(str::to_string)
+        .collect()
 }
 
 fn starts(d: &Path) -> Vec<String> {
@@ -71,10 +86,11 @@ async fn wait(what: &str, mut f: impl FnMut() -> bool) {
 }
 
 fn runner(d: &Path) -> Arc<PipewireDsp> {
-    let (pipewire, pw_cli) = fakes(d);
+    let (pipewire, pw_cli, pw_metadata) = fakes(d);
     PipewireDsp::new(PipewireConfig {
         pipewire,
         pw_cli,
+        pw_metadata,
         conf: d.join("run/speakers.conf"),
         limits: Limits::default(),
         target: Target {
@@ -102,6 +118,8 @@ async fn start_live_change_and_restart() {
     assert_eq!(starts(&d), ["crossover 80 Hz"]);
     let conf = std::fs::read_to_string(d.join("run/speakers.conf")).unwrap();
     assert!(conf.contains("filter.smart.target = { node.name = \"dac\" }"));
+    // WirePlumber asked to relink the chain through it.
+    assert_eq!(relinks(&d), ["-n filters 0 f250.speakers.started 1"]);
 
     // Fader: live, no restart.
     let r = dsp
@@ -120,7 +138,8 @@ async fn start_live_change_and_restart() {
     assert!(cli.contains("\"gain_fl:Gain 1\" 1.000000"));
     assert_eq!(starts(&d).len(), 1);
 
-    // Crossover: a restart, with the fader kept.
+    // Crossover: live too, no restart (a restart bypasses the filter for a
+    // moment), with the fader kept.
     let r = dsp
         .apply(Settings {
             fader: 3,
@@ -129,12 +148,29 @@ async fn start_live_change_and_restart() {
         })
         .await
         .unwrap();
-    assert!(r.contains("restart"), "{r}");
+    assert_eq!(r, "Applied.");
+    let cli = std::fs::read_to_string(d.join("cli.log")).unwrap();
+    let last = cli.lines().last().unwrap();
+    assert!(last.contains("\"hp_fl1:Freq\" 100.000000"), "{last}");
+    assert!(last.contains("\"lp_sub2:Freq\" 100.000000"), "{last}");
+    assert!(last.contains("\"gain_fl:Gain 1\" 1.000000"), "{last}");
+    assert_eq!(starts(&d).len(), 1);
+    assert_eq!(relinks(&d).len(), 1);
+
+    // A later restart (here a failed live change) starts with the live
+    // crossover and asks for a relink again.
+    std::fs::write(d.join("cli-fails"), "").unwrap();
+    dsp.apply(Settings {
+        fader: 2,
+        crossover_hz: 100,
+        ..Settings::default()
+    })
+    .await
+    .unwrap();
     wait("restarted", || starts(&d).len() == 2).await;
     assert_eq!(starts(&d)[1], "crossover 100 Hz");
-    wait("applied", || *state.borrow() == DspState::Applied).await;
-    let conf = std::fs::read_to_string(d.join("run/speakers.conf")).unwrap();
-    assert!(conf.contains("fader 3"));
+    wait("relinked again", || relinks(&d).len() == 2).await;
+    assert_eq!(relinks(&d)[1], "-n filters 0 f250.speakers.started 2");
 }
 
 #[tokio::test]
@@ -180,6 +216,37 @@ async fn a_crash_is_reported_and_restarted() {
     .await;
     wait("the second start logged", || starts(&d).len() >= 2).await;
     assert_eq!(starts(&d).len(), 2);
+    // The start that settled asked for a relink (under load the crashing
+    // child can outlive the settle time too, and then it asked as well).
+    let r = relinks(&d);
+    assert!(!r.is_empty() && r.len() <= 2, "{r:?}");
+    assert!(
+        r.last()
+            .unwrap()
+            .starts_with("-n filters 0 f250.speakers.started ")
+    );
+}
+
+#[tokio::test]
+async fn no_pw_metadata_still_runs_the_filter() {
+    let d = dir("nometa");
+    let (pipewire, pw_cli, _) = fakes(&d);
+    let dsp = PipewireDsp::new(PipewireConfig {
+        pipewire,
+        pw_cli,
+        pw_metadata: d.join("no-such-pw-metadata"),
+        conf: d.join("run/speakers.conf"),
+        limits: Limits::default(),
+        target: Target {
+            dac_node: String::new(),
+            map: ChannelMap::default(),
+        },
+        settle: Duration::from_millis(100),
+        max_backoff: Duration::from_millis(200),
+    });
+    let state = dsp.state();
+    dsp.start(Settings::default()).await;
+    wait("applied", || *state.borrow() == DspState::Applied).await;
 }
 
 #[tokio::test]
@@ -188,6 +255,7 @@ async fn no_pipewire_binary_is_not_running_with_a_reason() {
     let dsp = PipewireDsp::new(PipewireConfig {
         pipewire: d.join("no-such-pipewire"),
         pw_cli: d.join("no-such-pw-cli"),
+        pw_metadata: d.join("no-such-pw-metadata"),
         conf: d.join("speakers.conf"),
         limits: Limits::default(),
         target: Target {

@@ -1,12 +1,19 @@
 //! Runs the speakers' filter-chain (ADR-0039 decision 6): audio-manager
 //! writes the configuration from the settings and runs `pipewire -c <file>`
 //! as its child, a PipeWire client holding only the filter-chain, and
-//! restarts it with a backoff if it stops. Fader, balance and sub level
-//! change live with `pw-cli set-param`; a crossover change (or a failed
-//! live change) restarts the child, a moment of silence.
+//! restarts it with a backoff if it stops. Fader, balance, sub level and
+//! the crossover change live with `pw-cli set-param`; only a failed live
+//! change restarts the child.
+//!
+//! After every start the runner writes a key into WirePlumber's `filters`
+//! metadata (`pw-metadata`), which makes its policy instance rescan the
+//! graph. Without it, a filter-chain that comes back while the chain is
+//! linked is left out: AGL's equalizer stays linked straight to the DAC and
+//! the doors get full range (bench-log 2026-11-12).
 
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -67,6 +74,8 @@ pub struct PipewireConfig {
     pub pipewire: PathBuf,
     /// `pw-cli`, for live changes.
     pub pw_cli: PathBuf,
+    /// `pw-metadata`, to make WirePlumber relink the chain after a start.
+    pub pw_metadata: PathBuf,
     /// Where the generated configuration is written (the runtime directory).
     pub conf: PathBuf,
     pub limits: Limits,
@@ -89,7 +98,15 @@ pub struct PipewireDsp {
     running: Arc<Mutex<Option<Settings>>>,
     tx: mpsc::Sender<Msg>,
     rx: Mutex<Option<mpsc::Receiver<Msg>>>,
+    /// How many times the filter-chain has started: the metadata value, so
+    /// every write is a change.
+    starts: AtomicU64,
 }
+
+/// The `filters` metadata key the runner writes (on subject 0, the core:
+/// WirePlumber's filter scripts only read keys on filter nodes' ids, so it
+/// changes nothing but triggers the rescan).
+pub const RELINK_KEY: &str = "f250.speakers.started";
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     m.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -105,6 +122,7 @@ impl PipewireDsp {
             running: Arc::default(),
             tx,
             rx: Mutex::new(Some(rx)),
+            starts: AtomicU64::new(0),
         })
     }
 
@@ -162,6 +180,7 @@ impl PipewireDsp {
                         backoff = Duration::from_secs(1);
                         eprintln!("[audio] speakers' filter-chain running ({}, crossover {} Hz)",
                             self.cfg.conf.display(), s.crossover_hz);
+                        self.relink().await;
                         self.state.send_replace(DspState::Applied);
                     }
                     st = child.wait() => {
@@ -192,6 +211,33 @@ impl PipewireDsp {
             }
             backoff = (backoff * 2).min(self.cfg.max_backoff);
         }
+    }
+
+    /// Makes WirePlumber's policy instance rescan, so the chain is linked
+    /// through the filter that just started. A failure is logged: the chain
+    /// may then bypass the filter until the next stream starts.
+    async fn relink(&self) {
+        let n = self.starts.fetch_add(1, Ordering::Relaxed) + 1;
+        let out = tokio::time::timeout(
+            Duration::from_secs(3),
+            Command::new(&self.cfg.pw_metadata)
+                .args(["-n", "filters", "0", RELINK_KEY, &n.to_string()])
+                .stdin(Stdio::null())
+                .output(),
+        )
+        .await;
+        let why = match out {
+            Err(_) => "no answer in 3 s".to_string(),
+            Ok(Err(e)) => format!("{}: {e}", self.cfg.pw_metadata.display()),
+            Ok(Ok(o)) if !o.status.success() => {
+                format!("{} {}", o.status, String::from_utf8_lossy(&o.stderr).trim())
+            }
+            Ok(Ok(_)) => return,
+        };
+        eprintln!(
+            "[audio] speakers' filter-chain: couldn't ask WirePlumber to relink it ({why}); \
+             the speakers may bypass it until the next stream starts"
+        );
     }
 
     async fn set_live(&self, s: &Settings) -> Result<(), String> {
@@ -237,8 +283,7 @@ impl Dsp for Arc<PipewireDsp> {
     async fn apply(&self, s: Settings) -> Result<String, String> {
         *lock(&self.wanted) = Some(s);
         let running = *lock(&self.running);
-        let live = running.is_some_and(|r| r.crossover_hz == s.crossover_hz)
-            && *self.state.borrow() == DspState::Applied;
+        let live = running.is_some() && *self.state.borrow() == DspState::Applied;
         if live {
             match self.set_live(&s).await {
                 Ok(()) => {
@@ -254,6 +299,6 @@ impl Dsp for Arc<PipewireDsp> {
             .send(Msg::Restart)
             .await
             .map_err(|_| "the filter-chain's supervisor has stopped".to_string())?;
-        Ok("Applied: the speakers restart, a moment of silence.".into())
+        Ok("Applied by restarting the speakers' filter.".into())
     }
 }

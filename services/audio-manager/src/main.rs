@@ -57,9 +57,13 @@ struct Args {
     /// PipeWire's daemon, run as `pipewire -c <conf>` for the filter-chain.
     #[arg(long, default_value = "pipewire")]
     pipewire: PathBuf,
-    /// pw-cli, for changing fader, balance and sub level live.
+    /// pw-cli, for changing fader, balance, sub level and crossover live.
     #[arg(long, default_value = "pw-cli")]
     pw_cli: PathBuf,
+    /// pw-metadata, to make WirePlumber relink the chain through the
+    /// filter-chain each time it starts.
+    #[arg(long, default_value = "pw-metadata")]
+    pw_metadata: PathBuf,
     /// Where the generated filter-chain configuration is written.
     #[arg(long, default_value = "/tmp/f250/audio/speakers.conf")]
     dsp_conf: PathBuf,
@@ -171,6 +175,7 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(PipewireDsp::new(PipewireConfig {
             pipewire: args.pipewire.clone(),
             pw_cli: args.pw_cli.clone(),
+            pw_metadata: args.pw_metadata.clone(),
             conf: args.dsp_conf.clone(),
             limits,
             target,

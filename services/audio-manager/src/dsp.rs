@@ -298,18 +298,31 @@ pub const NODE_NAME: &str = "f250.speakers";
 /// Butterworth Q: two in a row make a Linkwitz-Riley 4th-order crossover.
 pub const BUTTERWORTH_Q: f32 = std::f32::consts::FRAC_1_SQRT_2;
 
-/// The control values that change without restarting the chain (fader,
-/// balance, sub level), as `node:port` → value.
+/// The control values that change without restarting the chain, as
+/// `node:port` → value: fader, balance, sub level, and the crossover (every
+/// biquad's "Freq"; the Q stays Butterworth). A restart unlinks the chain
+/// for a moment, and full range reaches the doors then (bench-log
+/// 2026-11-12), so nothing the driver changes restarts it.
 pub fn live_controls(limits: &Limits, s: &Settings) -> Vec<(String, f32)> {
     let g = gains(limits, s);
-    vec![
+    let f = s.crossover_hz as f32;
+    let mut c: Vec<(String, f32)> = vec![
         ("gain_fl:Gain 1".into(), g.front_left),
         ("gain_fr:Gain 1".into(), g.front_right),
         ("gain_rl:Gain 1".into(), g.rear_left),
         ("gain_rr:Gain 1".into(), g.rear_right),
         ("sub_mix:Gain 1".into(), g.sub_each),
         ("sub_mix:Gain 2".into(), g.sub_each),
-    ]
+    ];
+    for side in ["fl", "fr", "rl", "rr"] {
+        for stage in 1..=2 {
+            c.push((format!("hp_{side}{stage}:Freq"), f));
+        }
+    }
+    for stage in 1..=2 {
+        c.push((format!("lp_sub{stage}:Freq"), f));
+    }
+    c
 }
 
 /// `pw-cli set-param <node> Props <this>`: PipeWire 1.6.8's filter-graph
@@ -827,6 +840,34 @@ mod tests {
         assert!(j.contains("\"gain_rl:Gain 1\" 0.000000"));
         assert!(j.contains("\"gain_fl:Gain 1\" 1.000000"));
         assert!(j.contains("\"sub_mix:Gain 2\" 0.500000"));
+    }
+
+    #[test]
+    fn live_params_carry_the_crossover_to_every_biquad() {
+        let l = Limits::default();
+        let j = props_json(
+            &l,
+            &Settings {
+                crossover_hz: 100,
+                ..Settings::default()
+            },
+        );
+        for side in ["fl", "fr", "rl", "rr"] {
+            for stage in 1..=2 {
+                assert!(
+                    j.contains(&format!("\"hp_{side}{stage}:Freq\" 100.000000")),
+                    "{j}"
+                );
+            }
+        }
+        assert!(j.contains("\"lp_sub1:Freq\" 100.000000"));
+        assert!(j.contains("\"lp_sub2:Freq\" 100.000000"));
+        // The same node and port names the rendered graph has.
+        let c = render(&l, &Settings::default(), &target());
+        for (k, _) in live_controls(&l, &Settings::default()) {
+            let node = k.split(':').next().unwrap();
+            assert!(c.contains(&format!("name = {node} ")), "{node}");
+        }
     }
 
     #[test]

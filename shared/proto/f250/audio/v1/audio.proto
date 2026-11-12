@@ -278,8 +278,8 @@ message SetSpeakerSettingsRequest {
 
 message SetSpeakerSettingsResponse {
   bool applied = 1;
-  // Why not, or what happened (e.g. the crossover restarts the filter-chain:
-  // a moment of silence).
+  // Why not, or what happened (e.g. a failed live change was applied by
+  // restarting the filter-chain).
   string detail = 2;
   SpeakerSettings settings = 3;
 }

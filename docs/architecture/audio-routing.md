@@ -53,8 +53,8 @@ flowchart LR
 
 - The crossover runs in a PipeWire **filter-chain** in front of the DAC8x
   sink: audio-manager generates it and runs it as its own `pipewire -c`
-  child, a WirePlumber smart filter (ADR-0039 decision 6). Fader, balance and
-  sub level change live; the crossover restarts it.
+  child, a WirePlumber smart filter (ADR-0039 decision 6). Fader, balance,
+  sub level and the crossover change live, without a restart.
 - The fader, balance, sub level and crossover frequency are user settings with
   configured limits. The defaults are examples, not recommendations (rule 10).
 - audio-manager validates the configuration before applying it. For example,

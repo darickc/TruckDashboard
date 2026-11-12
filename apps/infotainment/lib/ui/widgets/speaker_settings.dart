@@ -7,8 +7,8 @@ import 'tap_target.dart';
 
 /// Settings → Speakers (ADR-0039 decision 7): fader, balance, sub level and
 /// the crossover, through audio-manager, which validates, saves and applies
-/// them to the filter-chain in front of the DAC. Each tap is applied at once;
-/// a crossover change restarts the filter-chain (a moment of silence). The
+/// them to the filter-chain in front of the DAC. Each tap is applied at once,
+/// live, the crossover included (no restart: ADR-0039 amendment). The
 /// limits and defaults are audio-manager's configuration: examples, not
 /// recommendations (CLAUDE.md rule 10).
 class SpeakerSettingsView extends StatefulWidget {
@@ -151,7 +151,7 @@ class _SpeakerSettingsViewState extends State<SpeakerSettingsView> {
               Text(
                   'Limits and defaults are examples from audio-manager\'s configuration: '
                   'crossover ${l.crossoverMinHz}–${l.crossoverMaxHz} Hz, sub ${l.subMinDb}…+${l.subMaxDb} dB. '
-                  'Tune them in the truck. Changing the crossover restarts the speakers: a moment of silence.',
+                  'Tune them in the truck.',
                   key: const ValueKey('spk-note'),
                   style: TextStyle(fontSize: 13, color: p.textDim)),
             ]),
