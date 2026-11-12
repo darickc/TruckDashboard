@@ -14,6 +14,8 @@ pub mod manager;
 pub mod model;
 pub mod objects;
 pub mod pairing;
+pub mod prompts;
 pub mod runner;
 pub mod server;
 pub mod sim;
+pub mod voice;

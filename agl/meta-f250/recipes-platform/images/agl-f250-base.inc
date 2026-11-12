@@ -41,6 +41,7 @@ IMAGE_INSTALL += " \
     pipewire-tools \
     wireplumber-config-agl \
     wireplumber-policy-config-agl \
+    flite \
 "
 
 # weston-ini-conf-flutter: the compositor's configuration for flutter-auto
@@ -74,6 +75,13 @@ IMAGE_INSTALL += " \
 # live. audio-manager runs `pipewire -c` for the speakers' filter-chain.
 # Names from the 22.0.1 tree's recipes and build's deploy/rpm; UNVERIFIED in
 # a meta-f250 build until the next `make agl-build`.
+#
+# flite: Flite+hts_engine 1.06 from meta-agl-demo (BSD-3-Clause; its
+# flite-voicedata voice is CC-BY-3.0), audio-manager's voice for spoken
+# directions through /opt/f250/libexec/speak-prompt (ADR-0039 decision 9).
+# pw-play, which plays the prompt, is pipewire-tools' pw-cat, built when the
+# distro has agl-devel (meta-pipewire's pipewire bbappend), as this build
+# configuration does.
 #
 # valhalla: valhalla_service, which services/navigation runs once per route
 # (ADR-0035; recipes-navigation/valhalla). Its routing data comes on the map

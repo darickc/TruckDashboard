@@ -268,6 +268,14 @@ const WatchAudioResponse$json = {
     },
     {'1': 'dsp_detail', '3': 9, '4': 1, '5': 9, '10': 'dspDetail'},
     {'1': 'simulated', '3': 10, '4': 1, '5': 8, '10': 'simulated'},
+    {
+      '1': 'prompts',
+      '3': 11,
+      '4': 1,
+      '5': 11,
+      '6': '.f250.audio.v1.Prompts',
+      '10': 'prompts'
+    },
   ],
 };
 
@@ -281,7 +289,25 @@ final $typed_data.Uint8List watchAudioResponseDescriptor = $convert.base64Decode
     'RyZWFtaW5nGAYgASgIUglzdHJlYW1pbmcSMAoHcGFpcmluZxgHIAEoCzIWLmYyNTAuYXVkaW8u'
     'djEuUGFpcmluZ1IHcGFpcmluZxIpCgNkc3AYCCABKA4yFy5mMjUwLmF1ZGlvLnYxLkRzcFN0YX'
     'RlUgNkc3ASHQoKZHNwX2RldGFpbBgJIAEoCVIJZHNwRGV0YWlsEhwKCXNpbXVsYXRlZBgKIAEo'
-    'CFIJc2ltdWxhdGVk');
+    'CFIJc2ltdWxhdGVkEjAKB3Byb21wdHMYCyABKAsyFi5mMjUwLmF1ZGlvLnYxLlByb21wdHNSB3'
+    'Byb21wdHM=');
+
+@$core.Deprecated('Use promptsDescriptor instead')
+const Prompts$json = {
+  '1': 'Prompts',
+  '2': [
+    {'1': 'available', '3': 1, '4': 1, '5': 8, '10': 'available'},
+    {'1': 'speaking', '3': 2, '4': 1, '5': 8, '10': 'speaking'},
+    {'1': 'music_paused', '3': 3, '4': 1, '5': 8, '10': 'musicPaused'},
+    {'1': 'detail', '3': 4, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `Prompts`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List promptsDescriptor = $convert.base64Decode(
+    'CgdQcm9tcHRzEhwKCWF2YWlsYWJsZRgBIAEoCFIJYXZhaWxhYmxlEhoKCHNwZWFraW5nGAIgAS'
+    'gIUghzcGVha2luZxIhCgxtdXNpY19wYXVzZWQYAyABKAhSC211c2ljUGF1c2VkEhYKBmRldGFp'
+    'bBgEIAEoCVIGZGV0YWls');
 
 @$core.Deprecated('Use controlRequestDescriptor instead')
 const ControlRequest$json = {
@@ -538,3 +564,57 @@ final $typed_data.Uint8List setSpeakerSettingsResponseDescriptor =
         'ChpTZXRTcGVha2VyU2V0dGluZ3NSZXNwb25zZRIYCgdhcHBsaWVkGAEgASgIUgdhcHBsaWVkEh'
         'YKBmRldGFpbBgCIAEoCVIGZGV0YWlsEjoKCHNldHRpbmdzGAMgASgLMh4uZjI1MC5hdWRpby52'
         'MS5TcGVha2VyU2V0dGluZ3NSCHNldHRpbmdz');
+
+@$core.Deprecated('Use speakRequestDescriptor instead')
+const SpeakRequest$json = {
+  '1': 'SpeakRequest',
+  '2': [
+    {'1': 'text', '3': 1, '4': 1, '5': 9, '10': 'text'},
+    {'1': 'source', '3': 2, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `SpeakRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List speakRequestDescriptor = $convert.base64Decode(
+    'CgxTcGVha1JlcXVlc3QSEgoEdGV4dBgBIAEoCVIEdGV4dBIWCgZzb3VyY2UYAiABKAlSBnNvdX'
+    'JjZQ==');
+
+@$core.Deprecated('Use speakResponseDescriptor instead')
+const SpeakResponse$json = {
+  '1': 'SpeakResponse',
+  '2': [
+    {'1': 'accepted', '3': 1, '4': 1, '5': 8, '10': 'accepted'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `SpeakResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List speakResponseDescriptor = $convert.base64Decode(
+    'Cg1TcGVha1Jlc3BvbnNlEhoKCGFjY2VwdGVkGAEgASgIUghhY2NlcHRlZBIWCgZkZXRhaWwYAi'
+    'ABKAlSBmRldGFpbA==');
+
+@$core.Deprecated('Use stopSpeakingRequestDescriptor instead')
+const StopSpeakingRequest$json = {
+  '1': 'StopSpeakingRequest',
+  '2': [
+    {'1': 'source', '3': 1, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `StopSpeakingRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List stopSpeakingRequestDescriptor =
+    $convert.base64Decode(
+        'ChNTdG9wU3BlYWtpbmdSZXF1ZXN0EhYKBnNvdXJjZRgBIAEoCVIGc291cmNl');
+
+@$core.Deprecated('Use stopSpeakingResponseDescriptor instead')
+const StopSpeakingResponse$json = {
+  '1': 'StopSpeakingResponse',
+  '2': [
+    {'1': 'stopped', '3': 1, '4': 1, '5': 8, '10': 'stopped'},
+  ],
+};
+
+/// Descriptor for `StopSpeakingResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List stopSpeakingResponseDescriptor =
+    $convert.base64Decode(
+        'ChRTdG9wU3BlYWtpbmdSZXNwb25zZRIYCgdzdG9wcGVkGAEgASgIUgdzdG9wcGVk');

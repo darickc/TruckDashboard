@@ -31,6 +31,7 @@ void main() {
         ),
         dsp: pbe.DspState.DSP_STATE_APPLIED,
         simulated: true,
+        prompts: pb.Prompts(available: true, speaking: true, musicPaused: true),
       );
 
   test('every field maps', () {
@@ -50,6 +51,8 @@ void main() {
     expect((q.id, q.passkey, q.code, q.secondsLeft), (3, 1234, '001234', 9));
     expect(r.dsp, DspPhase.applied);
     expect(r.simulated, isTrue);
+    expect(r.speaking, isTrue);
+    expect(r.pausedForPrompt, isTrue);
   });
 
   test('unknown position and duration stay unknown', () {
@@ -77,6 +80,8 @@ void main() {
 
     final disconnected = full()..phone.connected = false;
     expect(reportFromPb(disconnected).nowPlaying, isNull);
+
+    expect(reportFromPb(noPhone).pausedForPrompt, isFalse, reason: 'no phone, nothing paused');
 
     final down = full()..bluetooth = pbe.BluetoothState.BLUETOOTH_STATE_UNAVAILABLE;
     final d = reportFromPb(down);

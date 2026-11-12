@@ -182,6 +182,22 @@ void main() {
     expect(audio.calls, isEmpty);
   });
 
+  testWidgets('paused for spoken directions says so', (tester) async {
+    final audio = FakeAudio()
+      ..value = up(const AudioReport(
+          phone: phone,
+          pausedForPrompt: true,
+          speaking: true,
+          nowPlaying: NowPlaying(title: 'T', state: PlayState.paused)));
+    final h = await Harness.start(tester, audio: audio);
+    await h.goTo(AppScreen.media);
+    expect(find.text('PAUSED FOR DIRECTIONS'), findsOneWidget);
+    audio.value = up(const AudioReport(
+        phone: phone, nowPlaying: NowPlaying(title: 'T', state: PlayState.playing)));
+    await tester.pump();
+    expect(key('media-directions'), findsNothing);
+  });
+
   testWidgets('a refused command says why', (tester) async {
     final audio = FakeAudio()
       ..value = up(const AudioReport(

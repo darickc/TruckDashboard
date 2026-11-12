@@ -72,7 +72,7 @@ flowchart LR
 | Reconnect | Phones paired in the window are trusted, so they reconnect on their own; audio-manager doesn't initiate connections yet. A dropped phone takes its track off the screen at once |
 | Controls and metadata | AVRCP through BlueZ `MediaPlayer1`: play/pause/next/previous, title, artist, album, position, state. Album art: not built |
 | Volume | One master volume with a configurable **maximum**, plus the physical knob. Absolute volume (AVRCP) where supported. Phase 6.3: not built |
-| Sources | Bluetooth. Navigation prompts duck the music through AGL's role policy: a stream with `media.role = "Navigation"` ducks Multimedia to 0.2 (ADR-0039 decision 9). A USB or local-files source is possible later |
+| Sources | Bluetooth. Spoken directions pause the music (owner, 2026-11-12): audio-manager says them (Flite) with role Speech-High, which corks Multimedia at once, pauses the phone over AVRCP and resumes it 1 s (an example) after the last prompt (ADR-0039 decision 9). A USB or local-files source is possible later |
 | Future HFP | ofono is present. Keep a route for microphone and echo cancellation, but do not block release 1 on calling |
 
 ## Pop prevention and failure safety

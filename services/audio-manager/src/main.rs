@@ -17,6 +17,7 @@ use audio_manager::pairing;
 use audio_manager::runner::{Dsp, NoDsp, PipewireConfig, PipewireDsp};
 use audio_manager::server::Api;
 use audio_manager::sim::{SimConfig, SimPhone};
+use audio_manager::voice::{CommandVoice, NoVoice, SimVoice, Voice};
 use clap::Parser;
 use f250_proto::audio::v1::audio_service_server::AudioServiceServer;
 use f250_sd_notify::{Notifier, run_watchdog};
@@ -84,6 +85,15 @@ struct Args {
     /// exit (for checking it on the bench: `pipewire -c` takes this file).
     #[arg(long)]
     print_dsp_config: bool,
+    /// Says spoken prompts (navigation): a program that says its last
+    /// argument and exits (/opt/f250/libexec/speak-prompt on the Pi, `say` on
+    /// the Mac). Empty: simulated with --simulate, else prompts are refused.
+    #[arg(long)]
+    voice_command: Option<PathBuf>,
+    /// The music resumes this long after the last prompt, milliseconds. An
+    /// example value.
+    #[arg(long, default_value_t = 1000)]
+    prompt_hold_ms: u64,
 }
 
 #[tokio::main]
@@ -122,6 +132,7 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         defaults,
         settings_file,
         simulated: args.simulate,
+        prompt_hold: Duration::from_millis(args.prompt_hold_ms),
     };
     let target = Target {
         dac_node: args.dac_node.clone(),
@@ -167,23 +178,19 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             max_backoff: Duration::from_secs(30),
         }))
     };
-    let manager = Manager::new(
-        Config {
-            pairing: pairing::Config {
-                default: Duration::from_secs(args.pair_window_s),
-                max: Duration::from_secs(args.pair_window_max_s.max(args.pair_window_s)),
-                ..pairing::Config::default()
-            },
-            name: args.name.clone(),
-            limits,
-            defaults,
-            settings_file: (!args.settings_file.is_empty())
-                .then(|| PathBuf::from(&args.settings_file)),
-            simulated: args.simulate,
-        },
-        bt,
-        dsp,
-    );
+    let voice: Arc<dyn Voice> = if let Some(program) = &args.voice_command {
+        Arc::new(CommandVoice {
+            program: program.clone(),
+            timeout: Duration::from_secs(30),
+        })
+    } else if args.simulate {
+        Arc::new(SimVoice::default())
+    } else {
+        Arc::new(NoVoice(
+            "no voice is configured (--voice-command): prompts aren't spoken".into(),
+        ))
+    };
+    let manager = Manager::new(config, bt, dsp, voice);
     tokio::spawn(run_watchdog(
         notifier.clone(),
         manager.heartbeat.clone(),

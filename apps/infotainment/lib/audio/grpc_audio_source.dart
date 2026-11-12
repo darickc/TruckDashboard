@@ -248,5 +248,7 @@ AudioReport reportFromPb(pb.WatchAudioResponse r) {
       _ => DspPhase.notRunning,
     },
     dspDetail: r.dspDetail,
+    speaking: r.prompts.speaking,
+    pausedForPrompt: phone != null && r.prompts.musicPaused,
   );
 }

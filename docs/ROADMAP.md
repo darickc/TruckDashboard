@@ -273,8 +273,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       after one phone pairs; a DisplayYesNo agent puts the phone's six-digit code on the screen to confirm. The speakers'
       filter-chain runs as audio-manager's own `pipewire -c` child, a WirePlumber smart filter: LR4 crossover (80 Hz), fader,
       balance, sub level (examples, validated), changed live with `pw-cli`, the crossover by a restart. The Media screen and
-      Settings → Speakers. A2DP sink only (`60-f250-bluetooth.conf`); navigation prompts duck the music through AGL's
-      "Navigation" role, no API needed. Packaged: `f250-audio-manager.service` (f250 + pipewire, sandboxed, real-time
+      Settings → Speakers. A2DP sink only (`60-f250-bluetooth.conf`). Spoken directions (owner: pause, not duck): `Speak`/`StopSpeaking` say a
+      prompt with Flite as role Speech-High (corks the music), pause the phone over AVRCP and resume it 1 s after the last
+      prompt, only if audio-manager paused it. Packaged: `f250-audio-manager.service` (f250 + pipewire, sandboxed, real-time
       allowed), `audio-start` with `AUDIO_*`, PipeWire and AGL's WirePlumber config in the images; `make agl-test`. Tests:
       BlueZ object-tree parsing from 5.86's documented properties, every pairing-window transition, link loss, the rendered
       graph, the runner against fake `pipewire`/`pw-cli`, end to end over gRPC, the screens at 800×480, and the real binary

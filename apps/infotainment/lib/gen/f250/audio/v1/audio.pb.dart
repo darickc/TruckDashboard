@@ -555,6 +555,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     DspState? dsp,
     $core.String? dspDetail,
     $core.bool? simulated,
+    Prompts? prompts,
   }) {
     final result = WatchAudioResponse._();
     if (bluetooth != null) result.bluetooth = bluetooth;
@@ -567,6 +568,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     if (dsp != null) result.dsp = dsp;
     if (dspDetail != null) result.dspDetail = dspDetail;
     if (simulated != null) result.simulated = simulated;
+    if (prompts != null) result.prompts = prompts;
     return result;
   }
 
@@ -598,6 +600,8 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     ..aE<DspState>(8, _omitFieldNames ? '' : 'dsp', enumValues: DspState.values)
     ..aOS(9, _omitFieldNames ? '' : 'dspDetail')
     ..aOB(10, _omitFieldNames ? '' : 'simulated')
+    ..aOM<Prompts>(11, _omitFieldNames ? '' : 'prompts',
+        subBuilder: Prompts.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -716,6 +720,113 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
   $core.bool hasSimulated() => $_has(9);
   @$pb.TagNumber(10)
   void clearSimulated() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  Prompts get prompts => $_getN(10);
+  @$pb.TagNumber(11)
+  set prompts(Prompts value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasPrompts() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearPrompts() => $_clearField(11);
+  @$pb.TagNumber(11)
+  Prompts ensurePrompts() => $_ensure(10);
+}
+
+/// Spoken prompts (Speak).
+class Prompts extends $pb.GeneratedMessage {
+  factory Prompts({
+    $core.bool? available,
+    $core.bool? speaking,
+    $core.bool? musicPaused,
+    $core.String? detail,
+  }) {
+    final result = Prompts._();
+    if (available != null) result.available = available;
+    if (speaking != null) result.speaking = speaking;
+    if (musicPaused != null) result.musicPaused = musicPaused;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  Prompts._();
+
+  factory Prompts.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Prompts()..mergeFromBuffer(data, registry);
+  factory Prompts.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Prompts()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Prompts',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: Prompts.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'available')
+    ..aOB(2, _omitFieldNames ? '' : 'speaking')
+    ..aOB(3, _omitFieldNames ? '' : 'musicPaused')
+    ..aOS(4, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Prompts clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Prompts copyWith(void Function(Prompts) updates) =>
+      super.copyWith((message) => updates(message as Prompts)) as Prompts;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Prompts() / Prompts.new instead')
+  static Prompts create() => Prompts._();
+  static $pb.GeneratedMessage $_createMessage() => Prompts._();
+  @$core.override
+  Prompts createEmptyInstance() => Prompts._();
+  @$core.pragma('dart2js:noInline')
+  static Prompts getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Prompts>(Prompts.$_createMessage);
+  static Prompts? _defaultInstance;
+
+  /// A voice is configured and can be heard. False: Speak is refused, and
+  /// `detail` says why.
+  @$pb.TagNumber(1)
+  $core.bool get available => $_getBF(0);
+  @$pb.TagNumber(1)
+  set available($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAvailable() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAvailable() => $_clearField(1);
+
+  /// A prompt is being said now.
+  @$pb.TagNumber(2)
+  $core.bool get speaking => $_getBF(1);
+  @$pb.TagNumber(2)
+  set speaking($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSpeaking() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSpeaking() => $_clearField(2);
+
+  /// audio-manager has paused the phone for prompts and will resume it.
+  @$pb.TagNumber(3)
+  $core.bool get musicPaused => $_getBF(2);
+  @$pb.TagNumber(3)
+  set musicPaused($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMusicPaused() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMusicPaused() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get detail => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set detail($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDetail() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDetail() => $_clearField(4);
 }
 
 class ControlRequest extends $pb.GeneratedMessage {
@@ -1817,6 +1928,264 @@ class SetSpeakerSettingsResponse extends $pb.GeneratedMessage {
   void clearSettings() => $_clearField(3);
   @$pb.TagNumber(3)
   SpeakerSettings ensureSettings() => $_ensure(2);
+}
+
+class SpeakRequest extends $pb.GeneratedMessage {
+  factory SpeakRequest({
+    $core.String? text,
+    $core.String? source,
+  }) {
+    final result = SpeakRequest._();
+    if (text != null) result.text = text;
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  SpeakRequest._();
+
+  factory SpeakRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SpeakRequest()..mergeFromBuffer(data, registry);
+  factory SpeakRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SpeakRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SpeakRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: SpeakRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'text')
+    ..aOS(2, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpeakRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpeakRequest copyWith(void Function(SpeakRequest) updates) =>
+      super.copyWith((message) => updates(message as SpeakRequest))
+          as SpeakRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SpeakRequest() / SpeakRequest.new instead')
+  static SpeakRequest create() => SpeakRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SpeakRequest._();
+  @$core.override
+  SpeakRequest createEmptyInstance() => SpeakRequest._();
+  @$core.pragma('dart2js:noInline')
+  static SpeakRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SpeakRequest>(
+          SpeakRequest.$_createMessage);
+  static SpeakRequest? _defaultInstance;
+
+  /// At most 500 characters; control characters are dropped.
+  @$pb.TagNumber(1)
+  $core.String get text => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set text($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasText() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearText() => $_clearField(1);
+
+  /// Who asked ("navigation"), for the log.
+  @$pb.TagNumber(2)
+  $core.String get source => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set source($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSource() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSource() => $_clearField(2);
+}
+
+class SpeakResponse extends $pb.GeneratedMessage {
+  factory SpeakResponse({
+    $core.bool? accepted,
+    $core.String? detail,
+  }) {
+    final result = SpeakResponse._();
+    if (accepted != null) result.accepted = accepted;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  SpeakResponse._();
+
+  factory SpeakResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SpeakResponse()..mergeFromBuffer(data, registry);
+  factory SpeakResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SpeakResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SpeakResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: SpeakResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'accepted')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpeakResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SpeakResponse copyWith(void Function(SpeakResponse) updates) =>
+      super.copyWith((message) => updates(message as SpeakResponse))
+          as SpeakResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SpeakResponse() / SpeakResponse.new instead')
+  static SpeakResponse create() => SpeakResponse._();
+  static $pb.GeneratedMessage $_createMessage() => SpeakResponse._();
+  @$core.override
+  SpeakResponse createEmptyInstance() => SpeakResponse._();
+  @$core.pragma('dart2js:noInline')
+  static SpeakResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SpeakResponse>(
+          SpeakResponse.$_createMessage);
+  static SpeakResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get accepted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set accepted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAccepted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccepted() => $_clearField(1);
+
+  /// Why not, in words for the screen.
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
+}
+
+class StopSpeakingRequest extends $pb.GeneratedMessage {
+  factory StopSpeakingRequest({
+    $core.String? source,
+  }) {
+    final result = StopSpeakingRequest._();
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  StopSpeakingRequest._();
+
+  factory StopSpeakingRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StopSpeakingRequest()..mergeFromBuffer(data, registry);
+  factory StopSpeakingRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StopSpeakingRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'StopSpeakingRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: StopSpeakingRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StopSpeakingRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StopSpeakingRequest copyWith(void Function(StopSpeakingRequest) updates) =>
+      super.copyWith((message) => updates(message as StopSpeakingRequest))
+          as StopSpeakingRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use StopSpeakingRequest() / StopSpeakingRequest.new instead')
+  static StopSpeakingRequest create() => StopSpeakingRequest._();
+  static $pb.GeneratedMessage $_createMessage() => StopSpeakingRequest._();
+  @$core.override
+  StopSpeakingRequest createEmptyInstance() => StopSpeakingRequest._();
+  @$core.pragma('dart2js:noInline')
+  static StopSpeakingRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<StopSpeakingRequest>(
+          StopSpeakingRequest.$_createMessage);
+  static StopSpeakingRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get source => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set source($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSource() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSource() => $_clearField(1);
+}
+
+class StopSpeakingResponse extends $pb.GeneratedMessage {
+  factory StopSpeakingResponse({
+    $core.bool? stopped,
+  }) {
+    final result = StopSpeakingResponse._();
+    if (stopped != null) result.stopped = stopped;
+    return result;
+  }
+
+  StopSpeakingResponse._();
+
+  factory StopSpeakingResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StopSpeakingResponse()..mergeFromBuffer(data, registry);
+  factory StopSpeakingResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StopSpeakingResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'StopSpeakingResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: StopSpeakingResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'stopped')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StopSpeakingResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StopSpeakingResponse copyWith(void Function(StopSpeakingResponse) updates) =>
+      super.copyWith((message) => updates(message as StopSpeakingResponse))
+          as StopSpeakingResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use StopSpeakingResponse() / StopSpeakingResponse.new instead')
+  static StopSpeakingResponse create() => StopSpeakingResponse._();
+  static $pb.GeneratedMessage $_createMessage() => StopSpeakingResponse._();
+  @$core.override
+  StopSpeakingResponse createEmptyInstance() => StopSpeakingResponse._();
+  @$core.pragma('dart2js:noInline')
+  static StopSpeakingResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<StopSpeakingResponse>(
+          StopSpeakingResponse.$_createMessage);
+  static StopSpeakingResponse? _defaultInstance;
+
+  /// False: nothing was being said.
+  @$pb.TagNumber(1)
+  $core.bool get stopped => $_getBF(0);
+  @$pb.TagNumber(1)
+  set stopped($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStopped() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStopped() => $_clearField(1);
 }
 
 const $core.bool _omitFieldNames =

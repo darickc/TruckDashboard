@@ -209,3 +209,11 @@ AUDIO_FRONT=
 AUDIO_REAR=
 AUDIO_SUB=
 AUDIO_CROSSOVER_HZ=
+# Spoken directions (ADR-0039 decision 9; navigation, ADR-0040). The music
+# is paused while a prompt is said (owner, 2026-11-12) and resumed after.
+# AUDIO_VOICE  a program that says its argument (empty:
+#            /opt/f250/libexec/speak-prompt, Flite); none: no prompts.
+# AUDIO_PROMPT_HOLD_MS  the music resumes this long after the last prompt
+#            (empty: 1000, an example), so close prompts don't let it back in.
+AUDIO_VOICE=
+AUDIO_PROMPT_HOLD_MS=

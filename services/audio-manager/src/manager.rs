@@ -19,7 +19,9 @@ use crate::backend::Bluetooth;
 use crate::dsp::{self, Limits, Settings};
 use crate::model::{Adapter, AgentAsk, AgentRequest, Command, PlayState, Snapshot};
 use crate::pairing::{self, Action, Outcome, State, Window};
+use crate::prompts::{Act, PromptPause};
 use crate::runner::{Dsp, DspState};
+use crate::voice::{Voice, clean_prompt};
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -31,6 +33,8 @@ pub struct Config {
     /// Where the driver's speaker settings are kept; None: only in memory.
     pub settings_file: Option<PathBuf>,
     pub simulated: bool,
+    /// The music resumes this long after the last prompt (an example).
+    pub prompt_hold: Duration,
 }
 
 struct Inner {
@@ -42,12 +46,19 @@ struct Inner {
     paired: BTreeSet<String>,
     /// The first snapshot has been seen (pairings in it aren't new).
     seen: bool,
+    prompts: PromptPause,
+    /// The prompt being said, to cut it off.
+    saying: Option<tokio::task::AbortHandle>,
+    /// Counts prompts, so an old one's end doesn't end a newer one.
+    prompt_gen: u64,
+    prompt_detail: String,
 }
 
 pub struct Manager {
     cfg: Config,
     bt: Arc<dyn Bluetooth>,
     dsp: Arc<dyn Dsp>,
+    voice: Arc<dyn Voice>,
     inner: Mutex<Inner>,
     out: watch::Sender<pb::WatchAudioResponse>,
     /// Bumped by the main loop (systemd watchdog).
@@ -110,7 +121,12 @@ pub fn load_settings(cfg: &Config) -> (Settings, Option<String>) {
 }
 
 impl Manager {
-    pub fn new(cfg: Config, bt: Arc<dyn Bluetooth>, dsp: Arc<dyn Dsp>) -> Arc<Manager> {
+    pub fn new(
+        cfg: Config,
+        bt: Arc<dyn Bluetooth>,
+        dsp: Arc<dyn Dsp>,
+        voice: Arc<dyn Voice>,
+    ) -> Arc<Manager> {
         let (settings, problem) = load_settings(&cfg);
         if let Some(p) = problem {
             eprintln!("[audio] speaker settings: {p}");
@@ -123,10 +139,15 @@ impl Manager {
                 discoverable: false,
                 paired: BTreeSet::new(),
                 seen: false,
+                prompts: PromptPause::new(cfg.prompt_hold),
+                saying: None,
+                prompt_gen: 0,
+                prompt_detail: String::new(),
             }),
             cfg,
             bt,
             dsp,
+            voice,
             out: watch::Sender::new(pb::WatchAudioResponse::default()),
             heartbeat: f250_sd_notify::Heartbeat::new(),
             stopping: std::sync::atomic::AtomicBool::new(false),
@@ -230,6 +251,7 @@ impl Manager {
                     let out = inner.window.adapter_lost();
                     self.carry_out(inner, out);
                     inner.discoverable = false;
+                    inner.prompts.forget();
                 }
             }
             let paired: BTreeSet<String> = s
@@ -261,6 +283,10 @@ impl Manager {
             }
             inner.paired = paired;
             inner.seen = true;
+            // A phone gone (or another one) isn't resumed by us later.
+            if s.player.is_none() {
+                inner.prompts.forget();
+            }
         }
         self.publish();
     }
@@ -311,8 +337,110 @@ impl Manager {
             }
             let out = inner.window.tick(now);
             self.carry_out(inner, out);
+            let paused = self
+                .bt
+                .snapshot()
+                .borrow()
+                .player
+                .as_ref()
+                .is_some_and(|p| p.state == PlayState::Paused);
+            if let Some(act) = inner.prompts.tick(now, paused) {
+                self.send_act(act);
+            }
         }
         self.publish();
+    }
+
+    /// Pauses or plays the phone for prompts, on its own task.
+    fn send_act(self: &Arc<Self>, act: Act) {
+        let me = Arc::clone(self);
+        let cmd = match act {
+            Act::Pause => Command::Pause,
+            Act::Play => Command::Play,
+        };
+        eprintln!("[audio] prompts: {} the phone", cmd.method());
+        tokio::spawn(async move {
+            if let Err(e) = me.bt.control(cmd).await {
+                eprintln!("[audio] prompts: {}: {e}", cmd.method());
+            }
+        });
+    }
+
+    // ---- spoken prompts (navigation) -----------------------------------------
+
+    /// Says `text`, cutting off any prompt still being said. Returns at once.
+    pub fn speak(self: &Arc<Self>, text: &str, source: &str) -> Result<(), String> {
+        let text = clean_prompt(text);
+        if text.is_empty() {
+            return Err("Nothing to say.".into());
+        }
+        self.voice.available()?;
+        let playing = self
+            .bt
+            .snapshot()
+            .borrow()
+            .player
+            .as_ref()
+            .is_some_and(|p| p.state == PlayState::Playing);
+        let generation = {
+            let mut inner = self.lock();
+            if let Some(old) = inner.saying.take() {
+                old.abort();
+            }
+            inner.prompt_gen += 1;
+            if let Some(act) = inner.prompts.start(playing) {
+                self.send_act(act);
+            }
+            inner.prompt_detail = String::new();
+            inner.prompt_gen
+        };
+        eprintln!("[audio] {source}: saying {text:?}");
+        let me = Arc::clone(self);
+        let task = tokio::spawn(async move {
+            let r = me.voice.say(&text).await;
+            {
+                let mut inner = me.lock();
+                if inner.prompt_gen != generation {
+                    return;
+                }
+                inner.saying = None;
+                inner.prompts.finished(Instant::now());
+                if let Err(e) = r {
+                    eprintln!("[audio] prompt not said: {e}");
+                    inner.prompt_detail = format!("The last prompt wasn't said: {e}");
+                }
+            }
+            me.publish();
+        });
+        {
+            let mut inner = self.lock();
+            if inner.prompt_gen == generation && inner.prompts.speaking() {
+                inner.saying = Some(task.abort_handle());
+            }
+        }
+        self.publish();
+        Ok(())
+    }
+
+    /// Stops the prompt being said. False: nothing was.
+    pub fn stop_speaking(self: &Arc<Self>, source: &str) -> bool {
+        let was = {
+            let mut inner = self.lock();
+            let was = inner.prompts.speaking();
+            if let Some(t) = inner.saying.take() {
+                t.abort();
+            }
+            if was {
+                inner.prompt_gen += 1;
+                inner.prompts.finished(Instant::now());
+            }
+            was
+        };
+        if was {
+            eprintln!("[audio] {source}: prompt stopped");
+        }
+        self.publish();
+        was
     }
 
     // ---- requests from the dashboard ----------------------------------------
@@ -326,6 +454,8 @@ impl Manager {
             return Err("The phone doesn't offer playback control (no AVRCP player).".into());
         }
         eprintln!("[audio] {source}: {}", cmd.method());
+        // The driver's own choice: audio-manager won't resume it after prompts.
+        self.lock().prompts.forget();
         self.bt.control(cmd).await
     }
 
@@ -488,6 +618,16 @@ impl Manager {
             dsp: dsp.into(),
             dsp_detail,
             simulated: self.cfg.simulated,
+            prompts: Some(pb::Prompts {
+                available: self.voice.available().is_ok(),
+                speaking: inner.prompts.speaking(),
+                music_paused: inner.prompts.music_paused(),
+                detail: match self.voice.available() {
+                    Err(why) => why,
+                    Ok(how) if inner.prompt_detail.is_empty() => how,
+                    Ok(_) => inner.prompt_detail.clone(),
+                },
+            }),
         };
         drop(inner);
         // Every call is sent, even unchanged: it is the heartbeat.

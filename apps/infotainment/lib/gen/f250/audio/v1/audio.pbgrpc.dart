@@ -97,6 +97,26 @@ class AudioServiceClient extends $grpc.Client {
     return $createUnaryCall(_$setSpeakerSettings, request, options: options);
   }
 
+  /// Says a short prompt (spoken directions) through the speakers, cutting off
+  /// any prompt still being said: the newer one matters. Returns at once. The
+  /// music is silenced as the prompt starts and the phone is paused; the
+  /// phone resumes a few seconds after the last prompt, only if audio-manager
+  /// paused it and it is still paused (the driver's own pause wins).
+  $grpc.ResponseFuture<$0.SpeakResponse> speak(
+    $0.SpeakRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$speak, request, options: options);
+  }
+
+  /// Stops the prompt being said, if any (muted, or the route ended).
+  $grpc.ResponseFuture<$0.StopSpeakingResponse> stopSpeaking(
+    $0.StopSpeakingRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$stopSpeaking, request, options: options);
+  }
+
   // method descriptors
 
   static final _$watchAudio =
@@ -134,6 +154,15 @@ class AudioServiceClient extends $grpc.Client {
       '/f250.audio.v1.AudioService/SetSpeakerSettings',
       ($0.SetSpeakerSettingsRequest value) => value.writeToBuffer(),
       $0.SetSpeakerSettingsResponse.fromBuffer);
+  static final _$speak = $grpc.ClientMethod<$0.SpeakRequest, $0.SpeakResponse>(
+      '/f250.audio.v1.AudioService/Speak',
+      ($0.SpeakRequest value) => value.writeToBuffer(),
+      $0.SpeakResponse.fromBuffer);
+  static final _$stopSpeaking =
+      $grpc.ClientMethod<$0.StopSpeakingRequest, $0.StopSpeakingResponse>(
+          '/f250.audio.v1.AudioService/StopSpeaking',
+          ($0.StopSpeakingRequest value) => value.writeToBuffer(),
+          $0.StopSpeakingResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('f250.audio.v1.AudioService')
@@ -200,6 +229,22 @@ abstract class AudioServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.SetSpeakerSettingsRequest.fromBuffer(value),
         ($0.SetSpeakerSettingsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.SpeakRequest, $0.SpeakResponse>(
+        'Speak',
+        speak_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.SpeakRequest.fromBuffer(value),
+        ($0.SpeakResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.StopSpeakingRequest, $0.StopSpeakingResponse>(
+            'StopSpeaking',
+            stopSpeaking_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.StopSpeakingRequest.fromBuffer(value),
+            ($0.StopSpeakingResponse value) => value.writeToBuffer()));
   }
 
   $async.Stream<$0.WatchAudioResponse> watchAudio_Pre($grpc.ServiceCall $call,
@@ -261,4 +306,21 @@ abstract class AudioServiceBase extends $grpc.Service {
 
   $async.Future<$0.SetSpeakerSettingsResponse> setSpeakerSettings(
       $grpc.ServiceCall call, $0.SetSpeakerSettingsRequest request);
+
+  $async.Future<$0.SpeakResponse> speak_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.SpeakRequest> $request) async {
+    return speak($call, await $request);
+  }
+
+  $async.Future<$0.SpeakResponse> speak(
+      $grpc.ServiceCall call, $0.SpeakRequest request);
+
+  $async.Future<$0.StopSpeakingResponse> stopSpeaking_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.StopSpeakingRequest> $request) async {
+    return stopSpeaking($call, await $request);
+  }
+
+  $async.Future<$0.StopSpeakingResponse> stopSpeaking(
+      $grpc.ServiceCall call, $0.StopSpeakingRequest request);
 }

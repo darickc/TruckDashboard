@@ -170,4 +170,33 @@ impl AudioService for Api {
             },
         }))
     }
+
+    async fn speak(
+        &self,
+        req: Request<pb::SpeakRequest>,
+    ) -> Result<Response<pb::SpeakResponse>, Status> {
+        let req = req.into_inner();
+        Ok(Response::new(
+            match self.manager.speak(&req.text, &source_of(&req.source)) {
+                Ok(()) => pb::SpeakResponse {
+                    accepted: true,
+                    detail: String::new(),
+                },
+                Err(detail) => pb::SpeakResponse {
+                    accepted: false,
+                    detail,
+                },
+            },
+        ))
+    }
+
+    async fn stop_speaking(
+        &self,
+        req: Request<pb::StopSpeakingRequest>,
+    ) -> Result<Response<pb::StopSpeakingResponse>, Status> {
+        let stopped = self
+            .manager
+            .stop_speaking(&source_of(&req.into_inner().source));
+        Ok(Response::new(pb::StopSpeakingResponse { stopped }))
+    }
 }

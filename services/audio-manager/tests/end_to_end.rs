@@ -16,6 +16,7 @@ use audio_manager::pairing;
 use audio_manager::runner::NoDsp;
 use audio_manager::server::Api;
 use audio_manager::sim::{self, SimConfig, SimPhone};
+use audio_manager::voice::SimVoice;
 use f250_proto::audio::v1 as pb;
 use hyper_util::rt::TokioIo;
 use pb::audio_service_client::AudioServiceClient;
@@ -73,9 +74,14 @@ async fn start(test: &str, sim_cfg: SimConfig) -> Running {
             defaults: Settings::default(),
             settings_file: Some(dir.join("speakers.json")),
             simulated: true,
+            prompt_hold: Duration::from_millis(300),
         },
         bt,
         Arc::new(NoDsp::new("simulated: no PipeWire")),
+        Arc::new(SimVoice {
+            per_char: Duration::from_millis(2),
+            min: Duration::from_millis(300),
+        }),
     );
     tokio::spawn(Arc::clone(&manager).run(agent_rx));
     let api = Api::new(Arc::clone(&manager));
@@ -472,6 +478,7 @@ async fn speaker_settings_are_validated_saved_and_kept() {
         defaults: Settings::default(),
         settings_file: Some(r.dir.join("speakers.json")),
         simulated: true,
+        prompt_hold: Duration::from_secs(1),
     };
     let (loaded, problem) = audio_manager::manager::load_settings(&cfg);
     assert!(problem.is_none(), "{file}");
@@ -534,5 +541,125 @@ async fn watch_streams_end_when_stopping() {
     assert!(
         end.is_ok(),
         "the stream ended, so a graceful shutdown can finish"
+    );
+}
+
+fn prompts(m: &pb::WatchAudioResponse) -> pb::Prompts {
+    m.prompts.clone().unwrap_or_default()
+}
+
+fn play_state_of(m: &pb::WatchAudioResponse) -> pb::PlayState {
+    m.now_playing
+        .as_ref()
+        .map_or(pb::PlayState::Unspecified, |n| n.state())
+}
+
+async fn speak(c: &mut Client, text: &str) -> pb::SpeakResponse {
+    c.speak(pb::SpeakRequest {
+        text: text.into(),
+        source: "test".into(),
+    })
+    .await
+    .unwrap()
+    .into_inner()
+}
+
+#[tokio::test]
+async fn a_prompt_pauses_the_music_and_resumes_it_after_the_hold() {
+    let mut r = start(
+        "prompt",
+        SimConfig {
+            pair_after: None,
+            ..SimConfig::default()
+        },
+    )
+    .await;
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "playing", |m| {
+        play_state_of(m) == pb::PlayState::Playing
+    })
+    .await;
+    assert!(prompts(&m).available);
+    assert!(
+        speak(&mut r.client, "In half a mile, turn right.")
+            .await
+            .accepted
+    );
+    let m = until(&mut s, "paused for the prompt", |m| {
+        prompts(m).speaking && prompts(m).music_paused && play_state_of(m) == pb::PlayState::Paused
+    })
+    .await;
+    assert!(!m.streaming);
+    until(&mut s, "said, held", |m| {
+        !prompts(m).speaking && prompts(m).music_paused
+    })
+    .await;
+    until(&mut s, "resumed", |m| {
+        !prompts(m).music_paused && play_state_of(m) == pb::PlayState::Playing
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn the_drivers_pause_during_a_prompt_wins() {
+    let mut r = start(
+        "prompt-pause",
+        SimConfig {
+            pair_after: None,
+            ..SimConfig::default()
+        },
+    )
+    .await;
+    let mut s = watch(&mut r.client).await;
+    until(&mut s, "playing", |m| {
+        play_state_of(m) == pb::PlayState::Playing
+    })
+    .await;
+    assert!(speak(&mut r.client, "Turn left.").await.accepted);
+    until(&mut s, "paused", |m| prompts(m).music_paused).await;
+    assert!(control(&mut r.client, pb::Command::Pause).await.sent);
+    let m = until(&mut s, "taken over", |m| !prompts(m).music_paused).await;
+    assert_eq!(play_state_of(&m), pb::PlayState::Paused);
+    // Well past the prompt and the hold: still paused.
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    let m = until(&mut s, "a later report", |_| true).await;
+    assert_eq!(play_state_of(&m), pb::PlayState::Paused);
+}
+
+#[tokio::test]
+async fn music_that_was_paused_stays_paused_and_prompts_can_be_stopped() {
+    let mut r = start(
+        "prompt-stop",
+        SimConfig {
+            pair_after: None,
+            ..SimConfig::default()
+        },
+    )
+    .await;
+    let mut s = watch(&mut r.client).await;
+    assert!(control(&mut r.client, pb::Command::Pause).await.sent);
+    until(&mut s, "paused", |m| {
+        play_state_of(m) == pb::PlayState::Paused
+    })
+    .await;
+    // A long prompt, cut off by a newer one, then stopped.
+    assert!(speak(&mut r.client, &"word ".repeat(400)).await.accepted);
+    assert!(speak(&mut r.client, &"other ".repeat(400)).await.accepted);
+    let m = until(&mut s, "speaking", |m| prompts(m).speaking).await;
+    assert!(!prompts(&m).music_paused, "it wasn't playing");
+    let stopped = r
+        .client
+        .stop_speaking(pb::StopSpeakingRequest {
+            source: "test".into(),
+        })
+        .await
+        .unwrap()
+        .into_inner();
+    assert!(stopped.stopped);
+    let m = until(&mut s, "stopped", |m| !prompts(m).speaking).await;
+    assert_eq!(play_state_of(&m), pb::PlayState::Paused);
+    assert!(
+        !speak(&mut r.client, " \n ").await.accepted,
+        "nothing to say"
     );
 }

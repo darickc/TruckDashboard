@@ -101,6 +101,8 @@ class AudioReport {
     this.dsp = DspPhase.notRunning,
     this.dspDetail = '',
     this.simulated = false,
+    this.speaking = false,
+    this.pausedForPrompt = false,
   });
 
   final bool bluetoothReady;
@@ -121,6 +123,13 @@ class AudioReport {
   final DspPhase dsp;
   final String dspDetail;
   final bool simulated;
+
+  /// A spoken direction is being said now.
+  final bool speaking;
+
+  /// audio-manager paused the phone for spoken directions and will resume it
+  /// (ADR-0039 decision 9).
+  final bool pausedForPrompt;
 }
 
 enum AudioLink { connecting, up, down }

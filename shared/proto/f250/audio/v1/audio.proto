@@ -7,9 +7,9 @@ syntax = "proto3";
 // level; ADR-0014). The dashboard shows and asks; it never talks to BlueZ or
 // PipeWire itself (CLAUDE.md rule 5).
 //
-// Other services that play a short sound (navigation prompts) don't use this
-// API: they open a PipeWire stream with media.role "Navigation" and AGL's
-// policy ducks the music (ADR-0039 decision 9).
+// Spoken navigation prompts go through Speak: audio-manager pauses the
+// phone's music, says the prompt and resumes the music (owner, 2026-11-12;
+// ADR-0039 decision 9).
 package f250.audio.v1;
 
 service AudioService {
@@ -34,6 +34,14 @@ service AudioService {
   // Validates, saves and applies the speaker settings. Refused, with a
   // reason, when a value is outside its limits.
   rpc SetSpeakerSettings(SetSpeakerSettingsRequest) returns (SetSpeakerSettingsResponse);
+  // Says a short prompt (spoken directions) through the speakers, cutting off
+  // any prompt still being said: the newer one matters. Returns at once. The
+  // music is silenced as the prompt starts and the phone is paused; the
+  // phone resumes a few seconds after the last prompt, only if audio-manager
+  // paused it and it is still paused (the driver's own pause wins).
+  rpc Speak(SpeakRequest) returns (SpeakResponse);
+  // Stops the prompt being said, if any (muted, or the route ended).
+  rpc StopSpeaking(StopSpeakingRequest) returns (StopSpeakingResponse);
 }
 
 message WatchAudioRequest {}
@@ -157,6 +165,19 @@ message WatchAudioResponse {
   string dsp_detail = 9;
   // The service runs a simulated phone: nothing is real.
   bool simulated = 10;
+  Prompts prompts = 11;
+}
+
+// Spoken prompts (Speak).
+message Prompts {
+  // A voice is configured and can be heard. False: Speak is refused, and
+  // `detail` says why.
+  bool available = 1;
+  // A prompt is being said now.
+  bool speaking = 2;
+  // audio-manager has paused the phone for prompts and will resume it.
+  bool music_paused = 3;
+  string detail = 4;
 }
 
 enum Command {
@@ -261,4 +282,26 @@ message SetSpeakerSettingsResponse {
   // a moment of silence).
   string detail = 2;
   SpeakerSettings settings = 3;
+}
+
+message SpeakRequest {
+  // At most 500 characters; control characters are dropped.
+  string text = 1;
+  // Who asked ("navigation"), for the log.
+  string source = 2;
+}
+
+message SpeakResponse {
+  bool accepted = 1;
+  // Why not, in words for the screen.
+  string detail = 2;
+}
+
+message StopSpeakingRequest {
+  string source = 1;
+}
+
+message StopSpeakingResponse {
+  // False: nothing was being said.
+  bool stopped = 1;
 }

@@ -8,7 +8,8 @@
     (`make linux-test`, Docker), but it has **never talked to a real BlueZ**; the filter-chain has **never run in a real PipeWire**; nothing has been heard;
   - the bench Pi didn't answer on 2026-11-12, and the DAC8x isn't fitted. Bench check 21 in
     [agl.md](../../setup/agl.md#5-bring-up-checks-phase-52) is the next step.
-- **Date:** 2026-11-12
+- **Date:** 2026-11-12. Amended the same day (owner): spoken directions pause the music instead of
+  ducking it, and audio-manager says them (decision 9)
 - **Refines:** [ADR-0014](0014-multichannel-dac8x.md) decision 5 (crossover, fader, balance, sub level
   in PipeWire, owned by audio-manager), [ADR-0023](0023-bluetooth-belongs-to-bluez.md) (the pairing
   policy it left to 6.1), [audio-routing.md](../audio-routing.md). Phase 6.1.
@@ -157,18 +158,46 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
    source. oFono, which AGL's HFP backend names, is disabled in these
    images; calling is later (audio-routing.md).
 
-9. **Other services play a short sound (a spoken navigation prompt) without
-   calling audio-manager.** They open an ordinary PipeWire playback stream
-   with **`media.role = "Navigation"`** (`pw-play --media-role Navigation
-   prompt.wav`; pw-cat 1.6.8 has `--media-role`; GStreamer
-   `pipewiresink stream-properties="props,media.role=Navigation"`). AGL's
-   role policy then **ducks the phone's music (Multimedia) to 0.2** while it
-   plays and brings it back after. The service needs
-   `SupplementaryGroups=pipewire`, `PIPEWIRE_RUNTIME_DIR=/run/pipewire`
-   and `AF_UNIX`, as audio-manager's unit has. An alert sound would use
-   "Alert" (priority 99, corks the rest). audio-manager has no API for this
-   in v1; one would be added (with a version bump) only if a service needs
-   to know or change the music's state.
+9. **Spoken directions pause the music; audio-manager says them**
+   (amended 2026-11-12, **owner's decision**, relayed from the navigation
+   session: "I would like the music paused while directions are spoken, not
+   ducked"; ADR-0040 decision 16). The first version had other services
+   play prompts themselves with role "Navigation", which AGL's policy
+   ducks to 0.2.
+   - **`Speak(text)` / `StopSpeaking`** in `f250.audio.v1` (added, compatible).
+     A new prompt cuts off one still being said; Speak returns at once.
+     `WatchAudioResponse.prompts` says whether a voice is available, whether
+     a prompt is being said, and whether the music is paused for prompts.
+     Navigation needs no PipeWire access.
+   - **Silence at once, never a delayed prompt:** the prompt plays with
+     `media.role = "Speech-High"`. AGL's policy (22.0.1,
+     `50-AGL-media-role-nodes.conf`) gives Speech-High priority 60 and
+     `lower-priority = "cork"`, so the phone's Multimedia stream is corked
+     while it plays. No change to AGL's configuration.
+   - **None of the song is missed:** if the phone's player is playing when a
+     prompt starts, audio-manager sends it AVRCP **Pause**. It sends **Play**
+     **1 s** (`AUDIO_PROMPT_HOLD_MS`, an example; the owner chose 1 s over
+     3 s on 2026-11-12) after the last prompt ends,
+     so prompts close together don't let the music back in between, and
+     **only if audio-manager paused it and it is still paused**. The
+     driver's Play or Pause (on the screen) during that time wins: nothing
+     is resumed. A phone that goes away is forgotten. (`prompts.rs`, pure,
+     every case tested.)
+   - A phone without a `MediaPlayer1` is silenced by the cork but plays on
+     underneath: that part of the song is lost. Documented, not shown.
+   - Muted directions are navigation's: it doesn't call Speak, and the music
+     is untouched.
+   - **The voice:** `/opt/f250/libexec/speak-prompt`, Flite+hts_engine 1.06
+     (meta-agl-demo's `flite`, BSD-3-Clause, with `flite-voicedata`'s
+     cmu_us_arctic_slt voice, CC-BY-3.0; already built in the VM's sstate)
+     writes a WAV in `/run/f250-audio/`, then `exec pw-play --media-role
+     Speech-High` plays it. audio-manager kills it to cut a prompt off.
+     `AUDIO_VOICE` can name another program, or `none`. On the Mac,
+     `--voice-command say`; with `--simulate` and no command, a silent
+     simulated voice. pw-play is pipewire-tools' pw-cat, built when the
+     distro has agl-devel, as this build configuration does (UNVERIFIED
+     for any other).
+   - An alert sound would use "Alert" (priority 99, corks everything).
 
 10. **The dashboard never shows anything as current without audio-manager.**
     audio-manager publishes on each change and **at least once a second**;
@@ -237,4 +266,8 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
    tone per jack to set `AUDIO_FRONT/REAR/SUB`, then the fader, balance and
    sub level live (no gap) and the crossover (a short gap). Record `top`
    for the filter-chain process and any xruns (`pw-top`).
-5. `pw-play --media-role Navigation` a prompt over music: the music ducks.
+5. Over music, `grpcurl`/navigation's Speak: the music stops at once (cork),
+   the phone shows paused, the prompt is heard, and the music resumes about
+   1 s later. Press Pause on the screen during a prompt: it stays paused.
+   Record how the voice sounds through the speakers and how long Flite takes
+   for a typical prompt.

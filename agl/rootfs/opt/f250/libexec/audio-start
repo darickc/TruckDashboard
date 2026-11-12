@@ -22,6 +22,11 @@
 #                       (docs/wiring/audio.md).
 #   AUDIO_CROSSOVER_HZ  the crossover's default (Defaults on the screen).
 #                       Default 80, an example: tune it in the truck.
+#   AUDIO_VOICE         spoken directions (navigation's prompts): a program
+#                       that says its argument; "none": prompts are refused.
+#                       Default /opt/f250/libexec/speak-prompt (Flite).
+#   AUDIO_PROMPT_HOLD_MS  the music resumes this long after the last prompt.
+#                       Default 1000, an example (owner, 2026-11-12).
 #
 # The API is on /run/f250-audio/audio.sock (RuntimeDirectory); the driver's
 # speaker settings in /var/lib/f250-audio/speakers.json (StateDirectory).
@@ -52,6 +57,12 @@ esac
 [[ -n "${AUDIO_REAR:-}" ]] && args+=(--rear "$AUDIO_REAR")
 [[ -n "${AUDIO_SUB:-}" ]] && args+=(--sub "$AUDIO_SUB")
 [[ -n "${AUDIO_CROSSOVER_HZ:-}" ]] && args+=(--crossover-hz "$AUDIO_CROSSOVER_HZ")
+case "${AUDIO_VOICE:-}" in
+  none) ;;
+  "") args+=(--voice-command /opt/f250/libexec/speak-prompt) ;;
+  *) args+=(--voice-command "$AUDIO_VOICE") ;;
+esac
+[[ -n "${AUDIO_PROMPT_HOLD_MS:-}" ]] && args+=(--prompt-hold-ms "$AUDIO_PROMPT_HOLD_MS")
 
 echo "exec $BIN ${args[*]}" >&2
 exec "$BIN" "${args[@]}"

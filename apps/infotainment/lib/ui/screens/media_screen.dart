@@ -92,6 +92,11 @@ class _MediaScreenState extends State<MediaScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: p.textDim)),
           ),
+          if (r.pausedForPrompt || r.speaking) ...[
+            const SizedBox(width: 6),
+            Pill(r.pausedForPrompt ? 'PAUSED FOR DIRECTIONS' : 'DIRECTIONS',
+                key: const ValueKey('media-directions'), color: p.accent),
+          ],
           if (r.streaming) ...[
             const SizedBox(width: 6),
             Pill('STREAMING', key: const ValueKey('media-streaming'), color: p.ok),
