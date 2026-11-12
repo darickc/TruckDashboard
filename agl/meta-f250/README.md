@@ -34,10 +34,11 @@ BitBake reads these recipes from the working tree.
 
 | File | Does | Stage 1 equivalent |
 |---|---|---|
-| `recipes-platform/images/agl-f250-base.inc` | `agl-image-compositor` plus the Flutter compositor config, DejaVu, BlueZ, rsync, the three packages below, and root's SSH key (`F250_AUTHORIZED_KEYS`) | the prebuilt image, minus the demo |
+| `recipes-platform/images/agl-f250-base.inc` | `agl-image-compositor` plus the Flutter compositor config, DejaVu, BlueZ, rsync, GStreamer, gpsd, Valhalla, the three packages below, and root's SSH key (`F250_AUTHORIZED_KEYS`) | the prebuilt image, minus the demo |
 | `recipes-platform/images/agl-f250.bb`, `agl-f250-release.bb` | development (adds package management; `agl-devel` adds the rest) and release (removes `agl-devel`'s features and packages) | — |
 | `recipes-f250/f250-system` | `agl/rootfs/` (units, drop-ins, `/etc/default/f250`, helpers), the `f250` user, the masked KUKSA CAN units, the enabled units, the persistent journal, `f250-can`, `f250-storage`, `/opt/f250/share/agl`, `/etc/f250-release` | `stage1-setup.sh` steps 1, 3, 4, 7 |
 | `recipes-f250/f250-services` | `vehicle-gateway` (with RFCOMM), `recorder`, `obd-console` in `/opt/f250/bin`, the gateway's data in `/opt/f250/share/data`; the recorder links the image's `libsqlite3` (`make deploy` builds SQLite in) | `make deploy`'s Rust build |
+| `recipes-navigation/valhalla` | Valhalla 3.9.1's `valhalla_service` in `/usr/bin` (one request per process, ADR-0035): libvalhalla static, no prime_server, data tools, HTTP, GeoTIFF, LZ4, bindings or tests; the host's `protoc` | — (not in the prebuilt image) |
 | `recipes-f250/f250-dashboard` | `apps/infotainment` as a flutter-auto bundle in `/usr/share/flutter/f250_infotainment/3.38.3/release` | `make deploy`'s Flutter build, step 6 |
 | `recipes-bsp/bootfiles/rpi-config_git.bbappend` | appends `agl/boot/config-f250.txt` to `config.txt` | step 2 |
 | `recipes-config/agl-users/agl-users_%.bbappend` | `agl-driver` joins group `f250` (the gateway socket) | step 3 |

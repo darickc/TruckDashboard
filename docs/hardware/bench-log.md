@@ -1983,3 +1983,68 @@ dropped-tile `CancellationException` as handled (`ignoreDroppedTiles`,
 ADR-0032). Rebuilt and installed; a minute of zooming and dragging (27 s of
 dashboard CPU) logged no "Unhandled Exception: Cancelled" (3-4 a minute
 before).
+
+## 2026-11-11 — Routing with Valhalla on the Pi 5 (ADR-0035, bench check 18 without a stick) [BENCH]
+
+Hardware: the Pi 5 (8 GB) and card of the entries above. No data drive, no
+GPS receiver, no USB stick in this test
+Image: the meta-f250 `agl-f250` card from f3bf43b, updated in place:
+`make deploy` of 736789c plus the working tree's dashboard and map-import
+fixes (committed after this entry), and `valhalla-3.9.1-r0` and
+`libprotobuf-lite33.6.0-6.33.6-r0` installed with `rpm -i` from the
+`make agl-build` tree (the same packages the images now carry). The new
+images built (both have `valhalla 3.9.1` in their manifests) but weren't
+flashed
+Setup: bench only, `NAV_SIMULATE=1` appended to `/etc/default/f250` (no
+receiver; the screen says SIMULATED). Routing data: Kansas, the 312 MB
+extract `make route-region` built on the Mac on 2026-11-11
+
+Result:
+
+    import     the stick's folder (written by map-stick.py --routing) copied
+               to the Pi's /tmp and imported with `map-import dir`
+               (F250_MAP_REQUIRE_MOUNT=0: no data drive): "Routing data
+               updated", valhalla_tiles.tar 0644 on the card in 19.4 s
+               (tmpfs to the card, mostly sync), its checksum kept. Again:
+               "current", nothing copied. Not through udev or a real stick
+    sandbox    valhalla_service run with every sandbox line of
+               f250-navigation.service as systemd-run properties (User=f250,
+               MemoryDenyWriteExecute, SystemCallFilter=@system-service
+               ~@privileged @resources, ProtectSystem=strict, PrivateDevices,
+               PrivateUsers, ...): routes, exit 0, nothing denied
+    per request (systemd's runtime, CPU and cgroup memory peak; the peak
+               counts page cache the request read)
+
+               route                      km      cold (cache dropped)      warm (x3)
+               Smith Center–Lebanon       23.4    0.36 s, 0.14 s CPU, 44 MB  0.13–0.15 s, 0.12 s CPU, 28 MB
+               Wichita–Topeka            233.1    0.92 s, 0.25 s CPU, 84 MB  0.20 s, 0.18 s CPU, 36–37 MB
+               Kansas City–Goodland      653.1    0.80 s, 0.19 s CPU, 79 MB  0.16 s, 0.15 s CPU, 32–33 MB
+
+    same answer the three routes' legs (maneuvers, shape, times) are identical
+               to ghcr.io/valhalla/valhalla:3.9.1 on the Mac with the same file
+    navigation f250-navigation.service ran valhalla_service itself, in its
+               sandbox: `navigation --example route` over the forwarded socket
+               got a 0.5 km route 0.1 s after asking, guidance to "Arrived"
+               as the simulated receiver drove it
+    screen     agl-screenshooter, touches through a bench-only virtual
+               touchscreen (/dev/uinput): Nav, long-press, "39.8155, -98.4817",
+               Route here: the blue line, "Turn left onto CC Road", "3.7 mi ·
+               10 min left", "Not checked for heavy vehicles or trailers".
+               No map under it: the card's map is Idaho's
+
+    found and fixed (same session):
+    - the map-stick notice (a two-line card) covered the route banner's
+      "Not checked for heavy vehicles or trailers". While routing it is now
+      one small line above End route; a widget test checks the warning stays
+      above it. Redeployed and seen on the Pi: "150 ft, Turn left", the
+      warning, and the stick's line below it
+    - writing ADR-0033's amendment: a map swapped in followed by bad routing
+      data reported "failed" and the dashboard wouldn't have reopened the new
+      map. The status now lists what changed and says "The map was updated";
+      the dashboard reopens on it. [SIM] only (agl-test and app tests)
+
+Verdict: works. Valhalla 3.9.1, built by meta-f250, routes on the Pi 5
+under navigation's sandbox, fast and small for a one-state extract. Not
+shown: a multi-state extract (time, memory, the 30 s limit), the import
+through udev from a real stick and onto the NVMe, a flashed image of this
+commit, rerouting with a real receiver.

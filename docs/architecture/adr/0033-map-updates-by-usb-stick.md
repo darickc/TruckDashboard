@@ -4,7 +4,8 @@
   the import against folders, `map-stick.py` against a folder, and the
   dashboard's tests cover the status. [BENCH] 2026-11-11 (bench-log): a
   real exFAT stick on the Pi imported onto the card and the dashboard
-  reopened the map. Not yet with the NVMe drive
+  reopened the map. Not yet with the NVMe drive. **Amended** 2026-11-11:
+  the stick can carry routing data too (end of this ADR)
 - **Date:** 2026-11-11
 - **Refines:** [ADR-0030](0030-navigation-position-and-raster-map.md) (where the
   map file lives); part of Phase 6.5.3
@@ -100,3 +101,63 @@ Options considered for the update workflow:
   looks for `f250/map.pmtiles`. A stick with that file is treated as a map
   update whoever made it, but is refused unless its checksum and header
   check out, and can only replace the map.
+
+## Amendment: routing data on the same stick (2026-11-11)
+
+Routing (ADR-0035) needs one more file on the data drive:
+`/var/lib/f250/storage/routing/valhalla_tiles.tar`, Valhalla's tile extract
+(312 MB for Kansas; a multi-state region is gigabytes). It has the same
+shape of problem as the map: one file, replaced whole, built on the Mac, too
+big for the weak Wi-Fi. ADR-0035 suggested the map stick.
+
+Options considered:
+
+| Option | For | Against |
+|---|---|---|
+| **A. The same stick and import, a second file** (chosen) | One workflow, one unit, one status the dashboard already shows; map and routing data of one region travel together | The import script grows from one file to two |
+| B. A second import unit and stick layout for routing | Kept apart | Two udev rules racing for the same stick, two status files, a second thing to explain |
+| C. Copy it over SSH | Nothing new | Needs the Mac and the network at the truck; not a workflow for the owner |
+
+Decision (refines decisions 2–4):
+
+1. **A stick carries `f250/map.pmtiles`, `f250/routing.tar`, or both**, each
+   with its `.sha256`. `make map-stick STICK=... ROUTING=build/routing/valhalla_tiles.tar`
+   adds the routing data (`MAP=` alone leaves the map out). `map-stick.py`
+   refuses routing data that isn't a Valhalla tile extract: a ustar file whose
+   first entry is `index.bin`, as `valhalla_build_extract` 3.9.1 writes it
+   (seen in the Kansas build).
+2. **The Pi imports each file the same way**: checksum, a content check
+   (PMTiles header for the map; the tar header and `index.bin` first for the
+   routing data), room for it plus 64 MB, a copy to `<name>.part`, the copy's
+   checksum and content checked again, then a rename over the old file. The
+   installed file's SHA-256 is kept beside it, so a stick left in is
+   `current` and not copied again. The routing data goes to
+   `<storage>/routing/valhalla_tiles.tar`. A stick with neither file is
+   still ignored.
+3. **Map first, then routing data, in one import.** A failure stops the import
+   where it is: a bad map means the routing data isn't tried; a bad routing
+   file leaves the new map in place (it was already checked and swapped).
+   Either way the old file of the one that failed is kept. A `failed` status
+   still lists what was already replaced (`changed: ["map"]`) and says "The
+   map was updated", and the dashboard reopens the map on it, so a new map
+   on disk is never left unshown behind a routing failure.
+4. **One status file**, with two more fields: `item` (`map` or `routing`, the
+   file being checked or copied) and `changed` (what an `updated` import
+   replaced, also in a `failed` status). The dashboard says "Copying routing data from USB: n%" for
+   `routing` and keeps the same chips ("MAP n%", "MAP UPDATED"): the stick
+   is still the map stick. It reopens the map only when `changed` has `map`
+   (or, for `updated`, the field is missing, from an older import). The messages name what
+   changed: "Map and routing data updated", "Routing data updated. The map
+   was already installed", "The routing data on this stick is already
+   installed".
+5. **navigation needs no signal.** It checks the routing file every second
+   and writes Valhalla's config before each request, and each request is a
+   new `valhalla_service` process, which opens the file afresh. A request
+   running during the rename keeps the old file open and finishes on it.
+
+Consequences: [SIM] `make agl-test` covers both files, routing alone,
+`current`, each refusal and a pull during the routing copy; the dashboard's
+tests cover the new fields. [BENCH] 2026-11-11: the script imported Kansas's
+routing data on the bench Pi from a folder (no stick: not yet with a real
+stick or the NVMe), see the bench log. The map's limits apply: the drive needs
+room for the old and new routing data during an import.

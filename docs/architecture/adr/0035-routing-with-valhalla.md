@@ -1,11 +1,12 @@
 # ADR 0035 — Routing with Valhalla, one request per process, in services/navigation
 
-- **Status:** Accepted. [SIM] and [BENCH] on the Mac only:
+- **Status:** Accepted. [SIM] and [BENCH]:
   - the guide's transitions are unit-tested;
   - the service is tested end to end against a fake `valhalla_service` that replays Valhalla 3.9.1's real output;
-  - it ran against the real Valhalla 3.9.1 (Docker) with routing data for Kansas, the simulated receiver driving the route.
-  
-  **Valhalla isn't in the Pi image yet** (decision 7), so routing hasn't run on the Pi.
+  - it ran against the real Valhalla 3.9.1 (Docker) with routing data for Kansas, the simulated receiver driving the route;
+  - **on the Pi 5** (2026-11-11, bench-log): meta-f250's Valhalla 3.9.1 routes under `f250-navigation.service`'s
+    sandbox, 0.13–0.2 s and about 30–40 MB a request for Kansas, with the same answers as the Docker image; a route
+    showed on the Nav screen. Not yet from a flashed image, a real stick or a multi-state extract (decision 7).
 - **Date:** 2026-11-11
 - **Refines:** [ADR-0010](0010-offline-maps-routing.md) (routing) and
   [ADR-0030](0030-navigation-position-and-raster-map.md) decision 1 (routing
@@ -86,11 +87,25 @@ worked. It now does. Facts checked on 2026-11-11:
    - **On the Mac,** navigation runs Valhalla through
      `tools/dev/valhalla-docker.sh`: the same arguments, in the image, with no
      network.
-   - **The Pi image** gets the config template and the settings now. Valhalla
-     itself still needs a meta-f250 recipe (`ENABLE_SERVICES=OFF`, no data
-     tools, no Python). Until then the Nav screen says "Routing unavailable:
-     valhalla_service isn't installed". Getting routing data onto the Pi is
-     also left: probably the map stick (ADR-0033), carrying both files.
+   - **The Pi image** has the config template, the settings and, since
+     2026-11-11, Valhalla: `agl/meta-f250/recipes-navigation/valhalla/valhalla_3.9.1.bb`
+     builds tag 3.9.1 (gitsm, its vendored submodules at the tag's commits)
+     with `ENABLE_SERVICES=OFF`, `ENABLE_DATA_TOOLS=OFF`, `ENABLE_HTTP=OFF`,
+     `ENABLE_GEOTIFF=OFF`, `ENABLE_LZ4=OFF` (elevation and PBF only),
+     `ENABLE_PYTHON_BINDINGS=OFF`, `ENABLE_TESTS=OFF` and a static
+     libvalhalla, and packages only `/usr/bin/valhalla_service` (7.7 MB; it
+     links protobuf-lite, abseil, zlib, libstdc++). `valhalla_service` is built
+     by `ENABLE_TOOLS`, not `ENABLE_SERVICES`. Two build details: the target
+     Protobuf has no compiler, so `protoc-native.cmake` points the
+     `protobuf::protoc` target at the host's; and `ENABLE_SINGLE_FILES_WERROR=OFF`,
+     because this GCC deprecates `std::atomic_load` on `shared_ptr` in C++20
+     and Valhalla builds `graphreader.cc` with `-Werror`.
+   - **Routing data on the Pi** comes on the map stick: `make map-stick
+     ROUTING=build/routing/valhalla_tiles.tar` adds `f250/routing.tar`, and
+     the stick's import checks it and swaps it in at
+     `/var/lib/f250/storage/routing/valhalla_tiles.tar`
+     ([ADR-0033's amendment](0033-map-updates-by-usb-stick.md#amendment-routing-data-on-the-same-stick-2026-11-11)).
+     navigation notices it within a second; no restart.
 8. **The simulated receiver drives the route** while there is one, and goes
    back to its loop when the route is cleared. Guidance can then be seen
    working end to end without a receiver. It is labelled simulated all the
@@ -98,15 +113,18 @@ worked. It now does. Facts checked on 2026-11-11:
 
 ## Consequences
 
-- Routing works on the Mac today (`make route-region`, then `make sim`). On
-  the Pi it waits for the Valhalla recipe and a way to deliver the routing
-  data.
+- Routing works on the Mac (`make route-region`, then `make sim`) and on the
+  Pi (the image's Valhalla, the routing data from the map stick).
 - `f250-navigation.service` now starts a child process. Its sandbox applies
   to the child too: MemoryDenyWriteExecute, the `@system-service` syscall
   filter, and `ProtectSystem=strict` with only `/run/f250-nav` writable.
-  Whether Valhalla runs under that is **UNVERIFIED** until it is on the Pi.
-- Each request loads the tile index again. Kansas loads in well under a
-  second. A multi-state extract on the Pi 5 is **not measured**.
+  **Verified on the Pi 5** (2026-11-11): Valhalla 3.9.1 routes under it,
+  nothing denied.
+- Each request loads the tile index again. Kansas (312 MB, 493 tiles) on the
+  Pi 5: 0.13–0.2 s a request with the file in the page cache, 0.36–0.92 s
+  from the card cold; a peak of 28–37 MB (up to 84 MB cold, page cache
+  counted), for routes of 23–653 km [BENCH]. A multi-state extract is **not
+  measured**; the 30 s limit is far off for one state.
 - No voice prompts, lane guidance, ETA by clock (the Pi has no clock source
   in the truck), address search or saved places. Each is a later piece.
 - OSM data is ODbL. The map's attribution is already on screen, and the

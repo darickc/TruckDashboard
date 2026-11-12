@@ -5,8 +5,8 @@ truck's position from services/navigation, and routes from Valhalla
 ([ADR-0030](../architecture/adr/0030-navigation-position-and-raster-map.md),
 [ADR-0032](../architecture/adr/0032-vector-map.md),
 [ADR-0035](../architecture/adr/0035-routing-with-valhalla.md)). Status:
-**[SIM]**. No GPS receiver is chosen yet (H11), and routing hasn't run on
-the Pi (Valhalla isn't in the image yet).
+**[SIM]**, and **[BENCH]** for routing on the Pi 5 (2026-11-11, with the
+simulated receiver). No GPS receiver is chosen yet (H11).
 
 ## What the screen shows
 
@@ -49,8 +49,11 @@ Long-press the map, then **Route here**, to route there (next section).
    ```
 
    It copies `build/maps/region.pmtiles` (or `MAP=...`) to `f250/map.pmtiles`
-   on the stick and writes its checksum, `f250/map.pmtiles.sha256`. Eject the
-   stick.
+   on the stick and writes its checksum, `f250/map.pmtiles.sha256`. To bring
+   [routing data](#routing-data) too, add
+   `ROUTING=build/routing/valhalla_tiles.tar` (it becomes `f250/routing.tar`
+   and its checksum); `MAP=` with nothing after it leaves the map out. Eject
+   the stick.
 3. In the truck, with the dashboard on (key at ACC or running), plug the stick
    into the Pi. The status bar shows **MAP n%** while it copies (the Nav screen
    says more); leave the stick in. Then it checks the copy (**MAP CHECK**)
@@ -61,8 +64,11 @@ Long-press the map, then **Route here**, to route there (next section).
 
 If anything is wrong (no checksum, a bad copy, not a map, the data drive
 missing or full, the stick pulled early) it shows **MAP UPDATE FAILED** with
-the reason on the Nav screen, and the old map stays. A stick without
-`f250/map.pmtiles` is ignored. On the Pi, `journalctl -u 'f250-map-import@*'`
+the reason on the Nav screen, and the old map stays. Routing data is checked
+and swapped the same way, after the map, with the same chips ("Copying
+routing data from USB" on the Nav screen); a bad routing file keeps the old
+routing data, and a new map copied before it stays. A stick with neither
+`f250/map.pmtiles` nor `f250/routing.tar` is ignored. On the Pi, `journalctl -u 'f250-map-import@*'`
 shows what happened.
 
 To try it on the Mac, `make map-import-dev STICK=/Volumes/<name>` imports a
@@ -213,14 +219,26 @@ unavailable: no routing data at …". From a terminal, without the dashboard:
 cargo run -p navigation --example route -- tcp:127.0.0.1:50253 39.8103 -98.5559
 ```
 
-### On the Pi (TODO)
+### On the Pi
 
-navigation looks for `valhalla_service` on `PATH` (`NAV_VALHALLA`) and the
-data at `/var/lib/f250/storage/routing/valhalla_tiles.tar`
-(`NAV_ROUTING_TILES`). Neither is there yet: Valhalla needs a meta-f250
-recipe, and the routing data a way onto the data drive (probably the map
-stick). Until then the Nav screen says "Routing unavailable: valhalla_service
-isn't installed …". Other settings in `/etc/default/f250`:
+The image has Valhalla 3.9.1's `valhalla_service` in `/usr/bin` (meta-f250,
+`recipes-navigation/valhalla`), which navigation finds on `PATH`
+(`NAV_VALHALLA`). The routing data comes on the map stick:
+
+```bash
+make route-region REGION=north-america/us/kansas
+make map-stick STICK=/Volumes/<name> ROUTING=build/routing/valhalla_tiles.tar
+```
+
+Plug the stick in with the dashboard on. The import puts it at
+`/var/lib/f250/storage/routing/valhalla_tiles.tar` (`NAV_ROUTING_TILES`)
+and navigation sees it within a second: no restart. Until it is there the
+Nav screen says "Routing unavailable: no routing data at … (it comes on the
+map stick)". Bench check 18 in [agl.md](agl.md).
+
+On the bench Pi 5 a Kansas route takes 0.13–0.2 s and about 30–40 MB, under
+navigation's own sandbox [BENCH, bench-log 2026-11-11]. Bigger regions are
+unmeasured. Other settings in `/etc/default/f250`:
 
 | Setting | Default | Meaning |
 |---|---|---|
