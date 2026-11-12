@@ -1,0 +1,264 @@
+syntax = "proto3";
+
+// Bluetooth audio from a phone and the speaker settings, served by
+// services/audio-manager (docs/architecture/adr/0039-audio-manager.md).
+// audio-manager owns BlueZ (pairing, the phone's player over AVRCP) and the
+// PipeWire filter-chain in front of the DAC (crossover, fader, balance, sub
+// level; ADR-0014). The dashboard shows and asks; it never talks to BlueZ or
+// PipeWire itself (CLAUDE.md rule 5).
+//
+// Other services that play a short sound (navigation prompts) don't use this
+// API: they open a PipeWire stream with media.role "Navigation" and AGL's
+// policy ducks the music (ADR-0039 decision 9).
+package f250.audio.v1;
+
+service AudioService {
+  // Everything the Media screen shows: now, then on each change, and at
+  // least once a second (a heartbeat). A client that hears nothing for a
+  // few seconds, or loses the stream, must show nothing as current: no
+  // track, no phone, no pairing window.
+  rpc WatchAudio(WatchAudioRequest) returns (stream WatchAudioResponse);
+  // Play, pause, next or previous, sent to the connected phone's player
+  // (AVRCP). Refused, with a reason, without a phone or a player.
+  rpc Control(ControlRequest) returns (ControlResponse);
+  // Opens the pairing window: the head unit is discoverable and accepts a
+  // new phone for `seconds` (clamped to the configured limit), then closes
+  // by itself. Opening an open window restarts its countdown.
+  rpc OpenPairing(OpenPairingRequest) returns (OpenPairingResponse);
+  // Closes the pairing window now.
+  rpc ClosePairing(ClosePairingRequest) returns (ClosePairingResponse);
+  // Answers a passkey question (Pairing.confirmation).
+  rpc ConfirmPairing(ConfirmPairingRequest) returns (ConfirmPairingResponse);
+  // The speaker settings, their limits, and whether they are applied.
+  rpc GetSpeakerSettings(GetSpeakerSettingsRequest) returns (GetSpeakerSettingsResponse);
+  // Validates, saves and applies the speaker settings. Refused, with a
+  // reason, when a value is outside its limits.
+  rpc SetSpeakerSettings(SetSpeakerSettingsRequest) returns (SetSpeakerSettingsResponse);
+}
+
+message WatchAudioRequest {}
+
+// Whether Bluetooth itself is usable.
+enum BluetoothState {
+  BLUETOOTH_STATE_UNSPECIFIED = 0;
+  // BlueZ answers and its adapter is powered.
+  BLUETOOTH_STATE_READY = 1;
+  // No adapter, it is off, or BlueZ doesn't answer (`detail` says which).
+  BLUETOOTH_STATE_UNAVAILABLE = 2;
+}
+
+// A paired or connected phone.
+message Phone {
+  // The Bluetooth address, AA:BB:CC:DD:EE:FF.
+  string address = 1;
+  // What the phone calls itself (BlueZ's Alias), for the screen.
+  string name = 2;
+  bool connected = 3;
+  bool paired = 4;
+}
+
+enum PlayState {
+  PLAY_STATE_UNSPECIFIED = 0;
+  PLAY_STATE_STOPPED = 1;
+  PLAY_STATE_PLAYING = 2;
+  PLAY_STATE_PAUSED = 3;
+  PLAY_STATE_FORWARD_SEEK = 4;
+  PLAY_STATE_REVERSE_SEEK = 5;
+  // The phone reported an error.
+  PLAY_STATE_ERROR = 6;
+}
+
+// The connected phone's player (AVRCP, BlueZ MediaPlayer1). Present only
+// while that phone is connected and has a player: never the last track of
+// a phone that has gone.
+message NowPlaying {
+  // Empty when the phone doesn't say.
+  string title = 1;
+  string artist = 2;
+  string album = 3;
+  PlayState state = 4;
+  // Milliseconds; 0: the phone doesn't say.
+  uint32 duration_ms = 5;
+  // Milliseconds into the track, as of this message (the service counts on
+  // from the phone's last report while playing). False: unknown.
+  bool has_position = 6;
+  uint32 position_ms = 7;
+  // The player's name (the phone's app), when it gives one.
+  string player_name = 8;
+}
+
+enum PairingState {
+  PAIRING_STATE_UNSPECIFIED = 0;
+  // Not discoverable; new phones are refused.
+  PAIRING_STATE_CLOSED = 1;
+  // Asked BlueZ to become discoverable and pairable; not confirmed yet.
+  PAIRING_STATE_OPENING = 2;
+  // Discoverable and pairable until the countdown ends.
+  PAIRING_STATE_OPEN = 3;
+  // Asked BlueZ to stop being discoverable and pairable.
+  PAIRING_STATE_CLOSING = 4;
+  // BlueZ refused to open (or close) the window: `detail` says why.
+  PAIRING_STATE_FAILED = 5;
+}
+
+// A phone asking to pair, showing a six-digit code. The driver accepts
+// only if the phone shows the same code.
+message PasskeyQuestion {
+  // Names this question in ConfirmPairing.
+  uint64 id = 1;
+  string phone_name = 2;
+  string address = 3;
+  // Six digits, shown with leading zeros; only when has_passkey.
+  uint32 passkey = 4;
+  // The question is refused by itself when this reaches 0.
+  uint32 seconds_left = 5;
+  // False: the phone asks to pair without a code; accept only if it is
+  // the phone in your hand.
+  bool has_passkey = 6;
+}
+
+message Pairing {
+  PairingState state = 1;
+  // While open: seconds until it closes by itself.
+  uint32 seconds_left = 2;
+  // What happened (paired a phone, closed by itself, refused), for the
+  // screen; may be empty.
+  string detail = 3;
+  // A phone waiting for the driver's answer, if any.
+  PasskeyQuestion question = 4;
+  // The name phones see.
+  string name = 5;
+}
+
+// Whether the speaker settings are in effect.
+enum DspState {
+  DSP_STATE_UNSPECIFIED = 0;
+  // The filter-chain runs with the current settings.
+  DSP_STATE_APPLIED = 1;
+  // Starting or restarting the filter-chain.
+  DSP_STATE_STARTING = 2;
+  // Not running: `detail` says why (no PipeWire, the simulation).
+  DSP_STATE_NOT_RUNNING = 3;
+}
+
+message WatchAudioResponse {
+  BluetoothState bluetooth = 1;
+  // Why Bluetooth is unavailable, or what it is doing.
+  string bluetooth_detail = 2;
+  // The phone streaming or connected now, if any.
+  Phone phone = 3;
+  // Phones paired before and not connected.
+  repeated Phone known = 4;
+  NowPlaying now_playing = 5;
+  // Audio is arriving from the phone now (BlueZ MediaTransport1 active).
+  bool streaming = 6;
+  Pairing pairing = 7;
+  DspState dsp = 8;
+  string dsp_detail = 9;
+  // The service runs a simulated phone: nothing is real.
+  bool simulated = 10;
+}
+
+enum Command {
+  COMMAND_UNSPECIFIED = 0;
+  COMMAND_PLAY = 1;
+  COMMAND_PAUSE = 2;
+  COMMAND_NEXT = 3;
+  COMMAND_PREVIOUS = 4;
+}
+
+message ControlRequest {
+  Command command = 1;
+  // Who asked ("dashboard"), for the log.
+  string source = 2;
+}
+
+message ControlResponse {
+  bool sent = 1;
+  // Why not, in words for the screen.
+  string detail = 2;
+}
+
+message OpenPairingRequest {
+  // 0: the configured default.
+  uint32 seconds = 1;
+  string source = 2;
+}
+
+message OpenPairingResponse {
+  bool accepted = 1;
+  string detail = 2;
+}
+
+message ClosePairingRequest {
+  string source = 1;
+}
+
+message ClosePairingResponse {
+  // False: it wasn't open.
+  bool closing = 1;
+}
+
+message ConfirmPairingRequest {
+  // PasskeyQuestion.id.
+  uint64 id = 1;
+  // True: the codes match.
+  bool accept = 2;
+  string source = 3;
+}
+
+message ConfirmPairingResponse {
+  // False: no such question (answered, timed out or cancelled).
+  bool answered = 1;
+  string detail = 2;
+}
+
+// The driver's speaker settings. Each is limited by SpeakerLimits.
+message SpeakerSettings {
+  // Negative: towards the rear; positive: towards the front. Each step
+  // turns the other pair down by `step_db`; the last step mutes it.
+  int32 fader = 1;
+  // Negative: towards the left; positive: towards the right.
+  int32 balance = 2;
+  // The sub's level in dB, relative to the configured reference.
+  int32 sub_level_db = 3;
+  // Where the speakers hand over to the sub, in Hz (example values only;
+  // tune in the truck, CLAUDE.md rule 10).
+  uint32 crossover_hz = 4;
+}
+
+// The configured limits (examples from audio-manager's configuration, not
+// recommendations).
+message SpeakerLimits {
+  // fader and balance run from -steps to +steps.
+  int32 steps = 1;
+  // dB per step.
+  float step_db = 2;
+  int32 sub_min_db = 3;
+  int32 sub_max_db = 4;
+  uint32 crossover_min_hz = 5;
+  uint32 crossover_max_hz = 6;
+  uint32 crossover_step_hz = 7;
+}
+
+message GetSpeakerSettingsRequest {}
+
+message GetSpeakerSettingsResponse {
+  SpeakerSettings settings = 1;
+  SpeakerLimits limits = 2;
+  // The configured defaults (Reset).
+  SpeakerSettings defaults = 3;
+}
+
+message SetSpeakerSettingsRequest {
+  SpeakerSettings settings = 1;
+  string source = 2;
+}
+
+message SetSpeakerSettingsResponse {
+  bool applied = 1;
+  // Why not, or what happened (e.g. the crossover restarts the filter-chain:
+  // a moment of silence).
+  string detail = 2;
+  SpeakerSettings settings = 3;
+}
