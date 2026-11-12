@@ -58,6 +58,21 @@ void main() {
       expect(MapUpdateStatus.parse(status('failed', changed: []))!.mapChanged, isFalse);
     });
 
+    test('search data on the stick (ADR-0038)', () {
+      final copying = MapUpdateStatus.parse(
+        '{"state":"copying","percent":60,"message":"Copying the search data from USB: leave the stick in",'
+        '"id":"y","device":"/dev/sda1","item":"search","changed":["map","routing"],"at":"2026-11-12T03:21:07Z"}',
+      )!;
+      expect(copying.item, 'search');
+      expect(copying.text, 'Copying search data from USB: 60%. Leave the stick in.');
+      final done = MapUpdateStatus.parse(
+        '{"state":"updated","percent":100,"message":"Search data updated. You can remove the stick.",'
+        '"id":"y","device":"","item":"search","changed":["search"],"at":"2026-11-12T03:21:09Z"}',
+      )!;
+      expect(done.mapChanged, isFalse, reason: 'only the search data changed: the map stays open');
+      expect(MapUpdateStatus.parse(status('copying'))!.item, 'map');
+    });
+
     test('anything else is no status', () {
       expect(MapUpdateStatus.parse(''), isNull);
       expect(MapUpdateStatus.parse('not json'), isNull);

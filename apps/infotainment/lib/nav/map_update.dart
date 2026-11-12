@@ -2,7 +2,7 @@ import 'dart:convert';
 
 /// What the map import (ADR-0033, `/opt/f250/libexec/map-import`) is doing,
 /// from its status file. A stick carries the map, routing data (ADR-0033
-/// amendment, ADR-0035), or both. `current`: what the stick carries is
+/// amendment, ADR-0035), search data (ADR-0038), or any of them. `current`: what the stick carries is
 /// already installed, so nothing was copied (a stick left in the truck).
 enum MapUpdateState { checking, copying, updated, current, failed }
 
@@ -24,11 +24,11 @@ class MapUpdateStatus {
   /// One import; a new "updated" id means new files on the drive.
   final String id;
 
-  /// What is being checked or copied: `map` or `routing`.
+  /// What is being checked or copied: `map`, `routing` or `search`.
   final String item;
 
-  /// What the import replaced (`map`, `routing`), also when it then failed
-  /// on the routing data. Null from an import that doesn't say, which only
+  /// What the import replaced (`map`, `routing`, `search`), also when it
+  /// then failed on a later item. Null from an import that doesn't say, which only
   /// ever imported maps.
   final List<String>? changed;
 
@@ -52,9 +52,11 @@ class MapUpdateStatus {
 
   /// What the screen says about it.
   String get text => switch (state) {
-    MapUpdateState.copying => item == 'routing'
-        ? 'Copying routing data from USB: $percent%. Leave the stick in.'
-        : 'Copying the map from USB: $percent%. Leave the stick in.',
+    MapUpdateState.copying => switch (item) {
+      'routing' => 'Copying routing data from USB: $percent%. Leave the stick in.',
+      'search' => 'Copying search data from USB: $percent%. Leave the stick in.',
+      _ => 'Copying the map from USB: $percent%. Leave the stick in.',
+    },
     _ => message,
   };
 
@@ -75,7 +77,7 @@ class MapUpdateStatus {
         percent: percent is int ? percent.clamp(0, 100) : 0,
         message: j['message'] is String ? j['message'] as String : '',
         id: id,
-        item: item == 'routing' ? 'routing' : 'map',
+        item: item == 'routing' || item == 'search' ? item as String : 'map',
         changed: changed is List ? changed.whereType<String>().toList() : null,
         at: at is String ? DateTime.tryParse(at) : null,
       );

@@ -13,6 +13,7 @@ import '../export/export_state.dart';
 import '../nav/offline_map.dart';
 import '../nav/position_state.dart';
 import '../nav/route_state.dart';
+import '../nav/search_state.dart';
 import '../telemetry/calibration.dart';
 import '../telemetry/telemetry_store.dart';
 import 'banner_alerts.dart';
@@ -82,6 +83,7 @@ class AppServices {
     DisplaySource? display,
     PositionSource? position,
     RouteSource? route,
+    SearchSource? search,
     OfflineMap? map,
     ExportSource? exports,
     this.power = const NoPowerControl(),
@@ -90,6 +92,7 @@ class AppServices {
         display = display ?? SimulatedDisplaySource(),
         position = position ?? SimulatedPositionSource(autoRun: false),
         route = route ?? UnavailableRouteSource(),
+        search = search ?? const UnavailableSearchSource(),
         map = map ?? OfflineMap.none(),
         exports = exports ?? SimulatedExportSource(),
         assert((simulation == null) != (gateway == null), 'exactly one data source');
@@ -117,6 +120,10 @@ class AppServices {
   /// Routing and guidance: services/navigation with Valhalla (Phase 6.5.2,
   /// ADR-0035), or unavailable without it.
   final RouteSource route;
+
+  /// Address and place search: services/navigation's offline index (Phase
+  /// 6.5.3, ADR-0038), or unavailable without it.
+  final SearchSource search;
 
   /// The offline raster map (Phase 6.5.1, ADR-0030), or none.
   final OfflineMap map;

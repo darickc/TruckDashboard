@@ -23,6 +23,8 @@ import 'nav/position_connection.dart';
 import 'nav/position_state.dart';
 import 'nav/route_connection.dart';
 import 'nav/route_state.dart';
+import 'nav/search_connection.dart';
+import 'nav/search_state.dart';
 import 'nav/vector_map.dart';
 import 'telemetry/telemetry_store.dart';
 import 'ui/app.dart';
@@ -129,6 +131,10 @@ Future<AppServices> createServices(
   final RouteSource route =
       nav == 'sim' ? UnavailableRouteSource() : connectRouting(GatewayEndpoint.parse(nav));
   route.start();
+  // So does search (ADR-0038).
+  final SearchSource search =
+      nav == 'sim' ? const UnavailableSearchSource() : connectSearch(GatewayEndpoint.parse(nav));
+  search.start();
   final ExportSource exports =
       export == 'sim' ? SimulatedExportSource() : connectUsbExport(GatewayEndpoint.parse(export));
   exports.start();
@@ -146,6 +152,7 @@ Future<AppServices> createServices(
           display: display,
           position: position,
           route: route,
+          search: search,
           map: map,
           exports: exports,
           power: PowerControl.forPlatform());
@@ -164,6 +171,7 @@ Future<AppServices> createServices(
           display: display,
           position: position,
           route: route,
+          search: search,
           map: map,
           exports: exports,
           power: PowerControl.forPlatform());

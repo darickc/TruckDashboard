@@ -12,15 +12,18 @@ import '../../nav/offline_map.dart';
 import '../../model/units.dart';
 import '../../nav/position_state.dart';
 import '../../nav/route_state.dart';
+import '../../nav/search_state.dart';
 import '../../nav/vector_map.dart';
 import '../app_scope.dart';
 import '../theme.dart';
 import '../widgets/tap_target.dart';
+import 'nav_search.dart';
 
 /// The offline map, the truck's position and routing (Phase 6.4, 6.5.1 and
 /// 6.5.2; ADR-0030, vector maps ADR-0032, routing ADR-0035). North up. It
 /// follows the truck until the map is dragged; the locate button follows
-/// again. Long-press the map to choose a destination.
+/// again. Search for an address or place (ADR-0038), or long-press the map,
+/// to choose a destination.
 ///
 /// Honest about what it knows: a fix that isn't current is drawn grey and
 /// labelled "last known" with its age (CLAUDE.md rule 4), a simulated
@@ -38,6 +41,11 @@ class NavigationScreen extends StatefulWidget {
   /// The default zoom once a fix arrives.
   static const followZoom = 15.0;
 
+  /// Above this the truck counts as moving, and search asks to type only
+  /// when parked. An example value (5 mph), not a safety limit: typing is
+  /// never locked out (owner's decision, docs/safety/assumptions.md).
+  static const movingKmh = 8.0;
+
   @override
   State<NavigationScreen> createState() => _NavigationScreenState();
 }
@@ -50,8 +58,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
   PositionSource? _source;
   LatLng? _lastCentered;
 
-  /// A long-pressed point waiting for Route here or Cancel.
+  /// A long-pressed point or a search result waiting for Route here or
+  /// Cancel, and the result's name.
   LatLng? _pending;
+  String? _pendingName;
+
+  /// The search panel is open, and what was typed in it last.
+  bool _searching = false;
+  String _searchQuery = '';
 
   @override
   void didChangeDependencies() {
@@ -243,17 +257,23 @@ class _NavigationScreenState extends State<NavigationScreen> {
       if (_pending != null)
         _PendingPanel(
           at: _pending!,
+          name: _pendingName,
           palette: p,
+          canRoute: canRoute,
           onRoute: () {
             final to = _pending!;
             setState(() {
               _pending = null;
+              _pendingName = null;
               _follow = true;
             });
             s.route.setDestination(to);
             _centre(force: true);
           },
-          onCancel: () => setState(() => _pending = null),
+          onCancel: () => setState(() {
+            _pending = null;
+            _pendingName = null;
+          }),
         )
       else if (onRoute)
         Row(
@@ -277,7 +297,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
       (RouteLink.connecting, null) => 'Routing: connecting to the navigation service…',
       (RouteLink.lost, null) =>
         'Routing unavailable: navigation service unavailable${route.detail.isEmpty ? '' : ': ${route.detail}'}',
-      (_, RouteState.idle) => 'Long-press the map to route',
+      (_, RouteState.idle) => 'Search, or long-press the map, to route',
       _ => null,
     };
 
@@ -303,7 +323,12 @@ class _NavigationScreenState extends State<NavigationScreen> {
               onPositionChanged: (camera, hasGesture) {
                 if (hasGesture && _follow) setState(() => _follow = false);
               },
-              onLongPress: canRoute ? (_, at) => setState(() => _pending = at) : null,
+              onLongPress: canRoute
+                  ? (_, at) => setState(() {
+                      _pending = at;
+                      _pendingName = null;
+                    })
+                  : null,
             ),
             children: [
               if (vector != null)
@@ -458,6 +483,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 },
                 selected: _follow,
               ),
+              const SizedBox(height: kGap),
+              _button('nav-search-open', 'Search', Icons.search, () => setState(() => _searching = true)),
             ],
           ),
         ),
@@ -502,8 +529,54 @@ class _NavigationScreenState extends State<NavigationScreen> {
               ),
             ),
           ),
+        if (_searching)
+          Positioned.fill(
+            child: NavSearchPanel(
+              source: s.search,
+              initialQuery: _searchQuery,
+              onQueryChanged: (q) => _searchQuery = q,
+              canRoute: canRoute,
+              moving: _moving(s, position, now),
+              units: s.settings.units,
+              onClose: () => setState(() => _searching = false),
+              onShow: (r) => _show(r),
+              onRoute: (r) {
+                setState(() {
+                  _searching = false;
+                  _pending = null;
+                  _pendingName = null;
+                  _follow = true;
+                });
+                s.route.setDestination(r.location);
+                _centre(force: true);
+              },
+            ),
+          ),
       ],
     );
+  }
+
+  /// A search result on the map, waiting for Route here or Cancel.
+  void _show(SearchResult r) {
+    setState(() {
+      _searching = false;
+      _pending = r.location;
+      _pendingName = r.title;
+      _follow = false;
+    });
+    if (_ready) _map.move(r.location, math.max(_map.camera.zoom, NavigationScreen.followZoom));
+  }
+
+  /// A current speed says the truck is moving: the vehicle's, else the
+  /// receiver's. Stale speeds say nothing (CLAUDE.md rule 4).
+  static bool _moving(AppServices s, PositionState position, Duration now) {
+    final vss = s.store['speed'];
+    if (vss != null && vss.isValid && vss.value != null) return vss.value! >= NavigationScreen.movingKmh;
+    final fix = position.report?.fix;
+    if (position.isCurrent(now) && fix?.speedMps != null) {
+      return fix!.speedMps! * 3.6 >= NavigationScreen.movingKmh;
+    }
+    return false;
   }
 
   static Color _updateColor(MapUpdateStatus u, Palette p) => switch (u.state) {
@@ -862,16 +935,25 @@ class _GuidanceBanner extends StatelessWidget {
   );
 }
 
-/// A long-pressed point: Route here or Cancel.
+/// A long-pressed point or a search result: Route here or Cancel.
 class _PendingPanel extends StatelessWidget {
   const _PendingPanel({
     required this.at,
     required this.palette,
     required this.onRoute,
     required this.onCancel,
+    this.name,
+    this.canRoute = true,
   });
 
   final LatLng at;
+
+  /// A search result's name, shown instead of the coordinates.
+  final String? name;
+
+  /// Route here only while routing works (a search result can be shown
+  /// without it).
+  final bool canRoute;
   final Palette palette;
   final VoidCallback onRoute;
   final VoidCallback onCancel;
@@ -908,13 +990,17 @@ class _PendingPanel extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              '${at.latitude.toStringAsFixed(4)}, ${at.longitude.toStringAsFixed(4)}',
+              name ?? '${at.latitude.toStringAsFixed(4)}, ${at.longitude.toStringAsFixed(4)}',
               key: const ValueKey('nav-pending-text'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 15, color: p.text),
             ),
           ),
-          const SizedBox(width: kGap),
-          button('nav-route-here', 'Route here', Icons.directions, onRoute),
+          if (canRoute) ...[
+            const SizedBox(width: kGap),
+            button('nav-route-here', 'Route here', Icons.directions, onRoute),
+          ],
           const SizedBox(width: kGap),
           button('nav-route-cancel', 'Cancel', Icons.close, onCancel),
         ],

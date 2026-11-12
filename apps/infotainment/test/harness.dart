@@ -11,6 +11,7 @@ import 'package:f250_infotainment/model/signal_catalog.dart';
 import 'package:f250_infotainment/nav/offline_map.dart';
 import 'package:f250_infotainment/nav/position_state.dart';
 import 'package:f250_infotainment/nav/route_state.dart';
+import 'package:f250_infotainment/nav/search_state.dart';
 import 'package:f250_infotainment/telemetry/telemetry_store.dart';
 import 'package:f250_infotainment/ui/app.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
@@ -48,6 +49,7 @@ class Harness {
       DisplaySource? display,
       PositionSource? position,
       RouteSource? route,
+      SearchSource? search,
       OfflineMap? map,
       ExportSource? exports}) async {
     tester.view.physicalSize = const Size(800, 480);
@@ -73,6 +75,7 @@ class Harness {
       display: display ?? SimulatedDisplaySource(mode: theme),
       position: position ?? (SimulatedPositionSource(clock: clock, autoRun: false)..start()),
       route: route ?? UnavailableRouteSource('needs services/navigation (make sim)', clock),
+      search: search,
       map: map,
       exports: exports,
       power: power,

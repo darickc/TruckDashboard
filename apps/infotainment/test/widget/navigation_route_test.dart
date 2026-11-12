@@ -101,7 +101,7 @@ void main() {
 
   testWidgets('idle: a hint; long-press, Route here asks for that point', (tester) async {
     final (_, src) = await open(tester, (s) => view(s, RouteState.idle, route: null));
-    expect(textOf('nav-routing'), 'Long-press the map to route');
+    expect(textOf('nav-routing'), 'Search, or long-press the map, to route');
     expect(find.byKey(const ValueKey('nav-guidance')), findsNothing);
 
     final map = tester.getRect(find.byType(FlutterMap));
