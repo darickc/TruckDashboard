@@ -29,6 +29,8 @@ fn built_with(states: Option<PathBuf>) -> (Index, search_index::builder::Summary
         regions: vec!["Gulf test".into()],
         data_date: None,
         states,
+        tiger: vec![],
+        tiger_bbox: None,
         verbose: false,
     })
     .unwrap();
@@ -123,8 +125,136 @@ fn a_missing_file_is_an_error() {
         regions: vec![],
         data_date: None,
         states: None,
+        tiger: vec![],
+        tiger_bbox: None,
         verbose: false,
     })
     .unwrap_err();
     assert!(err.contains("/nonexistent/x.osm.pbf"), "{err}");
+}
+
+/// Made-up US Census address ranges beside the fixture's made-up streets:
+/// N Main St in Fairview (101–199 odd left, 100–198 even right, ZIP 99001),
+/// Elm Ave in Tiny (99 down to 1, odd, ZIP 99002) and another Elm Ave near
+/// Fairview (1–99, odd, ZIP 99001).
+fn with_ranges() -> (Index, search_index::builder::Summary) {
+    use search_index::tiger::fixture::addrfeat;
+    let dir = std::env::temp_dir().join(format!("f250-search-index-tiger-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let zip = dir.join("tl_2099_99001_addrfeat.zip");
+    std::fs::write(
+        &zip,
+        addrfeat(
+            &[
+                vec![
+                    "N Main St",
+                    "101",
+                    "199",
+                    "100",
+                    "198",
+                    "99001",
+                    "99001",
+                    "O",
+                    "E",
+                ],
+                vec!["Elm Ave", "99", "1", "", "", "99002", "", "O", ""],
+                vec!["Elm Ave", "1", "99", "", "", "99001", "", "O", ""],
+                vec!["Ghost Rd", "1", "99", "", "", "99001", "", "O", ""],
+            ],
+            &[
+                Some(vec![(26.001, -90.0), (26.004, -90.0)]),
+                Some(vec![(26.201, -90.0), (26.202, -90.0)]),
+                Some(vec![(26.010, -90.010), (26.011, -90.010)]),
+                // Outside the box.
+                Some(vec![(30.0, -90.0), (30.001, -90.0)]),
+            ],
+        ),
+    )
+    .unwrap();
+    let out = dir.join("search.sqlite");
+    let summary = build(&Options {
+        pbfs: vec![fixture()],
+        out: out.clone(),
+        regions: vec!["Gulf test".into()],
+        data_date: None,
+        states: None,
+        tiger: vec![zip],
+        tiger_bbox: Some((-91.0, 25.0, -89.0, 27.0)),
+        verbose: false,
+    })
+    .unwrap();
+    (Index::open(&out).unwrap(), summary)
+}
+
+#[test]
+fn census_ranges_place_numbers_osm_lacks() {
+    let (ix, s) = with_ranges();
+    assert_eq!(s.tiger.kept, 3);
+    assert_eq!(s.tiger.dropped, 1);
+    assert_eq!(s.counts.range_streets, 3);
+    assert_eq!(s.counts.ranges, 4);
+    assert_eq!(
+        ix.info.ranges_source.as_deref(),
+        Some("US Census Bureau TIGER/Line 2099")
+    );
+
+    // 150 is half-way along the even side, from its first point.
+    let hits = ix.search("150 n main st", Some(FAIRVIEW), 8).unwrap();
+    assert_eq!(hits[0].kind, Match::Estimated, "{hits:#?}");
+    assert_eq!(hits[0].title, "150 N Main St");
+    assert_eq!(hits[0].subtitle, "near Fairview · 99001");
+    let t = 50.0 / 98.0;
+    assert!(
+        (hits[0].lat - (26.001 + 0.003 * t)).abs() < 1e-6,
+        "{}",
+        hits[0].lat
+    );
+    assert!((hits[0].lon + 90.0).abs() < 1e-6);
+    // The OSM street the estimate is on isn't listed again.
+    assert!(
+        !hits
+            .iter()
+            .any(|h| h.kind == Match::Street && h.title == "North Main Street"),
+        "{hits:#?}"
+    );
+
+    // A number OSM has: the mapped address, and no estimate beside it.
+    let hits = ix.search("120 n main st", Some(FAIRVIEW), 8).unwrap();
+    assert_eq!(hits[0].kind, Match::Address);
+    assert!(
+        !hits.iter().any(|h| h.kind == Match::Estimated),
+        "{hits:#?}"
+    );
+
+    // Beyond every range: the street, without the number.
+    let hits = ix.search("500 n main st", Some(FAIRVIEW), 8).unwrap();
+    assert_eq!(hits[0].kind, Match::Street);
+    assert!(hits[0].house_number_missing);
+
+    // Two Elm Aves: the nearer first, unless the ZIP code says otherwise.
+    let hits = ix.search("51 elm ave", Some(FAIRVIEW), 8).unwrap();
+    assert_eq!(hits[0].kind, Match::Estimated);
+    assert_eq!(hits[0].subtitle, "near Fairview · 99001");
+    let found = ix.find("51 elm ave 99002", Some(FAIRVIEW), 8).unwrap();
+    let h = &found.hits[0];
+    assert_eq!(
+        (h.kind, h.subtitle.as_str()),
+        (Match::Estimated, "near Tiny · 99002")
+    );
+    // Reversed: 99 at the first point, so 51 is 48/98 of the way.
+    assert!(
+        (h.lat - (26.201 + 0.001 * 48.0 / 98.0)).abs() < 1e-6,
+        "{}",
+        h.lat
+    );
+    // No OSM address has 99002: placed from its range, and ranked from it.
+    let p = found.postcode.unwrap();
+    assert_eq!(p.source, geocode::index::PostcodeSource::Census);
+    assert_eq!(p.addresses, 1);
+    // An even number on the odd-only side: nothing estimated.
+    let hits = ix.search("50 elm ave", Some(FAIRVIEW), 8).unwrap();
+    assert!(
+        !hits.iter().any(|h| h.kind == Match::Estimated),
+        "{hits:#?}"
+    );
 }

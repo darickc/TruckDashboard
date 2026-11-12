@@ -35,13 +35,23 @@
 //! (`postcodes`) instead of from the truck. A ZIP code the data doesn't
 //! have is said (`Found::postcode`, and each result's unmatched words). A
 //! ZIP code alone finds its area.
+//!
+//! With US Census address ranges in the index (ADR-0041), a query with a
+//! house number also looks for streets whose ranges hold it (`range_terms`,
+//! in the same rings), and places the number along the piece of street by
+//! interpolation: an `Estimated` result, ranked below a mapped address and
+//! above a street without the number. A range whose ZIP code is the one the
+//! query ended with is preferred. An estimate a mapped address already
+//! covers (same number and street, same town) is dropped, and so is the
+//! OSM street an estimate covers.
 
 use std::path::Path;
 
 use rusqlite::{Connection, OpenFlags, params};
 
-use crate::index::{self, Kind};
-use crate::text;
+use crate::index::{self, Kind, PostcodeSource};
+use crate::ranges::{self, Edge, Parity, Side};
+use crate::{line, text};
 
 /// What a result is, as the screen labels it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -54,6 +64,9 @@ pub enum Match {
     Locality,
     /// A named business, park, school…
     Place,
+    /// The house number asked for, placed along its street from the US
+    /// Census Bureau's address ranges: an estimate, not a mapped address.
+    Estimated,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -70,6 +83,9 @@ pub struct Hit {
     /// Query words this result doesn't match (only from the looser pass).
     pub unmatched: Vec<String>,
     pub score: f64,
+    /// Its town and state as the subtitle names them ("near Fairview, KS"),
+    /// to tell the same place found twice.
+    pub place: String,
 }
 
 /// What an index file covers, from its `meta` table.
@@ -79,6 +95,9 @@ pub struct Info {
     pub data_date: Option<String>,
     pub built_at: String,
     pub counts: index::Counts,
+    /// The US Census address ranges' source ("US Census Bureau TIGER/Line
+    /// 2026"); None without ranges.
+    pub ranges_source: Option<String>,
 }
 
 pub struct Index {
@@ -112,6 +131,8 @@ pub struct Postcode {
     /// ranked from the truck as usual).
     pub at: Option<(f64, f64)>,
     pub addresses: u64,
+    /// Placed from OSM addresses, or from US Census address ranges.
+    pub source: PostcodeSource,
 }
 
 /// The asked house number found.
@@ -122,6 +143,13 @@ const FULL_NAME_BONUS: f64 = 0.5;
 const FULL_TOWN_NAME_BONUS: f64 = 2.0;
 /// The looser pass: this much for all query words unmatched.
 const UNMATCHED_PENALTY: f64 = 4.0;
+/// The asked house number placed from US Census ranges: less than a mapped
+/// address, more than a street without it.
+const ESTIMATE_BONUS: f64 = 2.5;
+/// An estimate from a range in the ZIP code the query ended with.
+const ZIP_BONUS: f64 = 1.0;
+/// Range streets whose pieces are read for one search, the nearest first.
+const RANGE_STREETS: usize = 64;
 
 /// Rows asked of each pass.
 const RING_LIMIT: i64 = 2000;
@@ -182,13 +210,14 @@ impl Index {
     pub fn postcode(&self, code: &str) -> rusqlite::Result<Option<Postcode>> {
         let mut st = self
             .conn
-            .prepare_cached("SELECT lat, lon, addresses FROM postcodes WHERE code = ?1")?;
+            .prepare_cached("SELECT lat, lon, addresses, source FROM postcodes WHERE code = ?1")?;
         let mut rows = st.query(params![code])?;
         Ok(match rows.next()? {
             Some(r) => Some(Postcode {
                 code: code.to_string(),
                 at: Some((r.get(0)?, r.get(1)?)),
                 addresses: u64::try_from(r.get::<_, i64>(2)?).unwrap_or(0),
+                source: PostcodeSource::from_i64(r.get(3)?),
             }),
             None => None,
         })
@@ -208,6 +237,7 @@ impl Index {
                 code: code.clone(),
                 at: None,
                 addresses: 0,
+                source: PostcodeSource::Osm,
             })),
             None => None,
         };
@@ -226,18 +256,27 @@ impl Index {
                         code,
                         at: Some((lat, lon)),
                         addresses,
+                        source,
                     }),
                     None,
                 ) => vec![Hit {
                     kind: Match::Locality,
                     title: code.clone(),
-                    subtitle: format!("ZIP code · the middle of its {addresses} addresses"),
+                    subtitle: match source {
+                        PostcodeSource::Osm => {
+                            format!("ZIP code · the middle of its {addresses} addresses")
+                        }
+                        PostcodeSource::Census => format!(
+                            "ZIP code · the middle of its {addresses} US Census address ranges"
+                        ),
+                    },
                     lat: *lat,
                     lon: *lon,
                     distance_m: None,
                     house_number_missing: false,
                     unmatched: Vec::new(),
                     score: 0.0,
+                    place: String::new(),
                 }],
                 _ => Vec::new(),
             };
@@ -282,6 +321,9 @@ impl Index {
         )?;
 
         let mut hits: Vec<Hit> = found.iter().map(|r| score(r, q, near, false)).collect();
+        if let Some(n) = q.range_number() {
+            hits.extend(self.estimates(q, n, near, limit)?);
+        }
         if hits.is_empty() {
             let mut rows = Vec::new();
             if let Some(loose) = q.any_word("name locality", MIN_PREFIX) {
@@ -310,21 +352,146 @@ impl Index {
         limit: usize,
         out: &mut Vec<Row>,
     ) -> rusqlite::Result<()> {
-        let before = out.len();
-        if let Some((la, lo)) = near {
-            for cells in [
-                index::cells_around(la, lo),
-                index::wide_cells_around(la, lo),
-            ] {
-                let c: Vec<String> = cells.iter().map(|c| format!("\"{c}\"")).collect();
-                let ring = format!("({fts}) AND cells : ({})", c.join(" OR "));
-                self.rows(table, &ring, RING_LIMIT, out)?;
-                if out.len() - before >= limit {
-                    return Ok(());
-                }
+        rings_of(fts, near, limit, out, |q, out| {
+            self.rows(table, q, RING_LIMIT, out)
+        })
+    }
+
+    /// The asked house number `n` placed on streets the query names, from
+    /// the US Census address ranges (none in an index without them).
+    fn estimates(
+        &self,
+        q: &Parsed,
+        n: u32,
+        near: Option<(f64, f64)>,
+        limit: usize,
+    ) -> rusqlite::Result<Vec<Hit>> {
+        if self.info.counts.range_streets == 0 || q.words.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut fts = q.all_words("name locality", MIN_PREFIX);
+        if let Some(key) = q.key_words("name", MIN_PREFIX) {
+            fts = format!("{fts} AND {key}");
+        }
+        let mut streets = Vec::new();
+        rings_of(&fts, near, limit, &mut streets, |f, out| {
+            self.range_rows(f, out)
+        })?;
+        if let Some(p) = near {
+            streets.sort_by(|a, b| {
+                crate::distance_m(p, (a.row.lat, a.row.lon))
+                    .total_cmp(&crate::distance_m(p, (b.row.lat, b.row.lon)))
+            });
+        }
+        streets.truncate(RANGE_STREETS);
+        let zip = q.postcode.as_deref().and_then(|z| z.parse::<u32>().ok());
+        let mut hits = Vec::new();
+        for s in &streets {
+            let edges = self.range_edges(s.first, s.count)?;
+            let Some(((lat, lon), side_zip)) = ranges::locate(&edges, n, zip) else {
+                continue;
+            };
+            let mut h = score(&s.row, q, near, false);
+            h.kind = Match::Estimated;
+            h.house_number_missing = false;
+            h.title = format!("{n} {}", s.row.name);
+            h.subtitle = join(&[
+                h.place.clone(),
+                side_zip.map(ranges::zip_text).unwrap_or_default(),
+            ]);
+            h.lat = lat;
+            h.lon = lon;
+            h.score += ESTIMATE_BONUS;
+            if zip.is_some() && side_zip == zip {
+                h.score += ZIP_BONUS;
+            }
+            if let Some(p) = near {
+                // Distance to the house, not to the street's middle.
+                let before = h.distance_m.unwrap_or(0.0);
+                let d = crate::distance_m(p, (lat, lon));
+                h.score += DISTANCE_WEIGHT
+                    * ((1.0 + before / 1000.0).log10() - (1.0 + d / 1000.0).log10());
+                h.distance_m = Some(d);
+            }
+            hits.push(h);
+        }
+        Ok(hits)
+    }
+
+    /// Up to [`RING_LIMIT`] range streets matching `fts`, each once.
+    fn range_rows(&self, fts: &str, out: &mut Vec<RangeStreetRow>) -> rusqlite::Result<()> {
+        let mut stmt = self.conn.prepare_cached(
+            "SELECT r.id, r.name, r.locality, r.near, r.state, r.lat, r.lon, r.first, r.count
+             FROM (SELECT rowid AS id FROM range_terms WHERE range_terms MATCH ?1 LIMIT ?2) t
+             JOIN ranges r ON r.id = t.id",
+        )?;
+        let start = std::time::Instant::now();
+        let rows = stmt.query_map(params![fts, RING_LIMIT], |r| {
+            Ok(RangeStreetRow {
+                row: Row {
+                    id: r.get(0)?,
+                    kind: Kind::Street,
+                    name: r.get(1)?,
+                    number: None,
+                    street: None,
+                    locality: r.get(2)?,
+                    near: r.get(3)?,
+                    category: None,
+                    state: r.get(4)?,
+                    lat: r.get(5)?,
+                    lon: r.get(6)?,
+                    weight: 0.0,
+                },
+                first: r.get(7)?,
+                count: r.get(8)?,
+            })
+        })?;
+        let mut n = 0;
+        for row in rows {
+            let row = row?;
+            n += 1;
+            if !out.iter().any(|o| o.row.id == row.row.id) {
+                out.push(row);
             }
         }
-        self.rows(table, fts, RING_LIMIT, out)
+        if std::env::var_os("F250_SEARCH_TRACE").is_some() {
+            eprintln!(
+                "[search] {:.1} ms, {n} rows from range_terms: {fts}",
+                start.elapsed().as_secs_f64() * 1000.0
+            );
+        }
+        Ok(())
+    }
+
+    /// A range street's pieces, rowids `first..first + count`.
+    fn range_edges(&self, first: i64, count: i64) -> rusqlite::Result<Vec<Edge>> {
+        let mut stmt = self.conn.prepare_cached(
+            "SELECT lfrom, lto, lparity, lzip, rfrom, rto, rparity, rzip, line
+             FROM range_edges WHERE id >= ?1 AND id < ?2 ORDER BY id",
+        )?;
+        let side = |r: &rusqlite::Row, i: usize| -> rusqlite::Result<Option<Side>> {
+            let from: Option<i64> = r.get(i)?;
+            let to: Option<i64> = r.get(i + 1)?;
+            Ok(match (from, to) {
+                (Some(from), Some(to)) => Some(Side {
+                    from: u32::try_from(from).unwrap_or(0),
+                    to: u32::try_from(to).unwrap_or(0),
+                    parity: Parity::from_i64(r.get::<_, Option<i64>>(i + 2)?.unwrap_or(3)),
+                    zip: r
+                        .get::<_, Option<i64>>(i + 3)?
+                        .and_then(|z| u32::try_from(z).ok()),
+                }),
+                _ => None,
+            })
+        };
+        let rows = stmt.query_map(params![first, first + count], |r| {
+            Ok(Edge {
+                left: side(r, 0)?,
+                right: side(r, 4)?,
+                line: line::decode(&r.get::<_, Vec<u8>>(8)?).unwrap_or_default(),
+            })
+        })?;
+        rows.collect()
     }
 
     /// Up to `limit` rows of `table` matching `fts`, each once in `out`.
@@ -392,10 +559,46 @@ fn read_info(conn: &Connection) -> rusqlite::Result<Info> {
             "localities" => info.counts.localities = n(),
             "pois" => info.counts.pois = n(),
             "postcodes" => info.counts.postcodes = n(),
+            "range_streets" => info.counts.range_streets = n(),
+            "ranges" => info.counts.ranges = n(),
+            "ranges_source" if !v.is_empty() => info.ranges_source = Some(v.clone()),
             _ => {}
         }
     }
     Ok(info)
+}
+
+/// `fts`, asked through `fetch`: around `near`, then wider, then anywhere,
+/// while fewer than `limit` rows were found.
+fn rings_of<T>(
+    fts: &str,
+    near: Option<(f64, f64)>,
+    limit: usize,
+    out: &mut Vec<T>,
+    mut fetch: impl FnMut(&str, &mut Vec<T>) -> rusqlite::Result<()>,
+) -> rusqlite::Result<()> {
+    let before = out.len();
+    if let Some((la, lo)) = near {
+        for cells in [
+            index::cells_around(la, lo),
+            index::wide_cells_around(la, lo),
+        ] {
+            let c: Vec<String> = cells.iter().map(|c| format!("\"{c}\"")).collect();
+            let ring = format!("({fts}) AND cells : ({})", c.join(" OR "));
+            fetch(&ring, out)?;
+            if out.len() - before >= limit {
+                return Ok(());
+            }
+        }
+    }
+    fetch(fts, out)
+}
+
+/// A street with US Census address ranges, as the search reads it.
+struct RangeStreetRow {
+    row: Row,
+    first: i64,
+    count: i64,
 }
 
 /// A path for a SQLite URI: the characters a URI gives meaning to, escaped.
@@ -463,6 +666,14 @@ impl Parsed {
             words,
             typing: query.chars().last().is_some_and(char::is_alphanumeric),
         }
+    }
+
+    /// The house number as an address range can hold it: its digits
+    /// ("123a" → 123).
+    fn range_number(&self) -> Option<u32> {
+        let n = self.number.as_deref()?;
+        let digits: String = n.chars().take_while(char::is_ascii_digit).collect();
+        digits.parse().ok()
     }
 
     /// Query word `i` as an FTS term: a prefix if it is the last word, still
@@ -649,17 +860,18 @@ fn score(r: &Row, q: &Parsed, near: Option<(f64, f64)>, loose: bool) -> Hit {
 
     let place = r.place();
     let (title, subtitle) = match kind {
+        Match::Estimated => (String::new(), place.clone()),
         Match::Address if r.kind == Kind::Poi => (
             r.name.clone(),
-            join(&[r.address().unwrap_or_default(), place]),
+            join(&[r.address().unwrap_or_default(), place.clone()]),
         ),
-        Match::Address => (r.address().unwrap_or_default(), place),
+        Match::Address => (r.address().unwrap_or_default(), place.clone()),
         Match::Street => (
             r.street
                 .clone()
                 .filter(|_| r.name.is_empty())
                 .unwrap_or_else(|| r.name.clone()),
-            place,
+            place.clone(),
         ),
         Match::Locality => (
             r.name.clone(),
@@ -690,6 +902,7 @@ fn score(r: &Row, q: &Parsed, near: Option<(f64, f64)>, loose: bool) -> Hit {
         house_number_missing: has_number && !number_found,
         unmatched,
         score: s,
+        place,
     }
 }
 
@@ -714,14 +927,24 @@ fn best(mut hits: Vec<Hit>, limit: usize) -> Vec<Hit> {
                 && crate::distance_m((o.lat, o.lon), (h.lat, h.lon)) < 1000.0
         });
         // A street the query named with a house number, where that number was
-        // found: the address says it all.
-        let covered = h.kind == Match::Street
-            && out.iter().any(|o| {
+        // found or estimated: the address says it all. An estimate where a
+        // mapped address has the same number and street: the address.
+        let same_place =
+            |o: &Hit| o.place.trim_start_matches("near ") == h.place.trim_start_matches("near ");
+        let covered = match h.kind {
+            Match::Street => out.iter().any(|o| {
+                matches!(o.kind, Match::Address | Match::Estimated)
+                    && same_place(o)
+                    && text::ends_with_street(&o.title, &h.title)
+            }),
+            Match::Estimated => out.iter().any(|o| {
                 o.kind == Match::Address
-                    && o.subtitle.trim_start_matches("near ")
-                        == h.subtitle.trim_start_matches("near ")
-                    && o.title.to_lowercase().ends_with(&h.title.to_lowercase())
-            });
+                    && same_place(o)
+                    && text::ends_with_street(&o.title, &h.title)
+                    && text::ends_with_street(&h.title, &o.title)
+            }),
+            _ => false,
+        };
         if !dup && !covered {
             out.push(h);
         }

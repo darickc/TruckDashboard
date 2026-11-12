@@ -24,6 +24,9 @@ pub const SYNONYMS: &[(&str, &str)] = &[
     ("terrace", "ter"),
     ("parkway", "pkwy"),
     ("highway", "hwy"),
+    // TIGER/Line's FULLNAME abbreviations (ADR-0041): "Co Rd 12".
+    ("county", "co"),
+    ("turnpike", "tpke"),
     ("expressway", "expy"),
     ("freeway", "fwy"),
     ("trail", "trl"),
@@ -108,6 +111,28 @@ pub fn index_terms(text: &str) -> Vec<String> {
         }
     }
     out
+}
+
+/// One spelling for every form of a word: its short form if it has one
+/// ("street" → "st", "avenue" → "ave"), else itself.
+pub fn canonical(word: &str) -> &str {
+    SYNONYMS
+        .iter()
+        .find(|&&(long, _)| long == word)
+        .map_or(word, |&(_, short)| short)
+}
+
+/// Whether `text` ends with the street name `street`, word for word, either
+/// spelt out or abbreviated: "120 Elm Ave" ends with "Elm Avenue".
+pub fn ends_with_street(text: &str, street: &str) -> bool {
+    let a = words(text);
+    let b = words(street);
+    !b.is_empty()
+        && a.len() >= b.len()
+        && a[a.len() - b.len()..]
+            .iter()
+            .zip(&b)
+            .all(|(x, y)| canonical(x) == canonical(y))
 }
 
 /// A house number's searchable form: its first word, if that starts with a
@@ -221,6 +246,20 @@ mod tests {
             ["w", "3rd", "ave", "west", "third", "avenue"]
         );
         assert_eq!(index_terms("Street Street"), ["street", "street", "st"]);
+    }
+
+    #[test]
+    fn street_names_either_way() {
+        assert_eq!(canonical("street"), "st");
+        assert_eq!(canonical("st"), "st");
+        assert_eq!(canonical("avenue"), "ave");
+        assert_eq!(canonical("elm"), "elm");
+        assert!(ends_with_street("120 Elm Ave", "Elm Avenue"));
+        assert!(ends_with_street("120 N Main St", "North Main Street"));
+        assert!(ends_with_street("Co Rd 12", "County Road 12"));
+        assert!(!ends_with_street("120 Elm Ave", "Oak Avenue"));
+        assert!(!ends_with_street("Ave", "Elm Avenue"));
+        assert!(!ends_with_street("120 Elm Ave", ""));
     }
 
     #[test]

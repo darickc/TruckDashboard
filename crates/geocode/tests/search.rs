@@ -154,9 +154,22 @@ fn fixture() -> Index {
         w.add(p).unwrap();
     }
     // Made-up ZIP codes: 99001 is Fairview's, 99002 Port Ellis's.
-    w.add_postcode("99001", FAIRVIEW.0, FAIRVIEW.1, 40).unwrap();
-    w.add_postcode("99002", PORT_ELLIS.0, PORT_ELLIS.1, 25)
-        .unwrap();
+    w.add_postcode(
+        "99001",
+        FAIRVIEW.0,
+        FAIRVIEW.1,
+        40,
+        index::PostcodeSource::Osm,
+    )
+    .unwrap();
+    w.add_postcode(
+        "99002",
+        PORT_ELLIS.0,
+        PORT_ELLIS.1,
+        25,
+        index::PostcodeSource::Osm,
+    )
+    .unwrap();
     let counts = w
         .finish(&Meta {
             regions: vec!["Testland".into()],
@@ -474,4 +487,114 @@ fn a_zip_code_alone_finds_its_area() {
     );
     assert_eq!((f.hits[0].lat, f.hits[0].lon), FAIRVIEW);
     assert!(ix.find("12345", None, 8).unwrap().hits.is_empty());
+}
+
+/// Only US Census ranges: a made-up Prairie Rd near Fairview, with an even
+/// side reversed (98 down to 2) in ZIP code 99003, which no OSM address has.
+fn ranges_only() -> Index {
+    use geocode::ranges::{Edge, Parity, Side};
+    let path = temp("ranges.sqlite");
+    let mut w = Writer::create(&path).unwrap();
+    w.add(&town("Fairview", "town", FAIRVIEW)).unwrap();
+    w.add_range_street(&index::RangeStreet {
+        name: "Prairie Rd".into(),
+        locality: Some("Fairview".into()),
+        locality_near: true,
+        state: None,
+        lat: FAIRVIEW.0 + 0.01,
+        lon: FAIRVIEW.1,
+        edges: vec![Edge {
+            line: vec![
+                (FAIRVIEW.0 + 0.01, FAIRVIEW.1),
+                (FAIRVIEW.0 + 0.02, FAIRVIEW.1),
+            ],
+            left: Some(Side {
+                from: 98,
+                to: 2,
+                parity: Parity::Even,
+                zip: Some(99003),
+            }),
+            right: None,
+        }],
+    })
+    .unwrap();
+    w.set_ranges_source("US Census Bureau TIGER/Line 2099");
+    w.add_postcode(
+        "99003",
+        FAIRVIEW.0 + 0.015,
+        FAIRVIEW.1,
+        1,
+        index::PostcodeSource::Census,
+    )
+    .unwrap();
+    let c = w
+        .finish(&Meta {
+            regions: vec!["Testland".into()],
+            data_date: None,
+            built_at: String::new(),
+        })
+        .unwrap();
+    assert_eq!((c.range_streets, c.ranges), (1, 1));
+    Index::open(&path).unwrap()
+}
+
+#[test]
+fn an_estimate_is_labelled_and_placed_along_its_range() {
+    let ix = ranges_only();
+    assert_eq!(
+        ix.info.ranges_source.as_deref(),
+        Some("US Census Bureau TIGER/Line 2099")
+    );
+    assert_eq!(ix.info.counts.ranges, 1);
+    // 74 is a quarter of the way from 98 at the first point.
+    let hits = ix.search("74 prairie road", Some(FAIRVIEW), 8).unwrap();
+    assert_eq!(hits.len(), 1, "{hits:#?}");
+    let h = &hits[0];
+    assert_eq!(h.kind, Match::Estimated);
+    assert_eq!(h.title, "74 Prairie Rd");
+    assert_eq!(h.subtitle, "near Fairview · 99003");
+    assert!(!h.house_number_missing);
+    assert!((h.lat - (FAIRVIEW.0 + 0.0125)).abs() < 1e-6, "{}", h.lat);
+    let d = h.distance_m.unwrap();
+    assert!((d - 1390.0).abs() < 10.0, "{d}");
+    // A letter after the number: still the number's place.
+    assert_eq!(
+        ix.search("74b prairie rd", Some(FAIRVIEW), 8).unwrap()[0].kind,
+        Match::Estimated
+    );
+    // Odd, or outside the range: nothing to estimate, and no OSM street.
+    assert!(
+        ix.search("75 prairie rd", Some(FAIRVIEW), 8)
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        ix.search("100 prairie rd", Some(FAIRVIEW), 8)
+            .unwrap()
+            .is_empty()
+    );
+    // Without a house number, ranges aren't searched.
+    assert!(
+        ix.search("prairie rd", Some(FAIRVIEW), 8)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn a_zip_code_only_the_census_has_finds_its_area() {
+    let ix = ranges_only();
+    let found = ix.find("99003", None, 8).unwrap();
+    assert_eq!(
+        found.postcode.unwrap().source,
+        index::PostcodeSource::Census
+    );
+    assert_eq!(
+        found.hits[0].subtitle,
+        "ZIP code · the middle of its 1 US Census address ranges"
+    );
+    // Ranked from it, and the range in it.
+    let found = ix.find("50 prairie rd 99003", None, 8).unwrap();
+    assert_eq!(found.hits[0].subtitle, "near Fairview · 99003");
+    assert!(found.hits[0].distance_m.unwrap() < 200.0);
 }

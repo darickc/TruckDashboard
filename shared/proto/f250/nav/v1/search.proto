@@ -5,7 +5,9 @@ syntax = "proto3";
 // docs/architecture/adr/0038-offline-address-search.md). The index is
 // OpenStreetMap's addresses, streets, towns and named places for the region
 // it was built for; house numbers are sparse outside towns, so every result
-// says what it matched.
+// says what it matched. In the US the index may also carry the US Census
+// Bureau's address ranges (ADR-0041), which place a house number OSM lacks
+// as an estimate.
 package f250.nav.v1;
 
 import "f250/nav/v1/route.proto";
@@ -36,6 +38,11 @@ enum MatchKind {
   MATCH_KIND_LOCALITY = 3;
   // A named business, park, school…
   MATCH_KIND_PLACE = 4;
+  // The house number asked for, placed along its street by interpolating
+  // the US Census Bureau's address ranges (TIGER/Line, ADR-0041): an
+  // estimate of where the house is, not a mapped address. The subtitle ends
+  // with the range's ZIP code when it has one.
+  MATCH_KIND_ESTIMATED_ADDRESS = 5;
 }
 
 message SearchResult {
@@ -90,4 +97,8 @@ message SearchResponse {
   // without, the data doesn't have it and the results say it is unmatched.
   string postcode = 9;
   bool postcode_found = 10;
+  // Where estimated addresses come from, for the footer's attribution:
+  // "US Census Bureau TIGER/Line 2026". Empty: the index has no address
+  // ranges, and no result is MATCH_KIND_ESTIMATED_ADDRESS.
+  string address_ranges = 11;
 }

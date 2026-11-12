@@ -79,7 +79,8 @@ fn write_index(path: &Path) {
         w.add(&p).unwrap();
     }
     // A made-up ZIP code at Hillsdale.
-    w.add_postcode("99002", 26.1, -89.8, 12).unwrap();
+    w.add_postcode("99002", 26.1, -89.8, 12, index::PostcodeSource::Osm)
+        .unwrap();
     w.finish(&Meta {
         regions: vec!["Gulf test".into()],
         data_date: Some("2026-11-11".into()),

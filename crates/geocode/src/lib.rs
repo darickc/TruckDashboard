@@ -16,6 +16,8 @@
 //! says which.
 
 pub mod index;
+pub mod line;
+pub mod ranges;
 pub mod search;
 pub mod text;
 

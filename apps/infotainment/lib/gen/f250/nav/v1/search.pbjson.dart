@@ -24,6 +24,7 @@ const MatchKind$json = {
     {'1': 'MATCH_KIND_STREET', '2': 2},
     {'1': 'MATCH_KIND_LOCALITY', '2': 3},
     {'1': 'MATCH_KIND_PLACE', '2': 4},
+    {'1': 'MATCH_KIND_ESTIMATED_ADDRESS', '2': 5},
   ],
 };
 
@@ -31,7 +32,8 @@ const MatchKind$json = {
 final $typed_data.Uint8List matchKindDescriptor = $convert.base64Decode(
     'CglNYXRjaEtpbmQSGgoWTUFUQ0hfS0lORF9VTlNQRUNJRklFRBAAEhYKEk1BVENIX0tJTkRfQU'
     'REUkVTUxABEhUKEU1BVENIX0tJTkRfU1RSRUVUEAISFwoTTUFUQ0hfS0lORF9MT0NBTElUWRAD'
-    'EhQKEE1BVENIX0tJTkRfUExBQ0UQBA==');
+    'EhQKEE1BVENIX0tJTkRfUExBQ0UQBBIgChxNQVRDSF9LSU5EX0VTVElNQVRFRF9BRERSRVNTEA'
+    'U=');
 
 @$core.Deprecated('Use rankedFromDescriptor instead')
 const RankedFrom$json = {
@@ -147,6 +149,7 @@ const SearchResponse$json = {
     {'1': 'query', '3': 8, '4': 1, '5': 9, '10': 'query'},
     {'1': 'postcode', '3': 9, '4': 1, '5': 9, '10': 'postcode'},
     {'1': 'postcode_found', '3': 10, '4': 1, '5': 8, '10': 'postcodeFound'},
+    {'1': 'address_ranges', '3': 11, '4': 1, '5': 9, '10': 'addressRanges'},
   ],
 };
 
@@ -158,4 +161,5 @@ final $typed_data.Uint8List searchResponseDescriptor = $convert.base64Decode(
     'gJUghkYXRhRGF0ZRI4CgtyYW5rZWRfZnJvbRgGIAEoDjIXLmYyNTAubmF2LnYxLlJhbmtlZEZy'
     'b21SCnJhbmtlZEZyb20SJAoOcG9zaXRpb25fYWdlX3MYByABKAFSDHBvc2l0aW9uQWdlUxIUCg'
     'VxdWVyeRgIIAEoCVIFcXVlcnkSGgoIcG9zdGNvZGUYCSABKAlSCHBvc3Rjb2RlEiUKDnBvc3Rj'
-    'b2RlX2ZvdW5kGAogASgIUg1wb3N0Y29kZUZvdW5k');
+    'b2RlX2ZvdW5kGAogASgIUg1wb3N0Y29kZUZvdW5kEiUKDmFkZHJlc3NfcmFuZ2VzGAsgASgJUg'
+    '1hZGRyZXNzUmFuZ2Vz');
