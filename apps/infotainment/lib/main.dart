@@ -19,6 +19,7 @@ import 'model/signal_catalog.dart';
 import 'nav/offline_map.dart';
 import 'nav/position_connection.dart';
 import 'nav/position_state.dart';
+import 'nav/vector_map.dart';
 import 'telemetry/telemetry_store.dart';
 import 'ui/app.dart';
 import 'ui/app_scope.dart';
@@ -60,6 +61,8 @@ const _startSeconds = int.fromEnvironment('SIM_START_S');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final dispatcher = WidgetsBinding.instance.platformDispatcher;
+  dispatcher.onError = ignoreDroppedTiles(dispatcher.onError);
   try {
     runApp(InfotainmentApp(
         services: await createServices(rootBundle,

@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:executor_lib/executor_lib.dart' show CancellationException;
 import 'package:f250_infotainment/nav/offline_map.dart';
 import 'package:f250_infotainment/nav/pmtiles.dart';
 import 'package:f250_infotainment/nav/pmtiles_file.dart';
@@ -66,6 +67,27 @@ void main() {
         }
       });
     }
+  });
+
+  group('ignoreDroppedTiles', () {
+    test("a dropped tile's cancellation is handled; anything else isn't", () {
+      final handler = ignoreDroppedTiles(null);
+      expect(handler(CancellationException(), StackTrace.empty), isTrue);
+      expect(handler(StateError('a real bug'), StackTrace.empty), isFalse);
+      expect(handler('Cancelled', StackTrace.empty), isFalse, reason: 'only the type, not the text');
+    });
+
+    test('everything else still reaches the handler that was there', () {
+      final seen = <Object>[];
+      final handler = ignoreDroppedTiles((e, _) {
+        seen.add(e);
+        return true;
+      });
+      expect(handler(CancellationException(), StackTrace.empty), isTrue);
+      final bug = StateError('a real bug');
+      expect(handler(bug, StackTrace.empty), isTrue);
+      expect(seen, [bug]);
+    });
   });
 
   group('PmTilesVectorProvider', () {

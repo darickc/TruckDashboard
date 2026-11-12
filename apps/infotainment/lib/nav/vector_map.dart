@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:ui' show ErrorCallback;
 
+import 'package:executor_lib/executor_lib.dart' show CancellationException;
 import 'package:flutter/services.dart';
 import 'package:vector_map_tiles/vector_map_tiles.dart';
 import 'package:vector_tile_renderer/vector_tile_renderer.dart' as vtr;
@@ -8,6 +10,20 @@ import 'pmtiles.dart';
 
 /// The vector map's source name in the bundled styles (ADR-0032).
 const vectorSource = 'protomaps';
+
+/// An uncaught-error handler for `PlatformDispatcher.instance.onError` that
+/// treats a dropped map tile as handled and passes everything else to
+/// [previous] (or leaves it unhandled, so the engine logs it as before).
+///
+/// vector_map_tiles 9.0.0-beta.13 cancels a tile that is no longer needed
+/// (while zooming or dragging) with executor_lib's CancellationException. In
+/// two places (`CachesTileProvider._retrieve` and `_createTiles`) it starts
+/// the work, checks for cancellation and leaves before awaiting it, so that
+/// work's own cancellation is never caught: "Unhandled Exception: Cancelled"
+/// in the log, a few times a minute on the Pi (bench-log 2026-11-11).
+/// Nothing is wrong when it happens; the tile simply isn't drawn.
+ErrorCallback ignoreDroppedTiles(ErrorCallback? previous) =>
+    (error, stack) => error is CancellationException || (previous?.call(error, stack) ?? false);
 
 /// Vector tiles (MVT) for vector_map_tiles from the dashboard's own PMTiles
 /// reader. A tile the tileset doesn't have (outside the region) is reported

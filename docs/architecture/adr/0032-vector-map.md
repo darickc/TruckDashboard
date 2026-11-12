@@ -108,6 +108,11 @@ needs no change either way: every protobuf version reads the same messages.
 - `vector_map_tiles` 9.x is a beta and the override is outside pub's
   constraints: any update of these three packages needs the tests above and
   a look at a rendered map.
+- That beta leaves some cancelled tile loads uncaught ("Unhandled Exception:
+  Cancelled" in the log while zooming or dragging, seen on the Pi). The
+  dashboard treats executor_lib's `CancellationException` as handled
+  (`ignoreDroppedTiles`, installed in `main`); every other uncaught error is
+  logged as before. Drop it if a later version catches its own.
 - The map is still north-up. Turning it with the truck is now possible
   (labels stay along roads when rotated, seen in the spike) but not built.
 - Third-party notices: the fonts' OFL and the style and icon licences are in

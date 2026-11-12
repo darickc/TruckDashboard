@@ -1977,3 +1977,9 @@ Result (journal, `/run/f250-maps/status.json` every 0.2 s, screenshots):
 Verdict: works onto the card. Not shown: onto the NVMe (not fitted; the real
 mount check), a stick left in across a reboot, a full 19 GB copy's time, and
 a FAT stick.
+
+Follow-up, same evening: the dashboard now treats vector_map_tiles'
+dropped-tile `CancellationException` as handled (`ignoreDroppedTiles`,
+ADR-0032). Rebuilt and installed; a minute of zooming and dragging (27 s of
+dashboard CPU) logged no "Unhandled Exception: Cancelled" (3-4 a minute
+before).
