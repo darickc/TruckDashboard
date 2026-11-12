@@ -19,6 +19,8 @@ import 'model/signal_catalog.dart';
 import 'nav/offline_map.dart';
 import 'nav/position_connection.dart';
 import 'nav/position_state.dart';
+import 'nav/route_connection.dart';
+import 'nav/route_state.dart';
 import 'nav/vector_map.dart';
 import 'telemetry/telemetry_store.dart';
 import 'ui/app.dart';
@@ -114,6 +116,10 @@ Future<AppServices> createServices(
   final PositionSource position =
       nav == 'sim' ? SimulatedPositionSource() : connectNavigation(GatewayEndpoint.parse(nav));
   position.start();
+  // Routing comes from the same service as the position (ADR-0035).
+  final RouteSource route =
+      nav == 'sim' ? UnavailableRouteSource() : connectRouting(GatewayEndpoint.parse(nav));
+  route.start();
   final map = OfflineMap(mapFile, statusPath: mapStatus);
   unawaited(map.load().then((_) => map.watch()));
   switch (source) {
@@ -127,6 +133,7 @@ Future<AppServices> createServices(
           cameras: cameraSource,
           display: display,
           position: position,
+          route: route,
           map: map,
           power: PowerControl.forPlatform());
     case 'sim':
@@ -143,6 +150,7 @@ Future<AppServices> createServices(
           cameras: cameraSource,
           display: display,
           position: position,
+          route: route,
           map: map,
           power: PowerControl.forPlatform());
     default:

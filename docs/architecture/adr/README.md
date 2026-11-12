@@ -43,5 +43,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0032](0032-vector-map.md) | The dashboard draws vector maps itself (vector_map_tiles, bundled styles); vector is the default build | Accepted ([SIM] only; Pi speed unmeasured) |
 | [0033](0033-map-updates-by-usb-stick.md) | Map updates by USB stick: the Pi copies, checks and swaps in the map on the data drive | Accepted (owner; [SIM] only) |
 | [0034](0034-home-buttons-and-back.md) | Screens are reached from Home and left by Back; Power and Restart move to Settings | Accepted (owner; [SIM] only) |
+| [0035](0035-routing-with-valhalla.md) | Routing with Valhalla, one `valhalla_service` per request, in services/navigation | Accepted ([SIM]; real Valhalla on the Mac; not on the Pi) |
 
 New ADRs use the next number and the same headings.

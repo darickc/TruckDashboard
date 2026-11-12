@@ -3,13 +3,19 @@
 //! exactly as they would with gpsd. Optional outages (no fix, as in a
 //! tunnel) exercise the stale path. Its position is labelled simulated all
 //! the way to the screen.
+//!
+//! Given the guide's route (ADR-0035), it drives the route instead, from its
+//! start to the destination, where it stops; cleared, it goes back to the
+//! loop. That shows guidance working end to end without a receiver.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use gpsd::report::{Device, Mode, Report, Sky, Tpv};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
 use crate::source::Event;
+use crate::valhalla::Route;
 
 /// An arbitrary loop near Lebanon, Kansas (the geographic centre of the
 /// contiguous United States). Not a road: straight lines between corners.
@@ -100,16 +106,46 @@ pub fn in_outage(cfg: &SimConfig, elapsed: Duration) -> bool {
     }
 }
 
-/// The report the simulated receiver sends at `elapsed`.
-pub fn tpv_at(cfg: &SimConfig, elapsed: Duration) -> Tpv {
-    if in_outage(cfg, elapsed) {
-        return Tpv {
-            device: Some(DEVICE.to_string()),
-            mode: Some(Mode::NoFix),
-            ..Tpv::default()
+/// Where the simulated truck is `d` metres along `route`: (lat, lon,
+/// course, arrived).
+pub fn along_route(route: &Route, d: f64) -> (f64, f64, f64, bool) {
+    let n = route.shape.len();
+    let total = route.shape_length_m();
+    if n < 2 || d >= total {
+        let end = route.shape[n - 1];
+        let course = if n >= 2 {
+            bearing_deg(route.shape[n - 2], end)
+        } else {
+            0.0
         };
+        return (end.0, end.1, course, true);
     }
-    let (lat, lon, track) = along(cfg, elapsed);
+    let d = d.max(0.0);
+    let i = route.along_m.partition_point(|&a| a <= d).clamp(1, n - 1) - 1;
+    let (a, b) = (route.shape[i], route.shape[i + 1]);
+    let span = route.along_m[i + 1] - route.along_m[i];
+    let f = if span > 0.0 {
+        (d - route.along_m[i]) / span
+    } else {
+        0.0
+    };
+    (
+        a.0 + (b.0 - a.0) * f,
+        a.1 + (b.1 - a.1) * f,
+        bearing_deg(a, b),
+        false,
+    )
+}
+
+fn no_fix() -> Tpv {
+    Tpv {
+        device: Some(DEVICE.to_string()),
+        mode: Some(Mode::NoFix),
+        ..Tpv::default()
+    }
+}
+
+fn fix(lat: f64, lon: f64, track: f64, speed_mps: f64) -> Tpv {
     Tpv {
         device: Some(DEVICE.to_string()),
         mode: Some(Mode::Fix3d),
@@ -117,14 +153,28 @@ pub fn tpv_at(cfg: &SimConfig, elapsed: Duration) -> Tpv {
         lat: Some(lat),
         lon: Some(lon),
         alt_msl_m: Some(560.0),
-        speed_mps: Some(cfg.speed_mps),
+        speed_mps: Some(speed_mps),
         track_deg: Some(track),
         eph_m: Some(4.0),
     }
 }
 
-/// Runs until `tx` closes.
-pub async fn run(cfg: SimConfig, tx: mpsc::Sender<Event>) {
+/// The report the simulated receiver sends at `elapsed`, on its loop.
+pub fn tpv_at(cfg: &SimConfig, elapsed: Duration) -> Tpv {
+    if in_outage(cfg, elapsed) {
+        return no_fix();
+    }
+    let (lat, lon, track) = along(cfg, elapsed);
+    fix(lat, lon, track, cfg.speed_mps)
+}
+
+/// Runs until `tx` closes. With `route`, drives the guide's route while
+/// there is one.
+pub async fn run(
+    cfg: SimConfig,
+    tx: mpsc::Sender<Event>,
+    mut route: Option<watch::Receiver<Option<Arc<Route>>>>,
+) {
     let device = Device {
         path: DEVICE.to_string(),
         activated: Some("simulated".to_string()),
@@ -140,10 +190,36 @@ pub async fn run(cfg: SimConfig, tx: mpsc::Sender<Event>) {
     }
     let start = tokio::time::Instant::now();
     let mut tick = tokio::time::interval(cfg.period);
+    // Time on the loop, which stands still while a route is driven.
+    let mut on_loop = Duration::ZERO;
+    let mut last = start;
+    let mut driving: Option<(Arc<Route>, tokio::time::Instant)> = None;
     loop {
         tick.tick().await;
-        let elapsed = start.elapsed();
-        let tpv = tpv_at(&cfg, elapsed);
+        let now = tokio::time::Instant::now();
+        if let Some(rx) = route.as_mut()
+            && rx.has_changed().unwrap_or(false)
+        {
+            match rx.borrow_and_update().clone() {
+                Some(r) if driving.as_ref().map(|(d, _)| d.id) != Some(r.id) => {
+                    driving = Some((r, now));
+                }
+                Some(_) => {}
+                None => driving = None,
+            }
+        }
+        let tpv = if in_outage(&cfg, start.elapsed()) {
+            no_fix()
+        } else if let Some((r, since)) = &driving {
+            let d = cfg.speed_mps * now.duration_since(*since).as_secs_f64();
+            let (lat, lon, track, arrived) = along_route(r, d);
+            fix(lat, lon, track, if arrived { 0.0 } else { cfg.speed_mps })
+        } else {
+            on_loop += now.duration_since(last);
+            let (lat, lon, track) = along(&cfg, on_loop);
+            fix(lat, lon, track, cfg.speed_mps)
+        };
+        last = now;
         let fixed = tpv.has_position();
         let sky = Sky {
             device: Some(DEVICE.to_string()),
@@ -159,6 +235,7 @@ pub async fn run(cfg: SimConfig, tx: mpsc::Sender<Event>) {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -211,5 +288,29 @@ mod tests {
         assert!(tpv_at(&cfg, Duration::from_secs(71)).has_position());
         assert!(!tpv_at(&cfg, Duration::from_secs(125)).has_position());
         assert!(tpv_at(&SimConfig::default(), Duration::from_secs(65)).has_position());
+    }
+
+    #[test]
+    fn drives_a_route_and_stops_at_its_end() {
+        let route = crate::valhalla::parse_response(
+            include_str!("../tests/data/valhalla-3.9.1-route-auto.json"),
+            (39.8103, -98.5559),
+            "auto",
+        )
+        .unwrap();
+        let (lat, lon, _, arrived) = along_route(&route, 0.0);
+        assert_eq!((lat, lon), route.shape[0]);
+        assert!(!arrived);
+        // The first maneuver drives south.
+        let (_, _, course, _) = along_route(&route, 5.0);
+        assert!((course - 180.0).abs() < 10.0, "{course}");
+        // A point along the way is on the shape.
+        let mid = route.shape_length_m() / 2.0;
+        let (lat, lon, _, _) = along_route(&route, mid);
+        let (along, off) = crate::guide::locate(&route, (lat, lon), 0.0);
+        assert!((along - mid).abs() < 1.0 && off < 1.0, "{along} {off}");
+        let (lat, lon, _, arrived) = along_route(&route, route.shape_length_m() + 10.0);
+        assert_eq!((lat, lon), *route.shape.last().unwrap());
+        assert!(arrived);
     }
 }

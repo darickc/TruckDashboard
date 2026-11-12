@@ -2,7 +2,7 @@ syntax = "proto3";
 
 // The truck's position, served by services/navigation from gpsd (Phase 6.4,
 // docs/architecture/adr/0030-navigation-position-and-raster-map.md). Routing
-// joins this package in 6.5.2.
+// is route.proto in this package (6.5.2).
 package f250.nav.v1;
 
 service PositionService {

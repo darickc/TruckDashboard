@@ -48,6 +48,9 @@ do_install() {
     cp -R --no-preserve=ownership ${S}/shared/signals ${D}${F250_PREFIX}/share/data/signals
     cp -R --no-preserve=ownership ${S}/simulator/powerstroke/scenarios ${D}${F250_PREFIX}/share/data/scenarios
     install -m 0644 ${S}/apps/infotainment/assets/config/warning_rules.json ${D}${F250_PREFIX}/share/data/
+    # navigation's Valhalla config (ADR-0035); Valhalla itself isn't in the image yet.
+    install -d ${D}${F250_PREFIX}/share/data/valhalla
+    install -m 0644 ${S}/services/navigation/valhalla/valhalla-3.9.1.json ${D}${F250_PREFIX}/share/data/valhalla/
 }
 
 FILES:${PN} = "${F250_PREFIX}/bin ${F250_PREFIX}/share/data"

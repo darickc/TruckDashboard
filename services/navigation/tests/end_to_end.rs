@@ -174,7 +174,7 @@ async fn simulated_receiver_with_an_outage() {
         outage_for: Duration::from_millis(400),
         ..SimConfig::default()
     };
-    tokio::spawn(sim::run(cfg, tx));
+    tokio::spawn(sim::run(cfg, tx, None));
     let mut client = client(&path).await;
     let mut stream = client
         .watch_position(pb::WatchPositionRequest {})

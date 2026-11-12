@@ -10,7 +10,8 @@
   position; routing stays as decided there)
 - **Refined by:** [ADR-0032](0032-vector-map.md): the package conflict below
   was worked around, and the dashboard now draws vector maps too (decisions
-  5 and 8 apply to raster maps only)
+  5 and 8 apply to raster maps only); [ADR-0035](0035-routing-with-valhalla.md):
+  routing joined the service as decision 1 said
 
 ## Context
 

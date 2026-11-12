@@ -15,7 +15,7 @@
 #   /opt/f250/bin/              vehicle-gateway, recorder, obd-console, power-manager, camera-manager,
 #                               camera-ctl, f250-can, f250-storage
 #   /opt/f250/share/agl/        this repo's agl/ (scripts, rootfs, boot config)
-#   /opt/f250/share/data/       signal registry, warning rules, scenarios
+#   /opt/f250/share/data/       signal registry, warning rules, scenarios, Valhalla's config
 #   /usr/share/flutter/f250_infotainment/<flutter>/release/
 #                               flutter_assets, libapp.so, flutter-version
 #
@@ -122,6 +122,7 @@ deploy() {
   rsync "${RSYNC[@]}" --delete shared/signals/ "$PI:/opt/f250/share/data/signals/"
   rsync "${RSYNC[@]}" --delete simulator/powerstroke/scenarios/ "$PI:/opt/f250/share/data/scenarios/"
   rsync "${RSYNC[@]}" apps/infotainment/assets/config/warning_rules.json "$PI:/opt/f250/share/data/"
+  rsync "${RSYNC[@]}" --delete services/navigation/valhalla/ "$PI:/opt/f250/share/data/valhalla/"
   rsync "${RSYNC[@]}" --delete agl/ "$PI:/opt/f250/share/agl/"
   # --delete removes the engine links and config.toml; stage1-setup puts them back.
   rsync "${RSYNC[@]}" --delete "$OUT/bundle/" "$PI:/usr/share/flutter/$APP_ID/$ver/release/"

@@ -10,7 +10,8 @@ NAV="${4:-tcp:127.0.0.1:50253}"
 cargo build -q -p vehicle-gateway -p navigation
 ./target/debug/vehicle-gateway --listen "$GATEWAY" --scenario "$SCENARIO" --sim-start-s "$START" &
 GW=$!
-./target/debug/navigation --listen "$NAV" --simulate &
+# shellcheck disable=SC2086  # NAV_ROUTING is a list of arguments from the Makefile
+./target/debug/navigation --listen "$NAV" --simulate ${NAV_ROUTING:-} &
 NV=$!
 trap 'kill $GW $NV 2>/dev/null || true' EXIT
 sleep 1

@@ -1,10 +1,12 @@
-# Offline map and GPS
+# Offline map, GPS and routing
 
-The Navigation tab shows a map from one PMTiles file, vector or raster, and
-the truck's position from services/navigation
+The Navigation tab shows a map from one PMTiles file, vector or raster, the
+truck's position from services/navigation, and routes from Valhalla
 ([ADR-0030](../architecture/adr/0030-navigation-position-and-raster-map.md),
-[ADR-0032](../architecture/adr/0032-vector-map.md)). Status: **[SIM]**. No GPS
-receiver is chosen yet (H11), and nothing has run on the Pi.
+[ADR-0032](../architecture/adr/0032-vector-map.md),
+[ADR-0035](../architecture/adr/0035-routing-with-valhalla.md)). Status:
+**[SIM]**. No GPS receiver is chosen yet (H11), and routing hasn't run on
+the Pi (Valhalla isn't in the image yet).
 
 ## What the screen shows
 
@@ -17,8 +19,7 @@ receiver is chosen yet (H11), and nothing has run on the Pi.
 
 The map follows the truck until you drag it; the locate button follows
 again. With no map file, the screen says why and still shows the position.
-Routing isn't implemented yet (6.5.2). **It will not be guaranteed safe for
-heavy vehicles or trailers** (ADR-0010).
+Long-press the map, then **Route here**, to route there (next section).
 
 ## The map file
 
@@ -133,7 +134,7 @@ Limits: the map is north-up. Raster labels are baked in at the style's size
 (about 10–12 px) and night darkens the day tiles; a vector map has a real
 night style. The vector styles are simplified for the renderer: labels are one
 line (English name, else local), and some places of interest show earlier
-than upstream (ADR-0032). Routing isn't part of this (6.5.2).
+than upstream (ADR-0032). Routing data is built separately (`make route-region`, below).
 
 ### The vector map's styles, icons and fonts
 
@@ -158,6 +159,73 @@ and `make sim` look (`MAP_FILE`). It covers the simulated receiver's loop in
 Kansas at zooms 0–16. It needs Pillow and the `pmtiles` tool
 (`brew install pmtiles`). The browser preview (`make ui-web`) can't read
 files, so it never shows a map.
+
+## Routing
+
+**Routes are not checked for heavy vehicles or trailers** (ADR-0010).
+OpenStreetMap's restriction data is incomplete; the screen says so with
+every route.
+
+Long-press the map to drop a pin, then **Route here**. The route comes from
+the truck's current position (a route needs a current fix). While driving,
+the banner shows the next turn and its distance, and the distance and time
+left, in the units chosen in Settings. Leave the route (60 m for 5 s) and a
+new one is found from where the truck is. **End route** clears it. If
+Valhalla can't route, the banner says why and offers **Retry**. Without a
+current fix, or if the navigation service stops answering, guidance pauses:
+the line turns grey and no distances are shown. Those limits are examples
+in `/etc/default/f250` and `navigation --help`.
+
+There is no address search yet (it needs an offline geocoder), no voice and
+no arrival time by the clock (the Pi has no clock source in the truck).
+
+### Routing data
+
+`make route-region` builds Valhalla's routing tiles for one or more
+[Geofabrik](https://download.geofabrik.de) regions, from their OpenStreetMap
+extracts (ODbL), in Valhalla 3.9.1's Docker image (pinned in
+`tools/maps/build-routing.py`). Needs Docker Desktop running.
+
+```bash
+make route-region REGION=north-america/us/kansas
+make route-region REGION="north-america/us/kansas north-america/us/nebraska"
+```
+
+The result is `build/routing/valhalla_tiles.tar`, also copied to
+`/tmp/f250/routing/` for `make navigation` and `make sim`. Kansas: 118 MB
+downloaded, about 30 s to build on an M-series Mac, a 312 MB file [BENCH].
+An extract already downloaded for the same date isn't fetched again. Build
+the same region as the map; a route can't leave the routing data.
+
+### On the Mac
+
+```bash
+make route-region REGION=north-america/us/kansas
+make sim
+```
+
+navigation runs Valhalla through `tools/dev/valhalla-docker.sh` (Docker, no
+network), once per route. The simulated receiver then drives the route, so
+guidance runs end to end. Without routing data the screen says "Routing
+unavailable: no routing data at …". From a terminal, without the dashboard:
+
+```bash
+cargo run -p navigation --example route -- tcp:127.0.0.1:50253 39.8103 -98.5559
+```
+
+### On the Pi (TODO)
+
+navigation looks for `valhalla_service` on `PATH` (`NAV_VALHALLA`) and the
+data at `/var/lib/f250/storage/routing/valhalla_tiles.tar`
+(`NAV_ROUTING_TILES`). Neither is there yet: Valhalla needs a meta-f250
+recipe, and the routing data a way onto the data drive (probably the map
+stick). Until then the Nav screen says "Routing unavailable: valhalla_service
+isn't installed …". Other settings in `/etc/default/f250`:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `NAV_COSTING` | `auto` | `auto` routes as a car; `truck` uses Valhalla's truck model |
+| `NAV_TRUCK_HEIGHT_M`, `_WIDTH_M`, `_LENGTH_M`, `_WEIGHT_T`, `_AXLE_LOAD_T` | empty | `truck` only. Empty is Valhalla's default, a large truck's. Set only what you have measured |
 
 ## GPS
 

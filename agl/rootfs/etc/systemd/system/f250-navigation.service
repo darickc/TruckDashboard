@@ -1,7 +1,11 @@
 # Navigation on AGL (Phase 6.4, ADR-0030): the truck's position from gpsd,
 # served as f250.nav.v1 on /run/f250-nav/nav.sock (group f250, mode 0770 from
 # UMask; agl-driver, which runs the dashboard, is in group f250). Routing
-# joins it in 6.5.2.
+# (6.5.2, ADR-0035): navigation runs valhalla_service once per route, inside
+# this sandbox, reading /var/lib/f250/storage/routing/ and writing its config
+# to /run/f250-nav/. Valhalla isn't in the image yet, so routing shows as
+# unavailable; UNVERIFIED on the Pi that Valhalla runs under this sandbox
+# (MemoryDenyWriteExecute and the syscall filter apply to it too).
 #
 # gpsd owns the GNSS receiver; navigation is its client on 127.0.0.1:2947
 # (NAV_GPSD, navigation-start). gpsd's own socket unit is pulled in, so
@@ -14,7 +18,7 @@
 # that the image's gpsd.socket listens on 127.0.0.1:2947 and that gpsd-udev
 # hands it a USB receiver when one is plugged in.
 [Unit]
-Description=F-250 navigation (position from gpsd)
+Description=F-250 navigation (position from gpsd, routes from Valhalla)
 Wants=gpsd.socket
 After=gpsd.socket gpsd.service
 

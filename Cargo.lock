@@ -994,6 +994,7 @@ dependencies = [
  "f250-proto",
  "f250-sd-notify",
  "hyper-util",
+ "serde_json",
  "tokio",
  "tokio-stream",
  "tonic",

@@ -1,12 +1,22 @@
 #!/bin/bash
 # ExecStart of f250-navigation.service on AGL: navigation with the settings
-# from /etc/default/f250 (ADR-0030).
+# from /etc/default/f250 (ADR-0030; routing ADR-0035).
 #
 #   NAV_GPSD            gpsd's address. Default 127.0.0.1:2947.
 #   NAV_SIMULATE        1: a simulated receiver instead of gpsd, labelled
 #                       simulated on the screen. Default 0.
 #   NAV_STALE_AFTER_MS  a fix older than this is never shown as current.
 #                       Default 3000, an example value (navigation's own).
+#   NAV_VALHALLA        valhalla_service, run once per route. Default: on
+#                       PATH. Not in the image yet: routing then says so.
+#   NAV_ROUTING_TILES   the routing data (make route-region). Default
+#                       /var/lib/f250/storage/routing/valhalla_tiles.tar.
+#   NAV_COSTING         auto (default) or truck.
+#   NAV_TRUCK_HEIGHT_M, NAV_TRUCK_WIDTH_M, NAV_TRUCK_LENGTH_M,
+#   NAV_TRUCK_WEIGHT_T, NAV_TRUCK_AXLE_LOAD_T
+#                       truck costing only; each empty: Valhalla's default.
+#                       Routes are not checked for heavy vehicles or
+#                       trailers either way (ADR-0010).
 #
 # The API is on /run/f250-nav/nav.sock (RuntimeDirectory).
 #
@@ -25,6 +35,20 @@ fi
 if [[ -n "${NAV_STALE_AFTER_MS:-}" ]]; then
   args+=(--stale-after-ms "$NAV_STALE_AFTER_MS")
 fi
+[[ -n "${NAV_VALHALLA:-}" ]] && args+=(--valhalla "$NAV_VALHALLA")
+[[ -n "${NAV_ROUTING_TILES:-}" ]] && args+=(--routing-tiles "$NAV_ROUTING_TILES")
+case "${NAV_COSTING:-auto}" in
+  auto) ;;
+  truck)
+    args+=(--costing truck)
+    [[ -n "${NAV_TRUCK_HEIGHT_M:-}" ]] && args+=(--truck-height-m "$NAV_TRUCK_HEIGHT_M")
+    [[ -n "${NAV_TRUCK_WIDTH_M:-}" ]] && args+=(--truck-width-m "$NAV_TRUCK_WIDTH_M")
+    [[ -n "${NAV_TRUCK_LENGTH_M:-}" ]] && args+=(--truck-length-m "$NAV_TRUCK_LENGTH_M")
+    [[ -n "${NAV_TRUCK_WEIGHT_T:-}" ]] && args+=(--truck-weight-t "$NAV_TRUCK_WEIGHT_T")
+    [[ -n "${NAV_TRUCK_AXLE_LOAD_T:-}" ]] && args+=(--truck-axle-load-t "$NAV_TRUCK_AXLE_LOAD_T")
+    ;;
+  *) echo "navigation-start: NAV_COSTING=$NAV_COSTING: use auto or truck" >&2; exit 2 ;;
+esac
 
 echo "exec $BIN ${args[*]}" >&2
 exec "$BIN" "${args[@]}"

@@ -11,6 +11,7 @@ import '../data/simulation_controller.dart';
 import '../display/display_state.dart';
 import '../nav/offline_map.dart';
 import '../nav/position_state.dart';
+import '../nav/route_state.dart';
 import '../telemetry/calibration.dart';
 import '../telemetry/telemetry_store.dart';
 import 'banner_alerts.dart';
@@ -76,12 +77,14 @@ class AppServices {
     CameraSource? cameras,
     DisplaySource? display,
     PositionSource? position,
+    RouteSource? route,
     OfflineMap? map,
     this.power = const NoPowerControl(),
     this.refreshPeriod = const Duration(milliseconds: 250),
   })  : cameras = cameras ?? SimulatedCameraSource(),
         display = display ?? SimulatedDisplaySource(),
         position = position ?? SimulatedPositionSource(autoRun: false),
+        route = route ?? UnavailableRouteSource(),
         map = map ?? OfflineMap.none(),
         assert((simulation == null) != (gateway == null), 'exactly one data source');
 
@@ -104,6 +107,10 @@ class AppServices {
   /// The truck's position: services/navigation (Phase 6.4, ADR-0030), or a
   /// simulated receiver.
   final PositionSource position;
+
+  /// Routing and guidance: services/navigation with Valhalla (Phase 6.5.2,
+  /// ADR-0035), or unavailable without it.
+  final RouteSource route;
 
   /// The offline raster map (Phase 6.5.1, ADR-0030), or none.
   final OfflineMap map;

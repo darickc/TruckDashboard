@@ -52,6 +52,13 @@ MAP_STATUS ?= /tmp/f250/maps/status.json
 # builds; MAP_ARGS=--format=webp renders a raster map instead (Docker, Node).
 MAP_OUT ?= build/maps/region.pmtiles
 MAP     ?= $(MAP_FILE)
+# Routing (ADR-0035): `make route-region REGION=north-america/us/kansas` builds
+# Valhalla's tiles into ROUTING_TILES; navigation runs Valhalla in Docker on the
+# Mac through tools/dev/valhalla-docker.sh.
+ROUTING_TILES ?= /tmp/f250/routing/valhalla_tiles.tar
+NAV_ROUTING = --valhalla tools/dev/valhalla-docker.sh \
+              --valhalla-config services/navigation/valhalla/valhalla-3.9.1.json \
+              --routing-tiles $(ROUTING_TILES) --run-dir /tmp/f250/nav
 SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START) \
               --dart-define=VEHICLE_SOURCE=$(SOURCE) --dart-define=GATEWAY=$(GATEWAY) \
               --dart-define=NAV=$(NAV) --dart-define=MAP_FILE=$(MAP_FILE) \
@@ -62,7 +69,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
-        sim gateway navigation map-test-pattern map-region map-assets map-stick map-import-dev map-check console docs-lint \
+        sim gateway navigation route-region map-test-pattern map-region map-assets map-stick map-import-dev map-check console docs-lint \
         pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can \
         agl-test agl-image deploy deploy-build logs build-vm agl-build
 
@@ -225,10 +232,14 @@ gateway: ## Run the vehicle gateway with the simulator (SCENARIO=, START=) on $(
 	cargo run -q -p vehicle-gateway -- --listen $(GATEWAY) --scenario $(SCENARIO) --sim-start-s $(START)
 
 sim: ## Gateway and navigation (simulated) + the macOS app reading from them over gRPC
-	tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)"
+	NAV_ROUTING="$(NAV_ROUTING)" tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)"
 
-navigation: ## Run services/navigation with a simulated receiver on $(NAV_LISTEN)
-	cargo run -q -p navigation -- --listen $(NAV_LISTEN) --simulate
+navigation: ## Run services/navigation with a simulated receiver on $(NAV_LISTEN), routing with Valhalla in Docker
+	cargo run -q -p navigation -- --listen $(NAV_LISTEN) --simulate $(NAV_ROUTING)
+
+route-region: ## Build Valhalla routing data for REGION= (Geofabrik path(s), e.g. north-america/us/kansas) into $(ROUTING_TILES); needs Docker
+	@test -n "$(REGION)" || { echo "usage: make route-region REGION=north-america/us/kansas [REGION='a b']"; exit 2; }
+	python3 tools/maps/build-routing.py $(foreach r,$(REGION),--region $(r)) --dev-copy $(ROUTING_TILES)
 
 map-test-pattern: ## Write a test-pattern map (not map data) to $(MAP_FILE); needs Pillow and pmtiles
 	python3 tools/dev/test-pattern-map.py --out build/maps/test-pattern.mbtiles

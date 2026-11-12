@@ -148,6 +148,23 @@ RECORD_CLIP_AFTER_S=60
 #            drive: a vector or raster PMTiles file the dashboard reads. A map
 #            stick (make map-stick) updates it (ADR-0033, docs/setup/maps.md). Without it the screen
 #            says so and still shows the position.
+# Routing (6.5.2, ADR-0035), with Valhalla. NOT checked for heavy vehicles or
+#            trailers (ADR-0010).
+# NAV_VALHALLA  valhalla_service (empty: on PATH). Not in the image yet, so
+#            the Nav screen says routing is unavailable.
+# NAV_ROUTING_TILES  the routing data (empty: /var/lib/f250/storage/routing/
+#            valhalla_tiles.tar), built with make route-region.
+# NAV_COSTING  auto (empty: auto) or truck. With truck, NAV_TRUCK_HEIGHT_M,
+#            _WIDTH_M, _LENGTH_M (metres), _WEIGHT_T, _AXLE_LOAD_T (tonnes);
+#            each empty: Valhalla's default, which is a large truck's.
 NAV_GPSD=
 NAV_SIMULATE=0
 NAV_STALE_AFTER_MS=
+NAV_VALHALLA=
+NAV_ROUTING_TILES=
+NAV_COSTING=auto
+NAV_TRUCK_HEIGHT_M=
+NAV_TRUCK_WIDTH_M=
+NAV_TRUCK_LENGTH_M=
+NAV_TRUCK_WEIGHT_T=
+NAV_TRUCK_AXLE_LOAD_T=

@@ -133,10 +133,13 @@ void main() {
 
   testWidgets('placeholders say they are not implemented', (tester) async {
     final h = await Harness.start(tester);
-    for (final screen in [AppScreen.media, AppScreen.navigation]) {
-      await h.goTo(screen);
-      expect(find.textContaining('not implemented yet'), findsOneWidget, reason: screen.name);
-    }
+    await h.goTo(AppScreen.media);
+    expect(find.textContaining('not implemented yet'), findsOneWidget);
+    // Navigation routes now (6.5.2); without the navigation service it says
+    // routing is unavailable and why (navigation_route_test.dart).
+    await h.goTo(AppScreen.navigation);
+    expect(find.textContaining('not implemented yet'), findsNothing);
+    expect(find.textContaining('Routing unavailable'), findsOneWidget);
     // Cameras is implemented (camera_mode_test.dart); it still says what it
     // isn't.
     await h.goTo(AppScreen.cameras);

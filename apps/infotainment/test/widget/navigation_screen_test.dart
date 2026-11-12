@@ -82,7 +82,7 @@ void main() {
     expect(find.byKey(const ValueKey('nav-marker-current')), findsOneWidget);
     expect(find.byKey(const ValueKey('nav-why')), findsNothing);
     expect(textOf('nav-map-problem'), contains('no offline map configured'));
-    expect(textOf('nav-routing'), 'Routing: not implemented yet (6.5.2)');
+    expect(textOf('nav-routing'), 'Routing unavailable: needs services/navigation (make sim)');
   });
 
   testWidgets('a fix that stops updating becomes "last known", with its age', (tester) async {

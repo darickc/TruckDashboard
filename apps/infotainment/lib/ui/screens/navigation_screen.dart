@@ -9,20 +9,24 @@ import 'package:vector_map_tiles/vector_map_tiles.dart';
 import '../../nav/map_cache.dart';
 import '../../nav/map_update.dart';
 import '../../nav/offline_map.dart';
+import '../../model/units.dart';
 import '../../nav/position_state.dart';
+import '../../nav/route_state.dart';
 import '../../nav/vector_map.dart';
 import '../app_scope.dart';
 import '../theme.dart';
 import '../widgets/tap_target.dart';
 
-/// The offline map and the truck's position (Phase 6.4 and 6.5.1,
-/// ADR-0030; vector maps ADR-0032). North up. It follows the truck until the map is dragged;
-/// the locate button follows again.
+/// The offline map, the truck's position and routing (Phase 6.4, 6.5.1 and
+/// 6.5.2; ADR-0030, vector maps ADR-0032, routing ADR-0035). North up. It
+/// follows the truck until the map is dragged; the locate button follows
+/// again. Long-press the map to choose a destination.
 ///
 /// Honest about what it knows: a fix that isn't current is drawn grey and
 /// labelled "last known" with its age (CLAUDE.md rule 4), a simulated
-/// position says so, a missing map says why, and routing says it isn't
-/// implemented yet.
+/// position says so, a missing map says why, guidance pauses (no distances)
+/// without a current position, and every route says it isn't checked for
+/// heavy vehicles or trailers (ADR-0010).
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({super.key});
 
@@ -45,6 +49,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
   Timer? _tick;
   PositionSource? _source;
   LatLng? _lastCentered;
+
+  /// A long-pressed point waiting for Route here or Cancel.
+  LatLng? _pending;
 
   @override
   void didChangeDependencies() {
@@ -70,7 +77,12 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   void _onPosition() => _centre();
 
-  /// Keeps the truck in the middle while following.
+  /// While a route's banner covers the top of the map, the truck is kept
+  /// this far below the middle so the banner never hides it.
+  static const _belowBanner = Offset(0, 60);
+  bool _lowered = false;
+
+  /// Keeps the truck in the middle (lower while routing) while following.
   void _centre({bool force = false}) {
     if (!_ready || !_follow) return;
     final fix = _source?.status.value.report?.fix;
@@ -79,7 +91,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
     if (!force && at == _lastCentered) return;
     _lastCentered = at;
     final zoom = force && _map.camera.zoom < 10 ? NavigationScreen.followZoom : _map.camera.zoom;
-    _map.move(at, zoom);
+    _map.move(at, zoom, offset: _lowered ? _belowBanner : Offset.zero);
   }
 
   void _zoom(double by, double minZoom, double maxZoom) {
@@ -106,8 +118,23 @@ class _NavigationScreenState extends State<NavigationScreen> {
             valueListenable: s.map.update,
             builder: (context, update, _) => ValueListenableBuilder(
               valueListenable: s.position.status,
-              builder: (context, position, _) =>
-                  _build(context, p, mapState, update, position, s.position.clock.now()),
+              builder: (context, position, _) => ValueListenableBuilder(
+                valueListenable: s.route.state,
+                // Distances follow the unit setting at once.
+                builder: (context, route, _) => ListenableBuilder(
+                  listenable: s.settings,
+                  builder: (context, _) => _build(
+                    context,
+                    p,
+                    mapState,
+                    update,
+                    position,
+                    s.position.clock.now(),
+                    route,
+                    s.route.clock.now(),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -122,7 +149,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
     MapUpdateStatus? update,
     PositionState position,
     Duration now,
+    RouteView route,
+    Duration routeNow,
   ) {
+    final s = AppScope.of(context);
     final reader = mapState is MapReady ? mapState.reader : null;
     final vector = mapState is MapReady ? mapState.vector : null;
     final header = reader?.header;
@@ -142,6 +172,106 @@ class _NavigationScreenState extends State<NavigationScreen> {
         ? header.centerZoom.toDouble().clamp(minZoom, maxZoom)
         : NavigationScreen.fallbackZoom;
     final night = Theme.of(context).brightness == Brightness.dark;
+
+    // Routing (ADR-0035).
+    final routeState = route.state;
+    final navRoute = route.route;
+    final onRoute = const {
+      RouteState.routing,
+      RouteState.active,
+      RouteState.failed,
+      RouteState.arrived,
+    }.contains(routeState);
+    if (onRoute != _lowered) {
+      _lowered = onRoute;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _centre(force: true);
+      });
+    }
+    final progress = current ? route.currentProgress(routeNow) : null;
+    final routeFetched = navRoute != null && navRoute.id == route.guidance?.routeId;
+    final guiding = progress != null && routeFetched;
+    final destination = onRoute ? (route.guidance?.destination ?? navRoute?.destination) : null;
+    final canRoute =
+        route.link == RouteLink.connected &&
+        routeState != null &&
+        routeState != RouteState.unavailable;
+    final mapProblem = switch (mapState) {
+      MapLoading() => 'Opening the offline map…',
+      MapUnavailable(:final why) => 'No map: $why. The position is still shown.',
+      MapReady() => null,
+    };
+    final bottomNotices = <Widget>[
+      // While routing it is one small line instead (below), so the truck
+      // stays visible between the banner and the buttons.
+      if (mapProblem != null && !onRoute)
+        _Notice(
+          key: const ValueKey('nav-map-problem'),
+          icon: Icons.layers_clear_outlined,
+          text: mapProblem,
+          palette: p,
+        ),
+      // A map stick being imported (ADR-0033), or one that just was.
+      if (update != null && update.shownAt(DateTime.now()))
+        _Notice(
+          key: const ValueKey('nav-map-update'),
+          icon: Icons.usb,
+          text: update.text,
+          palette: p,
+          color: switch (update.state) {
+            MapUpdateState.failed => p.advisory,
+            MapUpdateState.updated || MapUpdateState.current => p.ok,
+            _ => p.accent,
+          },
+        ),
+      if (route.commandError.isNotEmpty)
+        _Notice(
+          key: const ValueKey('nav-route-error'),
+          icon: Icons.error_outline,
+          text: route.commandError,
+          palette: p,
+          color: p.advisory,
+        ),
+      if (_pending != null)
+        _PendingPanel(
+          at: _pending!,
+          palette: p,
+          onRoute: () {
+            final to = _pending!;
+            setState(() {
+              _pending = null;
+              _follow = true;
+            });
+            s.route.setDestination(to);
+            _centre(force: true);
+          },
+          onCancel: () => setState(() => _pending = null),
+        )
+      else if (onRoute)
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (routeState == RouteState.failed && destination != null) ...[
+              _textButton(
+                'nav-retry',
+                'Retry',
+                Icons.refresh,
+                () => s.route.setDestination(destination),
+              ),
+              const SizedBox(width: kGap),
+            ],
+            _textButton('nav-end-route', 'End route', Icons.close, () => s.route.clearRoute()),
+          ],
+        ),
+    ];
+    final routingHint = switch ((route.link, routeState)) {
+      (_, RouteState.unavailable) => 'Routing unavailable: ${route.guidance!.detail}',
+      (RouteLink.connecting, null) => 'Routing: connecting to the navigation service…',
+      (RouteLink.lost, null) =>
+        'Routing unavailable: navigation service unavailable${route.detail.isEmpty ? '' : ': ${route.detail}'}',
+      (_, RouteState.idle) => 'Long-press the map to route',
+      _ => null,
+    };
 
     return Stack(
       children: [
@@ -165,6 +295,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
               onPositionChanged: (camera, hasGesture) {
                 if (hasGesture && _follow) setState(() => _follow = false);
               },
+              onLongPress: canRoute ? (_, at) => setState(() => _pending = at) : null,
             ),
             children: [
               if (vector != null)
@@ -183,6 +314,54 @@ class _NavigationScreenState extends State<NavigationScreen> {
                   minNativeZoom: header!.minZoom,
                   maxNativeZoom: header.maxZoom,
                   tileBuilder: night ? darkModeTileBuilder : null,
+                ),
+              if (onRoute && navRoute != null && navRoute.shape.length >= 2)
+                PolylineLayer(
+                  key: const ValueKey('nav-route-line'),
+                  polylines: [
+                    Polyline(
+                      points: navRoute.shape,
+                      strokeWidth: 6,
+                      // Grey while it isn't being followed: an old route
+                      // during rerouting, or no current position.
+                      color: guiding ? p.accent : p.stale,
+                      borderStrokeWidth: 2,
+                      borderColor: p.background.withValues(alpha: 0.7),
+                    ),
+                  ],
+                ),
+              if (destination != null || _pending != null)
+                MarkerLayer(
+                  markers: [
+                    if (destination != null)
+                      Marker(
+                        point: destination,
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.topCenter,
+                        child: Icon(
+                          Icons.flag,
+                          key: const ValueKey('nav-destination'),
+                          size: 40,
+                          color: p.critical,
+                          semanticLabel: 'Destination',
+                        ),
+                      ),
+                    if (_pending != null)
+                      Marker(
+                        point: _pending!,
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.topCenter,
+                        child: Icon(
+                          Icons.place,
+                          key: const ValueKey('nav-pending'),
+                          size: 44,
+                          color: p.advisory,
+                          semanticLabel: 'Chosen point',
+                        ),
+                      ),
+                  ],
                 ),
               if (fix != null && current && fix.errorM != null)
                 CircleLayer(
@@ -215,40 +394,41 @@ class _NavigationScreenState extends State<NavigationScreen> {
           left: 8,
           top: 8,
           right: 84,
-          child: _StatusRow(position: position, now: now, current: current, palette: p),
-        ),
-        if (mapState is! MapReady)
-          Positioned(
-            left: 8,
-            right: 84,
-            bottom: 36,
-            child: _Notice(
-              key: const ValueKey('nav-map-problem'),
-              icon: Icons.layers_clear_outlined,
-              text: switch (mapState) {
-                MapLoading() => 'Opening the offline map…',
-                MapUnavailable(:final why) => 'No map: $why. The position is still shown.',
-                MapReady() => '',
-              },
-              palette: p,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _StatusRow(position: position, now: now, current: current, palette: p),
+              if (onRoute) ...[
+                const SizedBox(height: kGap),
+                _GuidanceBanner(
+                  view: route,
+                  route: routeFetched ? navRoute : null,
+                  progress: guiding ? progress : null,
+                  paused: current
+                      ? (route.pausedWhy(routeNow) ?? (routeFetched ? null : 'loading the route'))
+                      : 'no current position',
+                  units: s.settings.units,
+                  palette: p,
+                ),
+              ],
+            ],
           ),
-        // A map stick being imported (ADR-0033), or one that just was.
-        if (update != null && update.shownAt(DateTime.now()))
+        ),
+        if (bottomNotices.isNotEmpty)
           Positioned(
             left: 8,
             right: 84,
-            bottom: mapState is MapReady ? 36 : 84,
-            child: _Notice(
-              key: const ValueKey('nav-map-update'),
-              icon: Icons.usb,
-              text: update.text,
-              palette: p,
-              color: switch (update.state) {
-                MapUpdateState.failed => p.advisory,
-                MapUpdateState.updated || MapUpdateState.current => p.ok,
-                _ => p.accent,
-              },
+            bottom: 28,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (i, w) in bottomNotices.indexed) ...[
+                  if (i > 0) const SizedBox(height: 6),
+                  w,
+                ],
+              ],
             ),
           ),
         Positioned(
@@ -273,15 +453,29 @@ class _NavigationScreenState extends State<NavigationScreen> {
             ],
           ),
         ),
-        Positioned(
-          left: 8,
-          bottom: 6,
-          child: Text(
-            'Routing: not implemented yet (6.5.2)',
-            key: const ValueKey('nav-routing'),
-            style: TextStyle(fontSize: 12, color: p.textDim),
+        if (mapProblem != null && onRoute)
+          Positioned(
+            left: 8,
+            right: 84,
+            bottom: 6,
+            child: Text(
+              mapProblem,
+              key: const ValueKey('nav-map-problem'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: p.advisory),
+            ),
           ),
-        ),
+        if (routingHint != null)
+          Positioned(
+            left: 8,
+            bottom: 6,
+            child: Text(
+              routingHint,
+              key: const ValueKey('nav-routing'),
+              style: TextStyle(fontSize: 12, color: p.textDim),
+            ),
+          ),
         // ODbL: whatever the map shows, its attribution is on screen.
         if (reader != null)
           Positioned(
@@ -301,6 +495,22 @@ class _NavigationScreenState extends State<NavigationScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _textButton(String key, String label, IconData icon, VoidCallback onTap) {
+    return TapTarget(
+      key: ValueKey(key),
+      label: label,
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 26),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        ],
+      ),
     );
   }
 
@@ -495,3 +705,230 @@ class _TruckMarker extends StatelessWidget {
     );
   }
 }
+
+/// Guidance over the map while there is a destination: the next maneuver
+/// with its distance and what is left, or why guidance is paused (never
+/// distances that aren't current), and always the heavy-vehicle caveat.
+class _GuidanceBanner extends StatelessWidget {
+  const _GuidanceBanner({
+    required this.view,
+    required this.route,
+    required this.progress,
+    required this.paused,
+    required this.units,
+    required this.palette,
+  });
+
+  final RouteView view;
+
+  /// The route guidance names, once fetched.
+  final NavRoute? route;
+
+  /// Current progress on that route, or null.
+  final RouteProgress? progress;
+
+  /// Why guidance is paused on an active route, or null.
+  final String? paused;
+  final UnitSystem units;
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = palette;
+    final g = view.guidance!;
+    final Widget body;
+    switch (g.state) {
+      case RouteState.routing:
+        body = _line(
+          Icons.route,
+          g.reroutes > 0
+              ? 'Off the route: finding a new one'
+              // e.g. "Waiting for a current position to route from"
+              : (g.detail.isNotEmpty ? g.detail : 'Finding a route…'),
+          p.accent,
+        );
+      case RouteState.failed:
+        body = _line(
+          Icons.error_outline,
+          'No route${g.detail.isEmpty ? '' : ': ${g.detail}'}',
+          p.advisory,
+        );
+      case RouteState.arrived:
+        body = _line(Icons.flag, 'Arrived', p.ok);
+      case RouteState.active:
+        final r = route;
+        final pr = progress;
+        if (r == null || pr == null || r.maneuvers.isEmpty) {
+          body = _line(
+            Icons.pause_circle_outline,
+            'Guidance paused: ${paused ?? 'waiting for a current position'}',
+            p.advisory,
+          );
+        } else {
+          final m = r.maneuvers[pr.maneuverIndex.clamp(0, r.maneuvers.length - 1)];
+          body = Row(
+            key: const ValueKey('nav-guidance-active'),
+            children: [
+              Icon(maneuverIcon(m.type), size: 52, color: p.accent),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      formatDistance(pr.toManeuverM, units),
+                      key: const ValueKey('nav-to-maneuver'),
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: p.text),
+                    ),
+                    Text(
+                      m.instruction,
+                      key: const ValueKey('nav-instruction'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: p.text),
+                    ),
+                    Text(
+                      [
+                        '${formatDistance(pr.remainingM, units)} · ${formatDuration(pr.remainingS)} left',
+                        if (pr.offRoute) 'off the route',
+                      ].join(' · '),
+                      key: const ValueKey('nav-remaining'),
+                      style: TextStyle(fontSize: 15, color: pr.offRoute ? p.advisory : p.textDim),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+      case RouteState.idle:
+      case RouteState.unavailable:
+        body = const SizedBox.shrink();
+    }
+    return Container(
+      key: const ValueKey('nav-guidance'),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: p.surface.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: p.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          body,
+          const SizedBox(height: 4),
+          // ADR-0010: OSM restriction data is incomplete.
+          Text(
+            'Not checked for heavy vehicles or trailers',
+            key: const ValueKey('nav-heavy-warning'),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: p.advisory),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _line(IconData icon, String text, Color color) => Row(
+    children: [
+      Icon(icon, size: 30, color: color),
+      const SizedBox(width: 8),
+      Flexible(
+        child: Text(
+          text,
+          key: const ValueKey('nav-guidance-text'),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: palette.text),
+        ),
+      ),
+    ],
+  );
+}
+
+/// A long-pressed point: Route here or Cancel.
+class _PendingPanel extends StatelessWidget {
+  const _PendingPanel({
+    required this.at,
+    required this.palette,
+    required this.onRoute,
+    required this.onCancel,
+  });
+
+  final LatLng at;
+  final Palette palette;
+  final VoidCallback onRoute;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = palette;
+    Widget button(String key, String label, IconData icon, VoidCallback onTap) => TapTarget(
+      key: ValueKey(key),
+      label: label,
+      onTap: onTap,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 26),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+    return Container(
+      key: const ValueKey('nav-pending-panel'),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: p.surface.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: p.advisory),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(width: 4),
+          Icon(Icons.place, color: p.advisory, size: 26),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '${at.latitude.toStringAsFixed(4)}, ${at.longitude.toStringAsFixed(4)}',
+              key: const ValueKey('nav-pending-text'),
+              style: TextStyle(fontSize: 15, color: p.text),
+            ),
+          ),
+          const SizedBox(width: kGap),
+          button('nav-route-here', 'Route here', Icons.directions, onRoute),
+          const SizedBox(width: kGap),
+          button('nav-route-cancel', 'Cancel', Icons.close, onCancel),
+        ],
+      ),
+    );
+  }
+}
+
+/// Valhalla's maneuver type (odin's DirectionsLeg_Maneuver_Type) as an icon.
+IconData maneuverIcon(int type) => switch (type) {
+  1 || 2 || 3 => Icons.trip_origin, // start
+  4 || 5 || 6 => Icons.flag, // destination
+  7 || 8 || 22 => Icons.straight, // becomes, continue, stay straight
+  9 => Icons.turn_slight_right,
+  10 => Icons.turn_right,
+  11 => Icons.turn_sharp_right,
+  12 => Icons.u_turn_right,
+  13 => Icons.u_turn_left,
+  14 => Icons.turn_sharp_left,
+  15 => Icons.turn_left,
+  16 => Icons.turn_slight_left,
+  17 => Icons.straight, // ramp straight
+  18 || 20 => Icons.ramp_right, // ramp right, exit right
+  19 || 21 => Icons.ramp_left, // ramp left, exit left
+  23 => Icons.fork_right, // stay right
+  24 => Icons.fork_left, // stay left
+  25 || 37 || 38 => Icons.merge,
+  26 || 27 => Icons.roundabout_right,
+  28 || 29 => Icons.directions_boat,
+  _ => Icons.navigation,
+};

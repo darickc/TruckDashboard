@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+// Routing and turn-by-turn guidance, served by services/navigation with
+// Valhalla (Phase 6.5.2, docs/architecture/adr/0035-routing-with-valhalla.md).
+// Routes are NOT checked for heavy vehicles or trailers (ADR-0010): the
+// screen says so with every route.
+package f250.nav.v1;
+
+service RouteService {
+  // Routes from the current position to `destination`, replacing any route.
+  // Returns at once; the result arrives on WatchGuidance (ROUTING, then
+  // ACTIVE or FAILED).
+  rpc SetDestination(SetDestinationRequest) returns (SetDestinationResponse);
+  // Drops the destination and the route.
+  rpc ClearRoute(ClearRouteRequest) returns (ClearRouteResponse);
+  // Guidance now, then on every change and at least once a second.
+  rpc WatchGuidance(WatchGuidanceRequest) returns (stream WatchGuidanceResponse);
+  // The line and maneuvers of a route, by the id Guidance names. NOT_FOUND
+  // once a newer route has replaced it.
+  rpc GetRoute(GetRouteRequest) returns (GetRouteResponse);
+}
+
+message LatLon {
+  double latitude_deg = 1;
+  double longitude_deg = 2;
+}
+
+enum RouteState {
+  ROUTE_STATE_UNSPECIFIED = 0;
+  // Routing can't work here: no Valhalla, or no routing data. `detail`
+  // says which.
+  ROUTE_STATE_UNAVAILABLE = 1;
+  // No destination.
+  ROUTE_STATE_IDLE = 2;
+  // Asking Valhalla: the first route, or a new one after leaving the route.
+  // A previous route (route_id) may still be shown meanwhile.
+  ROUTE_STATE_ROUTING = 3;
+  // A route, being followed.
+  ROUTE_STATE_ACTIVE = 4;
+  // The last request failed; `detail` says why. The destination is kept,
+  // and SetDestination again retries.
+  ROUTE_STATE_FAILED = 5;
+  // Within the arrival distance of the destination.
+  ROUTE_STATE_ARRIVED = 6;
+}
+
+message Maneuver {
+  // Valhalla's maneuver type (odin's DirectionsLeg_Maneuver_Type, e.g.
+  // 10 right, 15 left, 4 destination), for the icon.
+  uint32 type = 1;
+  // Valhalla's text, e.g. "Turn right onto US 36/US 281."
+  string instruction = 2;
+  repeated string street_names = 3;
+  // From this maneuver to the next.
+  double length_m = 4;
+  double time_s = 5;
+  // Where it starts, as an index into Route.shape and as a distance from
+  // the route's start.
+  uint32 begin_shape_index = 6;
+  double start_m = 7;
+}
+
+message Route {
+  uint64 id = 1;
+  repeated LatLon shape = 2;
+  repeated Maneuver maneuvers = 3;
+  double length_m = 4;
+  double time_s = 5;
+  LatLon destination = 6;
+  // Valhalla's costing model: "auto", or "truck" with configured dimensions.
+  string costing = 7;
+  bool has_toll = 8;
+  bool has_highway = 9;
+  bool has_ferry = 10;
+}
+
+// Where the truck is along the route. Only while the position is current:
+// stale progress is never sent (CLAUDE.md rule 4).
+message Progress {
+  // The next maneuver, an index into Route.maneuvers.
+  uint32 maneuver_index = 1;
+  double to_maneuver_m = 2;
+  double remaining_m = 3;
+  // Valhalla's estimate for the rest of the route, scaled by what is left.
+  double remaining_s = 4;
+  // How far the position is from the route line.
+  double off_route_m = 5;
+  // Farther than the off-route limit: a new route is coming.
+  bool off_route = 6;
+}
+
+message Guidance {
+  RouteState state = 1;
+  // The route on screen, 0 for none. GetRoute fetches it when it changes.
+  uint64 route_id = 2;
+  // Present while there is a destination.
+  LatLon destination = 3;
+  // Present only on a route with a current position.
+  Progress progress = 4;
+  // Why: unavailable, failed, waiting for a position, rerouting.
+  string detail = 5;
+  // New routes after leaving the route, for this destination.
+  uint32 reroutes = 6;
+}
+
+message SetDestinationRequest {
+  LatLon destination = 1;
+}
+
+message SetDestinationResponse {}
+
+message ClearRouteRequest {}
+
+message ClearRouteResponse {}
+
+message WatchGuidanceRequest {}
+
+message WatchGuidanceResponse {
+  Guidance guidance = 1;
+}
+
+message GetRouteRequest {
+  uint64 route_id = 1;
+}
+
+message GetRouteResponse {
+  Route route = 1;
+}

@@ -296,7 +296,18 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       progress on every tab and opens the new map without a restart. A stick with the installed map isn't copied
       again (MAP UP TO DATE). Tested by `make agl-test` and app tests, and on the bench Pi with a real exFAT stick
       onto the card (bench-log 2026-11-11): import, reopen, up to date, pulled stick. Not yet onto the NVMe.
-      Next: 6.5.2's routing
+      6.5.2 `[SIM]` (real Valhalla on the Mac only) ([ADR-0035](architecture/adr/0035-routing-with-valhalla.md)): services/navigation
+      serves `f250.nav.v1.RouteService` and runs Valhalla 3.9.1's `valhalla_service` once per route (no prime_server, no port).
+      The guide matches the fix to the route, gives the next maneuver, distance and time left, reroutes after 60 m off for 5 s
+      (at most every 15 s), arrives within 40 m (all examples), and sends progress only from a current fix. Costing `auto`, or
+      `truck` with configured sizes. The Nav screen: long-press → Route here, the route line, a guidance banner in the unit
+      setting, End route, Retry, "Not checked for heavy vehicles or trailers" with every route; guidance pauses, with no
+      distances, when the fix or the stream isn't current. The simulated receiver drives the route. `make route-region` builds
+      routing data from Geofabrik in Valhalla's pinned image (Kansas: 30 s, 312 MB). Tests: the guide's transitions, Valhalla's
+      real output as vectors, end to end over gRPC with a fake `valhalla_service`, app unit and widget tests. Ran against the
+      real Valhalla in Docker with Kansas data. **Not on the Pi:** Valhalla needs a meta-f250 recipe, and the routing data a way
+      onto the data drive (probably the map stick); until then the screen says routing is unavailable.
+      Next: the Valhalla recipe; routing data on the stick; 6.5.4's docs
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and
       invalid reverse, the latched choice, moves during reverse, the optional speed limit, missing cameras).
