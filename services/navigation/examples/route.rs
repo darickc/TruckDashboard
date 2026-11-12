@@ -73,15 +73,18 @@ async fn main() -> Result<(), String> {
         };
         let state = pb::RouteState::try_from(g.state).unwrap_or_default();
         if g.route_id != 0 && route.as_ref().map(|r| r.id) != Some(g.route_id) {
-            let r = client
+            let r = match client
                 .get_route(pb::GetRouteRequest {
                     route_id: g.route_id,
                 })
                 .await
-                .map_err(|e| e.to_string())?
-                .into_inner()
-                .route
-                .ok_or("no route")?;
+            {
+                Ok(r) => r.into_inner().route.ok_or("no route")?,
+                // The guidance's first message can still name the route this
+                // destination replaced; it is gone by the time we ask.
+                Err(e) if e.code() == tonic::Code::NotFound => continue,
+                Err(e) => return Err(e.to_string()),
+            };
             println!(
                 "route {} after {:.1} s: {:.1} km, {:.0} min, {} points, {} maneuvers, costing {}",
                 r.id,
