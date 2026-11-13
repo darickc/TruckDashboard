@@ -46,12 +46,14 @@ do_install() {
         ln -sf /dev/null ${D}${SYSD}/$u
     done
 
-    # BlueZ's mpris-proxy, a user unit enabled for every user, opens its own
-    # cover art session to the phone once bluetoothd shows ObexPort, and a
-    # phone allows one per device: masked for all users (ADR-0042), as
-    # `systemctl --global mask` would.
-    install -d ${D}${sysconfdir}/systemd/user
-    ln -sf /dev/null ${D}${sysconfdir}/systemd/user/mpris-proxy.service
+    # BlueZ's mpris-proxy opens its own cover art session to the phone once
+    # bluetoothd shows ObexPort, and a phone allows one per device
+    # (ADR-0042). Nothing enables it but the image's
+    # `systemctl --global preset-all`, so a user preset leaves it off. (Not
+    # masked as Stage 1 does: preset-all reports a masked unit as "Failed to
+    # preset", which fails do_rootfs's log check.)
+    install -d ${D}${nonarch_libdir}/systemd/user-preset
+    echo 'disable mpris-proxy.service' >${D}${nonarch_libdir}/systemd/user-preset/10-f250.preset
 
     # Stage 1 step 7. The demo homescreen is left out of the image (agl-f250.bb).
     f250_wants multi-user.target f250-gateway.service
@@ -94,7 +96,8 @@ pkg_postinst:${PN}() {
 # Your settings: an upgrade keeps them.
 CONFFILES:${PN} = "${sysconfdir}/default/f250"
 
-FILES:${PN} = "${sysconfdir} /opt/f250 ${localstatedir}/lib/journal"
+FILES:${PN} = "${sysconfdir} /opt/f250 ${localstatedir}/lib/journal \
+    ${nonarch_libdir}/systemd/user-preset"
 
 # What the scripts call, so the image needn't happen to carry it: bash;
 # f250-can: ip (iproute2), candump (can-utils), lsusb (usbutils), timeout

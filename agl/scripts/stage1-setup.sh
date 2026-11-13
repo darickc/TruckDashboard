@@ -67,6 +67,7 @@ BLUEZ_DROPIN=etc/systemd/system/bluetooth.service.d/50-f250.conf
 # its own cover art session once bluetoothd shows ObexPort, and phones allow
 # one per device: masked, so audio-manager's is the one (ADR-0042).
 MPRIS_MASK=etc/systemd/user/mpris-proxy.service
+MPRIS_WANTS=etc/systemd/user/default.target.wants/mpris-proxy.service
 DASHBOARD_USER=agl-driver
 RFKILL=/sys/class/rfkill
 JOURNAL_DIR=/var/lib/journal
@@ -324,6 +325,9 @@ check() {
   fi
   if [[ "$(readlink "$ROOT/$MPRIS_MASK" 2>/dev/null)" == /dev/null ]]; then
     ok "mpris-proxy masked: audio-manager has the phone's cover art session (/$MPRIS_MASK)"
+  elif [[ ! -e "$ROOT/$MPRIS_WANTS" && ! -L "$ROOT/$MPRIS_WANTS" ]]; then
+    # The agl-f250 images leave it disabled with a user preset instead.
+    ok "mpris-proxy not enabled: audio-manager has the phone's cover art session"
   else
     warn "mpris-proxy not masked: it may take the phone's one cover art session (run this script)"
   fi

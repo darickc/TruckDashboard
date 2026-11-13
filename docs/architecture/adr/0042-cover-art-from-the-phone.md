@@ -83,9 +83,14 @@ packages (`bluez5`, `bluez5-obex` 5.86-r0 RPMs):
    replaces ExecStart; the package's main.conf is left alone). Stage 1
    restarts bluetoothd when the drop-in changes; the MX+ and the phone
    reconnect by themselves.
-7. **mpris-proxy is masked for every user** (`/etc/systemd/user/mpris-proxy.service`
-   → `/dev/null`, by Stage 1 and in the image), because a phone allows one
-   cover art client and mpris-proxy would take it. It only mirrors the phone's
+7. **mpris-proxy is off for every user**, because a phone allows one cover
+   art client and mpris-proxy would take it. Stage 1 masks it
+   (`/etc/systemd/user/mpris-proxy.service` → `/dev/null`). The image
+   instead has a user preset, `disable mpris-proxy.service`
+   (`/usr/lib/systemd/user-preset/10-f250.preset`): the image's
+   `systemctl --global preset-all` is the only thing that enables it, and a
+   mask there fails the build ("Failed to preset all unit: … is masked",
+   which do_rootfs's log check treats as an error; amended 2026-11-13). It only mirrors the phone's
    player as MPRIS on the dashboard user's session bus, which nothing here uses
    (the dashboard asks audio-manager). Added 2026-11-13 on the bench.
 8. **Off with `AUDIO_COVER_ART=0`**; the simulation has its own pictures (a

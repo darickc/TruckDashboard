@@ -242,7 +242,7 @@ check "bluetoothd drop-in installed (ADR-0042)" "cmp -s agl/rootfs/etc/systemd/s
 check "restarts bluetoothd for a new drop-in" "has_line '$R8/.test/sys.log' 'systemctl restart bluetooth.service'"
 check "masks mpris-proxy for every user (ADR-0042)" "[[ \"\$(readlink '$R8/etc/systemd/user/mpris-proxy.service')\" == /dev/null ]] && grep -q 'masked mpris-proxy' '$T/bt-apply.out'"
 check "stops the dashboard user's mpris-proxy and obexd" "has_line '$R8/.test/sys.log' 'systemctl --user -M agl-driver@ stop mpris-proxy.service obex.service'"
-check "the image masks mpris-proxy too" "grep -q 'ln -sf /dev/null \${D}\${sysconfdir}/systemd/user/mpris-proxy.service' agl/meta-f250/recipes-f250/f250-system/f250-system.bb"
+check "the image leaves mpris-proxy disabled (a user preset, not a mask)" "grep -q \"echo 'disable mpris-proxy.service' >\\\${D}\\\${nonarch_libdir}/systemd/user-preset/10-f250.preset\" agl/meta-f250/recipes-f250/f250-system/f250-system.bb && ! grep -q 'ln -sf /dev/null.*mpris-proxy' agl/meta-f250/recipes-f250/f250-system/f250-system.bb"
 check "obexd unit and D-Bus policy installed" "[[ -f '$R8/etc/systemd/system/f250-obexd.service' && -f '$R8/etc/dbus-1/system.d/f250-obex.conf' ]]"
 : >"$T/bt-apply2.out"
 : >"$R8/.test/sys.log"
@@ -263,6 +263,16 @@ check "--check: powered"               "grep -q 'ok.*BlueZ: controller powered' 
 check "--check: connman without the plugin, no warning" "! grep -q 'still runs with its Bluetooth plugin' '$T/bt-check.out'"
 check "--check: bluetoothd drop-in ok" "grep -q 'ok.*bluetoothd with --experimental' '$T/bt-check.out'"
 check "--check: mpris-proxy masked" "grep -q 'ok.*mpris-proxy masked' '$T/bt-check.out'"
+# The images leave it disabled with a preset rather than masked; enabled is a warning.
+rm "$R8/etc/systemd/user/mpris-proxy.service"
+setup "$R8" --check >"$T/bt-check-preset.out" 2>&1 || true
+check "--check: mpris-proxy not enabled (the image's preset)" "grep -q 'ok.*mpris-proxy not enabled' '$T/bt-check-preset.out'"
+mkdir -p "$R8/etc/systemd/user/default.target.wants"
+ln -s /usr/lib/systemd/user/mpris-proxy.service "$R8/etc/systemd/user/default.target.wants/mpris-proxy.service"
+setup "$R8" --check >"$T/bt-check-enabled.out" 2>&1 || true
+check "--check: mpris-proxy enabled, warned" "grep -q 'mpris-proxy not masked' '$T/bt-check-enabled.out'"
+rm -r "$R8/etc/systemd/user/default.target.wants"
+ln -s /dev/null "$R8/etc/systemd/user/mpris-proxy.service"
 check "--check: ignores other radios"  "! grep -q 'rfkill1' '$T/bt-check.out'"
 echo '/usr/sbin/connmand -n ' >"$R8/.test/connmand-cmdline"
 echo 'no' >"$R8/.test/bt-powered"
