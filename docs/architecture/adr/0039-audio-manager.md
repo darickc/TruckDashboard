@@ -13,7 +13,8 @@
 - **Date:** 2026-11-12. Amended the same day (owner): spoken directions pause the music instead of
   ducking it, and audio-manager says them (decision 9); the crossover changes live (decision 6);
   Phones is a screen of its own with the paired phones, and the last phone reconnects by itself
-  (decision 3a); fader, balance and sub level are sliders (decision 7)
+  (decision 3a); fader, balance and sub level are sliders (decision 7). Amended 2026-11-13 (owner):
+  bluetoothd re-reads the play status after Next/Previous (decision 12)
 - **Refines:** [ADR-0014](0014-multichannel-dac8x.md) decision 5 (crossover, fader, balance, sub level
   in PipeWire, owned by audio-manager), [ADR-0023](0023-bluetooth-belongs-to-bluez.md) (the pairing
   policy it left to 6.1), [audio-routing.md](../audio-routing.md). Phase 6.1.
@@ -264,6 +265,21 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
     builds the options from `AUDIO_*` in `/etc/default/f250`. The images
     gain `packagegroup-pipewire`, `pipewire-tools`, `wireplumber-config-agl`
     and `wireplumber-policy-config-agl`. `make agl-test` checks it.
+12. **The position after a skip** (owner, 2026-11-13). In an audiobook
+    player Next and Previous jump inside the track (30 s), with no track or
+    status change. BlueZ 5.86 learns the position only from GetPlayStatus
+    (on connect, a status change or a track change) and from
+    EVENT_PLAYBACK_POS_CHANGED, which it registers with the longest interval;
+    between those `MediaPlayer1.Position` extrapolates. On the bench the
+    owner's iPhone (ShelfPlayer) sent nothing for a skip, so Media's time
+    stayed off until a pause. BlueZ's D-Bus API has nothing that makes it
+    ask, so bluetoothd is patched (meta-f250,
+    `bluez5/0001-avrcp-re-read-the-play-status-after-a-transport-key.patch`):
+    1 s after Next, Previous or the release of a held key it sends
+    GetPlayStatus, and the new position reaches audio-manager as a
+    PropertiesChanged like any other. Rejected: pausing and resuming the
+    phone to force the same (an audible gap, and a phone left paused if the
+    resume fails), and hiding the time after a skip.
 
 ## Consequences
 

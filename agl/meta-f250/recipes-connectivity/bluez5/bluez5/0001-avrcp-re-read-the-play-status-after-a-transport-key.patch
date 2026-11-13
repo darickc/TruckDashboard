@@ -1,0 +1,114 @@
+From: Darick Carpenter <carpenterd@byui.edu>
+Subject: [PATCH] avrcp: re-read the play status after a transport key
+
+A phone needn't report a jump inside the track it is playing. An
+audiobook player's Next skips 30 s without a track or status change,
+and BlueZ registers for EVENT_PLAYBACK_POS_CHANGED with the longest
+interval, so MediaPlayer1.Position goes on extrapolating from the old
+position until the next status change (a pause) makes BlueZ ask with
+GetPlayStatus. Seen with an iPhone and ShelfPlayer on BlueZ 5.86.
+
+Ask for the play status 1 s after Next, Previous, or the release of a
+held key (fast forward, rewind), when the phone has acted on it. A
+newer key restarts the wait; the timer goes with the session.
+
+Upstream-Status: Pending
+
+--- a/profiles/audio/avrcp.c	2026-02-08 14:26:40.000000000 -0700
++++ b/profiles/audio/avrcp.c	2026-11-12 22:30:56.077321531 -0700
+@@ -279,6 +279,7 @@
+ 	unsigned int control_id;
+ 	unsigned int browsing_id;
+ 	unsigned int browsing_timer;
++	unsigned int status_timer;
+ 	uint16_t supported_events;
+ 	uint16_t registered_events;
+ 	uint8_t transaction;
+@@ -3111,6 +3112,40 @@
+ 	return true;
+ }
+ 
++/*
++ * A phone needn't report a jump inside the track it is playing: an
++ * audiobook player's Next skips 30 s without a track or status change, and
++ * BlueZ registers for position changes with the longest interval, so the
++ * position it extrapolates stays wrong until the next status change. Ask for
++ * the play status a moment after a transport key, when the phone has acted.
++ */
++#define AVRCP_STATUS_RESYNC_MS 1000
++
++static bool resync_play_status(gpointer user_data)
++{
++	struct avrcp *session = user_data;
++
++	session->status_timer = 0;
++	avrcp_get_play_status(session);
++
++	return false;
++}
++
++static void schedule_play_status(struct avrcp_player *player)
++{
++	struct avrcp *session = player->sessions ? player->sessions->data : NULL;
++
++	if (session == NULL)
++		return;
++
++	if (session->status_timer > 0)
++		timeout_remove(session->status_timer);
++
++	session->status_timer = timeout_add(AVRCP_STATUS_RESYNC_MS,
++						resync_play_status, session,
++						NULL);
++}
++
+ static int ct_press(struct avrcp_player *player, uint8_t op)
+ {
+ 	struct avrcp *session = player->sessions->data;
+@@ -3144,6 +3179,8 @@
+ 
+ 	set_ct_player(session, player);
+ 
++	schedule_play_status(player);
++
+ 	return avctp_send_release_passthrough(session->conn);
+ }
+ 
+@@ -3171,15 +3208,25 @@
+ static int ct_next(struct media_player *mp, void *user_data)
+ {
+ 	struct avrcp_player *player = user_data;
++	int err;
++
++	err = ct_press(player, AVC_FORWARD);
++	if (err == 0)
++		schedule_play_status(player);
+ 
+-	return ct_press(player, AVC_FORWARD);
++	return err;
+ }
+ 
+ static int ct_previous(struct media_player *mp, void *user_data)
+ {
+ 	struct avrcp_player *player = user_data;
++	int err;
+ 
+-	return ct_press(player, AVC_BACKWARD);
++	err = ct_press(player, AVC_BACKWARD);
++	if (err == 0)
++		schedule_play_status(player);
++
++	return err;
+ }
+ 
+ static int ct_fast_forward(struct media_player *mp, void *user_data)
+@@ -4432,6 +4479,9 @@
+ 	if (session->browsing_timer > 0)
+ 		timeout_remove(session->browsing_timer);
+ 
++	if (session->status_timer > 0)
++		timeout_remove(session->status_timer);
++
+ 	if (session->controller != NULL)
+ 		controller_destroy(session);
+ 

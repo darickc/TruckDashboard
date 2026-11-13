@@ -2508,3 +2508,30 @@ In the widget tests vector_map_tiles' module-level label queue doesn't
 survive into a second test's fake-time zone, so the day and night map tests
 became one session switching day to night. In the app (one zone), leaving
 Nav and coming back, and day to night, redraw the tiles (checked in a test).
+
+## 2026-11-13 — The time after Next/Previous in an audiobook (ADR-0039 decision 12) [BENCH]
+
+Owner: in an audiobook player Next and Previous skip inside the chapter,
+and Media's time was wrong until a pause. With the owner's household iPhone
+playing ShelfPlayer, polling `MediaPlayer1.Position` every 0.5 s around
+`busctl … Next`/`Previous` on the stock bluetoothd 5.86: the position went
+on counting from the old place through both skips; no Position or Status
+PropertiesChanged came until Pause, when BlueZ's GetPlayStatus moved it
+(a first run happened to update after Next, so the phone sends something
+only sometimes). BlueZ asks for the play status only on connect, a status
+change or a track change, and registers for position changes with the
+longest interval (profiles/audio/avrcp.c), and its D-Bus API can't make it
+ask.
+
+meta-f250 now patches bluez5
+(`0001-avrcp-re-read-the-play-status-after-a-transport-key.patch`): 1 s
+after Next, Previous or a held key's release, GetPlayStatus. `bitbake
+bluez5` built it; its bluetoothd was run on the bench Pi from a /run
+drop-in (`/opt/f250/libexec/bluetoothd-avrcp-test --experimental`), not
+installed in the image. Same test: after Next the position went from the
+stale 14:19 to the phone's 3:01 within 1.5 s; after Previous 3:04 → 2:34
+(the app's 30 s back) within 1.5 s; Pause then read 2:37, where it had
+counted to (no jump). The test copy is gone again at the next boot: the
+image needs rebuilding (`make agl-build`) and flashing for the fix to stay.
+Not seen: Media's own screen during the skip (audio-manager follows BlueZ's
+PropertiesChanged like any other), other players and phones.
