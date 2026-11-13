@@ -77,6 +77,7 @@ SearchAnswer searchAnswerFromPb(pb.SearchResponse r, String asked) => SearchAnsw
             pb.MatchKind.MATCH_KIND_ADDRESS => SearchMatch.address,
             pb.MatchKind.MATCH_KIND_STREET => SearchMatch.street,
             pb.MatchKind.MATCH_KIND_LOCALITY => SearchMatch.locality,
+            pb.MatchKind.MATCH_KIND_ESTIMATED_ADDRESS => SearchMatch.estimated,
             _ => SearchMatch.place,
           },
           title: h.title,
@@ -98,4 +99,5 @@ SearchAnswer searchAnswerFromPb(pb.SearchResponse r, String asked) => SearchAnsw
   positionAgeS: r.positionAgeS,
   postcode: r.postcode,
   postcodeFound: r.postcodeFound,
+  addressRanges: r.addressRanges,
 );

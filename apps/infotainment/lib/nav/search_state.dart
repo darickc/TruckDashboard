@@ -7,8 +7,10 @@ import 'package:latlong2/latlong.dart';
 ///
 /// What a result is. OpenStreetMap's house numbers are sparse outside towns,
 /// so a search often finds only the street or the town, and the screen says
-/// so.
-enum SearchMatch { address, street, locality, place }
+/// so. With US Census address ranges in the data (ADR-0041), a number OSM
+/// lacks may be [SearchMatch.estimated]: placed along its street by
+/// interpolation, which the screen also says.
+enum SearchMatch { address, street, locality, place, estimated }
 
 enum RankedFrom { none, current, lastKnown, postcode }
 
@@ -59,6 +61,7 @@ class SearchAnswer {
     this.positionAgeS = 0,
     this.postcode = '',
     this.postcodeFound = false,
+    this.addressRanges = '',
   });
 
   /// The query this answers.
@@ -81,6 +84,10 @@ class SearchAnswer {
   /// Found: the results are ranked from it; not: the data doesn't have it.
   final String postcode;
   final bool postcodeFound;
+
+  /// Where estimated addresses come from ("US Census Bureau TIGER/Line
+  /// 2026"), for the footer; empty: the data has no address ranges.
+  final String addressRanges;
 }
 
 abstract class SearchSource {
@@ -125,6 +132,8 @@ String? matchNote(SearchResult r, String query) {
   switch (r.kind) {
     case SearchMatch.address:
       return null;
+    case SearchMatch.estimated:
+      return 'Estimated from US Census address ranges';
     case SearchMatch.street:
       if (r.houseNumberMissing) {
         final n = queryHouseNumber(query);
@@ -146,4 +155,5 @@ String matchLabel(SearchMatch m) => switch (m) {
   SearchMatch.street => 'STREET',
   SearchMatch.locality => 'TOWN',
   SearchMatch.place => 'PLACE',
+  SearchMatch.estimated => 'ESTIMATED',
 };

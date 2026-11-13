@@ -1,6 +1,7 @@
 //! `search-index`: navigation's offline search index (ADR-0038).
 //!
 //!   search-index build --pbf kansas-261111.osm.pbf --region Kansas --out build/search/search.sqlite
+//!   search-index build --pbf ... --tiger-list counties.txt --tiger-bbox=-124.85,24.4,-66.88,49.38 ...
 //!   search-index info build/search/search.sqlite
 //!   search-index query build/search/search.sqlite "120 n main st" --near 38.5,-97.5
 
@@ -37,6 +38,16 @@ enum Cmd {
         /// then names its state.
         #[arg(long, value_name = "FILE")]
         states: Option<PathBuf>,
+        /// A US Census TIGER/Line ADDRFEAT county zip (repeatable): its
+        /// address ranges place house numbers OSM lacks (ADR-0041).
+        #[arg(long, value_name = "ZIP")]
+        tiger: Vec<PathBuf>,
+        /// A file listing ADDRFEAT zips, one path per line.
+        #[arg(long, value_name = "FILE")]
+        tiger_list: Option<PathBuf>,
+        /// Keep only ranges starting in this box: W,S,E,N.
+        #[arg(long, value_name = "W,S,E,N", allow_hyphen_values = true)]
+        tiger_bbox: Option<String>,
     },
     /// What an index covers.
     Info { file: PathBuf },
@@ -73,14 +84,42 @@ fn run(cmd: Cmd) -> Result<(), String> {
             region,
             data_date,
             states,
+            mut tiger,
+            tiger_list,
+            tiger_bbox,
         } => {
             let start = Instant::now();
+            if let Some(list) = tiger_list {
+                let text = std::fs::read_to_string(&list)
+                    .map_err(|e| format!("{}: {e}", list.display()))?;
+                tiger.extend(
+                    text.lines()
+                        .map(str::trim)
+                        .filter(|l| !l.is_empty())
+                        .map(PathBuf::from),
+                );
+            }
+            let tiger_bbox = tiger_bbox
+                .map(|b| {
+                    let v: Vec<f64> = b
+                        .split(',')
+                        .map(|x| x.trim().parse::<f64>())
+                        .collect::<Result<_, _>>()
+                        .map_err(|e| format!("--tiger-bbox {b}: {e}"))?;
+                    match v[..] {
+                        [w, s, e, n] if w < e && s < n => Ok((w, s, e, n)),
+                        _ => Err(format!("--tiger-bbox {b}: give W,S,E,N")),
+                    }
+                })
+                .transpose()?;
             let s = builder::build(&Options {
                 pbfs: pbf,
                 out: out.clone(),
                 regions: region,
                 data_date,
                 states,
+                tiger,
+                tiger_bbox,
                 verbose: true,
             })?;
             let size = std::fs::metadata(&out).map(|m| m.len()).unwrap_or(0);
@@ -105,6 +144,12 @@ fn run(cmd: Cmd) -> Result<(), String> {
                     String::new()
                 }
             );
+            if c.range_streets > 0 {
+                println!(
+                    "US Census address ranges: {} sides on {} streets ({} pieces of street read; {} sides of hyphenated or grid numbers and {} pieces without a name or range left out)",
+                    c.ranges, c.range_streets, s.tiger.kept, s.tiger.odd_numbers, s.tiger.dropped
+                );
+            }
             Ok(())
         }
         Cmd::Info { file } => {
@@ -121,6 +166,12 @@ fn run(cmd: Cmd) -> Result<(), String> {
                 i.counts.pois,
                 i.counts.postcodes
             );
+            if let Some(src) = &i.ranges_source {
+                println!(
+                    "ranges:    {} address-range sides on {} streets ({src})",
+                    i.counts.ranges, i.counts.range_streets
+                );
+            }
             Ok(())
         }
         Cmd::Query {
@@ -155,6 +206,7 @@ fn run(cmd: Cmd) -> Result<(), String> {
                     Match::Street => "street",
                     Match::Locality => "town",
                     Match::Place => "place",
+                    Match::Estimated => "estimated (US Census)",
                 };
                 println!(
                     "{:7.2}  {:<24} {} | {}{}{}",

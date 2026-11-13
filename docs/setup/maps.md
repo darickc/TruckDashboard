@@ -293,15 +293,19 @@ sparse outside towns, so often it is only the street or the town:
 | STREET | A street. "Street only: no house number 125 in the map data" when the number isn't there: the route ends on the street |
 | TOWN | A town, and "Town only: “elm avenue” not found" when the rest of what you typed isn't there |
 | PLACE | A named business, park, school… |
+| ESTIMATED | The house number you typed, placed along its street from the US Census Bureau's address ranges ("Estimated from US Census address ranges"): where OSM has no such address. Usually within 100–250 m of the house, on the road; the number may not exist |
 
 Abbreviations work both ways ("n main st" finds "North Main Street"), and the
 last word may be unfinished (three letters; two for a town). Add the state's
 short name to pick a town ("kansas city mo"), or end with the ZIP code
 ("elm ave 99001"): the results are then nearest to that ZIP code instead of
 the truck, and a ZIP code alone shows its area. Misspellings find nothing.
-House numbers that openstreetmap.org's search finds for rural addresses often
-come from US Census data it adds, not from OpenStreetMap, so here the result
-is the street.
+House numbers that openstreetmap.org's search finds for rural addresses
+often come from US Census data it adds, not from OpenStreetMap. In the US the
+index carries the same kind of data, the Census's TIGER/Line address ranges
+([ADR-0041](../architecture/adr/0041-us-census-address-ranges.md)), so such a
+number is ESTIMATED rather than missing; outside the US, or with numbers like
+Queens' "10-09", the result is the street.
 Typing while moving isn't locked out (owner's decision); the panel asks to
 type only when parked.
 
@@ -316,10 +320,20 @@ make search-region REGION=north-america/us/kansas
 make search-region REGION=north-america/us SEARCH_ARGS="--bbox=-124.85,24.4,-66.88,49.38 --name='Lower 48 states'"
 ```
 
+For a US region the build also downloads the Census's address ranges
+(TIGER/Line 2026 ADDRFEAT, one zip per county, public domain with credit to
+the U.S. Census Bureau) for its states into `build/search/tiger/`, once:
+a stopped download carries on next time. `SEARCH_ARGS=--no-tiger` leaves them
+out; with `PBF=` name the states, `SEARCH_ARGS=--tiger-states=KS,NE`.
+
 The result is `build/search/search.sqlite`, also copied to
-`/tmp/f250/search/` for `make navigation` and `make sim`. Kansas: 37 MB in
-2 s. The lower 48: 4.9 GB in about 8 minutes, with about 10 GB of memory at
-the peak [SIM, 2026-11-12]. On the Mac, from a terminal:
+`/tmp/f250/search/` for `make navigation` and `make sim`. Kansas: 63 MB in
+3 s with the address ranges (37 MB without). The lower 48: 5.2 GB in about 7 minutes without the
+address ranges; with 85 % of them, 7.0 GB in about 10 minutes, about 17.5 GB of
+memory at the peak either way; the ranges are about 2.7 GB to download
+[SIM, 2026-11-12, ADR-0041]. The Census's server refuses requests for a while
+when downloaded from too fast; the build then waits, and if it still can't,
+stops and says to run it again later (what is downloaded is kept). On the Mac, from a terminal:
 
 ```bash
 cargo run --release -p search-index -- query build/search/search.sqlite "120 n main st" --near 39.81,-98.56

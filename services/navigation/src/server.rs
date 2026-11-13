@@ -272,6 +272,7 @@ impl SearchService for Api {
                     query,
                     postcode: a.postcode.map(|p| p.code).unwrap_or_default(),
                     postcode_found: found,
+                    address_ranges: a.ranges_source.unwrap_or_default(),
                 }
             }
             Err(why) => pb::SearchResponse {

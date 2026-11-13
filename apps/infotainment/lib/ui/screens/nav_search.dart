@@ -271,12 +271,16 @@ class _NavSearchPanelState extends State<NavSearchPanel> {
     final data = [
       if (a.regions.isNotEmpty) a.regions.join(', '),
       'OpenStreetMap${a.dataDate.isEmpty ? '' : ' ${a.dataDate}'}',
+      if (a.addressRanges.isNotEmpty) '${a.addressRanges} address ranges',
     ].join(' · ');
+    final numbers = a.addressRanges.isEmpty
+        ? 'House numbers are sparse outside towns.'
+        : 'House numbers are sparse outside towns; ESTIMATED ones are placed along the street from US Census ranges.';
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
       child: Text(
         [
-          '$ranked.$zip Search data: $data. House numbers are sparse outside towns.',
+          '$ranked.$zip Search data: $data. $numbers',
           if (!widget.canRoute) 'Routing is unavailable: Show puts a result on the map.',
         ].join(' '),
         key: const ValueKey('nav-search-footer'),
@@ -418,5 +422,6 @@ class _ResultRow extends StatelessWidget {
     SearchMatch.street => Icons.add_road,
     SearchMatch.locality => Icons.location_city,
     SearchMatch.place => Icons.storefront_outlined,
+    SearchMatch.estimated => Icons.home_outlined,
   };
 }

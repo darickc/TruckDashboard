@@ -242,6 +242,7 @@ class SearchResponse extends $pb.GeneratedMessage {
     $core.String? query,
     $core.String? postcode,
     $core.bool? postcodeFound,
+    $core.String? addressRanges,
   }) {
     final result = SearchResponse._();
     if (available != null) result.available = available;
@@ -254,6 +255,7 @@ class SearchResponse extends $pb.GeneratedMessage {
     if (query != null) result.query = query;
     if (postcode != null) result.postcode = postcode;
     if (postcodeFound != null) result.postcodeFound = postcodeFound;
+    if (addressRanges != null) result.addressRanges = addressRanges;
     return result;
   }
 
@@ -282,6 +284,7 @@ class SearchResponse extends $pb.GeneratedMessage {
     ..aOS(8, _omitFieldNames ? '' : 'query')
     ..aOS(9, _omitFieldNames ? '' : 'postcode')
     ..aOB(10, _omitFieldNames ? '' : 'postcodeFound')
+    ..aOS(11, _omitFieldNames ? '' : 'addressRanges')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -391,6 +394,18 @@ class SearchResponse extends $pb.GeneratedMessage {
   $core.bool hasPostcodeFound() => $_has(9);
   @$pb.TagNumber(10)
   void clearPostcodeFound() => $_clearField(10);
+
+  /// Where estimated addresses come from, for the footer's attribution:
+  /// "US Census Bureau TIGER/Line 2026". Empty: the index has no address
+  /// ranges, and no result is MATCH_KIND_ESTIMATED_ADDRESS.
+  @$pb.TagNumber(11)
+  $core.String get addressRanges => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set addressRanges($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasAddressRanges() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearAddressRanges() => $_clearField(11);
 }
 
 const $core.bool _omitFieldNames =

@@ -14,19 +14,26 @@
 //! With state boundaries ([`crate::states`]), every row gets the state it is
 //! in, in parallel.
 //!
+//! With US Census address ranges ([`crate::tiger`], ADR-0041), the county
+//! files are read a batch at a time, in parallel, and each street's pieces
+//! are joined per name and town as OSM's streets are, then written. ZIP
+//! codes no OSM address carries are placed at the middle of their ranges.
+//!
 //! Memory grows with the extract: two numbers per stand-in node, plus the
 //! names. Kansas is a few hundred MB; the lower 48 a few GB.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use geocode::index::{self, Counts, Kind, Meta, Place, Writer};
+use geocode::index::{self, Counts, Kind, Meta, Place, PostcodeSource, RangeStreet, Writer};
+use geocode::line;
 use osmpbf::{BlobDecode, BlobReader, PrimitiveBlock};
 use rayon::prelude::*;
 
 use crate::extract::{Addr, Feature, classify};
 use crate::states::States;
+use crate::tiger::{self, TigerEdge};
 
 pub struct Options {
     pub pbfs: Vec<PathBuf>,
@@ -37,6 +44,11 @@ pub struct Options {
     pub data_date: Option<String>,
     /// State boundaries as GeoJSON lines (`osmium export`), if any.
     pub states: Option<PathBuf>,
+    /// US Census TIGER/Line ADDRFEAT county zips (ADR-0041), in this order.
+    pub tiger: Vec<PathBuf>,
+    /// Only the ranges whose line starts in this box (west, south, east,
+    /// north): the extract's own box.
+    pub tiger_bbox: Option<(f64, f64, f64, f64)>,
     /// Progress lines on stderr.
     pub verbose: bool,
 }
@@ -47,7 +59,12 @@ pub struct Summary {
     pub data_date: Option<String>,
     /// Ways whose stand-in node wasn't in the extract (cut at its edge).
     pub missing_nodes: usize,
+    /// What the US Census files held, summed.
+    pub tiger: tiger::Read1,
 }
+
+/// County files read at once: their ranges are in memory together.
+const TIGER_BATCH: usize = 48;
 
 /// One kept object.
 struct Found {
@@ -124,18 +141,16 @@ pub fn build(o: &Options) -> Result<Summary, String> {
         postcodes.len()
     ));
     say("assigning towns and joining streets");
-    let mut places = assemble(placed);
-    if let Some(path) = &o.states {
-        let states = States::read(path)?;
+    let towns = Towns::new(&placed);
+    let mut places = assemble_with(placed, &towns);
+    let states = o.states.as_deref().map(States::read).transpose()?;
+    if let Some(states) = &states {
         say(&format!(
             "{} state boundaries: placing every row in one",
             states.len()
         ));
         places.par_iter_mut().for_each(|p| {
-            p.state = states.at(p.lat, p.lon).map(|s| index::State {
-                short: s.short,
-                name: s.name,
-            });
+            p.state = state_at(states, p.lat, p.lon);
         });
     }
     say(&format!(
@@ -152,8 +167,57 @@ pub fn build(o: &Options) -> Result<Summary, String> {
         w.add(p).map_err(|e| format!("{}: {e}", part.display()))?;
     }
     for (code, lat, lon, n) in &postcodes {
-        w.add_postcode(code, *lat, *lon, *n)
+        w.add_postcode(code, *lat, *lon, *n, PostcodeSource::Osm)
             .map_err(|e| format!("{}: {e}", part.display()))?;
+    }
+    drop(places);
+    let osm_codes: HashSet<&str> = postcodes.iter().map(|p| p.0.as_str()).collect();
+    let mut census_zips = CensusZips::default();
+    let mut read = tiger::Read1::default();
+    for (k, batch) in o.tiger.chunks(TIGER_BATCH).enumerate() {
+        let files: Vec<Result<(Vec<TigerEdge>, tiger::Read1), String>> = batch
+            .par_iter()
+            .map(|f| tiger::read_zip(f, o.tiger_bbox))
+            .collect();
+        let mut edges = Vec::new();
+        for f in files {
+            let (e, n) = f.map_err(|e| {
+                format!("{e} (a damaged download: delete the file and run the build again)")
+            })?;
+            read.kept += n.kept;
+            read.odd_numbers += n.odd_numbers;
+            read.dropped += n.dropped;
+            edges.extend(e);
+        }
+        census_zips.add(&edges, &osm_codes);
+        let mut streets = range_streets(edges, &towns);
+        if let Some(states) = &states {
+            streets.par_iter_mut().for_each(|s| {
+                s.state = state_at(states, s.lat, s.lon);
+            });
+        }
+        for s in &streets {
+            w.add_range_street(s)
+                .map_err(|e| format!("{}: {e}", part.display()))?;
+        }
+        say(&format!(
+            "US Census address ranges: {} of {} county files, {} pieces of street",
+            (k * TIGER_BATCH + batch.len()),
+            o.tiger.len(),
+            read.kept
+        ));
+    }
+    if let Some(first) = o.tiger.first() {
+        w.set_ranges_source(&tiger::source_of(first));
+        let zips = census_zips.placed();
+        say(&format!(
+            "{} ZIP codes no OSM address has, placed from their address ranges",
+            zips.len()
+        ));
+        for (code, lat, lon, n) in &zips {
+            w.add_postcode(code, *lat, *lon, *n, PostcodeSource::Census)
+                .map_err(|e| format!("{}: {e}", part.display()))?;
+        }
     }
     let data_date = o.data_date.clone().or_else(|| all.timestamp.map(date_of));
     let counts = w
@@ -168,7 +232,126 @@ pub fn build(o: &Options) -> Result<Summary, String> {
         counts,
         data_date,
         missing_nodes,
+        tiger: read,
     })
+}
+
+fn state_at(states: &States, lat: f64, lon: f64) -> Option<index::State> {
+    states.at(lat, lon).map(|s| index::State {
+        short: s.short,
+        name: s.name,
+    })
+}
+
+/// ZIP codes from the address ranges, for those no OSM address carries:
+/// each side's middle, as f32 (a metre is plenty for a ZIP code's middle).
+#[derive(Default)]
+struct CensusZips {
+    by: BTreeMap<u32, (Vec<f32>, Vec<f32>)>,
+}
+
+impl CensusZips {
+    fn add(&mut self, edges: &[TigerEdge], osm: &HashSet<&str>) {
+        for e in edges {
+            let Some(mid) = line::along(&e.edge.line, 0.5) else {
+                continue;
+            };
+            for side in [&e.edge.left, &e.edge.right].into_iter().flatten() {
+                let Some(zip) = side.zip else { continue };
+                if osm.contains(geocode::ranges::zip_text(zip).as_str()) {
+                    continue;
+                }
+                let v = self.by.entry(zip).or_default();
+                v.0.push(mid.0 as f32);
+                v.1.push(mid.1 as f32);
+            }
+        }
+    }
+
+    /// Each ZIP code at the median of its sides' middles, sorted by code.
+    fn placed(self) -> Vec<(String, f64, f64, u64)> {
+        let median = |v: &mut Vec<f32>| {
+            v.sort_by(f32::total_cmp);
+            f64::from(v[v.len() / 2])
+        };
+        self.by
+            .into_iter()
+            .map(|(zip, (mut lats, mut lons))| {
+                let n = lats.len() as u64;
+                (
+                    geocode::ranges::zip_text(zip),
+                    median(&mut lats),
+                    median(&mut lons),
+                    n,
+                )
+            })
+            .collect()
+    }
+}
+
+/// US Census address ranges joined per street name and town, as OSM's
+/// streets are ([`assemble`]): the town nearest each piece's middle, a 0.25°
+/// cell away from any town. Each street stands at the middle of its piece
+/// nearest the pieces' mean. In the order first seen.
+pub fn range_streets(edges: Vec<TigerEdge>, towns: &Towns) -> Vec<RangeStreet> {
+    type Key = (String, Option<usize>, Option<(i64, i64)>);
+    struct G {
+        name: String,
+        town: Option<usize>,
+        mids: Vec<(f64, f64)>,
+        edges: Vec<geocode::ranges::Edge>,
+    }
+    let mut at: HashMap<Key, usize> = HashMap::new();
+    let mut groups: Vec<G> = Vec::new();
+    for te in edges {
+        let Some(mid) = line::along(&te.edge.line, 0.5) else {
+            continue;
+        };
+        let town = towns.nearest(mid.0, mid.1);
+        let key = (
+            te.name.to_lowercase(),
+            town,
+            town.is_none().then(|| cell_of(mid.0, mid.1)),
+        );
+        let i = *at.entry(key).or_insert_with(|| {
+            groups.push(G {
+                name: te.name.clone(),
+                town,
+                mids: Vec::new(),
+                edges: Vec::new(),
+            });
+            groups.len() - 1
+        });
+        groups[i].mids.push(mid);
+        groups[i].edges.push(te.edge);
+    }
+    groups
+        .into_iter()
+        .map(|g| {
+            let n = g.mids.len() as f64;
+            let mean = (
+                g.mids.iter().map(|p| p.0).sum::<f64>() / n,
+                g.mids.iter().map(|p| p.1).sum::<f64>() / n,
+            );
+            let stand = g
+                .mids
+                .iter()
+                .copied()
+                .min_by(|a, b| {
+                    geocode::distance_m(*a, mean).total_cmp(&geocode::distance_m(*b, mean))
+                })
+                .unwrap_or(mean);
+            RangeStreet {
+                name: g.name,
+                locality: g.town.map(|i| towns.name(i).to_string()),
+                locality_near: true,
+                state: None,
+                lat: stand.0,
+                lon: stand.1,
+                edges: g.edges,
+            }
+        })
+        .collect()
 }
 
 /// Where each ZIP code is: the median latitude and longitude of the
@@ -350,7 +533,7 @@ pub fn reach_km(category: &str) -> Option<f64> {
 }
 
 /// Towns that lend their names, in 0.25° cells.
-struct Towns {
+pub struct Towns {
     towns: Vec<(String, f64, f64, f64)>, // name, lat, lon, reach km
     grid: HashMap<(i64, i64), Vec<usize>>,
 }
@@ -362,7 +545,7 @@ fn cell_of(lat: f64, lon: f64) -> (i64, i64) {
 }
 
 impl Towns {
-    fn new(placed: &[(Feature, f64, f64)]) -> Towns {
+    pub fn new(placed: &[(Feature, f64, f64)]) -> Towns {
         let mut t = Towns {
             towns: Vec::new(),
             grid: HashMap::new(),
@@ -410,6 +593,11 @@ impl Towns {
 /// places, addresses.
 pub fn assemble(placed: Vec<(Feature, f64, f64)>) -> Vec<Place> {
     let towns = Towns::new(&placed);
+    assemble_with(placed, &towns)
+}
+
+/// [`assemble`] with the towns already found.
+pub fn assemble_with(placed: Vec<(Feature, f64, f64)>, towns: &Towns) -> Vec<Place> {
     let near = |lat: f64, lon: f64| towns.nearest(lat, lon).map(|i| towns.name(i).to_string());
     let locality = |a: &Addr, lat: f64, lon: f64| match &a.city {
         Some(c) => (Some(c.clone()), false),

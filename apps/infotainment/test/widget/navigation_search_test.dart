@@ -16,11 +16,12 @@ import 'navigation_screen_test.dart' show FakePositionSource, textOf;
 /// Answers from a table, recording every query, as services/navigation
 /// would answer them.
 class FakeSearchSource implements SearchSource {
-  FakeSearchSource(this.answers, {this.available = true, this.detail = ''});
+  FakeSearchSource(this.answers, {this.available = true, this.detail = '', this.addressRanges = ''});
 
   final Map<String, List<SearchResult>> answers;
   final bool available;
   final String detail;
+  final String addressRanges;
   final queries = <String>[];
 
   @override
@@ -45,6 +46,7 @@ class FakeSearchSource implements SearchSource {
       rankedFrom: zip == '99002' ? RankedFrom.postcode : RankedFrom.current,
       postcode: zip,
       postcodeFound: zip == '99002',
+      addressRanges: addressRanges,
     );
   }
 }
@@ -75,7 +77,17 @@ const fairview = SearchResult(
   unmatchedWords: ['elm', 'avenue'],
 );
 
+/// Placed from made-up US Census ranges, not mapped.
+const estimated = SearchResult(
+  kind: SearchMatch.estimated,
+  title: '150 N Main St',
+  subtitle: 'near Fairview · 99001',
+  location: LatLng(39.8405, -98.54),
+  distanceM: 1550,
+);
+
 final answers = {
+  '150 main': [estimated],
   '125 main': [mainStreet],
   '120 main': [address, mainStreet],
   'elm avenue fairview': [fairview],
@@ -169,8 +181,10 @@ void main() {
     await type(tester, 'main 12345');
     await tester.tap(find.byKey(const ValueKey('osk-done')));
     await tester.pump();
-    expect(textOf('nav-search-footer'),
-        startsWith("Nearest first. ZIP code 12345 isn't in the search data, so it wasn't used."));
+    expect(
+      textOf('nav-search-footer'),
+      startsWith("Nearest first. ZIP code 12345 isn't in the search data, so it wasn't used."),
+    );
   });
 
   testWidgets('an address comes back as one, with no note', (tester) async {
@@ -181,6 +195,25 @@ void main() {
     expect(row, findsOneWidget);
     expect(find.descendant(of: row, matching: find.byKey(const ValueKey('nav-search-note'))), findsNothing);
     expect(textOf('nav-search-result-120 North Main Street|Fairview'), contains('ADDRESS · Fairview · 1.0 mi away'));
+  });
+
+  testWidgets('an estimated address says it is one, and the footer names its source', (tester) async {
+    await open(tester, search: FakeSearchSource(answers, addressRanges: 'US Census Bureau TIGER/Line 2026'));
+    await openSearch(tester);
+    await type(tester, '150 main');
+    const key = 'nav-search-result-150 N Main St|near Fairview · 99001';
+    expect(textOf(key), contains('ESTIMATED · near Fairview · 99001'));
+    expect(textOf('nav-search-note'), 'Estimated from US Census address ranges');
+    expect(find.byKey(const ValueKey('nav-search-route')), findsOneWidget);
+    // Below the keyboard until it closes.
+    await tester.tap(find.byKey(const ValueKey('osk-done')));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(
+      textOf('nav-search-footer'),
+      contains('OpenStreetMap 2026-11-11 · US Census Bureau TIGER/Line 2026 address ranges'),
+    );
+    expect(textOf('nav-search-footer'), contains('ESTIMATED ones are placed along the street'));
   });
 
   testWidgets('a town found for a street that is not there says so', (tester) async {

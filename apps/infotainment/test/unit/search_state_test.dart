@@ -45,6 +45,32 @@ void main() {
       'Place name only: no house number in the map data',
     );
     expect(matchLabel(SearchMatch.locality), 'TOWN');
+    // From US Census ranges: always said to be an estimate.
+    expect(matchNote(result(SearchMatch.estimated), '150 main st'), 'Estimated from US Census address ranges');
+    expect(matchLabel(SearchMatch.estimated), 'ESTIMATED');
+  });
+
+  test('an estimated address and where the ranges come from', () {
+    final a = searchAnswerFromPb(
+      pb.SearchResponse(
+        available: true,
+        query: '150 main st',
+        addressRanges: 'US Census Bureau TIGER/Line 2026',
+        results: [
+          pb.SearchResult(
+            kind: pb.MatchKind.MATCH_KIND_ESTIMATED_ADDRESS,
+            title: '150 Main St',
+            subtitle: 'near Fairview · 99001',
+            location: route_pb.LatLon(latitudeDeg: 26.0025, longitudeDeg: -90),
+          ),
+        ],
+      ),
+      'q',
+    );
+    expect(a.results.single.kind, SearchMatch.estimated);
+    expect(a.results.single.houseNumberMissing, isFalse);
+    expect(a.addressRanges, 'US Census Bureau TIGER/Line 2026');
+    expect(searchAnswerFromPb(pb.SearchResponse(available: true), 'q').addressRanges, isEmpty);
   });
 
   test("navigation's answer becomes the model", () {
@@ -84,9 +110,14 @@ void main() {
     expect(a.positionAgeS, 90);
     expect((a.postcode, a.postcodeFound), ('', false));
     final z = searchAnswerFromPb(
-        pb.SearchResponse(
-            available: true, rankedFrom: pb.RankedFrom.RANKED_FROM_POSTCODE, postcode: '99002', postcodeFound: true),
-        'q');
+      pb.SearchResponse(
+        available: true,
+        rankedFrom: pb.RankedFrom.RANKED_FROM_POSTCODE,
+        postcode: '99002',
+        postcodeFound: true,
+      ),
+      'q',
+    );
     expect((z.rankedFrom, z.postcode, z.postcodeFound), (RankedFrom.postcode, '99002', true));
     expect(a.results, hasLength(2));
     expect(a.results[0].kind, SearchMatch.street);

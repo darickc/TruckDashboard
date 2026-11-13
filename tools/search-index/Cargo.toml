@@ -18,6 +18,9 @@ path = "src/main.rs"
 [dependencies]
 f250-geocode = { path = "../../crates/geocode" }
 clap = { version = "4", features = ["derive"] }
+# The Census's zipped ADDRFEAT shapefiles (ADR-0041), read without GDAL.
+crc32fast = "1"
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 osmpbf = "0.3.8"
 rayon = "1"
 serde_json = "1.0.154"

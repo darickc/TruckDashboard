@@ -35,16 +35,24 @@ class MatchKind extends $pb.ProtobufEnum {
   static const MatchKind MATCH_KIND_PLACE =
       MatchKind._(4, _omitEnumNames ? '' : 'MATCH_KIND_PLACE');
 
+  /// The house number asked for, placed along its street by interpolating
+  /// the US Census Bureau's address ranges (TIGER/Line, ADR-0041): an
+  /// estimate of where the house is, not a mapped address. The subtitle ends
+  /// with the range's ZIP code when it has one.
+  static const MatchKind MATCH_KIND_ESTIMATED_ADDRESS =
+      MatchKind._(5, _omitEnumNames ? '' : 'MATCH_KIND_ESTIMATED_ADDRESS');
+
   static const $core.List<MatchKind> values = <MatchKind>[
     MATCH_KIND_UNSPECIFIED,
     MATCH_KIND_ADDRESS,
     MATCH_KIND_STREET,
     MATCH_KIND_LOCALITY,
     MATCH_KIND_PLACE,
+    MATCH_KIND_ESTIMATED_ADDRESS,
   ];
 
   static final $core.List<MatchKind?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 4);
+      $pb.ProtobufEnum.$_initByValueList(values, 5);
   static MatchKind? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

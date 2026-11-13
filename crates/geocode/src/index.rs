@@ -13,6 +13,11 @@
 //!
 //!   `terms` and `addrs` also hold each row's cells ([`cell_tokens`]), so the
 //!   search can ask for "these words, near here" in one FTS query.
+//! - `postcodes`: where each ZIP code is.
+//! - US Census Bureau address ranges (ADR-0041), when the build had them:
+//!   `ranges`, one row per street name and town like OSM's streets, with
+//!   its pieces in `range_edges` (rowids `first..first + count`, so no index
+//!   is needed) and its words in the FTS5 table `range_terms`.
 //! - `meta`: what the data covers, and when it was built.
 //!
 //! The file says what it is with `PRAGMA application_id` ([`APPLICATION_ID`],
@@ -23,7 +28,7 @@ use std::path::Path;
 
 use rusqlite::{Connection, params};
 
-use crate::text;
+use crate::{line, ranges, text};
 
 /// "F250" in the SQLite header (bytes 68..72, big-endian).
 pub const APPLICATION_ID: i32 = 0x4632_3530;
@@ -32,7 +37,10 @@ pub const APPLICATION_ID: i32 = 0x4632_3530;
 /// added still said 1, and every search on them failed with "no such column:
 /// p.state" (bench-log 2026-11-12); they are now refused as version 1.
 /// 3: `postcodes`, where each ZIP code is (the middle of its addresses).
-pub const SCHEMA_VERSION: i32 = 3;
+/// 4: US Census address ranges (`ranges`, `range_edges`, `range_terms`),
+/// `postcodes.source`, and "co"/"county" and "tpke"/"turnpike" in the
+/// words (ADR-0041).
+pub const SCHEMA_VERSION: i32 = 4;
 
 /// What a row is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -182,6 +190,9 @@ pub struct Counts {
     pub pois: u64,
     /// ZIP codes with a position.
     pub postcodes: u64,
+    /// US Census address ranges: streets, and their sides with a range.
+    pub range_streets: u64,
+    pub ranges: u64,
 }
 
 impl Counts {
@@ -223,19 +234,79 @@ CREATE TABLE postcodes(
   code TEXT PRIMARY KEY,
   lat REAL NOT NULL,
   lon REAL NOT NULL,
-  addresses INTEGER NOT NULL
+  addresses INTEGER NOT NULL,
+  source INTEGER NOT NULL
 ) WITHOUT ROWID;
+CREATE TABLE ranges(
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  locality TEXT,
+  near INTEGER NOT NULL,
+  state TEXT,
+  lat REAL NOT NULL,
+  lon REAL NOT NULL,
+  first INTEGER NOT NULL,
+  count INTEGER NOT NULL
+);
+CREATE TABLE range_edges(
+  id INTEGER PRIMARY KEY,
+  lfrom INTEGER, lto INTEGER, lparity INTEGER, lzip INTEGER,
+  rfrom INTEGER, rto INTEGER, rparity INTEGER, rzip INTEGER,
+  line BLOB NOT NULL
+);
+CREATE VIRTUAL TABLE range_terms USING fts5(
+  name, locality, cells,
+  content = '', detail = 'column', tokenize = 'unicode61 remove_diacritics 2'
+);
 CREATE VIRTUAL TABLE addrs USING fts5(
   number, street, name, locality, cells,
   content = '', detail = 'column', tokenize = 'unicode61 remove_diacritics 2'
 );
 ";
 
+/// Where a ZIP code's position comes from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PostcodeSource {
+    /// The middle of the OSM addresses that carry it.
+    Osm = 1,
+    /// The middle of the US Census address ranges that carry it (only ZIP
+    /// codes no OSM address has).
+    Census = 2,
+}
+
+impl PostcodeSource {
+    pub fn from_i64(v: i64) -> PostcodeSource {
+        if v == 2 {
+            PostcodeSource::Census
+        } else {
+            PostcodeSource::Osm
+        }
+    }
+}
+
+/// One street's US Census address ranges near one town, as the builder
+/// adds them: like an OSM street row, but carrying its pieces.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RangeStreet {
+    /// TIGER's FULLNAME ("N Main St").
+    pub name: String,
+    pub locality: Option<String>,
+    pub locality_near: bool,
+    pub state: Option<State>,
+    /// Where it stands for the street in the ranking (a piece's middle).
+    pub lat: f64,
+    pub lon: f64,
+    pub edges: Vec<ranges::Edge>,
+}
+
 /// Builds an index file, replacing any file at that path.
 pub struct Writer {
     conn: Connection,
     next_id: i64,
+    next_range: i64,
+    next_edge: i64,
     counts: Counts,
+    ranges_source: Option<String>,
 }
 
 impl Writer {
@@ -253,7 +324,10 @@ impl Writer {
         Ok(Writer {
             conn,
             next_id: 1,
+            next_range: 1,
+            next_edge: 1,
             counts: Counts::default(),
+            ranges_source: None,
         })
     }
 
@@ -332,18 +406,105 @@ impl Writer {
     }
 
     /// Where ZIP code `code` (five digits) is: the middle of the `addresses`
-    /// addresses that carry it.
+    /// addresses (or address ranges) from `source` that carry it.
     pub fn add_postcode(
         &mut self,
         code: &str,
         lat: f64,
         lon: f64,
         addresses: u64,
+        source: PostcodeSource,
     ) -> rusqlite::Result<()> {
+        let n = self.conn
+            .prepare_cached("INSERT OR REPLACE INTO postcodes(code, lat, lon, addresses, source) VALUES (?1, ?2, ?3, ?4, ?5)")?
+            .execute(params![code, lat, lon, i64::try_from(addresses).unwrap_or(i64::MAX), source as i64])?;
+        self.counts.postcodes += n as u64;
+        Ok(())
+    }
+
+    /// What the address ranges are, for the screen's footer ("US Census
+    /// Bureau TIGER/Line 2026"); set once ranges are added.
+    pub fn set_ranges_source(&mut self, source: &str) {
+        self.ranges_source = Some(source.to_string());
+    }
+
+    /// A street's US Census address ranges near one town.
+    pub fn add_range_street(&mut self, s: &RangeStreet) -> rusqlite::Result<()> {
+        if s.edges.is_empty() {
+            return Ok(());
+        }
+        let id = self.next_range;
+        self.next_range += 1;
+        let first = self.next_edge;
+        for e in &s.edges {
+            let side = |side: &Option<ranges::Side>| {
+                side.as_ref().map_or((None, None, None, None), |r| {
+                    (
+                        Some(i64::from(r.from)),
+                        Some(i64::from(r.to)),
+                        Some(r.parity as i64),
+                        r.zip.map(i64::from),
+                    )
+                })
+            };
+            let (lf, lt, lp, lz) = side(&e.left);
+            let (rf, rt, rp, rz) = side(&e.right);
+            self.conn
+                .prepare_cached(
+                    "INSERT INTO range_edges(id, lfrom, lto, lparity, lzip, rfrom, rto, rparity, rzip, line)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                )?
+                .execute(params![
+                    self.next_edge,
+                    lf,
+                    lt,
+                    lp,
+                    lz,
+                    rf,
+                    rt,
+                    rp,
+                    rz,
+                    line::encode(&e.line)
+                ])?;
+            self.next_edge += 1;
+            self.counts.ranges += u64::from(e.left.is_some()) + u64::from(e.right.is_some());
+        }
         self.conn
-            .prepare_cached("INSERT OR REPLACE INTO postcodes(code, lat, lon, addresses) VALUES (?1, ?2, ?3, ?4)")?
-            .execute(params![code, lat, lon, i64::try_from(addresses).unwrap_or(i64::MAX)])?;
-        self.counts.postcodes += 1;
+            .prepare_cached(
+                "INSERT INTO ranges(id, name, locality, near, state, lat, lon, first, count)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            )?
+            .execute(params![
+                id,
+                s.name,
+                s.locality,
+                s.locality_near,
+                s.state.as_ref().map(|st| st.short.as_str()),
+                s.lat,
+                s.lon,
+                first,
+                self.next_edge - first
+            ])?;
+        let name = text::index_terms(&s.name);
+        let mut locality = s
+            .locality
+            .as_deref()
+            .map(text::index_terms)
+            .unwrap_or_default();
+        if let Some(st) = &s.state {
+            locality.extend(text::words(&st.short));
+        }
+        self.conn
+            .prepare_cached(
+                "INSERT INTO range_terms(rowid, name, locality, cells) VALUES (?1, ?2, ?3, ?4)",
+            )?
+            .execute(params![
+                id,
+                name.join(" "),
+                locality.join(" "),
+                cell_tokens(s.lat, s.lon)
+            ])?;
+        self.counts.range_streets += 1;
         Ok(())
     }
 
@@ -359,6 +520,12 @@ impl Writer {
             ("localities", c.localities.to_string()),
             ("pois", c.pois.to_string()),
             ("postcodes", c.postcodes.to_string()),
+            ("range_streets", c.range_streets.to_string()),
+            ("ranges", c.ranges.to_string()),
+            (
+                "ranges_source",
+                self.ranges_source.clone().unwrap_or_default(),
+            ),
             ("source", "© OpenStreetMap contributors, ODbL".to_string()),
         ];
         for (k, v) in rows {
@@ -371,6 +538,7 @@ impl Writer {
             "INSERT INTO terms(terms) VALUES ('optimize');
              INSERT INTO towns(towns) VALUES ('optimize');
              INSERT INTO addrs(addrs) VALUES ('optimize');
+             INSERT INTO range_terms(range_terms) VALUES ('optimize');
              COMMIT; ANALYZE; VACUUM;",
         )?;
         Ok(c)

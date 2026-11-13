@@ -40,7 +40,7 @@ fn stamp(path: &Path) -> Option<Stamp> {
 
 enum State {
     Closed,
-    Open(Stamp, Index),
+    Open(Stamp, Box<Index>),
     /// The file at this stamp couldn't be opened; not tried again until it
     /// changes.
     Bad(Stamp, String),
@@ -59,6 +59,8 @@ pub struct Answer {
     /// A ZIP code the query ended with, and where it is (None: not in the
     /// data).
     pub postcode: Option<geocode::search::Postcode>,
+    /// "US Census Bureau TIGER/Line 2026" when the index has address ranges.
+    pub ranges_source: Option<String>,
 }
 
 impl Searcher {
@@ -101,7 +103,7 @@ impl Searcher {
                             ix.info.regions.join(", "),
                             ix.info.data_date.as_deref().unwrap_or("of unknown date")
                         );
-                        State::Open(n, ix)
+                        State::Open(n, Box::new(ix))
                     }
                     Err(why) => {
                         eprintln!("[navigation] search data unusable: {why}");
@@ -122,6 +124,7 @@ impl Searcher {
                     postcode: found.postcode,
                     regions: ix.info.regions.clone(),
                     data_date: ix.info.data_date.clone(),
+                    ranges_source: ix.info.ranges_source.clone(),
                 })
             }
         }
@@ -151,6 +154,7 @@ pub fn hit_to_pb(h: &Hit) -> pb::SearchResult {
             Match::Street => pb::MatchKind::Street,
             Match::Locality => pb::MatchKind::Locality,
             Match::Place => pb::MatchKind::Place,
+            Match::Estimated => pb::MatchKind::EstimatedAddress,
         } as i32,
         title: h.title.clone(),
         subtitle: h.subtitle.clone(),

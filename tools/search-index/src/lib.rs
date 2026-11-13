@@ -6,7 +6,10 @@
 //! - [`builder`]: two passes over the PBF files, towns for every row, streets
 //!   joined, then the file (`geocode::index::Writer`).
 //! - [`states`]: the state each row is in, from OSM's state boundaries.
+//! - [`tiger`]: US Census Bureau address ranges (TIGER/Line ADDRFEAT,
+//!   ADR-0041), joined per street and town like OSM's streets.
 
 pub mod builder;
 pub mod extract;
 pub mod states;
+pub mod tiger;
