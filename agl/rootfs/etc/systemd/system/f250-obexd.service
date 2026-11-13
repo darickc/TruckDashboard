@@ -5,10 +5,16 @@
 # mode 0600, so it must run as audio-manager's user for audio-manager to
 # read it; obexd/client/transfer.c). Started by f250-audio-manager.service.
 #
-# --noplugin='*': none of obexd's servers (object push, file transfer,
-# phonebook, messages) are loaded, so a phone is offered nothing; the client
-# (and its BIP part) is not a plugin and stays (obexd/src/main.c,
-# obexd/client/manager.c, BlueZ 5.86). --root is the servers' folder, unused.
+# obexd refuses to start without one server and its Bluetooth transport
+# (obex_server_init, obexd/src/server.c: "obex_server_init failed" on the
+# bench Pi with --noplugin='*', 2026-11-13). So --plugin=bluetooth,opp loads
+# only those two, and f250-obex.conf denies user f250 bluetoothd's
+# ProfileManager1.RegisterProfile: obexd's servers get connections only
+# through a registered profile (plugins/bluetooth.c, NewConnection; it opens
+# no sockets of its own), so the object push server never reaches a phone
+# and a phone is offered nothing. obexd logs that refusal once at start
+# ("RequestProfile error"). The client (and its BIP part) is not a plugin
+# (obexd/client/manager.c, BlueZ 5.86). --root is the servers' folder, unused.
 # The image's own obex.service is a user unit on the session bus; it isn't
 # used. f250-obex.conf lets user f250 own org.bluez.obex.
 #
@@ -28,7 +34,7 @@ Type=dbus
 BusName=org.bluez.obex
 User=f250
 Group=f250
-ExecStart=/usr/libexec/bluetooth/obexd --system-bus --nodetach --noplugin=* --root=/run/f250-obex/root
+ExecStart=/usr/libexec/bluetooth/obexd --system-bus --nodetach --plugin=bluetooth,opp --root=/run/f250-obex/root
 Restart=on-failure
 RestartSec=5
 UMask=0077

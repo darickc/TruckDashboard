@@ -2398,3 +2398,88 @@ the Mac. Without the ZIP code the results are ranked from the truck, the
 simulated position in Kansas on the bench, so a same-named road in Nebraska
 comes first there. Not checked: the estimate against the house's real
 position, the Search panel's ESTIMATED label on the panel itself.
+
+## 2026-11-13 — Cover art plumbing and heading up on the Pi (ADR-0042, ADR-0032) [BENCH]
+
+e481bd7 `make deploy`ed to the AGL bench Pi (the 192.168.1.190 card didn't
+answer). Stage 1 installed `f250-obexd.service`, `f250-obex.conf` and the
+bluetoothd drop-in, and restarted bluetoothd: it runs
+`/usr/libexec/bluetooth/bluetoothd --experimental`. audio-manager came back
+on its own after the restart ("bluetoothd restarted; trying again in 5 s")
+and starts with `--cover-art-file /run/f250-obex/cover-art`.
+
+obexd failed: `--noplugin='*'` leaves obexd with no server, and it exits
+"obex_server_init failed" (it needs one server and the Bluetooth transport;
+obexd/src/server.c). Now `--plugin=bluetooth,opp`, with user f250 denied
+`ProfileManager1.RegisterProfile` in `f250-obex.conf`: obexd is active as
+uid 950 (`busctl --system status org.bluez.obex`), logs the refused
+registration ("RequestProfile error: …AccessDenied"), and `bluetoothctl
+show` lists no OBEX service UUID, so nothing new is offered to phones.
+`/run/f250-obex` is f250, 0700. `make agl-test` covers both.
+
+Not seen: a picture. No phone was connected (audio-manager kept trying the
+Z Fold8: "InProgress: br-connection-busy"), so ObexPort, the BIP session
+and the Media screen's picture are still untested. Bench check 23.
+
+Nav on the panel (screenshots with agl-screenshooter, the simulated
+receiver on its first leg, due east): the map turns, east up, the compass
+needle points left (north), the truck arrow points up and the map scrolls
+down under it. **Problem:** road labels turn with the map, and the
+lettered (north-south) roads' names, such as "CC Rd", are drawn upside
+down. vector_tile_renderer 6.1.0 keeps a line label right side up from its
+angle on the tile only (`_rightSideUpAngle` in symbol_line_renderer.dart),
+not the map's rotation. Not fixed yet.
+
+Later the same morning the owner's Z Fold8 connected and played ("Have It
+All", Jason Mraz): title, artist, album, time and controls on Media, but
+no picture. The screen said why: "Couldn't reach the phone's cover art:
+Failed: Transport got disconnected".
+
+- The phone advertises cover art: its AVRCP target record (sdptool, raw) has
+  version 1.6, features 0x01d1 (cover art bit 0x0100 set) and an OBEX L2CAP
+  PSM 0x1001; BlueZ's player has the same `ObexPort`, so nothing is cached
+  or stale.
+- btmon, each attempt: L2CAP to PSM 0x1001 accepted, ERTM configured both
+  ways, obexd sends a standard OBEX CONNECT (Target
+  7163DD54-4A7E-11E2-B47C-0050C2490048), and the phone sends an L2CAP
+  Disconnection Request 2.4 ms later with no OBEX response.
+- The same path to the phone's Object Push server (L2CAP PSM 0x1005, from
+  its record's attribute 0x0200; session opened and removed, nothing sent):
+  the phone answered CONNECT with Success (0xA0). So Bluetooth, ERTM and
+  obexd work with this phone; only its cover art server drops the client.
+- AOSP's own cover art server (AvrcpCoverArtService, AvrcpBipObexServer,
+  ObexServerSockets on main, read through a web-fetch agent) never closes
+  silently: a refused client gets OBEX 503, this Target gets 200. It isn't
+  started below AVRCP 1.6 (the system property's name wasn't read). So the
+  phone's own stack decides; why is UNKNOWN without the phone's log.
+
+Next: on the phone, Developer options → Bluetooth AVRCP version 1.6, then
+Bluetooth off and on; else a bug report or HCI snoop log from the phone.
+
+Found (the phone over adb, its logcat and `dumpsys bluetooth_manager`, and
+obexd with `-d`): AVRCP 1.6 was already set. Android's cover art service
+takes **one client per device**, and its `clients` list already held the
+F-250; every audio-manager attempt got "RemoteDevice is invalid - creating
+ObexRejectServer". After each reconnect (and after the phone's Bluetooth was
+turned off and on, twice) a BIP client connected 60 ms after AVRCP did and
+asked for an image with a descriptor the phone rejected ("Unrecognized tag
+in x-bt/img-Description object: image-descriptor", "Failed to serialize
+image with given format"). It wasn't audio-manager's obexd: obexd's debug
+log starts its first session 9 s later. It was BlueZ's **mpris-proxy**,
+which the image runs for agl-driver: once bluetoothd shows `ObexPort`
+(`--experimental`) it starts the user's session obexd and opens its own
+`bip-avrcp` session (tools/mpris-proxy.c).
+
+Masked it for every user (`/etc/systemd/user/mpris-proxy.service` →
+/dev/null) and stopped it and its obexd: audio-manager's next attempt
+opened the session ("cover art: BIP session to … open"), obexd wrote a 33 KB
+JPEG to `/run/f250-obex/cover-art` (f250, 0600), and Media showed the
+album's picture beside "Casey Jones", Johnny Cash (screenshot). Stage 1 and
+the image now mask it; `make agl-test` covers it.
+
+Redeployed (`SKIP_BUILD=1 make deploy`): `stage1-setup.sh --check` all
+passed, including "mpris-proxy masked". audio-manager restarted and opened
+the session again by itself; Media showed "Tightrope" with its album's
+picture, and Next on the panel showed "Stressed Out" with its own, not the
+last one's. Not yet seen: a track without a picture, the first track
+straight after the phone connects, an iPhone.

@@ -63,6 +63,11 @@ COMPOSITOR=agl-compositor.service
 COMPOSITOR_DROPIN=etc/systemd/system/agl-compositor.service.d/50-f250.conf
 CONNMAN_DROPIN=etc/systemd/system/connman.service.d/50-f250.conf
 BLUEZ_DROPIN=etc/systemd/system/bluetooth.service.d/50-f250.conf
+# BlueZ's mpris-proxy (a user unit the image enables for every user) opens
+# its own cover art session once bluetoothd shows ObexPort, and phones allow
+# one per device: masked, so audio-manager's is the one (ADR-0042).
+MPRIS_MASK=etc/systemd/user/mpris-proxy.service
+DASHBOARD_USER=agl-driver
 RFKILL=/sys/class/rfkill
 JOURNAL_DIR=/var/lib/journal
 JOURNAL_MOUNT=var-volatile-log-journal.mount
@@ -317,6 +322,11 @@ check() {
   else
     warn "/$BLUEZ_DROPIN missing or old: no cover art from the phone (run this script)"
   fi
+  if [[ "$(readlink "$ROOT/$MPRIS_MASK" 2>/dev/null)" == /dev/null ]]; then
+    ok "mpris-proxy masked: audio-manager has the phone's cover art session (/$MPRIS_MASK)"
+  else
+    warn "mpris-proxy not masked: it may take the phone's one cover art session (run this script)"
+  fi
   rf="$(bt_rfkill)"
   if [[ -z "$rf" ]]; then
     warn "no Bluetooth controller (no rfkill switch of type bluetooth): the obdlink transport can't reach the MX+"
@@ -529,6 +539,14 @@ apply() {
   if [[ "$bluez_new" == 1 ]]; then
     sys systemctl restart bluetooth.service
     echo "  restarted bluetoothd (/$BLUEZ_DROPIN)"
+  fi
+  if [[ "$(readlink "$ROOT/$MPRIS_MASK" 2>/dev/null)" != /dev/null ]]; then
+    mkdir -p "$(dirname "$ROOT/$MPRIS_MASK")"
+    ln -sfn /dev/null "$ROOT/$MPRIS_MASK"
+    echo "  masked mpris-proxy for every user (/$MPRIS_MASK): it took the phone's cover art session"
+    # Its running copy, and the session obexd it started, let go of the
+    # phone's session when they stop.
+    sys systemctl --user -M "$DASHBOARD_USER@" stop mpris-proxy.service obex.service || true
   fi
   # The drop-in (step 4) takes effect when connman next starts. Until then
   # the old connman doesn't block the controller again: it only re-blocks

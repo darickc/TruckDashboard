@@ -46,6 +46,13 @@ do_install() {
         ln -sf /dev/null ${D}${SYSD}/$u
     done
 
+    # BlueZ's mpris-proxy, a user unit enabled for every user, opens its own
+    # cover art session to the phone once bluetoothd shows ObexPort, and a
+    # phone allows one per device: masked for all users (ADR-0042), as
+    # `systemctl --global mask` would.
+    install -d ${D}${sysconfdir}/systemd/user
+    ln -sf /dev/null ${D}${sysconfdir}/systemd/user/mpris-proxy.service
+
     # Stage 1 step 7. The demo homescreen is left out of the image (agl-f250.bb).
     f250_wants multi-user.target f250-gateway.service
     f250_wants multi-user.target f250-recorder.service

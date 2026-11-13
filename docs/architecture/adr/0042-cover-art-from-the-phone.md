@@ -34,10 +34,13 @@ packages (`bluez5`, `bluez5-obex` 5.86-r0 RPMs):
 | obexd creates the target file at the transfer's start, `O_WRONLY \| O_CREAT \| O_TRUNC`, mode **0600**, owned by obexd's user | `obexd/client/transfer.c` (`obc_transfer_get`, `transfer_open`) | Verified from source |
 | obexd runs on the **session** bus unless started with `--system-bus`; the image ships it as a *user* unit (`/usr/lib/systemd/user/obex.service`) | `obexd/src/main.c`; the RPM | Verified |
 | BlueZ's `obex.conf` lets only root own `org.bluez.obex` and anyone send to it | `obexd/src/obex.conf`; the RPM's `/usr/share/dbus-1/system.d/obex.conf` | Verified |
-| `--noplugin='*'` leaves out every obexd server (push, file transfer, phonebook, messages); the client, BIP included, isn't a plugin | `obexd/src/main.c`, `obexd/src/plugin.c` (glob match), `obexd/client/manager.c` | Verified from source |
+| obexd won't start without at least one server driver and one transport (`obex_server_init` returns `-EINVAL`): `--noplugin='*'` fails with "obex_server_init failed". The client, BIP included, isn't a plugin | `obexd/src/server.c`, `obexd/src/plugin.c`, `obexd/client/manager.c`; [BENCH] the bench Pi, 2026-11-13 | Verified |
+| obexd's servers take connections only through a profile registered with bluetoothd (`ProfileManager1.RegisterProfile`, then `Profile1.NewConnection`); it opens no sockets of its own. A refused registration is logged and obexd goes on | `obexd/plugins/bluetooth.c` (`register_profile_reply`) | Verified from source |
 | `bluez5-obex` is in the `agl-f250` image | the image manifest, 2026-11-12 | Verified |
 | AVRCP 1.6's thumbnail is a small JPEG (200×200 in the specification) | Bluetooth AVRCP 1.6 specification, from memory | UNVERIFIED here: the size isn't relied on (pictures are scaled to fit) |
 | Which phones offer cover art over AVRCP; whether the owner's iPhone does | — | UNVERIFIED: bench check 23 |
+| The owner's Z Fold8 (Android 17) serves cover art: AVRCP 1.6, features 0x01d1, PSM 0x1001, JPEG thumbnails. Android allows **one cover art client per device** (`AvrcpCoverArtService`: a second gets `ObexRejectServer`, logged "RemoteDevice is invalid") | bench-log 2026-11-13, the phone's logcat and `dumpsys bluetooth_manager` | [BENCH] |
+| BlueZ's `mpris-proxy` (the image enables it as a user unit for every user; it runs as agl-driver) has its own cover art client: once `ObexPort` is visible it starts a session obexd and opens `bip-avrcp` within 60 ms of AVRCP connecting, and asks for images with a descriptor this phone can't serve. It took the phone's one slot, so audio-manager was refused | `tools/mpris-proxy.c` (`bip-avrcp`, `CreateSession`, `ObexPort`, `Get`); [BENCH] logs on both sides, 2026-11-13 | Verified |
 
 ## Decision
 
@@ -67,17 +70,25 @@ packages (`bluez5`, `bluez5-obex` 5.86-r0 RPMs):
    left of the title, as big as the track area allows (at most 220 px; about
    170 px at 800×480 with the controls below).
 5. **obexd on the system bus as user f250**, client only
-   (`f250-obexd.service`: `--system-bus --nodetach --noplugin=*`), started by
+   (`f250-obexd.service`: `--system-bus --nodetach --plugin=bluetooth,opp`:
+   the transport and the one server obexd needs to start), started by
    audio-manager's unit. Same user, because obexd writes the picture 0600: it
    writes `/run/f250-obex/cover-art` (its own RuntimeDirectory) and
    audio-manager only reads it (`ProtectSystem=strict` leaves `/run`
-   readable). `f250-obex.conf` lets f250 own `org.bluez.obex`. No servers, so
-   a phone is offered nothing new.
+   readable). `f250-obex.conf` lets f250 own `org.bluez.obex` and **denies f250
+   `RegisterProfile`**, so the object push server is never registered with
+   bluetoothd and a phone is offered nothing new (amended 2026-11-13 after
+   `--noplugin='*'` failed on the bench Pi).
 6. **bluetoothd with `--experimental`** (`bluetooth.service.d/50-f250.conf`
    replaces ExecStart; the package's main.conf is left alone). Stage 1
    restarts bluetoothd when the drop-in changes; the MX+ and the phone
    reconnect by themselves.
-7. **Off with `AUDIO_COVER_ART=0`**; the simulation has its own pictures (a
+7. **mpris-proxy is masked for every user** (`/etc/systemd/user/mpris-proxy.service`
+   → `/dev/null`, by Stage 1 and in the image), because a phone allows one
+   cover art client and mpris-proxy would take it. It only mirrors the phone's
+   player as MPRIS on the dashboard user's session bus, which nothing here uses
+   (the dashboard asks audio-manager). Added 2026-11-13 on the bench.
+8. **Off with `AUDIO_COVER_ART=0`**; the simulation has its own pictures (a
    made-up record per track, the third track none) and never starts obexd.
 
 ## Alternatives considered
@@ -104,6 +115,10 @@ packages (`bluez5`, `bluez5-obex` 5.86-r0 RPMs):
 - The obexd unit's sandbox (`SystemCallFilter`, `RestrictAddressFamilies=AF_UNIX AF_BLUETOOTH`,
   no `PrivateNetwork`, because Bluetooth sockets work only in the host's
   network namespace) is UNVERIFIED on the Pi.
+- Anything else on the Pi that opens a BIP session to the phone (another
+  `mpris-proxy`, a desktop's media applet) takes the phone's one slot and
+  audio-manager is refused; Media then says "Couldn't reach the phone's
+  cover art: … Transport got disconnected".
 - A phone without cover art (or bluetoothd without `--experimental`) shows
   the note and "The phone doesn't offer cover art"; nothing else changes.
 

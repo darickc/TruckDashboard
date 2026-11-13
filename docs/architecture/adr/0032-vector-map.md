@@ -122,6 +122,8 @@ needs no change either way: every protobuf version reads the same messages.
   the locate button turns it again. A compass shows north; the truck,
   destination and chosen-point markers stay upright. vector_map_tiles is
   given the map's rotation for its labels. [SIM]: widget tests and a render
-  of the Lebanon, Kansas fixture at 0°, 45° and 90°; not on the Pi.
+  of the Lebanon, Kansas fixture at 0°, 45° and 90°. [BENCH] 2026-11-13: it
+  turns on the Pi, but line labels can be upside down (vector_tile_renderer
+  6.1.0 keeps them right side up on the tile, not on the screen; bench-log).
 - Third-party notices: the fonts' OFL and the style and icon licences are in
   `assets/map/README.md`. The map data's ODbL attribution is on screen.
