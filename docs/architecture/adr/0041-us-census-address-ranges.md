@@ -111,14 +111,21 @@ How **Nominatim** uses TIGER, the reference the owner compared with:
 - **Kansas:** 377,809 pieces of street from 105 county files, 603,170 sides
   with a range on 79,370 streets, 250 more ZIP codes; the index grows from
   37 MB to 63 MB and builds in 3 s (download not counted) [SIM].
-- **The lower 48:** see the measurements below: about +2 GB and +4 minutes
-  of build, no more memory, 0–3 ms more per search.
+- **The lower 48:** see the measurements below: +2.0 GB (7.2 GB) and
+  +3.5 minutes of build, no more memory, 0–3 ms more per search.
 - **The Census's server rate-limits.** At 4 downloads at once (about 5 files
   a second) it began answering every request with a "Request Rejected" page
   (HTTP 200, HTML) after about 2,600 files, and was still refusing 40 minutes
   later [2026-11-12]. The download now runs 2 at a time with a pause,
   recognises that page, waits 1, 2, 5 and 10 minutes, then stops with a
   message; files already there are kept, so the same command carries on.
+  By the next morning it served files again, except one: Kimble County,
+  Texas (`tl_2026_48267_addrfeat.zip`, the file it was on when the limit
+  began) was still refused while every other file came through, and a
+  file of the same county from 2025 was served [2026-11-13]. So when the
+  server refuses a file but still serves one already downloaded (its first
+  four bytes), the file is tried once more and then left out with a
+  warning; that county has no ranges until a later run fetches it.
 - Ranges are potential numbers: a number inside one may not exist, and the
   estimate can't tell. The label says so.
 - Hyphenated (Queens) and grid (Wisconsin) numbers aren't estimated.
@@ -132,32 +139,36 @@ How **Nominatim** uses TIGER, the reference the owner compared with:
 
 ## Lower-48 measurements
 
-On an M-series Mac (64 GB), 2026-11-12, from the OSM extract of 2026-11-11
+On an M-series Mac (64 GB), 2026-11-12 and 13, from the OSM extract of 2026-11-11
 clipped to the lower 48 (the same file as ADR-0038's build) [SIM]:
 
-| | Without ranges (schema 4, like-for-like) | With 2,628 of the 3,109 county files (85 %) |
-|---|---|---|
-| Census files | — | 2,628 zips, about 2.3 GB, downloaded in about 9 minutes before the server refused more |
-| Pieces of street read | — | 19,922,051 (172,743 sides of hyphenated or grid numbers, 110,551 pieces without a name or range left out) |
-| Range sides / range streets | — | 32,314,202 on 6,024,264 streets |
-| ZIP codes | 30,468 (OSM) | 36,457 (5,989 more from the ranges) |
-| Index | 5,189 MB | 6,962 MB |
-| Build (`search-index build`) | 427 s | 621 s |
-| Peak memory (`time -l`) | 17.4 GB | 17.5 GB |
+| | Without ranges (schema 4, like-for-like) | With 2,628 of the 3,109 county files (85 %) | With 3,108 of 3,109 (2026-11-13) |
+|---|---|---|---|
+| Census files | — | 2,628 zips, about 2.3 GB, downloaded in about 9 minutes before the server refused more | 3,108 zips, 2.66 GB (Kimble County, Texas refused, above) |
+| Pieces of street read | — | 19,922,051 (172,743 sides of hyphenated or grid numbers, 110,551 pieces without a name or range left out) | 22,781,436 (419,954 sides of hyphenated or grid numbers, 265,845 pieces without a name or range left out) |
+| Range sides / range streets | — | 32,314,202 on 6,024,264 streets | 36,914,592 on 6,871,660 streets |
+| ZIP codes | 30,468 (OSM) | 36,457 (5,989 more from the ranges) | 37,347 (6,879 more from the ranges) |
+| Index | 5,189 MB | 6,962 MB | 7,224 MB |
+| Build (`search-index build`) | 427 s | 621 s | 638 s (700 s for `build-search.py` with the files already downloaded, a minute of it waiting on the refused file) |
+| Peak memory (`time -l`) | 17.4 GB | 17.5 GB | 15.4 GB |
 
 ADR-0038's "9.5 GB" was measured differently; built the same way, the index
-without ranges peaks at 17.4 GB too, so the ranges add no memory.
-Extrapolated to all 3,109 files (by the share of files, so rough): about
-7.3 GB and 11 minutes. **The full build is not yet measured**: the remaining
-481 files (part of Texas, and Utah through Wyoming) wait for the server.
+without ranges peaks at 17.4 GB too, so the ranges add no memory. The last
+column's figure was taken around `build-search.py` rather than
+`search-index` alone; macOS's peak resident size also moves with what else
+is using memory, so read the three as "about the same".
+The 85 % build's extrapolation (about 7.3 GB and 11 minutes) was close.
 
 Searches (warm, five runs each; the same queries on both files): queries
 without a house number are unchanged (3–4 ms); with one, 9–70 ms against
 8–69 ms before, the range lookup itself 1–3 ms. The first search after
-opening takes up to 194 ms.
+opening takes up to 194 ms. On the full index the same queries take
+4–73 ms warm.
 
 Accuracy against OSM: of 37,080 sampled OSM addresses with a plain number
 and no `addr:city`, 25,612 had a range holding the number on a street of the
 same name and town (the rest: no range, or the state wasn't downloaded). The
 estimate was a median 41 m from OSM's point, 117 m at the 90th percentile;
-87 % within 100 m, 98 % within 250 m [SIM].
+87 % within 100 m, 98 % within 250 m [SIM]. On the full index, 33,497 of
+37,108 sampled addresses had such a range; median 44 m, 126 m at the 90th
+percentile, 85 % within 100 m, 98 % within 250 m [SIM, 2026-11-13].
