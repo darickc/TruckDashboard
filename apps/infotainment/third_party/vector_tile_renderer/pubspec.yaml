@@ -1,0 +1,16 @@
+name: vector_tile_renderer
+description: A vector tile renderer for use in creating map tile images or writing to a canvas.
+# 6.1.0 from pub.dev, patched for the F-250 dashboard: see F250_PATCH.md.
+version: 6.1.0+f250.1
+publish_to: none
+
+environment:
+  sdk: ^3.8.1
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  vector_tile: ^2.0.0
+  fixnum: ^1.0.0
+  collection: ^1.19.1

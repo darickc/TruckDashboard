@@ -53,6 +53,10 @@ dependencies:
 # decoder on protobuf ^6; the renderer is tested against it (ADR-0032).
 dependency_overrides:
   vector_tile: 4.0.0
+  # 6.1.0 with road names kept right side up on a turned map (heading up);
+  # third_party/vector_tile_renderer/F250_PATCH.md.
+  vector_tile_renderer:
+    path: third_party/vector_tile_renderer
 
 dev_dependencies:
   flutter_test:

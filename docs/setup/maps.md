@@ -142,8 +142,10 @@ raster `--quality`, `--flavor light|dark|white|grayscale|black`, `--lang`,
 `--keep-server` to look at the render in a browser.
 
 The map turns with the truck: the direction of travel is up while it follows
-the truck, with a compass for north (ADR-0032, amended 2026-11-12). Limits:
-raster labels turn with the map (they are part of the picture). Raster labels are baked in at the style's size
+the truck, with a compass for north (ADR-0032, amended 2026-11-12). A vector
+map keeps road names right side up on screen (drawn in vector mode with a
+patched renderer, `apps/infotainment/third_party/vector_tile_renderer`).
+Limits: raster labels turn with the map (they are part of the picture). Raster labels are baked in at the style's size
 (about 10–12 px) and night darkens the day tiles; a vector map has a real
 night style. The vector styles are simplified for the renderer: labels are one
 line (English name, else local), and some places of interest show earlier

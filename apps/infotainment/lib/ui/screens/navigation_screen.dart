@@ -423,6 +423,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 VectorTileLayer(
                   // Day and night are two styles (ADR-0032), not darkened tiles.
                   key: ValueKey(('vector', night, vector.generation)),
+                  // Drawn from the vectors on each change, not as cached
+                  // pictures: the default raster mode draws every tile once
+                  // unturned, so road names turned with the map and read
+                  // upside down (heading up; bench-log 2026-11-13).
+                  layerMode: VectorTileLayerMode.vector,
                   tileProviders: TileProviders({vectorSource: vector.provider}),
                   theme: vector.styles.forNight(night).theme,
                   sprites: vector.styles.forNight(night).sprites,

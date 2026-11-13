@@ -2483,3 +2483,28 @@ the session again by itself; Media showed "Tightrope" with its album's
 picture, and Next on the panel showed "Stressed Out" with its own, not the
 last one's. Not yet seen: a track without a picture, the first track
 straight after the phone connects, an iPhone.
+
+## 2026-11-13 — Road names right side up on the turned map (ADR-0032) [BENCH]
+
+The upside-down road names (above): two causes. The patched renderer alone
+(`third_party/vector_tile_renderer`, F250_PATCH.md) changed nothing on the
+Pi, and logging showed why: the label renderer got rotation 0 while the
+camera was at -90°. vector_map_tiles' default raster mode draws each tile
+once with rotation 0 (`raster/tile_loader.dart`) and turns the picture. In
+vector mode the renderer gets the camera's rotation (-1.571 rad logged in a
+widget test at heading 90°), so the dashboard now uses vector mode.
+
+On the Pi after `make deploy` (simulated receiver, the Lebanon loop):
+- Heading west (compass needle right): "EE Rd" reads left to right; the
+  north-south road names read along their roads.
+- Heading south (needle down): "BB Ln" and "US Highway 281" read up along
+  their roads, none upside down.
+- Heading north: as before.
+- `top` on flutter-auto, Nav following, 2 s samples: vector mode 3–5 % of a
+  core; raster mode (the build before) 8–10 %. Not measured: dragging or
+  zooming, where vector mode redraws on every frame.
+
+In the widget tests vector_map_tiles' module-level label queue doesn't
+survive into a second test's fake-time zone, so the day and night map tests
+became one session switching day to night. In the app (one zone), leaving
+Nav and coming back, and day to night, redraw the tiles (checked in a test).

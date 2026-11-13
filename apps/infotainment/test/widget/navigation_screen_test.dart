@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:f250_infotainment/core/clock.dart';
 import 'package:f250_infotainment/core/settings.dart';
+import 'package:f250_infotainment/display/display_state.dart';
 import 'package:f250_infotainment/nav/offline_map.dart';
 import 'package:f250_infotainment/nav/pmtiles.dart';
 import 'package:f250_infotainment/nav/pmtiles_file.dart';
@@ -187,21 +188,51 @@ void main() {
     });
   }
 
-  for (final theme in [DayNight.day, DayNight.night]) {
-    testWidgets('a vector tileset draws with the ${theme.name} style (ADR-0032)', (tester) async {
-      final map = OfflineMap('test/fixtures/maps/vector-z12-15.pmtiles', open: openPmTilesFile);
-      await tester.runAsync(map.load);
-      expect((map.state.value as MapReady).vector, isNotNull);
-      // The fixture covers Lebanon, Kansas; the simulated fix is beside it.
-      final h = await Harness.start(tester, map: map, theme: theme);
-      await h.goTo(AppScreen.navigation);
-      for (var i = 0; i < 20; i++) {
+  // One session, day then night: vector_map_tiles keeps a module-level label
+  // queue, and a second test's fake-time zone never runs the first test's
+  // queue. The app runs in one zone (leaving Nav and coming back, and day ->
+  // night, redraw: checked 2026-11-13).
+  testWidgets('a vector tileset draws with the day style, then the night style (ADR-0032)', (tester) async {
+    final map = OfflineMap('test/fixtures/maps/vector-z12-15.pmtiles', open: openPmTilesFile);
+    await tester.runAsync(map.load);
+    expect((map.state.value as MapReady).vector, isNotNull);
+    // The fixture covers Lebanon, Kansas; the simulated fix is beside it.
+    final display = SimulatedDisplaySource(mode: DayNight.day);
+    final h = await Harness.start(tester, map: map, display: display);
+    await h.goTo(AppScreen.navigation);
+    // Vector mode: each tile is a CustomPaint with vector_map_tiles' own
+    // painter (not exported, so matched by its type's name).
+    final tilePainters = find.descendant(
+      of: find.byType(VectorTileLayer),
+      matching: find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.painter.runtimeType.toString() == 'VectorTilePainter',
+      ),
+    );
+    Future<void> waitForTiles() async {
+      for (var i = 0; i < 75 && tilePainters.evaluate().isEmpty; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
         await tester.pump(const Duration(milliseconds: 100));
       }
+    }
+
+    for (final theme in [DayNight.day, DayNight.night]) {
+      if (theme == DayNight.night) {
+        await display.setChoice(DisplayChoice.night);
+        // The theme reaches the map over a few frames; then new tiles.
+        String themeId() => tester.widget<VectorTileLayer>(find.byType(VectorTileLayer)).theme.id;
+        for (var i = 0; i < 50 && themeId() != 'protomaps-dark'; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+      }
+      await waitForTiles();
       expect(find.byKey(const ValueKey('nav-map-problem')), findsNothing);
       expect(textOf('nav-attribution'), '© OpenStreetMap');
       final layer = tester.widget<VectorTileLayer>(find.byType(VectorTileLayer));
+      expect(
+        layer.layerMode,
+        VectorTileLayerMode.vector,
+        reason: 'raster mode draws tiles unturned: road names upside down on a turned map',
+      );
       expect(
         layer.theme.id,
         theme == DayNight.night ? 'protomaps-dark' : 'protomaps-light',
@@ -211,16 +242,12 @@ void main() {
         findsNothing,
         reason: 'no raster layer for a vector map',
       );
-      expect(
-        find.descendant(of: find.byType(VectorTileLayer), matching: find.byType(RawImage)),
-        findsWidgets,
-        reason: 'vector tiles drawn',
-      );
-      // Let the layer's own timers finish.
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 5));
-    });
-  }
+      expect(tilePainters, findsWidgets, reason: 'vector tiles drawn (${theme.name})');
+    }
+    // Let the layer's own timers finish.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
+  });
 
   testWidgets('a map stick shows its progress on every screen, and the result on Nav (ADR-0033)',
       (tester) async {

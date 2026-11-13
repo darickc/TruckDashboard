@@ -125,5 +125,17 @@ needs no change either way: every protobuf version reads the same messages.
   of the Lebanon, Kansas fixture at 0°, 45° and 90°. [BENCH] 2026-11-13: it
   turns on the Pi, but line labels can be upside down (vector_tile_renderer
   6.1.0 keeps them right side up on the tile, not on the screen; bench-log).
+  *Amended 2026-11-13:* two causes, both fixed. (1) The layer used
+  vector_map_tiles' default **raster** mode, which draws each tile once into
+  a picture with rotation 0 and turns the picture, so no label ever knew the
+  map was turned; it now uses **vector** mode, which draws from the vectors
+  with the camera's rotation (`layerMode: VectorTileLayerMode.vector`).
+  (2) vector_tile_renderer decided "upside down" from the label's angle on the
+  tile; a patched copy in `apps/infotainment/third_party/vector_tile_renderer`
+  (`F250_PATCH.md`, a `dependency_overrides` path) decides from its angle on
+  the screen. Vector mode redraws on every change instead of reusing
+  pictures; on the Pi the dashboard used 3–5 % of a core following the truck
+  on Nav, against 8–10 % in raster mode (`top`, bench-log 2026-11-13).
+  Dragging the map wasn't measured.
 - Third-party notices: the fonts' OFL and the style and icon licences are in
   `assets/map/README.md`. The map data's ODbL attribution is on screen.
