@@ -30,6 +30,8 @@ pub const EV_REL: u16 = 0x02;
 pub const KEY_MUTE: u16 = 113;
 pub const KEY_VOLUMEDOWN: u16 = 114;
 pub const KEY_VOLUMEUP: u16 = 115;
+/// `KEY_PLAYPAUSE` (HID Consumer Control Play/Pause maps to it).
+pub const KEY_PLAYPAUSE: u16 = 164;
 /// `REL_DIAL`: a dial's turns. Not `REL_X` or `REL_WHEEL`, which mice send.
 pub const REL_DIAL: u16 = 0x07;
 /// The value of an `EV_KEY` event for autorepeat (a key held down).

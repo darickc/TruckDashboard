@@ -5,6 +5,8 @@
 //!   autorepeat (holding a button ramps); `KEY_MUTE`: a press toggles mute.
 //!   A USB volume knob (HID Consumer Control), a keyboard's media keys,
 //!   buttons on `gpio-key`.
+//! - `KEY_PLAYPAUSE`: a press plays or pauses the phone (the knob display's
+//!   push or tap, a USB knob's button).
 //! - `REL_DIAL`: each event's value in steps, clockwise up. A rotary encoder
 //!   through the kernel's `rotary-encoder` driver with `linux,axis = 7` in
 //!   relative mode (the overlay's settings are UNVERIFIED on the image).
@@ -19,14 +21,14 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use f250_evdev::{
-    EV_KEY, EV_REL, EVENT_SIZE, Event, KEY_MUTE, KEY_PRESSED, KEY_REPEATED, KEY_VOLUMEDOWN,
-    KEY_VOLUMEUP, REL_DIAL, device_name, find_devices,
+    EV_KEY, EV_REL, EVENT_SIZE, Event, KEY_MUTE, KEY_PLAYPAUSE, KEY_PRESSED, KEY_REPEATED,
+    KEY_VOLUMEDOWN, KEY_VOLUMEUP, REL_DIAL, device_name, find_devices,
 };
 use tokio::sync::mpsc;
 
 use crate::volume::Change;
 
-pub const KEYS: [u16; 3] = [KEY_MUTE, KEY_VOLUMEDOWN, KEY_VOLUMEUP];
+pub const KEYS: [u16; 4] = [KEY_MUTE, KEY_VOLUMEDOWN, KEY_VOLUMEUP, KEY_PLAYPAUSE];
 pub const RELS: [u16; 1] = [REL_DIAL];
 /// A knob plugged in later is found within this long.
 pub const RESCAN: Duration = Duration::from_secs(5);
@@ -39,35 +41,46 @@ pub struct KnobConfig {
     pub invert: bool,
 }
 
-/// What an input event does to the volume, if anything.
-pub fn change_for(e: &Event, invert: bool) -> Option<Change> {
+/// What the knob asks for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Action {
+    Volume(Change),
+    /// Play or pause the phone, whichever it isn't doing.
+    PlayPause,
+}
+
+/// What an input event does, if anything.
+pub fn action_for(e: &Event, invert: bool) -> Option<Action> {
+    let volume = |c| Some(Action::Volume(c));
     match (e.kind, e.code) {
         (EV_KEY, KEY_VOLUMEUP) if e.value == KEY_PRESSED || e.value == KEY_REPEATED => {
-            Some(Change::Steps(1))
+            volume(Change::Steps(1))
         }
         (EV_KEY, KEY_VOLUMEDOWN) if e.value == KEY_PRESSED || e.value == KEY_REPEATED => {
-            Some(Change::Steps(-1))
+            volume(Change::Steps(-1))
         }
-        (EV_KEY, KEY_MUTE) if e.value == KEY_PRESSED => Some(Change::ToggleMute),
+        (EV_KEY, KEY_MUTE) if e.value == KEY_PRESSED => volume(Change::ToggleMute),
+        // The press only: holding it doesn't toggle again.
+        (EV_KEY, KEY_PLAYPAUSE) if e.value == KEY_PRESSED => Some(Action::PlayPause),
         (EV_REL, REL_DIAL) if e.value != 0 => {
             let steps = if invert {
                 e.value.saturating_neg()
             } else {
                 e.value
             };
-            Some(Change::Steps(steps))
+            volume(Change::Steps(steps))
         }
         _ => None,
     }
 }
 
 /// Reads `path` until it fails or `tx` closes, sending each change.
-pub fn read_events(path: &Path, invert: bool, tx: &mpsc::Sender<Change>) -> std::io::Result<()> {
+pub fn read_events(path: &Path, invert: bool, tx: &mpsc::Sender<Action>) -> std::io::Result<()> {
     let mut f = std::fs::File::open(path)?;
     let mut buf = [0u8; EVENT_SIZE];
     loop {
         f.read_exact(&mut buf)?;
-        if let Some(c) = change_for(&Event::parse(&buf), invert)
+        if let Some(c) = action_for(&Event::parse(&buf), invert)
             && tx.blocking_send(c).is_err()
         {
             return Ok(());
@@ -81,7 +94,7 @@ enum Msg {
 
 /// Finds knob devices now and every [RESCAN], one reader thread each (a
 /// blocking read never holds up the runtime), until `tx` closes.
-pub async fn run(cfg: KnobConfig, tx: mpsc::Sender<Change>) {
+pub async fn run(cfg: KnobConfig, tx: mpsc::Sender<Action>) {
     let (gone_tx, mut gone_rx) = mpsc::channel::<Msg>(8);
     let mut started: HashSet<PathBuf> = HashSet::new();
     // A device that keeps failing is logged once, not every rescan.
@@ -108,6 +121,7 @@ pub async fn run(cfg: KnobConfig, tx: mpsc::Sender<Change>) {
                     let mut what: Vec<&str> = d.keys.iter().map(|&k| match k {
                         KEY_MUTE => "KEY_MUTE",
                         KEY_VOLUMEDOWN => "KEY_VOLUMEDOWN",
+                        KEY_PLAYPAUSE => "KEY_PLAYPAUSE",
                         _ => "KEY_VOLUMEUP",
                     }).collect();
                     if !d.rels.is_empty() {
@@ -157,59 +171,77 @@ mod tests {
     #[test]
     fn volume_keys_step_and_repeat() {
         assert_eq!(
-            change_for(&ev(EV_KEY, KEY_VOLUMEUP, 1), false),
-            Some(Change::Steps(1))
+            action_for(&ev(EV_KEY, KEY_VOLUMEUP, 1), false),
+            Some(Action::Volume(Change::Steps(1)))
         );
         assert_eq!(
-            change_for(&ev(EV_KEY, KEY_VOLUMEUP, 2), false),
-            Some(Change::Steps(1)),
+            action_for(&ev(EV_KEY, KEY_VOLUMEUP, 2), false),
+            Some(Action::Volume(Change::Steps(1))),
             "held"
         );
         assert_eq!(
-            change_for(&ev(EV_KEY, KEY_VOLUMEUP, 0), false),
+            action_for(&ev(EV_KEY, KEY_VOLUMEUP, 0), false),
             None,
             "release"
         );
         assert_eq!(
-            change_for(&ev(EV_KEY, KEY_VOLUMEDOWN, 1), false),
-            Some(Change::Steps(-1))
+            action_for(&ev(EV_KEY, KEY_VOLUMEDOWN, 1), false),
+            Some(Action::Volume(Change::Steps(-1)))
         );
         assert_eq!(
-            change_for(&ev(EV_KEY, KEY_VOLUMEDOWN, 2), false),
-            Some(Change::Steps(-1))
+            action_for(&ev(EV_KEY, KEY_VOLUMEDOWN, 2), false),
+            Some(Action::Volume(Change::Steps(-1)))
         );
     }
 
     #[test]
     fn mute_toggles_on_the_press_only() {
         assert_eq!(
-            change_for(&ev(EV_KEY, KEY_MUTE, 1), false),
-            Some(Change::ToggleMute)
+            action_for(&ev(EV_KEY, KEY_MUTE, 1), false),
+            Some(Action::Volume(Change::ToggleMute))
         );
         assert_eq!(
-            change_for(&ev(EV_KEY, KEY_MUTE, 2), false),
+            action_for(&ev(EV_KEY, KEY_MUTE, 2), false),
             None,
             "held: not toggled again"
         );
-        assert_eq!(change_for(&ev(EV_KEY, KEY_MUTE, 0), false), None);
+        assert_eq!(action_for(&ev(EV_KEY, KEY_MUTE, 0), false), None);
+    }
+
+    #[test]
+    fn play_pause_on_the_press_only() {
+        assert_eq!(
+            action_for(&ev(EV_KEY, KEY_PLAYPAUSE, 1), false),
+            Some(Action::PlayPause)
+        );
+        assert_eq!(
+            action_for(&ev(EV_KEY, KEY_PLAYPAUSE, 2), false),
+            None,
+            "held"
+        );
+        assert_eq!(
+            action_for(&ev(EV_KEY, KEY_PLAYPAUSE, 0), false),
+            None,
+            "release"
+        );
     }
 
     #[test]
     fn the_dial_turns_by_its_value() {
         assert_eq!(
-            change_for(&ev(EV_REL, REL_DIAL, 1), false),
-            Some(Change::Steps(1))
+            action_for(&ev(EV_REL, REL_DIAL, 1), false),
+            Some(Action::Volume(Change::Steps(1)))
         );
         assert_eq!(
-            change_for(&ev(EV_REL, REL_DIAL, -3), false),
-            Some(Change::Steps(-3))
+            action_for(&ev(EV_REL, REL_DIAL, -3), false),
+            Some(Action::Volume(Change::Steps(-3)))
         );
         assert_eq!(
-            change_for(&ev(EV_REL, REL_DIAL, 2), true),
-            Some(Change::Steps(-2)),
+            action_for(&ev(EV_REL, REL_DIAL, 2), true),
+            Some(Action::Volume(Change::Steps(-2))),
             "inverted"
         );
-        assert_eq!(change_for(&ev(EV_REL, REL_DIAL, 0), false), None);
+        assert_eq!(action_for(&ev(EV_REL, REL_DIAL, 0), false), None);
     }
 
     #[test]
@@ -222,7 +254,7 @@ mod tests {
             ev(0, 0, 0),               // EV_SYN
             ev(0x04, KEY_VOLUMEUP, 1), // EV_MSC
         ] {
-            assert_eq!(change_for(&e, false), None, "{e:?}");
+            assert_eq!(action_for(&e, false), None, "{e:?}");
         }
     }
 
@@ -239,6 +271,8 @@ mod tests {
             (EV_REL, REL_DIAL, -2),
             (EV_REL, 0x08, 1),
             (EV_KEY, KEY_MUTE, 1),
+            (EV_KEY, KEY_PLAYPAUSE, 1),
+            (EV_KEY, KEY_PLAYPAUSE, 0),
         ] {
             bytes.extend_from_slice(&raw(k, c, v));
         }
@@ -260,7 +294,12 @@ mod tests {
         }
         assert_eq!(
             got,
-            [Change::Steps(1), Change::Steps(-2), Change::ToggleMute]
+            [
+                Action::Volume(Change::Steps(1)),
+                Action::Volume(Change::Steps(-2)),
+                Action::Volume(Change::ToggleMute),
+                Action::PlayPause
+            ]
         );
     }
 }

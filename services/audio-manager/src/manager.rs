@@ -1090,6 +1090,24 @@ impl Manager {
         self.bt.control(cmd).await
     }
 
+    /// Play/pause from the knob (one key for both, ADR-0043): pauses a
+    /// playing phone, plays one that isn't.
+    pub async fn play_pause(&self, source: &str) -> Result<Command, String> {
+        let playing = self
+            .bt
+            .snapshot()
+            .borrow()
+            .player
+            .as_ref()
+            .is_some_and(|p| p.state == PlayState::Playing);
+        let cmd = if playing {
+            Command::Pause
+        } else {
+            Command::Play
+        };
+        self.control(cmd, source).await.map(|()| cmd)
+    }
+
     pub fn open_pairing(
         self: &Arc<Self>,
         seconds: Option<u32>,

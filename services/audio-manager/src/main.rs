@@ -137,8 +137,8 @@ struct Args {
     /// Where the volume level is kept (JSON). Empty: in memory only.
     #[arg(long, default_value = "")]
     volume_file: String,
-    /// Read the volume knob from /dev/input: any device with the volume keys
-    /// or REL_DIAL (ADR-0043).
+    /// Read the volume knob from /dev/input: any device with the volume
+    /// keys, play/pause or REL_DIAL (ADR-0043).
     #[arg(long)]
     knob: bool,
     /// The knob's dial counts counter-clockwise as up.
@@ -284,8 +284,17 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         ));
         let m = Arc::clone(&manager);
         tokio::spawn(async move {
-            while let Some(c) = rx.recv().await {
-                m.set_volume(c, "knob");
+            while let Some(a) = rx.recv().await {
+                match a {
+                    knob::Action::Volume(c) => {
+                        m.set_volume(c, "knob");
+                    }
+                    knob::Action::PlayPause => {
+                        if let Err(e) = m.play_pause("knob").await {
+                            eprintln!("[audio] knob: play/pause: {e}");
+                        }
+                    }
+                }
             }
         });
     }

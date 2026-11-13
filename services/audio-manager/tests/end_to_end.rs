@@ -1235,3 +1235,40 @@ async fn the_volume_is_saved_once_the_changes_stop() {
     tokio::time::sleep(audio_manager::manager::SAVE_VOLUME_AFTER).await;
     assert_eq!(std::fs::read_to_string(&file).unwrap(), "{\"level\":10}");
 }
+
+#[tokio::test]
+async fn the_knobs_play_pause_toggles() {
+    use audio_manager::model::Command;
+    let mut r = start(
+        "play-pause",
+        SimConfig {
+            pair_after: None,
+            ..SimConfig::default()
+        },
+    )
+    .await;
+    let mut s = watch(&mut r.client).await;
+    let state = |m: &pb::WatchAudioResponse| m.now_playing.as_ref().map(|n| n.state());
+    until(&mut s, "playing", |m| {
+        state(m) == Some(pb::PlayState::Playing)
+    })
+    .await;
+    assert_eq!(r.manager.play_pause("knob").await, Ok(Command::Pause));
+    until(&mut s, "paused", |m| {
+        state(m) == Some(pb::PlayState::Paused)
+    })
+    .await;
+    assert_eq!(r.manager.play_pause("knob").await, Ok(Command::Play));
+    until(&mut s, "playing again", |m| {
+        state(m) == Some(pb::PlayState::Playing)
+    })
+    .await;
+
+    // No phone: refused, said why.
+    r.sim.disconnect();
+    until(&mut s, "no phone", |m| m.phone.is_none()).await;
+    assert_eq!(
+        r.manager.play_pause("knob").await,
+        Err("No phone is connected.".to_string())
+    );
+}

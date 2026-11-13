@@ -292,11 +292,13 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       `AUDIO_VOLUME_*`); mute keeps the level, up unmutes; saved to `volume.json` 2 s after the last change. `SetVolume`
       and `WatchAudioResponse.volume`. The knob is Linux input read by audio-manager (`crates/evdev`, shared with
       power-manager): `KEY_VOLUMEUP`/`KEY_VOLUMEDOWN`/`KEY_MUTE` and `REL_DIAL` from any device, never a mouse's axes,
+      and `KEY_PLAYPAUSE` (a push or tap: pauses a playing phone, plays a paused one),
       rescanned every 5 s (`AUDIO_KNOB`, `AUDIO_KNOB_INVERT`); the unit reads `/dev/input` (group input). Media: Volume −,
       the level, Volume +, Mute; the level over the bottom of every other screen for 2 s after a change, below the alert banner.
       Tests: the gains, every change and limit, saving, the knob's events from recorded bytes and a fake sysfs, end to end
       over gRPC, the real binary against the dashboard's client, the screens at 800×480. **Nothing heard; not on the Pi.**
-      Which knob (a USB knob, a GPIO encoder, the ESP32) is TODO for the owner; a GPIO encoder's overlay is UNVERIFIED.
+      Which knob is the owner's choice: the candidate is Waveshare's ESP32-S3 knob display (round touch screen with the
+      gauges, the knob and push/tap as USB HID; not bought, not designed yet). A GPIO encoder's overlay is UNVERIFIED.
       Next: bench check 24 (agl.md)
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
       JSON and tracks the position honestly (status, the last fix with its age, never stale as current); 23 tests,

@@ -45,7 +45,8 @@
 #   AUDIO_VOLUME_START_MAX  audio-manager starts no louder than this,
 #                       whatever it saved. Default 15, an example.
 #   AUDIO_KNOB          1: the volume knob from /dev/input (any device with
-#                       the volume keys or REL_DIAL). Default 1; 0: none.
+#                       the volume keys, play/pause or REL_DIAL). Default 1;
+#                       0: none.
 #   AUDIO_KNOB_INVERT   1: the knob's dial counts counter-clockwise as up.
 #                       Default 0.
 #

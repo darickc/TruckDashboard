@@ -252,7 +252,8 @@ AUDIO_VOLUME_STEP_DB=
 AUDIO_VOLUME_MAX=
 AUDIO_VOLUME_START_MAX=
 # AUDIO_KNOB  1 (or empty): the volume knob from /dev/input, any device with
-#             the volume keys or a dial (REL_DIAL). 0: none. Which knob: TODO.
+#             the volume keys, play/pause or a dial (REL_DIAL). 0: none.
+#             Which knob: TODO.
 # AUDIO_KNOB_INVERT  1: the dial counts counter-clockwise as up.
 AUDIO_KNOB=
 AUDIO_KNOB_INVERT=

@@ -28,8 +28,8 @@
 # player's ObexPort (bluetooth.service.d/50-f250.conf).
 #
 # The volume knob (ADR-0043): audio-manager reads /dev/input/event* (group
-# input, read-only) for the volume keys and REL_DIAL, as power-manager reads
-# the power key. Which knob is TODO.
+# input, read-only) for the volume keys, play/pause and REL_DIAL, as
+# power-manager reads the power key. Which knob is TODO.
 #
 # Nothing here touches the vehicle bus (ADR-0007).
 #

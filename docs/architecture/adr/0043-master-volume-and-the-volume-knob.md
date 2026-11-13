@@ -25,10 +25,11 @@ The knob's hardware isn't chosen. PROJECT_PLAN 6.3 says "on the ESP32
 
 | Fact | Source | Status |
 |---|---|---|
-| `KEY_MUTE` 113, `KEY_VOLUMEDOWN` 114, `KEY_VOLUMEUP` 115; `EV_REL` 0x02, `REL_X` 0x00, `REL_DIAL` 0x07, `REL_WHEEL` 0x08 | `include/uapi/linux/input-event-codes.h` | Verified |
+| `KEY_MUTE` 113, `KEY_VOLUMEDOWN` 114, `KEY_VOLUMEUP` 115, `KEY_PLAYPAUSE` 164; `EV_REL` 0x02, `REL_X` 0x00, `REL_DIAL` 0x07, `REL_WHEEL` 0x08 | `include/uapi/linux/input-event-codes.h` | Verified |
 | A key event's value is 1 for a press, 0 for a release, 2 for autorepeat | `Documentation/input/input.rst` (event interface) | Verified |
 | `/sys/class/input/eventN/device/capabilities/rel` is the device's relative-axis bitmap, printed like `capabilities/key` | `drivers/input/input.c` (`INPUT_DEV_CAP_ATTR(REL, rel)`) | Verified from source |
-| USB HID volume knobs report Consumer Control volume up/down/mute, which the kernel's HID input maps to `KEY_VOLUMEUP`/`KEY_VOLUMEDOWN`/`KEY_MUTE` | `drivers/hid/hid-input.c` (usage page 0x0c: 0xe2, 0xe9, 0xea) | Verified from source; no particular knob tested |
+| USB HID volume knobs report Consumer Control volume up/down/mute and play/pause, which the kernel's HID input maps to `KEY_VOLUMEUP`/`KEY_VOLUMEDOWN`/`KEY_MUTE`/`KEY_PLAYPAUSE` | `drivers/hid/hid-input.c` (usage page 0x0c: 0xe2, 0xe9, 0xea, 0xcd) | Verified from source; no particular knob tested |
+| The owner's candidate knob (2026-11-13): Waveshare ESP32-S3-Knob-Touch-LCD-1.8, a 360×360 round touch screen with a knob, ESP32-S3 and a second ESP32; its USB-C connects the S3's USB or the second ESP32's UART depending on the plug's orientation | waveshare.com product page and wiki, read 2026-11-13 | From the maker's pages; whether the knob has a push switch, and the USB-C switching, are UNVERIFIED (schematic not read). Not bought |
 | The kernel's `rotary-encoder` driver reports turns on one axis (`linux,axis`), relative with `rotary-encoder,relative-axis` (±1 a step) | `Documentation/devicetree/bindings/input/rotary-encoder.yaml` | Verified from source |
 | The Pi firmware's `rotary-encoder` overlay takes `pin_a`, `pin_b`, `relative_axis`, `linux_axis` | `/boot/overlays/README` | **UNVERIFIED**: not read from the Vimba 22.0.1 image; check there before writing config.txt. Nothing is added to config.txt here |
 | A rotary encoder's push switch can be a key with the `gpio-key` overlay (`keycode=113` for mute) | the camera switch already uses `gpio-key` ([ADR-0024](0024-camera-selection-switch-and-can-reverse.md)) | The overlay is in use; a mute key on it is UNVERIFIED |
@@ -68,6 +69,12 @@ The knob's hardware isn't chosen. PROJECT_PLAN 6.3 says "on the ESP32
      autorepeat (holding a button ramps); `KEY_MUTE`: a press toggles mute.
      From every device that has them: a USB volume knob, a keyboard's media
      keys, buttons on `gpio-key`.
+   - `KEY_PLAYPAUSE`: a press (not a hold) pauses the phone if it is
+     playing, plays it otherwise, as Media's Play/Pause does (amended
+     2026-11-13, owner: a push or tap on the knob plays and pauses). With no
+     phone or no player it is logged and does nothing. For the knob display
+     below, its push or a tap on its screen would send it as USB HID
+     Consumer Play/Pause.
    - `REL_DIAL`: each event's value in steps, clockwise up
      (`AUDIO_KNOB_INVERT=1` turns it round). From every device that has it: a
      rotary encoder through the kernel's driver with `linux,axis = 7`. Not
@@ -76,7 +83,10 @@ The knob's hardware isn't chosen. PROJECT_PLAN 6.3 says "on the ESP32
      in later). `AUDIO_KNOB=0` turns it off.
    - So the hardware choice changes no code: a USB knob works as it is; a GPIO
      encoder needs only its overlay in config.txt (UNVERIFIED, above). An
-     ESP32 encoder would need a way into the Pi (not decided).
+     ESP32 encoder would need a way into the Pi: for the owner's candidate
+     knob display, its S3 appearing on USB as a HID knob (volume, mute,
+     play/pause) alongside a serial port for the gauge data. Its own ADR when
+     it's built.
 8. **Without the filter-chain** (`AUDIO_DSP=0`, or it isn't running) the
    level is kept and shown with "not applied" and why; nothing else changes
    the volume.
@@ -122,7 +132,8 @@ The knob's hardware isn't chosen. PROJECT_PLAN 6.3 says "on the ESP32
 3. With the chosen knob: `evtest` shows its events (`KEY_VOLUMEUP`… or
    `REL_DIAL`); audio-manager's log names the device ("volume knob: …"); a
    turn moves the level by one step a detent; clockwise is up (else
-   `AUDIO_KNOB_INVERT=1`).
+   `AUDIO_KNOB_INVERT=1`). Its play/pause (`KEY_PLAYPAUSE`) pauses a playing
+   phone and plays a paused one.
 4. A fast turn: the level follows without lag, and the log shows one
    `pw-cli` at a time.
 5. Spoken directions at a low level: heard, quiet. While muted: silent.
