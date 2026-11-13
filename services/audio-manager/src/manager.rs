@@ -1,7 +1,7 @@
 //! audio-manager's core: follows the Bluetooth backend, runs the pairing
 //! window and the pairing agent's questions, connects paired phones (the
 //! driver's choice, or the last phone again by itself), keeps the speaker
-//! settings, and publishes what the dashboard shows
+//! settings and the master volume (ADR-0043), and publishes what the dashboard shows
 //! (`f250.audio.v1.WatchAudioResponse`) on each change and once a second.
 //!
 //! Honesty rules (CLAUDE.md rule 4): the track is published only while its
@@ -17,12 +17,17 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::Instant;
 
 use crate::backend::Bluetooth;
-use crate::dsp::{self, Limits, Settings};
+use crate::dsp::{self, Limits, Mix, Settings};
 use crate::model::{Adapter, AgentAsk, AgentRequest, Command, Picture, PlayState, Snapshot};
 use crate::pairing::{self, Action, Outcome, State, Window};
 use crate::prompts::{Act, PromptPause};
 use crate::runner::{Dsp, DspState};
 use crate::voice::{Voice, clean_prompt};
+use crate::volume::{self, Change, Volume, VolumeLimits};
+
+/// The volume is saved this long after its last change, so a knob turn
+/// doesn't write the SD card at every detent (ADR-0043 decision 4).
+pub const SAVE_VOLUME_AFTER: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -40,6 +45,10 @@ pub struct Config {
     /// memory.
     pub last_phone_file: Option<PathBuf>,
     pub reconnect: Reconnect,
+    /// The master volume's steps and caps (examples, ADR-0043).
+    pub volume: VolumeLimits,
+    /// Where the level is kept; None: only in memory.
+    pub volume_file: Option<PathBuf>,
 }
 
 /// Reconnecting the last phone by itself: at start, when Bluetooth comes
@@ -135,6 +144,9 @@ struct Inner {
     /// Phones the driver disconnected: not reconnected by itself until they
     /// connect again (in memory: after a restart they are again).
     held: BTreeSet<String>,
+    volume: Volume,
+    /// A volume change not saved yet: (the level, who changed it last).
+    volume_unsaved: Option<String>,
 }
 
 pub struct Manager {
@@ -149,6 +161,11 @@ pub struct Manager {
     /// Shutting down: watch streams end (at their next heartbeat), so the
     /// server's graceful shutdown doesn't wait on them forever.
     stopping: std::sync::atomic::AtomicBool,
+    /// Settings and volume reach the filter-chain one at a time, each with
+    /// the other's latest value.
+    applying: tokio::sync::Mutex<()>,
+    /// Bumped at each volume change; the volume task applies the newest.
+    volume_changed: watch::Sender<u64>,
 }
 
 fn play_state(s: PlayState) -> pb::PlayState {
@@ -178,6 +195,21 @@ pub fn settings_from_pb(s: &pb::SpeakerSettings) -> Settings {
         balance: s.balance,
         sub_level_db: s.sub_level_db,
         crossover_hz: s.crossover_hz,
+    }
+}
+
+/// The saved volume level, or None (and why, when the file is damaged).
+pub fn load_volume(path: Option<&std::path::Path>) -> (Option<u32>, Option<String>) {
+    let Some(path) = path else {
+        return (None, None);
+    };
+    match std::fs::read_to_string(path) {
+        Ok(text) => match volume::parse_saved(&text) {
+            Ok(n) => (Some(n), None),
+            Err(e) => (None, Some(format!("{}: {e}", path.display()))),
+        },
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => (None, None),
+        Err(e) => (None, Some(format!("{}: {e}", path.display()))),
     }
 }
 
@@ -218,6 +250,18 @@ impl Manager {
         if let Some(p) = problem {
             eprintln!("[audio] last phone: {p}");
         }
+        let (saved, problem) = load_volume(cfg.volume_file.as_deref());
+        if let Some(p) = problem {
+            eprintln!("[audio] volume: {p}; starting at {}", cfg.volume.start_max);
+        }
+        let volume = volume::at_start(&cfg.volume, saved);
+        if saved.is_some_and(|n| n > volume.level) {
+            eprintln!(
+                "[audio] volume: saved {}, starting at {} (the start maximum)",
+                saved.unwrap_or(0),
+                volume.level
+            );
+        }
         Arc::new(Manager {
             inner: Mutex::new(Inner {
                 window: Window::new(cfg.pairing),
@@ -240,6 +284,8 @@ impl Manager {
                 order: Vec::new(),
                 disconnecting: BTreeSet::new(),
                 held: BTreeSet::new(),
+                volume,
+                volume_unsaved: None,
             }),
             cfg,
             bt,
@@ -248,6 +294,8 @@ impl Manager {
             out: watch::Sender::new(pb::WatchAudioResponse::default()),
             heartbeat: f250_sd_notify::Heartbeat::new(),
             stopping: std::sync::atomic::AtomicBool::new(false),
+            applying: tokio::sync::Mutex::new(()),
+            volume_changed: watch::Sender::new(0),
         })
     }
 
@@ -261,8 +309,10 @@ impl Manager {
         self.out.subscribe()
     }
 
-    /// Starts shutting down: watch streams end within a second.
+    /// Starts shutting down: watch streams end within a second. A volume
+    /// change not saved yet is saved now.
     pub fn stop(&self) {
+        self.save_volume();
         self.stopping
             .store(true, std::sync::atomic::Ordering::Relaxed);
         self.publish();
@@ -276,12 +326,118 @@ impl Manager {
         self.lock().settings
     }
 
+    pub fn volume(&self) -> Volume {
+        self.lock().volume
+    }
+
+    /// What the filter-chain should run with now.
+    fn mix(&self) -> Mix {
+        let inner = self.lock();
+        Mix {
+            settings: inner.settings,
+            master: volume::gain(&self.cfg.volume, &inner.volume),
+        }
+    }
+
+    /// Sends the latest settings and volume to the filter-chain, one call at
+    /// a time.
+    async fn apply_mix(&self) -> Result<String, String> {
+        let _one = self.applying.lock().await;
+        let r = self.dsp.apply(self.mix()).await;
+        if let Err(e) = &r {
+            eprintln!("[audio] speakers' filter-chain: {e}");
+        }
+        r
+    }
+
+    /// Changes the volume (the dashboard, the knob): applied by the volume
+    /// task, the newest value only. Returns the new volume and a note when
+    /// it isn't what was asked.
+    pub fn set_volume(&self, c: Change, source: &str) -> (Volume, Option<String>) {
+        let (v, note, changed, was_muted) = {
+            let mut inner = self.lock();
+            let was_muted = inner.volume.muted;
+            let (v, note) = volume::apply(&self.cfg.volume, inner.volume, c);
+            let changed = v != inner.volume;
+            if changed {
+                if v.level != inner.volume.level {
+                    inner.volume_unsaved = Some(source.to_string());
+                }
+                inner.volume = v;
+            }
+            (v, note, changed, was_muted)
+        };
+        if changed {
+            // Mute is logged here, the level when it's saved.
+            if v.muted != was_muted {
+                eprintln!(
+                    "[audio] {source}: {}",
+                    if v.muted { "muted" } else { "unmuted" }
+                );
+            }
+            self.volume_changed.send_modify(|n| *n = n.wrapping_add(1));
+            self.publish();
+        }
+        (v, note)
+    }
+
+    /// Writes the level if a change is waiting (ADR-0043 decision 4).
+    pub fn save_volume(&self) {
+        let (level, source) = {
+            let mut inner = self.lock();
+            let Some(source) = inner.volume_unsaved.take() else {
+                return;
+            };
+            (inner.volume.level, source)
+        };
+        let db = volume::level_db(&self.cfg.volume, level)
+            .map_or("silent".to_string(), |d| format!("{d:.0} dB"));
+        eprintln!("[audio] {source}: volume {level} ({db})");
+        let Some(path) = &self.cfg.volume_file else {
+            return;
+        };
+        let tmp = path.with_extension("json.new");
+        if let Err(e) = std::fs::write(&tmp, volume::saved_json(level))
+            .and_then(|()| std::fs::rename(&tmp, path))
+        {
+            eprintln!("[audio] volume: can't save {}: {e}", path.display());
+        }
+    }
+
+    /// Applies volume changes as they come, the newest only, and saves the
+    /// level once the changes stop.
+    async fn volume_task(self: Arc<Self>) {
+        let mut changed = self.volume_changed.subscribe();
+        let mut save_at: Option<Instant> = None;
+        loop {
+            tokio::select! {
+                r = changed.changed() => {
+                    if r.is_err() { return; }
+                    changed.borrow_and_update();
+                    let _ = self.apply_mix().await;
+                    self.publish();
+                    save_at = Some(Instant::now() + SAVE_VOLUME_AFTER);
+                }
+                () = async {
+                    match save_at {
+                        Some(t) => tokio::time::sleep_until(t).await,
+                        None => std::future::pending().await,
+                    }
+                } => {
+                    save_at = None;
+                    self.save_volume();
+                }
+            }
+        }
+    }
+
     /// The main loop: until `agent` closes.
     pub async fn run(self: Arc<Self>, mut agent: mpsc::Receiver<AgentRequest>) {
         let mut snap = self.bt.snapshot();
         let mut art = self.bt.cover_art();
         let mut dsp_state = self.dsp.state();
-        self.dsp.start(self.settings()).await;
+        self.dsp.start(self.mix()).await;
+        tokio::spawn(Arc::clone(&self).volume_task());
         self.on_snapshot();
         let mut tick = tokio::time::interval(Duration::from_secs(1));
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -1001,7 +1157,7 @@ impl Manager {
         }
         self.lock().settings = s;
         eprintln!("[audio] {source}: speaker settings {s:?}");
-        let r = self.dsp.apply(s).await;
+        let r = self.apply_mix().await;
         self.publish();
         r
     }
@@ -1093,6 +1249,25 @@ impl Manager {
             DspState::Starting => (pb::DspState::Starting, String::new()),
             DspState::NotRunning(why) => (pb::DspState::NotRunning, why.clone()),
         };
+        let volume = {
+            let v = inner.volume;
+            let (applied, detail) = match &*self.dsp.state().borrow() {
+                DspState::Applied => (true, String::new()),
+                DspState::Starting => (
+                    false,
+                    "Not applied yet: the speakers' filter-chain is starting.".to_string(),
+                ),
+                DspState::NotRunning(why) => (false, format!("Not applied: {why}.")),
+            };
+            pb::Volume {
+                level: v.level,
+                max: self.cfg.volume.max,
+                steps: self.cfg.volume.steps,
+                muted: v.muted,
+                applied,
+                detail,
+            }
+        };
         let msg = pb::WatchAudioResponse {
             bluetooth: bluetooth.into(),
             bluetooth_detail,
@@ -1118,6 +1293,7 @@ impl Manager {
             dsp: dsp.into(),
             dsp_detail,
             simulated: self.cfg.simulated,
+            volume: Some(volume),
             connect: Some(pb::ConnectAttempt {
                 address: inner
                     .attempt

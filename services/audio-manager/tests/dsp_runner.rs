@@ -12,8 +12,16 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use audio_manager::dsp::{ChannelMap, Limits, Settings, Target};
+use audio_manager::dsp::{ChannelMap, Limits, Mix, Settings, Target};
 use audio_manager::runner::{Dsp, DspState, PipewireConfig, PipewireDsp};
+
+/// The settings at full volume.
+fn mix(settings: Settings) -> Mix {
+    Mix {
+        settings,
+        master: 1.0,
+    }
+}
 
 fn dir(test: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("f250-audio-dsp-{test}-{}", std::process::id()));
@@ -107,7 +115,7 @@ async fn start_live_change_and_restart() {
     let d = dir("live");
     let dsp = runner(&d);
     let state = dsp.state();
-    dsp.start(Settings::default()).await;
+    dsp.start(mix(Settings::default())).await;
     wait("applied", || *state.borrow() == DspState::Applied).await;
     // "Applied" comes after the settle time, not after the fake has logged
     // its start: under load the script can still be on its grep.
@@ -123,10 +131,10 @@ async fn start_live_change_and_restart() {
 
     // Fader: live, no restart.
     let r = dsp
-        .apply(Settings {
+        .apply(mix(Settings {
             fader: 3,
             ..Settings::default()
-        })
+        }))
         .await
         .unwrap();
     assert_eq!(r, "Applied.");
@@ -138,14 +146,32 @@ async fn start_live_change_and_restart() {
     assert!(cli.contains("\"gain_fl:Gain 1\" 1.000000"));
     assert_eq!(starts(&d).len(), 1);
 
+    // The volume: live too, every gain scaled (ADR-0043).
+    let r = dsp
+        .apply(Mix {
+            settings: Settings {
+                fader: 3,
+                ..Settings::default()
+            },
+            master: 0.5,
+        })
+        .await
+        .unwrap();
+    assert_eq!(r, "Applied.");
+    let cli = std::fs::read_to_string(d.join("cli.log")).unwrap();
+    let last = cli.lines().last().unwrap();
+    assert!(last.contains("\"gain_fl:Gain 1\" 0.500000"), "{last}");
+    assert!(last.contains("\"sub_mix:Gain 1\" 0.250000"), "{last}");
+    assert_eq!(starts(&d).len(), 1);
+
     // Crossover: live too, no restart (a restart bypasses the filter for a
     // moment), with the fader kept.
     let r = dsp
-        .apply(Settings {
+        .apply(mix(Settings {
             fader: 3,
             crossover_hz: 100,
             ..Settings::default()
-        })
+        }))
         .await
         .unwrap();
     assert_eq!(r, "Applied.");
@@ -160,11 +186,11 @@ async fn start_live_change_and_restart() {
     // A later restart (here a failed live change) starts with the live
     // crossover and asks for a relink again.
     std::fs::write(d.join("cli-fails"), "").unwrap();
-    dsp.apply(Settings {
+    dsp.apply(mix(Settings {
         fader: 2,
         crossover_hz: 100,
         ..Settings::default()
-    })
+    }))
     .await
     .unwrap();
     wait("restarted", || starts(&d).len() == 2).await;
@@ -178,14 +204,14 @@ async fn failed_live_change_falls_back_to_a_restart() {
     let d = dir("fallback");
     let dsp = runner(&d);
     let state = dsp.state();
-    dsp.start(Settings::default()).await;
+    dsp.start(mix(Settings::default())).await;
     wait("applied", || *state.borrow() == DspState::Applied).await;
     std::fs::write(d.join("cli-fails"), "").unwrap();
     let r = dsp
-        .apply(Settings {
+        .apply(mix(Settings {
             sub_level_db: -5,
             ..Settings::default()
-        })
+        }))
         .await
         .unwrap();
     assert!(r.contains("restart"), "{r}");
@@ -198,7 +224,7 @@ async fn a_crash_is_reported_and_restarted() {
     std::fs::write(d.join("crash"), "").unwrap();
     let dsp = runner(&d);
     let mut state = dsp.state();
-    dsp.start(Settings::default()).await;
+    dsp.start(mix(Settings::default())).await;
     // The first child exits at once: not running, then started again.
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
@@ -245,7 +271,7 @@ async fn no_pw_metadata_still_runs_the_filter() {
         max_backoff: Duration::from_millis(200),
     });
     let state = dsp.state();
-    dsp.start(Settings::default()).await;
+    dsp.start(mix(Settings::default())).await;
     wait("applied", || *state.borrow() == DspState::Applied).await;
 }
 
@@ -266,7 +292,7 @@ async fn no_pipewire_binary_is_not_running_with_a_reason() {
         max_backoff: Duration::from_millis(200),
     });
     let state = dsp.state();
-    dsp.start(Settings::default()).await;
+    dsp.start(mix(Settings::default())).await;
     wait(
         "not running",
         || matches!(&*state.borrow(), DspState::NotRunning(why) if why.contains("can't start")),

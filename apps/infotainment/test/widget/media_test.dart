@@ -105,6 +105,15 @@ class FakeAudio implements AudioSource {
     calls.add('cover art $id');
     return (pictures[id] ??= Completer<CoverArtImage?>()).future;
   }
+
+  /// What a volume change answers (above the cap).
+  String volumeNote = '';
+
+  @override
+  Future<CommandResult> setVolume(VolumeChange c) async {
+    calls.add('volume ${c.steps ?? c.level ?? c.mute?.name}');
+    return CommandResult(ok: true, detail: volumeNote);
+  }
 }
 
 const phone = Phone(address: 'AA:BB', name: 'Pixel 8', connected: true, paired: true);
@@ -465,6 +474,106 @@ void main() {
     expect(find.text('NO CROSSOVER'), findsOneWidget);
   });
 
+  testWidgets('volume (ADR-0043): −, +, mute on Media; the level shown over the screen for 2 s', (tester) async {
+    final audio = SimulatedAudioSource(autoRun: false);
+    final h = await Harness.start(tester, audio: audio);
+    await h.goTo(AppScreen.media);
+    expect(text(tester, 'media-volume-level'), '15');
+    expect(key('volume-overlay'), findsNothing, reason: 'not for the first report');
+    expectTouchTargets(tester, 'media with the volume');
+
+    await tester.tap(key('media-volume-up'));
+    await tester.pump();
+    expect(text(tester, 'media-volume-level'), '16');
+    expect(key('volume-overlay'), findsNothing, reason: 'Media shows the level; the overlay would cover its buttons');
+    await tester.tap(key('media-volume-down'));
+    await tester.tap(key('media-volume-down'));
+    await tester.pump();
+    expect(text(tester, 'media-volume-level'), '14');
+
+    await tester.tap(key('media-volume-mute'));
+    await tester.pump();
+    expect(text(tester, 'media-volume-level'), 'Muted');
+    await tester.tap(key('media-volume-up'));
+    await tester.pump();
+    expect(text(tester, 'media-volume-level'), '15', reason: 'up unmutes');
+
+    // Elsewhere, a change (the knob) shows the level for 2 s; the
+    // simulation has no filter-chain, which it says.
+    await h.goTo(AppScreen.home);
+    await audio.setVolume(const VolumeChange.toggleMute());
+    await tester.pump();
+    expect(text(tester, 'volume-overlay-level'), 'Muted');
+    await audio.setVolume(const VolumeChange.steps(1));
+    await tester.pump();
+    expect(text(tester, 'volume-overlay-level'), '16');
+    expect(key('volume-overlay-not-applied'), findsOneWidget);
+    // Gone 2 s after the last change, and the once-a-second update doesn't
+    // bring it back.
+    await tester.pump(const Duration(milliseconds: 1900));
+    expect(key('volume-overlay'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(key('volume-overlay'), findsNothing);
+    audio.tick();
+    await tester.pump();
+    expect(key('volume-overlay'), findsNothing);
+  });
+
+  testWidgets('volume: the knob shows the level on any screen, below the alert banner', (tester) async {
+    final audio = SimulatedAudioSource(autoRun: false);
+    final h = await Harness.start(tester, scenario: 'eot_ect_freeze', audio: audio);
+    await h.goTo(AppScreen.gauges);
+    await h.advance(const Duration(seconds: 200));
+    final banner = find.byKey(const ValueKey('alert-banner'));
+    expect(banner, findsOneWidget);
+    // A change from elsewhere (the knob, through audio-manager).
+    await audio.setVolume(const VolumeChange.steps(-3));
+    await tester.pump();
+    final overlay = key('volume-overlay');
+    expect(overlay, findsOneWidget);
+    expect(text(tester, 'volume-overlay-level'), '12');
+    final o = tester.getRect(overlay), b = tester.getRect(banner);
+    expect(o.top, greaterThanOrEqualTo(b.bottom), reason: 'never over the alert');
+    expect(o.bottom, lessThanOrEqualTo(480));
+    expect(banner.hitTestable(), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('volume: the cap is said; without a volume the buttons are off', (tester) async {
+    final audio = FakeAudio()
+      ..value = up(const AudioReport(
+          phone: phone, volume: VolumeStatus(level: 24, max: 24, steps: 30, applied: true)))
+      ..volumeNote = 'The maximum is 24 (configuration).';
+    final h = await Harness.start(tester, audio: audio);
+    await h.goTo(AppScreen.media);
+    expect(text(tester, 'media-volume-level'), '24');
+    expect(find.text('max'), findsOneWidget);
+    await tester.tap(key('media-volume-up'));
+    await tester.pump();
+    expect(audio.calls, ['volume 1']);
+    expect(text(tester, 'media-message'), 'The maximum is 24 (configuration).');
+    await tester.tap(key('media-volume-mute'));
+    await tester.pump();
+    expect(audio.calls.last, 'volume toggle');
+
+    // The cap mark on the level bar (on any screen but Media).
+    await h.goTo(AppScreen.home);
+    audio.value = up(const AudioReport(phone: phone, volume: VolumeStatus(level: 20, max: 24, steps: 30)));
+    await tester.pump();
+    expect(key('volume-overlay-cap'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await h.goTo(AppScreen.media);
+
+    // An audio-manager without a volume: no level, nothing sent.
+    audio.value = up(const AudioReport(phone: phone));
+    await tester.pump();
+    expect(text(tester, 'media-volume-level'), '—');
+    audio.calls.clear();
+    await tester.tap(key('media-volume-up'));
+    await tester.pump();
+    expect(audio.calls, isEmpty);
+  });
+
   testWidgets('alerts stay visible on the Media screen', (tester) async {
     final h = await Harness.start(tester, scenario: 'eot_ect_freeze');
     await h.goTo(AppScreen.media);
@@ -476,7 +585,8 @@ void main() {
     final audio = SimulatedAudioSource(autoRun: false);
     final h = await Harness.start(tester, audio: audio);
     await h.goTo(AppScreen.media);
-    expect(tester.getRect(key('media-next')).right, greaterThan(760), reason: 'Media is the full width');
+    // The volume ends the controls' row at the right edge (ADR-0043).
+    expect(tester.getRect(key('media-volume-mute')).right, greaterThan(760), reason: 'Media is the full width');
     await tester.tap(key('media-phones'));
     await tester.pump();
     expect(h.services.screens.value, AppScreen.phones);

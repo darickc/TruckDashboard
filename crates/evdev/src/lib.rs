@@ -1,6 +1,7 @@
-//! Reading keys from Linux input devices, with no C library: the power key,
-//! and the camera switch's contacts (which the `gpio-key` overlay turns into
-//! keys; [camera_switch](crate::camera_switch)).
+//! Reading Linux input devices, with no C library: power-manager's power
+//! key and the camera switch's contacts (which the `gpio-key` overlay turns
+//! into keys), and audio-manager's volume knob (volume keys and `REL_DIAL`,
+//! ADR-0043).
 //!
 //! An event device (`/dev/input/eventN`) delivers `struct input_event`
 //! records (`linux/input.h`). On 64-bit Linux, the Pi 5's aarch64 included,
@@ -23,6 +24,16 @@ pub const EVENT_SIZE: usize = 24;
 pub const EV_KEY: u16 = 0x01;
 /// `KEY_POWER`.
 pub const KEY_POWER: u16 = 116;
+/// `EV_REL`: a relative axis (a rotary encoder in relative mode, a mouse).
+pub const EV_REL: u16 = 0x02;
+/// `KEY_MUTE`, `KEY_VOLUMEDOWN`, `KEY_VOLUMEUP` (`input-event-codes.h`).
+pub const KEY_MUTE: u16 = 113;
+pub const KEY_VOLUMEDOWN: u16 = 114;
+pub const KEY_VOLUMEUP: u16 = 115;
+/// `REL_DIAL`: a dial's turns. Not `REL_X` or `REL_WHEEL`, which mice send.
+pub const REL_DIAL: u16 = 0x07;
+/// The value of an `EV_KEY` event for autorepeat (a key held down).
+pub const KEY_REPEATED: i32 = 2;
 /// The value of an `EV_KEY` event for a press (0 is a release, 2 autorepeat).
 pub const KEY_PRESSED: i32 = 1;
 
@@ -113,6 +124,17 @@ pub fn find_keys(sysfs: &Path, codes: &[u16]) -> Vec<(PathBuf, Vec<u16>)> {
 /// Which of `codes` the event device `device` (`/dev/input/eventN`) has, from
 /// its sysfs key bitmap. Empty if it can't be read.
 pub fn device_keys(sysfs: &Path, device: &Path, codes: &[u16]) -> Vec<u16> {
+    device_caps(sysfs, device, "key", codes)
+}
+
+/// Which of the relative axes `codes` the event device has, from its sysfs
+/// `capabilities/rel` bitmap (printed like the key bitmap). Empty if it
+/// can't be read.
+pub fn device_rels(sysfs: &Path, device: &Path, codes: &[u16]) -> Vec<u16> {
+    device_caps(sysfs, device, "rel", codes)
+}
+
+fn device_caps(sysfs: &Path, device: &Path, kind: &str, codes: &[u16]) -> Vec<u16> {
     let Some(name) = device.file_name() else {
         return Vec::new();
     };
@@ -120,7 +142,8 @@ pub fn device_keys(sysfs: &Path, device: &Path, codes: &[u16]) -> Vec<u16> {
         sysfs
             .join("class/input")
             .join(name)
-            .join("device/capabilities/key"),
+            .join("device/capabilities")
+            .join(kind),
     ) else {
         return Vec::new();
     };
@@ -129,6 +152,49 @@ pub fn device_keys(sysfs: &Path, device: &Path, codes: &[u16]) -> Vec<u16> {
         .copied()
         .filter(|&c| bitmap_has(&bitmap, c))
         .collect()
+}
+
+/// An event device with some of the keys and relative axes asked for.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Found {
+    /// `/dev/input/eventN`.
+    pub path: PathBuf,
+    pub keys: Vec<u16>,
+    pub rels: Vec<u16>,
+}
+
+/// The event devices with any of `keys` or `rels`, sorted by path.
+pub fn find_devices(sysfs: &Path, keys: &[u16], rels: &[u16]) -> Vec<Found> {
+    let Ok(entries) = std::fs::read_dir(sysfs.join("class/input")) else {
+        return Vec::new();
+    };
+    let mut found: Vec<Found> = entries
+        .filter_map(Result::ok)
+        .filter_map(|e| {
+            let name = e.file_name().into_string().ok()?;
+            if !name.starts_with("event") {
+                return None;
+            }
+            let path = Path::new("/dev/input").join(name);
+            let k = device_keys(sysfs, &path, keys);
+            let r = device_rels(sysfs, &path, rels);
+            (!k.is_empty() || !r.is_empty()).then_some(Found {
+                path,
+                keys: k,
+                rels: r,
+            })
+        })
+        .collect();
+    found.sort();
+    found
+}
+
+/// A device's name (`/sys/class/input/eventN/device/name`), for the log.
+pub fn device_name(sysfs: &Path, device: &Path) -> Option<String> {
+    let name = device.file_name()?;
+    std::fs::read_to_string(sysfs.join("class/input").join(name).join("device/name"))
+        .ok()
+        .map(|s| s.trim().to_string())
 }
 
 #[cfg(test)]
@@ -296,5 +362,52 @@ mod tests {
     #[test]
     fn no_sysfs_means_no_devices() {
         assert!(find_power_keys(Path::new("/nonexistent-f250")).is_empty());
+    }
+
+    #[test]
+    fn finds_volume_keys_and_dials_not_mice() {
+        let root = std::env::temp_dir().join(format!("f250-evdev-rel-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let dev = |name: &str, key: Option<&str>, rel: Option<&str>, label: &str| {
+            let d = root.join("class/input").join(name).join("device");
+            std::fs::create_dir_all(d.join("capabilities")).expect("mkdir");
+            if let Some(b) = key {
+                std::fs::write(d.join("capabilities/key"), b).expect("write");
+            }
+            if let Some(b) = rel {
+                std::fs::write(d.join("capabilities/rel"), b).expect("write");
+            }
+            std::fs::write(d.join("name"), format!("{label}\n")).expect("write");
+        };
+        // A USB volume knob: KEY_MUTE, KEY_VOLUMEDOWN, KEY_VOLUMEUP (bits
+        // 113-115 of word 1: 0x000e << 48).
+        dev("event3", Some("e000000000000 0\n"), Some("0\n"), "USB knob");
+        // A rotary encoder on REL_DIAL (bit 7).
+        dev("event4", None, Some("80\n"), "rotary@11");
+        // A mouse: REL_X, REL_Y, REL_WHEEL (bits 0, 1, 8), BTN_LEFT..
+        dev("event5", Some("70000 0 0 0 0\n"), Some("103\n"), "mouse");
+        let found = find_devices(
+            &root,
+            &[KEY_MUTE, KEY_VOLUMEDOWN, KEY_VOLUMEUP],
+            &[REL_DIAL],
+        );
+        let name = device_name(&root, Path::new("/dev/input/event4"));
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(
+            found,
+            vec![
+                Found {
+                    path: PathBuf::from("/dev/input/event3"),
+                    keys: vec![KEY_MUTE, KEY_VOLUMEDOWN, KEY_VOLUMEUP],
+                    rels: vec![],
+                },
+                Found {
+                    path: PathBuf::from("/dev/input/event4"),
+                    keys: vec![],
+                    rels: vec![REL_DIAL],
+                },
+            ]
+        );
+        assert_eq!(name.as_deref(), Some("rotary@11"));
     }
 }

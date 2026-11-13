@@ -18,13 +18,15 @@ import '../theme.dart';
 import 'alert_banner.dart';
 import 'camera_mode.dart';
 import 'status_bar.dart';
+import '../widgets/volume.dart';
 
 /// Status bar, alert banner, then the screen showing: Home's buttons, or
 /// another screen, with Back (and Home) at the status bar's left
 /// (nav_buttons.dart).
 ///
 /// The alert banner sits *above* the screen area, outside any screen, so no
-/// screen can hide it. While camera-manager shows a camera, the shell
+/// screen can hide it. The volume's level shows over the bottom of the
+/// screen area for a moment after each change (ADR-0043), below the banner. While camera-manager shows a camera, the shell
 /// switches to camera mode (camera_mode.dart) on every screen: the camera's
 /// window covers x 220–800, y 44–480 whatever the dashboard shows, and an
 /// alert takes the status bar's place above it.
@@ -99,29 +101,40 @@ class _AppShellState extends State<AppShell> {
       const StatusBar(navigation: true),
       const AlertBanner(),
       Expanded(
-        child: Padding(
-          padding: const EdgeInsets.all(kGap),
-          child: ListenableBuilder(
-            listenable: s.screens,
-            builder: (context, _) {
-              final screen = s.screens.value;
-              return KeyedSubtree(
-                key: ValueKey('screen-${screen.name}'),
-                child: switch (screen) {
-                  AppScreen.home => const HomeScreen(),
-                  AppScreen.gauges => const GaugesScreen(),
-                  AppScreen.media => const MediaScreen(),
-                  AppScreen.navigation => const NavigationScreen(),
-                  AppScreen.cameras => const CamerasScreen(),
-                  AppScreen.settings => const SettingsScreen(),
-                  AppScreen.diagnostics => const DiagnosticsScreen(),
-                  AppScreen.recordings => const RecordingsScreen(),
-                  AppScreen.phones => const PhonesScreen(),
+        child: Stack(children: [
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.all(kGap),
+              child: ListenableBuilder(
+                listenable: s.screens,
+                builder: (context, _) {
+                  final screen = s.screens.value;
+                  return KeyedSubtree(
+                    key: ValueKey('screen-${screen.name}'),
+                    child: switch (screen) {
+                      AppScreen.home => const HomeScreen(),
+                      AppScreen.gauges => const GaugesScreen(),
+                      AppScreen.media => const MediaScreen(),
+                      AppScreen.navigation => const NavigationScreen(),
+                      AppScreen.cameras => const CamerasScreen(),
+                      AppScreen.settings => const SettingsScreen(),
+                      AppScreen.diagnostics => const DiagnosticsScreen(),
+                      AppScreen.recordings => const RecordingsScreen(),
+                      AppScreen.phones => const PhonesScreen(),
+                    },
+                  );
                 },
-              );
-            },
+              ),
+            ),
           ),
-        ),
+          Positioned.fill(
+            child: ListenableBuilder(
+              listenable: s.screens,
+              builder: (context, _) =>
+                  VolumeOverlay(audio: s.audio, hidden: s.screens.value == AppScreen.media),
+            ),
+          ),
+        ]),
       ),
     ]);
   }

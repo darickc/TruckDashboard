@@ -240,3 +240,19 @@ AUDIO_PROMPT_HOLD_MS=
 # AUDIO_RECONNECT_FOR_S  for this long (empty: 300, an example); 0: never.
 AUDIO_RECONNECT_EVERY_S=
 AUDIO_RECONNECT_FOR_S=
+# The master volume (ADR-0043). Examples, not recommendations (empty: the
+# defaults in brackets).
+# AUDIO_VOLUME_STEPS  steps, the top one 0 dB (30).
+# AUDIO_VOLUME_STEP_DB  dB a step (2).
+# AUDIO_VOLUME_MAX  the highest level the driver may set (the top step):
+#                lower it for speakers that can't take the amps' full output.
+# AUDIO_VOLUME_START_MAX  starts no louder than this, whatever was saved (15).
+AUDIO_VOLUME_STEPS=
+AUDIO_VOLUME_STEP_DB=
+AUDIO_VOLUME_MAX=
+AUDIO_VOLUME_START_MAX=
+# AUDIO_KNOB  1 (or empty): the volume knob from /dev/input, any device with
+#             the volume keys or a dial (REL_DIAL). 0: none. Which knob: TODO.
+# AUDIO_KNOB_INVERT  1: the dial counts counter-clockwise as up.
+AUDIO_KNOB=
+AUDIO_KNOB_INVERT=

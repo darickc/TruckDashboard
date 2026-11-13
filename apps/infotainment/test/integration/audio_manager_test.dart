@@ -1,7 +1,7 @@
 // Runs the real services/audio-manager binary with its simulated phone and
 // reads it through the app's audio source: the Rust server and the Dart
-// client agree on f250.audio.v1 (now playing, controls, the pairing window
-// and the speaker settings), and killing audio-manager takes the phone and
+// client agree on f250.audio.v1 (now playing, controls, the pairing window,
+// the speaker settings and the volume), and killing audio-manager takes the phone and
 // its track off the dashboard. Skipped unless the binary is built:
 // `cargo build -p audio-manager` (make ui-test does this).
 @Tags(['integration'])
@@ -36,6 +36,8 @@ void main() {
       '--listen', 'unix:$sock',
       '--simulate',
       '--settings-file', '${dir.path}/speakers.json',
+      '--volume-max', '20',
+      '--volume-start-max', '12',
     ]);
     addTearDown(() => am.kill());
     am.stdout.listen((_) {});
@@ -75,6 +77,18 @@ void main() {
     expect(ok.ok, isTrue);
     expect(ok.detail, contains('not applied'));
     expect((await src.getSpeakers()).settings, const SpeakerSettings(fader: 2, crossoverHz: 90));
+
+    // The volume (ADR-0043): the start level, steps, the cap, mute.
+    final v0 = r()!.volume!;
+    expect((v0.level, v0.max, v0.steps, v0.muted, v0.applied), (12, 20, 30, false, false));
+    expect(v0.detail, startsWith('Not applied: simulated'));
+    expect((await src.setVolume(const VolumeChange.steps(3))).detail, isEmpty);
+    await _until(() => r()?.volume?.level == 15);
+    expect((await src.setVolume(const VolumeChange.level(30))).detail, 'The maximum is 20 (configuration).');
+    await _until(() => r()?.volume?.level == 20);
+    await src.setVolume(const VolumeChange.toggleMute());
+    await _until(() => r()?.volume?.muted == true);
+    expect(r()!.volume!.level, 20, reason: 'the level is kept');
 
     am.kill();
     await _until(() => src.status.value.link == AudioLink.down);

@@ -17,6 +17,7 @@ use audio_manager::runner::NoDsp;
 use audio_manager::server::Api;
 use audio_manager::sim::{self, SimConfig, SimPhone};
 use audio_manager::voice::SimVoice;
+use audio_manager::volume::VolumeLimits;
 use f250_proto::audio::v1 as pb;
 use hyper_util::rt::TokioIo;
 use pb::audio_service_client::AudioServiceClient;
@@ -86,6 +87,11 @@ async fn start_with(
         prompt_hold: Duration::from_millis(300),
         last_phone_file: None,
         reconnect: Reconnect::OFF,
+        volume: VolumeLimits {
+            max: 24,
+            ..VolumeLimits::default()
+        },
+        volume_file: Some(dir.join("volume.json")),
     };
     change(&mut cfg, &dir);
     let manager = Manager::new(
@@ -570,6 +576,8 @@ async fn speaker_settings_are_validated_saved_and_kept() {
         prompt_hold: Duration::from_secs(1),
         last_phone_file: None,
         reconnect: Reconnect::OFF,
+        volume: VolumeLimits::default(),
+        volume_file: None,
     };
     let (loaded, problem) = audio_manager::manager::load_settings(&cfg);
     assert!(problem.is_none(), "{file}");
@@ -1125,4 +1133,105 @@ async fn a_forgotten_phone_is_gone_and_no_longer_the_last() {
     assert!(!r.dir.join("last-phone").exists());
     tokio::time::sleep(Duration::from_millis(2500)).await;
     assert!(r.sim.connects().is_empty());
+}
+
+async fn set_volume(
+    c: &mut Client,
+    change: pb::set_volume_request::Change,
+) -> pb::SetVolumeResponse {
+    c.set_volume(pb::SetVolumeRequest {
+        change: Some(change),
+        source: "test".into(),
+    })
+    .await
+    .expect("set_volume")
+    .into_inner()
+}
+
+#[tokio::test]
+async fn volume_level_cap_mute_and_saving() {
+    use pb::set_volume_request::Change as C;
+    let mut r = start("volume", SimConfig::default()).await;
+    let mut s = watch(&mut r.client).await;
+    // No file yet: the start maximum (15), unmuted; the cap and the steps
+    // published; not applied (no PipeWire here), and said so.
+    let m = until(&mut s, "the volume", |m| m.volume.is_some()).await;
+    let v = m.volume.unwrap();
+    assert_eq!((v.level, v.max, v.steps, v.muted), (15, 24, 30, false));
+    assert!(!v.applied);
+    assert!(
+        v.detail.starts_with("Not applied: simulated"),
+        "{}",
+        v.detail
+    );
+
+    let a = set_volume(&mut r.client, C::Steps(3)).await;
+    assert_eq!(a.volume.unwrap().level, 18);
+    assert!(!a.applied);
+    until(&mut s, "18", |m| {
+        m.volume.as_ref().is_some_and(|v| v.level == 18)
+    })
+    .await;
+
+    // Above the cap: the cap, and the answer says so.
+    let a = set_volume(&mut r.client, C::Level(30)).await;
+    assert_eq!(a.volume.unwrap().level, 24);
+    assert_eq!(a.detail, "The maximum is 24 (configuration).");
+
+    let a = set_volume(&mut r.client, C::Mute(pb::MuteChange::Toggle.into())).await;
+    let v = a.volume.unwrap();
+    assert_eq!((v.level, v.muted), (24, true), "the level is kept");
+    until(&mut s, "muted", |m| {
+        m.volume.as_ref().is_some_and(|v| v.muted)
+    })
+    .await;
+    let a = set_volume(&mut r.client, C::Steps(-4)).await;
+    assert_eq!(
+        a.volume.unwrap(),
+        pb::Volume {
+            level: 20,
+            muted: true,
+            ..v.clone()
+        },
+        "down stays muted"
+    );
+    let a = set_volume(&mut r.client, C::Steps(1)).await;
+    assert!(!a.volume.unwrap().muted, "up unmutes");
+
+    // Nothing asked: refused.
+    let e = r
+        .client
+        .set_volume(pb::SetVolumeRequest {
+            change: None,
+            source: String::new(),
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(e.code(), tonic::Code::InvalidArgument);
+
+    // Saved 2 s after the last change, not at each one; at once on stop.
+    let file = r.dir.join("volume.json");
+    assert!(!file.exists(), "not saved at each change");
+    r.manager.stop();
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "{\"level\":21}");
+
+    // A restart comes back no louder than the start maximum.
+    let (saved, problem) = audio_manager::manager::load_volume(Some(&file));
+    assert_eq!((saved, problem), (Some(21), None));
+    let l = VolumeLimits::default();
+    assert_eq!(audio_manager::volume::at_start(&l, saved).level, 15);
+}
+
+#[tokio::test]
+async fn the_volume_is_saved_once_the_changes_stop() {
+    use pb::set_volume_request::Change as C;
+    let mut r = start("volume-save", SimConfig::default()).await;
+    for _ in 0..5 {
+        set_volume(&mut r.client, C::Steps(-1)).await;
+    }
+    let file = r.dir.join("volume.json");
+    tokio::time::sleep(audio_manager::manager::SAVE_VOLUME_AFTER / 2).await;
+    assert!(!file.exists(), "still turning");
+    tokio::time::sleep(audio_manager::manager::SAVE_VOLUME_AFTER).await;
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "{\"level\":10}");
 }

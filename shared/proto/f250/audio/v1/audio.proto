@@ -60,6 +60,9 @@ service AudioService {
   // phone sent it. found is false for an id that isn't the current one: a
   // picture is never served for a track that has gone.
   rpc GetCoverArt(GetCoverArtRequest) returns (GetCoverArtResponse);
+  // The master volume (ADR-0043): a level, a number of steps, or mute. The
+  // knob (Linux input on the Pi) goes through the same change.
+  rpc SetVolume(SetVolumeRequest) returns (SetVolumeResponse);
 }
 
 message WatchAudioRequest {}
@@ -210,6 +213,8 @@ message WatchAudioResponse {
   bool simulated = 10;
   Prompts prompts = 11;
   ConnectAttempt connect = 12;
+  // The master volume (ADR-0043).
+  Volume volume = 13;
 }
 
 // Spoken prompts (Speak).
@@ -395,4 +400,49 @@ message GetCoverArtResponse {
   bytes image = 2;
   // "image/jpeg", "image/png" or "image/bmp" (the simulated phone).
   string mime_type = 3;
+}
+
+// The master volume (ADR-0043): a gain in the speakers' filter-chain on
+// every output, never above 0 dB. Step `steps` is 0 dB, each step below it
+// quieter (configuration, examples), 0 silent.
+message Volume {
+  // 0 ..= max.
+  uint32 level = 1;
+  // The cap: the driver can't go above it (configuration).
+  uint32 max = 2;
+  // The top step (0 dB).
+  uint32 steps = 3;
+  // The level is kept while muted.
+  bool muted = 4;
+  // False: kept and shown, not reaching the speakers (no filter-chain).
+  bool applied = 5;
+  // Why not applied.
+  string detail = 6;
+}
+
+enum MuteChange {
+  MUTE_CHANGE_UNSPECIFIED = 0;
+  MUTE_CHANGE_MUTE = 1;
+  MUTE_CHANGE_UNMUTE = 2;
+  MUTE_CHANGE_TOGGLE = 3;
+}
+
+message SetVolumeRequest {
+  oneof change {
+    // Set to this level (unmutes); above the cap: the cap.
+    uint32 level = 1;
+    // Up (positive, unmutes) or down this many steps, within 0..=max.
+    int32 steps = 2;
+    MuteChange mute = 3;
+  }
+  // Who asked ("dashboard", "knob"), for the log.
+  string source = 4;
+}
+
+message SetVolumeResponse {
+  bool applied = 1;
+  // What wasn't as asked ("The maximum is 24 (configuration)."); empty
+  // otherwise. Why it isn't applied is in volume.detail.
+  string detail = 2;
+  Volume volume = 3;
 }

@@ -104,6 +104,22 @@ final $typed_data.Uint8List commandDescriptor = $convert.base64Decode(
     'CgdDb21tYW5kEhcKE0NPTU1BTkRfVU5TUEVDSUZJRUQQABIQCgxDT01NQU5EX1BMQVkQARIRCg'
     '1DT01NQU5EX1BBVVNFEAISEAoMQ09NTUFORF9ORVhUEAMSFAoQQ09NTUFORF9QUkVWSU9VUxAE');
 
+@$core.Deprecated('Use muteChangeDescriptor instead')
+const MuteChange$json = {
+  '1': 'MuteChange',
+  '2': [
+    {'1': 'MUTE_CHANGE_UNSPECIFIED', '2': 0},
+    {'1': 'MUTE_CHANGE_MUTE', '2': 1},
+    {'1': 'MUTE_CHANGE_UNMUTE', '2': 2},
+    {'1': 'MUTE_CHANGE_TOGGLE', '2': 3},
+  ],
+};
+
+/// Descriptor for `MuteChange`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List muteChangeDescriptor = $convert.base64Decode(
+    'CgpNdXRlQ2hhbmdlEhsKF01VVEVfQ0hBTkdFX1VOU1BFQ0lGSUVEEAASFAoQTVVURV9DSEFOR0'
+    'VfTVVURRABEhYKEk1VVEVfQ0hBTkdFX1VOTVVURRACEhYKEk1VVEVfQ0hBTkdFX1RPR0dMRRAD');
+
 @$core.Deprecated('Use watchAudioRequestDescriptor instead')
 const WatchAudioRequest$json = {
   '1': 'WatchAudioRequest',
@@ -307,6 +323,14 @@ const WatchAudioResponse$json = {
       '6': '.f250.audio.v1.ConnectAttempt',
       '10': 'connect'
     },
+    {
+      '1': 'volume',
+      '3': 13,
+      '4': 1,
+      '5': 11,
+      '6': '.f250.audio.v1.Volume',
+      '10': 'volume'
+    },
   ],
 };
 
@@ -322,7 +346,8 @@ final $typed_data.Uint8List watchAudioResponseDescriptor = $convert.base64Decode
     'RlUgNkc3ASHQoKZHNwX2RldGFpbBgJIAEoCVIJZHNwRGV0YWlsEhwKCXNpbXVsYXRlZBgKIAEo'
     'CFIJc2ltdWxhdGVkEjAKB3Byb21wdHMYCyABKAsyFi5mMjUwLmF1ZGlvLnYxLlByb21wdHNSB3'
     'Byb21wdHMSNwoHY29ubmVjdBgMIAEoCzIdLmYyNTAuYXVkaW8udjEuQ29ubmVjdEF0dGVtcHRS'
-    'B2Nvbm5lY3Q=');
+    'B2Nvbm5lY3QSLQoGdm9sdW1lGA0gASgLMhUuZjI1MC5hdWRpby52MS5Wb2x1bWVSBnZvbHVtZQ'
+    '==');
 
 @$core.Deprecated('Use promptsDescriptor instead')
 const Prompts$json = {
@@ -763,3 +788,73 @@ const GetCoverArtResponse$json = {
 final $typed_data.Uint8List getCoverArtResponseDescriptor = $convert.base64Decode(
     'ChNHZXRDb3ZlckFydFJlc3BvbnNlEhQKBWZvdW5kGAEgASgIUgVmb3VuZBIUCgVpbWFnZRgCIA'
     'EoDFIFaW1hZ2USGwoJbWltZV90eXBlGAMgASgJUghtaW1lVHlwZQ==');
+
+@$core.Deprecated('Use volumeDescriptor instead')
+const Volume$json = {
+  '1': 'Volume',
+  '2': [
+    {'1': 'level', '3': 1, '4': 1, '5': 13, '10': 'level'},
+    {'1': 'max', '3': 2, '4': 1, '5': 13, '10': 'max'},
+    {'1': 'steps', '3': 3, '4': 1, '5': 13, '10': 'steps'},
+    {'1': 'muted', '3': 4, '4': 1, '5': 8, '10': 'muted'},
+    {'1': 'applied', '3': 5, '4': 1, '5': 8, '10': 'applied'},
+    {'1': 'detail', '3': 6, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `Volume`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List volumeDescriptor = $convert.base64Decode(
+    'CgZWb2x1bWUSFAoFbGV2ZWwYASABKA1SBWxldmVsEhAKA21heBgCIAEoDVIDbWF4EhQKBXN0ZX'
+    'BzGAMgASgNUgVzdGVwcxIUCgVtdXRlZBgEIAEoCFIFbXV0ZWQSGAoHYXBwbGllZBgFIAEoCFIH'
+    'YXBwbGllZBIWCgZkZXRhaWwYBiABKAlSBmRldGFpbA==');
+
+@$core.Deprecated('Use setVolumeRequestDescriptor instead')
+const SetVolumeRequest$json = {
+  '1': 'SetVolumeRequest',
+  '2': [
+    {'1': 'level', '3': 1, '4': 1, '5': 13, '9': 0, '10': 'level'},
+    {'1': 'steps', '3': 2, '4': 1, '5': 5, '9': 0, '10': 'steps'},
+    {
+      '1': 'mute',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.f250.audio.v1.MuteChange',
+      '9': 0,
+      '10': 'mute'
+    },
+    {'1': 'source', '3': 4, '4': 1, '5': 9, '10': 'source'},
+  ],
+  '8': [
+    {'1': 'change'},
+  ],
+};
+
+/// Descriptor for `SetVolumeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setVolumeRequestDescriptor = $convert.base64Decode(
+    'ChBTZXRWb2x1bWVSZXF1ZXN0EhYKBWxldmVsGAEgASgNSABSBWxldmVsEhYKBXN0ZXBzGAIgAS'
+    'gFSABSBXN0ZXBzEi8KBG11dGUYAyABKA4yGS5mMjUwLmF1ZGlvLnYxLk11dGVDaGFuZ2VIAFIE'
+    'bXV0ZRIWCgZzb3VyY2UYBCABKAlSBnNvdXJjZUIICgZjaGFuZ2U=');
+
+@$core.Deprecated('Use setVolumeResponseDescriptor instead')
+const SetVolumeResponse$json = {
+  '1': 'SetVolumeResponse',
+  '2': [
+    {'1': 'applied', '3': 1, '4': 1, '5': 8, '10': 'applied'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+    {
+      '1': 'volume',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.f250.audio.v1.Volume',
+      '10': 'volume'
+    },
+  ],
+};
+
+/// Descriptor for `SetVolumeResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setVolumeResponseDescriptor = $convert.base64Decode(
+    'ChFTZXRWb2x1bWVSZXNwb25zZRIYCgdhcHBsaWVkGAEgASgIUgdhcHBsaWVkEhYKBmRldGFpbB'
+    'gCIAEoCVIGZGV0YWlsEi0KBnZvbHVtZRgDIAEoCzIVLmYyNTAuYXVkaW8udjEuVm9sdW1lUgZ2'
+    'b2x1bWU=');

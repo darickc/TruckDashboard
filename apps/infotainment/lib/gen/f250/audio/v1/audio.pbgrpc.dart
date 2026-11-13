@@ -159,6 +159,15 @@ class AudioServiceClient extends $grpc.Client {
     return $createUnaryCall(_$getCoverArt, request, options: options);
   }
 
+  /// The master volume (ADR-0043): a level, a number of steps, or mute. The
+  /// knob (Linux input on the Pi) goes through the same change.
+  $grpc.ResponseFuture<$0.SetVolumeResponse> setVolume(
+    $0.SetVolumeRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$setVolume, request, options: options);
+  }
+
   // method descriptors
 
   static final _$watchAudio =
@@ -225,6 +234,11 @@ class AudioServiceClient extends $grpc.Client {
           '/f250.audio.v1.AudioService/GetCoverArt',
           ($0.GetCoverArtRequest value) => value.writeToBuffer(),
           $0.GetCoverArtResponse.fromBuffer);
+  static final _$setVolume =
+      $grpc.ClientMethod<$0.SetVolumeRequest, $0.SetVolumeResponse>(
+          '/f250.audio.v1.AudioService/SetVolume',
+          ($0.SetVolumeRequest value) => value.writeToBuffer(),
+          $0.SetVolumeResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('f250.audio.v1.AudioService')
@@ -343,6 +357,13 @@ abstract class AudioServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.GetCoverArtRequest.fromBuffer(value),
             ($0.GetCoverArtResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.SetVolumeRequest, $0.SetVolumeResponse>(
+        'SetVolume',
+        setVolume_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.SetVolumeRequest.fromBuffer(value),
+        ($0.SetVolumeResponse value) => value.writeToBuffer()));
   }
 
   $async.Stream<$0.WatchAudioResponse> watchAudio_Pre($grpc.ServiceCall $call,
@@ -455,4 +476,12 @@ abstract class AudioServiceBase extends $grpc.Service {
 
   $async.Future<$0.GetCoverArtResponse> getCoverArt(
       $grpc.ServiceCall call, $0.GetCoverArtRequest request);
+
+  $async.Future<$0.SetVolumeResponse> setVolume_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.SetVolumeRequest> $request) async {
+    return setVolume($call, await $request);
+  }
+
+  $async.Future<$0.SetVolumeResponse> setVolume(
+      $grpc.ServiceCall call, $0.SetVolumeRequest request);
 }

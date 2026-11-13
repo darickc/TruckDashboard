@@ -71,7 +71,7 @@ flowchart LR
 | Active device | Several phones may be paired. Today: whichever phone connects (BlueZ's behaviour). A preferred phone and switching in the UI are not built |
 | Reconnect | Phones paired in the window are trusted, so they reconnect on their own; audio-manager doesn't initiate connections yet. A dropped phone takes its track off the screen at once |
 | Controls and metadata | AVRCP through BlueZ `MediaPlayer1`: play/pause/next/previous, title, artist, album, position, state. bluetoothd (patched, ADR-0039 decision 12) re-reads the position 1 s after Next/Previous, for skips inside a track. Cover art: each track's thumbnail over AVRCP 1.6 BIP through obexd (ADR-0042; [SIM] only) |
-| Volume | One master volume with a configurable **maximum**, plus the physical knob. Absolute volume (AVRCP) where supported. Phase 6.3: not built |
+| Volume | One master volume: a gain in the filter-chain on every output, never above 0 dB; steps in dB, a configurable **maximum** and a start maximum, mute, saved 2 s after a change. The knob is Linux input (volume keys, `REL_DIAL`) from any device; which knob is TODO. AVRCP absolute volume: not decided (ADR-0043; [SIM] only) |
 | Sources | Bluetooth. Spoken directions pause the music (owner, 2026-11-12): audio-manager says them (Flite) with role Speech-High, which corks Multimedia at once, pauses the phone over AVRCP and resumes it 1 s (an example) after the last prompt (ADR-0039 decision 9). A USB or local-files source is possible later |
 | Future HFP | ofono is present. Keep a route for microphone and echo cancellation, but do not block release 1 on calling |
 

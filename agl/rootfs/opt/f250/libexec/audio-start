@@ -36,10 +36,22 @@
 #                       obexd (f250-obexd.service) into
 #                       /run/f250-obex/cover-art (ADR-0042). 0: none.
 #                       Default 1.
+#   AUDIO_VOLUME_STEPS, AUDIO_VOLUME_STEP_DB
+#                       the master volume's steps (the top one 0 dB) and dB
+#                       a step (ADR-0043). Defaults 30 and 2, examples.
+#   AUDIO_VOLUME_MAX    the highest level the driver may set. Default: the
+#                       top step; an example: lower it for speakers that
+#                       can't take the amplifiers' full output.
+#   AUDIO_VOLUME_START_MAX  audio-manager starts no louder than this,
+#                       whatever it saved. Default 15, an example.
+#   AUDIO_KNOB          1: the volume knob from /dev/input (any device with
+#                       the volume keys or REL_DIAL). Default 1; 0: none.
+#   AUDIO_KNOB_INVERT   1: the knob's dial counts counter-clockwise as up.
+#                       Default 0.
 #
 # The API is on /run/f250-audio/audio.sock (RuntimeDirectory); the driver's
-# speaker settings in /var/lib/f250-audio/speakers.json and the phone
-# connected last in /var/lib/f250-audio/last-phone (StateDirectory).
+# speaker settings in /var/lib/f250-audio/speakers.json, the volume in
+# volume.json and the phone connected last in last-phone (StateDirectory).
 #
 # Status: [SIM] (make agl-test).
 set -euo pipefail
@@ -49,7 +61,7 @@ SOCK="${F250_AUDIO_SOCK:-/run/f250-audio/audio.sock}"
 RUN="${F250_AUDIO_RUN:-/run/f250-audio}"
 STATE="${F250_AUDIO_STATE:-/var/lib/f250-audio}"
 
-args=(--listen "unix:$SOCK" --settings-file "$STATE/speakers.json" --dsp-conf "$RUN/speakers.conf" --last-phone-file "$STATE/last-phone")
+args=(--listen "unix:$SOCK" --settings-file "$STATE/speakers.json" --dsp-conf "$RUN/speakers.conf" --last-phone-file "$STATE/last-phone" --volume-file "$STATE/volume.json")
 if [[ "${AUDIO_SIMULATE:-0}" == 1 ]]; then
   args+=(--simulate)
 fi
@@ -79,6 +91,21 @@ case "${AUDIO_COVER_ART:-1}" in
   1) [[ "${AUDIO_SIMULATE:-0}" == 1 ]] || args+=(--cover-art-file "${F250_OBEX_RUN:-/run/f250-obex}/cover-art") ;;
   0) ;;
   *) echo "audio-start: AUDIO_COVER_ART=$AUDIO_COVER_ART: use 0 or 1" >&2; exit 2 ;;
+esac
+
+[[ -n "${AUDIO_VOLUME_STEPS:-}" ]] && args+=(--volume-steps "$AUDIO_VOLUME_STEPS")
+[[ -n "${AUDIO_VOLUME_STEP_DB:-}" ]] && args+=(--volume-step-db "$AUDIO_VOLUME_STEP_DB")
+[[ -n "${AUDIO_VOLUME_MAX:-}" ]] && args+=(--volume-max "$AUDIO_VOLUME_MAX")
+[[ -n "${AUDIO_VOLUME_START_MAX:-}" ]] && args+=(--volume-start-max "$AUDIO_VOLUME_START_MAX")
+case "${AUDIO_KNOB:-1}" in
+  1) args+=(--knob) ;;
+  0) ;;
+  *) echo "audio-start: AUDIO_KNOB=$AUDIO_KNOB: use 0 or 1" >&2; exit 2 ;;
+esac
+case "${AUDIO_KNOB_INVERT:-0}" in
+  1) args+=(--knob-invert) ;;
+  0) ;;
+  *) echo "audio-start: AUDIO_KNOB_INVERT=$AUDIO_KNOB_INVERT: use 0 or 1" >&2; exit 2 ;;
 esac
 
 echo "exec $BIN ${args[*]}" >&2

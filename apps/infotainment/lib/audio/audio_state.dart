@@ -132,6 +132,74 @@ class PairingStatus {
 
 enum DspPhase { applied, starting, notRunning }
 
+/// The master volume (ADR-0043): a gain in the speakers' filter-chain.
+@immutable
+class VolumeStatus {
+  const VolumeStatus({
+    required this.level,
+    required this.max,
+    required this.steps,
+    this.muted = false,
+    this.applied = true,
+    this.detail = '',
+  });
+
+  /// 0 ..= [max].
+  final int level;
+
+  /// The cap (configuration): the driver can't go above it.
+  final int max;
+
+  /// The top step (0 dB).
+  final int steps;
+
+  /// The level is kept while muted.
+  final bool muted;
+
+  /// False: kept and shown, not reaching the speakers (no filter-chain).
+  final bool applied;
+
+  /// Why not applied.
+  final String detail;
+
+  @override
+  bool operator ==(Object other) =>
+      other is VolumeStatus &&
+      other.level == level &&
+      other.max == max &&
+      other.steps == steps &&
+      other.muted == muted &&
+      other.applied == applied &&
+      other.detail == detail;
+
+  @override
+  int get hashCode => Object.hash(level, max, steps, muted, applied, detail);
+}
+
+enum MuteAction { mute, unmute, toggle }
+
+/// What the driver asks of the volume: one of steps, a level or mute.
+@immutable
+class VolumeChange {
+  const VolumeChange.steps(int this.steps)
+      : level = null,
+        mute = null;
+  const VolumeChange.level(int this.level)
+      : steps = null,
+        mute = null;
+  const VolumeChange.toggleMute()
+      : mute = MuteAction.toggle,
+        steps = null,
+        level = null;
+
+  /// Up (positive, unmutes) or down.
+  final int? steps;
+
+  /// Set to this level (unmutes); above the cap: the cap.
+  final int? level;
+  final MuteAction? mute;
+}
+
 /// What audio-manager reported last.
 @immutable
 class AudioReport {
@@ -149,6 +217,7 @@ class AudioReport {
     this.speaking = false,
     this.pausedForPrompt = false,
     this.connect = const ConnectStatus(),
+    this.volume,
   });
 
   final bool bluetoothReady;
@@ -178,6 +247,9 @@ class AudioReport {
   final bool pausedForPrompt;
 
   final ConnectStatus connect;
+
+  /// The master volume; null from an audio-manager without one.
+  final VolumeStatus? volume;
 
   /// Every paired phone, the connected one first, then the last one, then
   /// by name.
@@ -315,6 +387,10 @@ abstract class AudioSource {
   /// The picture named [id] (NowPlaying.coverArtId); null when it is no
   /// longer the current track's.
   Future<CoverArtImage?> coverArt(String id);
+
+  /// Changes the master volume (ADR-0043). [CommandResult.detail] says what
+  /// wasn't as asked (above the cap); [AudioReport.volume] follows.
+  Future<CommandResult> setVolume(VolumeChange c);
 }
 
 /// A phone, a playlist and a pairing window that don't exist, for the
@@ -366,6 +442,11 @@ class SimulatedAudioSource implements AudioSource {
   PasskeyQuestion? _question;
   SpeakerSettings _speakers = const SpeakerSettings();
   static const _limits = SpeakerLimits();
+
+  /// audio-manager's example volume: 30 steps, no cap, starting at 15.
+  static const volumeSteps = 30;
+  int _volume = 15;
+  bool _muted = false;
 
   final _status = ValueNotifier(const AudioStatus(link: AudioLink.connecting));
 
@@ -424,8 +505,38 @@ class SimulatedAudioSource implements AudioSource {
           name: 'F-250',
         ),
         dspDetail: 'simulated: no PipeWire',
+        volume: VolumeStatus(
+          level: _volume,
+          max: volumeSteps,
+          steps: volumeSteps,
+          muted: _muted,
+          applied: false,
+          detail: 'Not applied: simulated: no PipeWire.',
+        ),
       ),
     );
+  }
+
+  @override
+  Future<CommandResult> setVolume(VolumeChange c) async {
+    var note = '';
+    final steps = c.steps, level = c.level, mute = c.mute;
+    if (steps != null) {
+      _volume = (_volume + steps).clamp(0, volumeSteps);
+      if (steps > 0) _muted = false;
+    } else if (level != null) {
+      _volume = level.clamp(0, volumeSteps);
+      if (level > volumeSteps) note = 'The maximum is $volumeSteps (configuration).';
+      _muted = false;
+    } else if (mute != null) {
+      _muted = switch (mute) {
+        MuteAction.mute => true,
+        MuteAction.unmute => false,
+        MuteAction.toggle => !_muted,
+      };
+    }
+    _publish();
+    return CommandResult(ok: true, detail: note);
   }
 
   @override

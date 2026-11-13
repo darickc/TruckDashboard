@@ -701,6 +701,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     $core.bool? simulated,
     Prompts? prompts,
     ConnectAttempt? connect,
+    Volume? volume,
   }) {
     final result = WatchAudioResponse._();
     if (bluetooth != null) result.bluetooth = bluetooth;
@@ -715,6 +716,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     if (simulated != null) result.simulated = simulated;
     if (prompts != null) result.prompts = prompts;
     if (connect != null) result.connect = connect;
+    if (volume != null) result.volume = volume;
     return result;
   }
 
@@ -750,6 +752,8 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
         subBuilder: Prompts.$_createMessage)
     ..aOM<ConnectAttempt>(12, _omitFieldNames ? '' : 'connect',
         subBuilder: ConnectAttempt.$_createMessage)
+    ..aOM<Volume>(13, _omitFieldNames ? '' : 'volume',
+        subBuilder: Volume.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -890,6 +894,18 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
   void clearConnect() => $_clearField(12);
   @$pb.TagNumber(12)
   ConnectAttempt ensureConnect() => $_ensure(11);
+
+  /// The master volume (ADR-0043).
+  @$pb.TagNumber(13)
+  Volume get volume => $_getN(12);
+  @$pb.TagNumber(13)
+  set volume(Volume value) => $_setField(13, value);
+  @$pb.TagNumber(13)
+  $core.bool hasVolume() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearVolume() => $_clearField(13);
+  @$pb.TagNumber(13)
+  Volume ensureVolume() => $_ensure(12);
 }
 
 /// Spoken prompts (Speak).
@@ -2913,6 +2929,333 @@ class GetCoverArtResponse extends $pb.GeneratedMessage {
   $core.bool hasMimeType() => $_has(2);
   @$pb.TagNumber(3)
   void clearMimeType() => $_clearField(3);
+}
+
+/// The master volume (ADR-0043): a gain in the speakers' filter-chain on
+/// every output, never above 0 dB. Step `steps` is 0 dB, each step below it
+/// quieter (configuration, examples), 0 silent.
+class Volume extends $pb.GeneratedMessage {
+  factory Volume({
+    $core.int? level,
+    $core.int? max,
+    $core.int? steps,
+    $core.bool? muted,
+    $core.bool? applied,
+    $core.String? detail,
+  }) {
+    final result = Volume._();
+    if (level != null) result.level = level;
+    if (max != null) result.max = max;
+    if (steps != null) result.steps = steps;
+    if (muted != null) result.muted = muted;
+    if (applied != null) result.applied = applied;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  Volume._();
+
+  factory Volume.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Volume()..mergeFromBuffer(data, registry);
+  factory Volume.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Volume()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Volume',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: Volume.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'level', fieldType: $pb.PbFieldType.OU3)
+    ..aI(2, _omitFieldNames ? '' : 'max', fieldType: $pb.PbFieldType.OU3)
+    ..aI(3, _omitFieldNames ? '' : 'steps', fieldType: $pb.PbFieldType.OU3)
+    ..aOB(4, _omitFieldNames ? '' : 'muted')
+    ..aOB(5, _omitFieldNames ? '' : 'applied')
+    ..aOS(6, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Volume clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Volume copyWith(void Function(Volume) updates) =>
+      super.copyWith((message) => updates(message as Volume)) as Volume;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Volume() / Volume.new instead')
+  static Volume create() => Volume._();
+  static $pb.GeneratedMessage $_createMessage() => Volume._();
+  @$core.override
+  Volume createEmptyInstance() => Volume._();
+  @$core.pragma('dart2js:noInline')
+  static Volume getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Volume>(Volume.$_createMessage);
+  static Volume? _defaultInstance;
+
+  /// 0 ..= max.
+  @$pb.TagNumber(1)
+  $core.int get level => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set level($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasLevel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearLevel() => $_clearField(1);
+
+  /// The cap: the driver can't go above it (configuration).
+  @$pb.TagNumber(2)
+  $core.int get max => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set max($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMax() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMax() => $_clearField(2);
+
+  /// The top step (0 dB).
+  @$pb.TagNumber(3)
+  $core.int get steps => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set steps($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSteps() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSteps() => $_clearField(3);
+
+  /// The level is kept while muted.
+  @$pb.TagNumber(4)
+  $core.bool get muted => $_getBF(3);
+  @$pb.TagNumber(4)
+  set muted($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMuted() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMuted() => $_clearField(4);
+
+  /// False: kept and shown, not reaching the speakers (no filter-chain).
+  @$pb.TagNumber(5)
+  $core.bool get applied => $_getBF(4);
+  @$pb.TagNumber(5)
+  set applied($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasApplied() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearApplied() => $_clearField(5);
+
+  /// Why not applied.
+  @$pb.TagNumber(6)
+  $core.String get detail => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set detail($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasDetail() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearDetail() => $_clearField(6);
+}
+
+enum SetVolumeRequest_Change { level, steps, mute, notSet }
+
+class SetVolumeRequest extends $pb.GeneratedMessage {
+  factory SetVolumeRequest({
+    $core.int? level,
+    $core.int? steps,
+    MuteChange? mute,
+    $core.String? source,
+  }) {
+    final result = SetVolumeRequest._();
+    if (level != null) result.level = level;
+    if (steps != null) result.steps = steps;
+    if (mute != null) result.mute = mute;
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  SetVolumeRequest._();
+
+  factory SetVolumeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetVolumeRequest()..mergeFromBuffer(data, registry);
+  factory SetVolumeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetVolumeRequest()..mergeFromJson(json, registry);
+
+  static const $core.Map<$core.int, SetVolumeRequest_Change>
+      _SetVolumeRequest_ChangeByTag = {
+    1: SetVolumeRequest_Change.level,
+    2: SetVolumeRequest_Change.steps,
+    3: SetVolumeRequest_Change.mute,
+    0: SetVolumeRequest_Change.notSet
+  };
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetVolumeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: SetVolumeRequest.$_createMessage)
+    ..oo(0, [1, 2, 3])
+    ..aI(1, _omitFieldNames ? '' : 'level', fieldType: $pb.PbFieldType.OU3)
+    ..aI(2, _omitFieldNames ? '' : 'steps')
+    ..aE<MuteChange>(3, _omitFieldNames ? '' : 'mute',
+        enumValues: MuteChange.values)
+    ..aOS(4, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetVolumeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetVolumeRequest copyWith(void Function(SetVolumeRequest) updates) =>
+      super.copyWith((message) => updates(message as SetVolumeRequest))
+          as SetVolumeRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SetVolumeRequest() / SetVolumeRequest.new instead')
+  static SetVolumeRequest create() => SetVolumeRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SetVolumeRequest._();
+  @$core.override
+  SetVolumeRequest createEmptyInstance() => SetVolumeRequest._();
+  @$core.pragma('dart2js:noInline')
+  static SetVolumeRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetVolumeRequest>(
+          SetVolumeRequest.$_createMessage);
+  static SetVolumeRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  SetVolumeRequest_Change whichChange() =>
+      _SetVolumeRequest_ChangeByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(1)
+  @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  void clearChange() => $_clearField($_whichOneof(0));
+
+  /// Set to this level (unmutes); above the cap: the cap.
+  @$pb.TagNumber(1)
+  $core.int get level => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set level($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasLevel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearLevel() => $_clearField(1);
+
+  /// Up (positive, unmutes) or down this many steps, within 0..=max.
+  @$pb.TagNumber(2)
+  $core.int get steps => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set steps($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSteps() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSteps() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  MuteChange get mute => $_getN(2);
+  @$pb.TagNumber(3)
+  set mute(MuteChange value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMute() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMute() => $_clearField(3);
+
+  /// Who asked ("dashboard", "knob"), for the log.
+  @$pb.TagNumber(4)
+  $core.String get source => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set source($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSource() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSource() => $_clearField(4);
+}
+
+class SetVolumeResponse extends $pb.GeneratedMessage {
+  factory SetVolumeResponse({
+    $core.bool? applied,
+    $core.String? detail,
+    Volume? volume,
+  }) {
+    final result = SetVolumeResponse._();
+    if (applied != null) result.applied = applied;
+    if (detail != null) result.detail = detail;
+    if (volume != null) result.volume = volume;
+    return result;
+  }
+
+  SetVolumeResponse._();
+
+  factory SetVolumeResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetVolumeResponse()..mergeFromBuffer(data, registry);
+  factory SetVolumeResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetVolumeResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetVolumeResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: SetVolumeResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'applied')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..aOM<Volume>(3, _omitFieldNames ? '' : 'volume',
+        subBuilder: Volume.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetVolumeResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetVolumeResponse copyWith(void Function(SetVolumeResponse) updates) =>
+      super.copyWith((message) => updates(message as SetVolumeResponse))
+          as SetVolumeResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SetVolumeResponse() / SetVolumeResponse.new instead')
+  static SetVolumeResponse create() => SetVolumeResponse._();
+  static $pb.GeneratedMessage $_createMessage() => SetVolumeResponse._();
+  @$core.override
+  SetVolumeResponse createEmptyInstance() => SetVolumeResponse._();
+  @$core.pragma('dart2js:noInline')
+  static SetVolumeResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetVolumeResponse>(
+          SetVolumeResponse.$_createMessage);
+  static SetVolumeResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get applied => $_getBF(0);
+  @$pb.TagNumber(1)
+  set applied($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasApplied() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearApplied() => $_clearField(1);
+
+  /// What wasn't as asked ("The maximum is 24 (configuration)."); empty
+  /// otherwise. Why it isn't applied is in volume.detail.
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  Volume get volume => $_getN(2);
+  @$pb.TagNumber(3)
+  set volume(Volume value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasVolume() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearVolume() => $_clearField(3);
+  @$pb.TagNumber(3)
+  Volume ensureVolume() => $_ensure(2);
 }
 
 const $core.bool _omitFieldNames =

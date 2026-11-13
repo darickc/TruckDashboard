@@ -198,6 +198,27 @@ class GrpcAudioSource implements AudioSource {
     if (!r.found || r.image.isEmpty) return null;
     return CoverArtImage(bytes: Uint8List.fromList(r.image), mimeType: r.mimeType);
   }
+
+  @override
+  Future<CommandResult> setVolume(VolumeChange c) async {
+    final req = pb.SetVolumeRequest(source: 'dashboard');
+    final steps = c.steps, level = c.level, mute = c.mute;
+    if (steps != null) {
+      req.steps = steps;
+    } else if (level != null) {
+      req.level = level;
+    } else if (mute != null) {
+      req.mute = switch (mute) {
+        MuteAction.mute => pb.MuteChange.MUTE_CHANGE_MUTE,
+        MuteAction.unmute => pb.MuteChange.MUTE_CHANGE_UNMUTE,
+        MuteAction.toggle => pb.MuteChange.MUTE_CHANGE_TOGGLE,
+      };
+    }
+    final r = await _need().setVolume(req, options: _opts);
+    // Not applied (no filter-chain) is said by the volume itself; the detail
+    // is only what wasn't as asked.
+    return CommandResult(ok: true, detail: r.detail);
+  }
 }
 
 SpeakerSettings speakersFromPb(pb.SpeakerSettings s) => SpeakerSettings(
@@ -291,5 +312,15 @@ AudioReport reportFromPb(pb.WatchAudioResponse r) {
             detail: r.connect.detail,
           )
         : const ConnectStatus(),
+    volume: r.hasVolume() && r.volume.steps > 0
+        ? VolumeStatus(
+            level: r.volume.level,
+            max: r.volume.max,
+            steps: r.volume.steps,
+            muted: r.volume.muted,
+            applied: r.volume.applied,
+            detail: r.volume.detail,
+          )
+        : null,
   );
 }

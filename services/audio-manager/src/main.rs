@@ -12,12 +12,14 @@ use std::time::Duration;
 use audio_manager::backend::Bluetooth;
 use audio_manager::bluez::Bluez;
 use audio_manager::dsp::{ChannelMap, Limits, Settings, Target, render};
+use audio_manager::knob::{self, KnobConfig};
 use audio_manager::manager::{Config, Manager, Reconnect, load_settings};
 use audio_manager::pairing;
 use audio_manager::runner::{Dsp, NoDsp, PipewireConfig, PipewireDsp};
 use audio_manager::server::Api;
 use audio_manager::sim::{SimConfig, SimPhone};
 use audio_manager::voice::{CommandVoice, NoVoice, SimVoice, Voice};
+use audio_manager::volume::{self, VolumeLimits};
 use clap::Parser;
 use f250_proto::audio::v1::audio_service_server::AudioServiceServer;
 use f250_sd_notify::{Notifier, run_watchdog};
@@ -116,6 +118,35 @@ struct Args {
     /// bluetoothd with --experimental (for the player's ObexPort).
     #[arg(long, default_value = "")]
     cover_art_file: String,
+    /// The master volume's steps; the top one is 0 dB (ADR-0043). An
+    /// example value.
+    #[arg(long, default_value_t = 30)]
+    volume_steps: u32,
+    /// dB a volume step. An example value.
+    #[arg(long, default_value_t = 2.0)]
+    volume_step_db: f32,
+    /// The highest level the driver may set; default: the top step. An
+    /// example value: lower it for speakers that can't take the amplifiers'
+    /// full output.
+    #[arg(long)]
+    volume_max: Option<u32>,
+    /// audio-manager starts no louder than this, whatever it saved. An
+    /// example value.
+    #[arg(long, default_value_t = 15)]
+    volume_start_max: u32,
+    /// Where the volume level is kept (JSON). Empty: in memory only.
+    #[arg(long, default_value = "")]
+    volume_file: String,
+    /// Read the volume knob from /dev/input: any device with the volume keys
+    /// or REL_DIAL (ADR-0043).
+    #[arg(long)]
+    knob: bool,
+    /// The knob's dial counts counter-clockwise as up.
+    #[arg(long)]
+    knob_invert: bool,
+    /// sysfs, where input devices are found (for the tests).
+    #[arg(long, default_value = "/sys")]
+    sysfs: PathBuf,
 }
 
 #[tokio::main]
@@ -140,6 +171,13 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         .validate(&defaults)
         .map_err(|e| format!("--crossover-hz: {e}"))?;
     let map = ChannelMap::parse(&args.dac_positions, &args.front, &args.rear, &args.sub)?;
+    let volume_limits = VolumeLimits {
+        steps: args.volume_steps,
+        step_db: args.volume_step_db,
+        max: args.volume_max.unwrap_or(args.volume_steps),
+        start_max: args.volume_start_max,
+    };
+    volume_limits.check()?;
     let settings_file =
         (!args.settings_file.is_empty()).then(|| PathBuf::from(&args.settings_file));
     let pairing = pairing::Config {
@@ -161,6 +199,8 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             every: Duration::from_secs(args.reconnect_every_s.max(1)),
             window: Duration::from_secs(args.reconnect_for_s),
         },
+        volume: volume_limits,
+        volume_file: (!args.volume_file.is_empty()).then(|| PathBuf::from(&args.volume_file)),
     };
     let target = Target {
         dac_node: args.dac_node.clone(),
@@ -171,7 +211,9 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(p) = problem {
             eprintln!("[audio] {p}");
         }
-        print!("{}", render(&limits, &settings, &target));
+        let (saved, _) = audio_manager::manager::load_volume(config.volume_file.as_deref());
+        let master = volume::gain(&volume_limits, &volume::at_start(&volume_limits, saved));
+        print!("{}", render(&limits, &settings, master, &target));
         return Ok(());
     }
 
@@ -231,6 +273,22 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         "audio",
     ));
     tokio::spawn(Arc::clone(&manager).run(agent_rx));
+    if args.knob {
+        let (tx, mut rx) = mpsc::channel(32);
+        tokio::spawn(knob::run(
+            KnobConfig {
+                sysfs: args.sysfs.clone(),
+                invert: args.knob_invert,
+            },
+            tx,
+        ));
+        let m = Arc::clone(&manager);
+        tokio::spawn(async move {
+            while let Some(c) = rx.recv().await {
+                m.set_volume(c, "knob");
+            }
+        });
+    }
 
     let router =
         Server::builder().add_service(AudioServiceServer::new(Api::new(Arc::clone(&manager))));

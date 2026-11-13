@@ -118,6 +118,7 @@ name = "audio-manager"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "f250-evdev",
  "f250-proto",
  "f250-sd-notify",
  "hyper-util",
@@ -482,6 +483,10 @@ version = "0.1.0"
 
 [[package]]
 name = "f250-elm"
+version = "0.1.0"
+
+[[package]]
+name = "f250-evdev"
 version = "0.1.0"
 
 [[package]]
@@ -1412,6 +1417,7 @@ dependencies = [
  "clap",
  "f250-clock-sync",
  "f250-daylight",
+ "f250-evdev",
  "f250-proto",
  "f250-sd-notify",
  "hyper-util",

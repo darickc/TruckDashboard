@@ -8,10 +8,12 @@ import '../theme.dart';
 import '../widgets/badges.dart';
 import '../widgets/panel.dart';
 import '../widgets/audio_button.dart';
+import '../widgets/volume.dart';
 
 /// Bluetooth audio from a phone (ADR-0039), the full width: what is
 /// playing, with the track's picture when the phone sends one (ADR-0042),
-/// and the transport controls. Phones (paired phones, connecting
+/// and the transport controls with the volume beside them (ADR-0043).
+/// Phones (paired phones, connecting
 /// one, pairing a new one) is a screen of its own, opened from the button at
 /// the top right. Everything comes from services/audio-manager; nothing is
 /// shown as current without it, and a phone that has gone takes its track
@@ -230,6 +232,15 @@ class _MediaScreenState extends State<MediaScreen> {
                   text: 'Next',
                   icon: Icons.skip_next_rounded,
                   onTap: controlsEnabled ? () => _run(() => audio.control(MediaCommand.next)) : null)),
+          const SizedBox(width: kGap * 2),
+          // With or without a phone: the volume is the speakers'.
+          VolumeControls(
+            audio: audio,
+            volume: r.volume,
+            onNote: (note) {
+              if (mounted) setState(() => _message = note);
+            },
+          ),
         ]),
       ]),
     );

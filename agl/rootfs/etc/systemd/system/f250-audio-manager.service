@@ -27,6 +27,10 @@
 # leaves /run readable). bluetoothd runs with --experimental for the
 # player's ObexPort (bluetooth.service.d/50-f250.conf).
 #
+# The volume knob (ADR-0043): audio-manager reads /dev/input/event* (group
+# input, read-only) for the volume keys and REL_DIAL, as power-manager reads
+# the power key. Which knob is TODO.
+#
 # Nothing here touches the vehicle bus (ADR-0007).
 #
 # Status: [SIM] (make agl-test; the service's tests against a simulated
@@ -44,7 +48,9 @@ NotifyAccess=main
 WatchdogSec=30
 User=f250
 Group=f250
-SupplementaryGroups=pipewire
+# pipewire: the filter-chain's socket; input: /dev/input/event* (udev
+# 50-udev-default.rules), for the volume knob.
+SupplementaryGroups=pipewire input
 EnvironmentFile=-/etc/default/f250
 Environment=PIPEWIRE_RUNTIME_DIR=/run/pipewire
 ExecStart=/opt/f250/libexec/audio-start
@@ -55,22 +61,24 @@ TimeoutStopSec=10
 UMask=0007
 RuntimeDirectory=f250-audio
 RuntimeDirectoryMode=0750
-# The driver's speaker settings (speakers.json).
+# The driver's speaker settings (speakers.json) and volume (volume.json).
 StateDirectory=f250-audio
 StateDirectoryMode=0750
 LimitRTPRIO=88
 LimitNICE=-11
 
 # Sandbox (ADR-0021), like navigation's, except: no network at all (D-Bus
-# and PipeWire are unix sockets on the filesystem), group pipewire mapped
-# (no PrivateUsers), and real-time allowed for the filter-chain (no
-# RestrictRealtime, no ~@resources).
+# and PipeWire are unix sockets on the filesystem), groups pipewire and
+# input mapped (no PrivateUsers), real-time allowed for the filter-chain (no
+# RestrictRealtime, no ~@resources), and no PrivateDevices: the knob is read
+# from /dev/input (DeviceAllow below, as power-manager).
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
-PrivateDevices=yes
+DevicePolicy=closed
+DeviceAllow=char-input r
 PrivateNetwork=yes
 ProtectKernelTunables=yes
 ProtectKernelModules=yes

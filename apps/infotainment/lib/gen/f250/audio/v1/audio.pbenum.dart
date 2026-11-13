@@ -178,5 +178,30 @@ class Command extends $pb.ProtobufEnum {
   const Command._(super.value, super.name);
 }
 
+class MuteChange extends $pb.ProtobufEnum {
+  static const MuteChange MUTE_CHANGE_UNSPECIFIED =
+      MuteChange._(0, _omitEnumNames ? '' : 'MUTE_CHANGE_UNSPECIFIED');
+  static const MuteChange MUTE_CHANGE_MUTE =
+      MuteChange._(1, _omitEnumNames ? '' : 'MUTE_CHANGE_MUTE');
+  static const MuteChange MUTE_CHANGE_UNMUTE =
+      MuteChange._(2, _omitEnumNames ? '' : 'MUTE_CHANGE_UNMUTE');
+  static const MuteChange MUTE_CHANGE_TOGGLE =
+      MuteChange._(3, _omitEnumNames ? '' : 'MUTE_CHANGE_TOGGLE');
+
+  static const $core.List<MuteChange> values = <MuteChange>[
+    MUTE_CHANGE_UNSPECIFIED,
+    MUTE_CHANGE_MUTE,
+    MUTE_CHANGE_UNMUTE,
+    MUTE_CHANGE_TOGGLE,
+  ];
+
+  static final $core.List<MuteChange?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static MuteChange? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const MuteChange._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');

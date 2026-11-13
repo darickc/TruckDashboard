@@ -47,7 +47,8 @@ pub mod camera_link;
 pub mod camera_switch;
 pub mod display;
 pub mod display_server;
-pub mod evdev;
+/// Moved to `crates/evdev` (shared with audio-manager's volume knob).
+pub use f250_evdev as evdev;
 pub mod policy;
 pub mod uptime;
 

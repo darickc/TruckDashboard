@@ -21,6 +21,8 @@ f250-sd-notify = { path = "../../crates/sd-notify", features = ["tokio"] }
 # Day/night and the backlight (ADR-0028).
 f250-daylight = { path = "../../crates/daylight" }
 f250-clock-sync = { path = "../../crates/clock-sync" }
+# The power key and the camera switch from /dev/input.
+f250-evdev = { path = "../../crates/evdev" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal", "sync", "fs", "io-util", "net"] }
 clap = { version = "4", features = ["derive"] }
 # The camera-manager client (camera_link): tonic over a unix socket, as the

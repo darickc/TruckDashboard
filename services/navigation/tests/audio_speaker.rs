@@ -76,6 +76,13 @@ impl AudioService for Fake {
         Err(Status::unimplemented("fake"))
     }
 
+    async fn set_volume(
+        &self,
+        _: Request<pb::SetVolumeRequest>,
+    ) -> Result<Response<pb::SetVolumeResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
     async fn control(
         &self,
         _: Request<pb::ControlRequest>,

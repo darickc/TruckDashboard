@@ -286,7 +286,18 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       bluetoothd `--experimental` for `ObexPort`), `GetCoverArt`; the Media screen shows it beside the track, never another
       track's, and a note with the reason when there is none. Never run against a real obexd or phone: bench check 23
 - [ ] 6.2 DAC mute sequencing (H6) and the crash test with the amps on (H5). The amps' remote is straight on ACC, no timer, not the Pi ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md), 2026-11-09). Wiring design: [wiring/audio.md](wiring/audio.md)
-- [ ] 6.3 Volume knob
+- [~] 6.3 Volume knob `[SIM]` ([ADR-0043](architecture/adr/0043-master-volume-and-the-volume-knob.md), owner 2026-11-13): one master
+      volume in audio-manager, a gain on every output of the speakers' filter-chain (never above 0 dB), changed live with
+      `pw-cli`, one call at a time with the newest level. 30 steps of 2 dB, a cap and a start cap of 15 (examples,
+      `AUDIO_VOLUME_*`); mute keeps the level, up unmutes; saved to `volume.json` 2 s after the last change. `SetVolume`
+      and `WatchAudioResponse.volume`. The knob is Linux input read by audio-manager (`crates/evdev`, shared with
+      power-manager): `KEY_VOLUMEUP`/`KEY_VOLUMEDOWN`/`KEY_MUTE` and `REL_DIAL` from any device, never a mouse's axes,
+      rescanned every 5 s (`AUDIO_KNOB`, `AUDIO_KNOB_INVERT`); the unit reads `/dev/input` (group input). Media: Volume −,
+      the level, Volume +, Mute; the level over the bottom of every other screen for 2 s after a change, below the alert banner.
+      Tests: the gains, every change and limit, saving, the knob's events from recorded bytes and a fake sysfs, end to end
+      over gRPC, the real binary against the dashboard's client, the screens at 800×480. **Nothing heard; not on the Pi.**
+      Which knob (a USB knob, a GPIO encoder, the ESP32) is TODO for the owner; a GPIO encoder's overlay is UNVERIFIED.
+      Next: bench check 24 (agl.md)
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
       JSON and tracks the position honestly (status, the last fix with its age, never stale as current); 23 tests,
       with gpsd 3.27.5's own output from synthetic NMEA as the test vectors. `services/navigation` serves

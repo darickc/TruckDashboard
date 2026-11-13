@@ -10,6 +10,7 @@ use tonic::{Request, Response, Status};
 
 use crate::manager::{Manager, settings_from_pb, settings_pb};
 use crate::model::Command;
+use crate::volume::Change;
 
 #[derive(Clone)]
 pub struct Api {
@@ -266,6 +267,35 @@ impl AudioService for Api {
                 mime_type: p.mime.to_string(),
             },
             None => pb::GetCoverArtResponse::default(),
+        }))
+    }
+
+    async fn set_volume(
+        &self,
+        req: Request<pb::SetVolumeRequest>,
+    ) -> Result<Response<pb::SetVolumeResponse>, Status> {
+        use pb::set_volume_request::Change as C;
+        let r = req.into_inner();
+        let change = match r.change {
+            Some(C::Level(n)) => Change::Level(n),
+            Some(C::Steps(n)) => Change::Steps(n),
+            Some(C::Mute(m)) => match pb::MuteChange::try_from(m) {
+                Ok(pb::MuteChange::Mute) => Change::Mute,
+                Ok(pb::MuteChange::Unmute) => Change::Unmute,
+                Ok(pb::MuteChange::Toggle) => Change::ToggleMute,
+                _ => return Err(Status::invalid_argument("mute: MUTE, UNMUTE or TOGGLE")),
+            },
+            None => return Err(Status::invalid_argument("a level, steps or mute")),
+        };
+        let (_, note) = self.manager.set_volume(change, &source_of(&r.source));
+        let volume = self.manager.watch().borrow().volume.clone();
+        let applied = volume.as_ref().is_some_and(|v| v.applied);
+        // Why it isn't applied is in volume.detail, on every update.
+        let detail = note.unwrap_or_default();
+        Ok(Response::new(pb::SetVolumeResponse {
+            applied,
+            detail,
+            volume,
         }))
     }
 }

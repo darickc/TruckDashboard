@@ -1,0 +1,11 @@
+[package]
+name = "f250-evdev"
+version = "0.1.0"
+description = "Linux input events (struct input_event) and sysfs capability bitmaps, with no C library: power-manager's keys and audio-manager's volume knob"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

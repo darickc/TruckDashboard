@@ -319,8 +319,10 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
 
 - **Mute sequencing (6.2):** where it attaches is the filter-chain's start
   and stop (`runner.rs`) and the manager; nothing mutes the DAC yet.
-- **The volume knob and its cap (6.3):** a master gain node and absolute
-  volume over AVRCP go into the same filter-chain and manager.
+- **The volume knob and its cap (6.3):** decided in
+  [ADR-0043](0043-master-volume-and-the-volume-knob.md) (2026-11-13): a
+  master gain in the same filter-chain, the knob as Linux input. AVRCP
+  absolute volume is still open.
 - Album art (AVRCP 1.6 cover art over OBEX): decided in
   [ADR-0042](0042-cover-art-from-the-phone.md) (2026-11-12).
 - Several phones connected at once: not offered; one phone at a time

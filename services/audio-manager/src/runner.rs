@@ -1,8 +1,8 @@
 //! Runs the speakers' filter-chain (ADR-0039 decision 6): audio-manager
 //! writes the configuration from the settings and runs `pipewire -c <file>`
 //! as its child, a PipeWire client holding only the filter-chain, and
-//! restarts it with a backoff if it stops. Fader, balance, sub level and
-//! the crossover change live with `pw-cli set-param`; only a failed live
+//! restarts it with a backoff if it stops. Fader, balance, sub level, the
+//! volume (ADR-0043) and the crossover change live with `pw-cli set-param`; only a failed live
 //! change restarts the child.
 //!
 //! After every start the runner writes a key into WirePlumber's `filters`
@@ -20,7 +20,7 @@ use std::time::Duration;
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, watch};
 
-use crate::dsp::{self, Limits, Settings, Target};
+use crate::dsp::{self, Limits, Mix, Target};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DspState {
@@ -34,10 +34,11 @@ pub enum DspState {
 #[tonic::async_trait]
 pub trait Dsp: Send + Sync {
     fn state(&self) -> watch::Receiver<DspState>;
-    /// Starts the filter-chain with `s` (once, at start).
-    async fn start(&self, s: Settings);
-    /// Applies new settings. Ok: what happened, for the screen.
-    async fn apply(&self, s: Settings) -> Result<String, String>;
+    /// Starts the filter-chain with `m` (once, at start).
+    async fn start(&self, m: Mix);
+    /// Applies new settings or a new volume. Ok: what happened, for the
+    /// screen.
+    async fn apply(&self, m: Mix) -> Result<String, String>;
 }
 
 /// No PipeWire (the Mac, the tests, `--no-dsp`): settings are kept, not
@@ -62,8 +63,8 @@ impl Dsp for NoDsp {
     fn state(&self) -> watch::Receiver<DspState> {
         self.state.subscribe()
     }
-    async fn start(&self, _: Settings) {}
-    async fn apply(&self, _: Settings) -> Result<String, String> {
+    async fn start(&self, _: Mix) {}
+    async fn apply(&self, _: Mix) -> Result<String, String> {
         Ok(format!("Saved, not applied: {}.", self.why))
     }
 }
@@ -92,10 +93,10 @@ enum Msg {
 pub struct PipewireDsp {
     cfg: PipewireConfig,
     state: watch::Sender<DspState>,
-    /// The settings the child should run with (the latest applied).
-    wanted: Arc<Mutex<Option<Settings>>>,
-    /// The settings the running child was started with.
-    running: Arc<Mutex<Option<Settings>>>,
+    /// What the child should run with (the latest applied).
+    wanted: Arc<Mutex<Option<Mix>>>,
+    /// What the running child runs with (started with, or changed live).
+    running: Arc<Mutex<Option<Mix>>>,
     tx: mpsc::Sender<Msg>,
     rx: Mutex<Option<mpsc::Receiver<Msg>>>,
     /// How many times the filter-chain has started: the metadata value, so
@@ -126,8 +127,8 @@ impl PipewireDsp {
         })
     }
 
-    fn spawn_child(cfg: &PipewireConfig, s: &Settings) -> Result<Child, String> {
-        let text = dsp::render(&cfg.limits, s, &cfg.target);
+    fn spawn_child(cfg: &PipewireConfig, m: &Mix) -> Result<Child, String> {
+        let text = dsp::render(&cfg.limits, &m.settings, m.master, &cfg.target);
         if let Some(dir) = cfg.conf.parent() {
             std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         }
@@ -147,7 +148,7 @@ impl PipewireDsp {
     async fn supervise(self: Arc<Self>, mut rx: mpsc::Receiver<Msg>) {
         let mut backoff = Duration::from_secs(1);
         loop {
-            let Some(s) = *lock(&self.wanted) else {
+            let Some(m) = *lock(&self.wanted) else {
                 // Not started yet.
                 if rx.recv().await.is_none() {
                     return;
@@ -155,7 +156,7 @@ impl PipewireDsp {
                 continue;
             };
             self.state.send_replace(DspState::Starting);
-            let mut child = match Self::spawn_child(&self.cfg, &s) {
+            let mut child = match Self::spawn_child(&self.cfg, &m) {
                 Ok(c) => c,
                 Err(e) => {
                     eprintln!("[audio] speakers' filter-chain: {e}");
@@ -169,7 +170,7 @@ impl PipewireDsp {
                     continue;
                 }
             };
-            *lock(&self.running) = Some(s);
+            *lock(&self.running) = Some(m);
             let mut settled = false;
             let settle = tokio::time::sleep(self.cfg.settle);
             tokio::pin!(settle);
@@ -179,7 +180,7 @@ impl PipewireDsp {
                         settled = true;
                         backoff = Duration::from_secs(1);
                         eprintln!("[audio] speakers' filter-chain running ({}, crossover {} Hz)",
-                            self.cfg.conf.display(), s.crossover_hz);
+                            self.cfg.conf.display(), m.settings.crossover_hz);
                         self.relink().await;
                         self.state.send_replace(DspState::Applied);
                     }
@@ -240,8 +241,8 @@ impl PipewireDsp {
         );
     }
 
-    async fn set_live(&self, s: &Settings) -> Result<(), String> {
-        let json = dsp::props_json(&self.cfg.limits, s);
+    async fn set_live(&self, m: &Mix) -> Result<(), String> {
+        let json = dsp::props_json(&self.cfg.limits, &m.settings, m.master);
         let out = tokio::time::timeout(
             Duration::from_secs(3),
             Command::new(&self.cfg.pw_cli)
@@ -266,8 +267,8 @@ impl Dsp for Arc<PipewireDsp> {
         self.state.subscribe()
     }
 
-    async fn start(&self, s: Settings) {
-        *lock(&self.wanted) = Some(s);
+    async fn start(&self, m: Mix) {
+        *lock(&self.wanted) = Some(m);
         let rx = lock(&self.rx).take();
         match rx {
             // The supervisor starts the child with `wanted` at once.
@@ -280,14 +281,14 @@ impl Dsp for Arc<PipewireDsp> {
         }
     }
 
-    async fn apply(&self, s: Settings) -> Result<String, String> {
-        *lock(&self.wanted) = Some(s);
+    async fn apply(&self, m: Mix) -> Result<String, String> {
+        *lock(&self.wanted) = Some(m);
         let running = *lock(&self.running);
         let live = running.is_some() && *self.state.borrow() == DspState::Applied;
         if live {
-            match self.set_live(&s).await {
+            match self.set_live(&m).await {
                 Ok(()) => {
-                    *lock(&self.running) = Some(s);
+                    *lock(&self.running) = Some(m);
                     return Ok("Applied.".into());
                 }
                 Err(e) => {
