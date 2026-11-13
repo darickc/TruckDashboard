@@ -2379,3 +2379,22 @@ row, then `bluetoothctl devices Connected` once a second for 20 s: 0 every
 time, and nothing more in audio-manager's journal. Connect brought it back.
 The phone itself didn't reconnect either. Status texts shortened so they fit
 beside the wider buttons: "Last used", "Not connected".
+
+## 2026-11-13 — US Census address ranges on the Pi (ADR-0041) [BENCH]
+
+The address-range branch merged into main (73a962e) and `make deploy`ed. The
+lower-48 search index from that work (schema 4; 85% of the Census county
+files: the Census server refused the rest, see ADR-0041; all 44 Idaho
+counties are in) went over Ethernet into a stick-shaped folder (556 s, with
+`make test` running on the Mac at the same time) and through `map-import
+dir`: 6,962 MB in 60 s, checksum matched. `stage1-setup.sh --check`: all
+passed; no failed units.
+
+The owner's address, the query that found nothing on 2026-11-12 (house
+number, street, ZIP code; left out of this log): first result now ESTIMATED,
+the house number on that street, the right town and ZIP code, 5.9 km from
+the middle of the ZIP code; the plain street second. 109 ms round trip from
+the Mac. Without the ZIP code the results are ranked from the truck, the
+simulated position in Kansas on the bench, so a same-named road in Nebraska
+comes first there. Not checked: the estimate against the house's real
+position, the Search panel's ESTIMATED label on the panel itself.
