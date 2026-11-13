@@ -345,8 +345,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       (schema 4) carries the ranges; a house number OSM lacks is interpolated along its street, preferring the range in the
       query's ZIP code, and labelled ESTIMATED ("Estimated from US Census address ranges"; the footer credits the Census).
       ZIP codes no OSM address has are placed from the ranges. Kansas estimates are a median 58 m from OSM-mapped houses.
-      Lower 48 with 85 % of the county files: 7.0 GB (5.2 GB without), 621 s, no more memory; 0–3 ms more a search; the
-      full build waits on the Census server's rate limit. Not yet on the Pi (bench check 20).
+      Lower 48 with 3,108 of the 3,109 county files: 7.2 GB (5.2 GB without), 638 s, no more memory; 0–3 ms more a search;
+      estimates a median 44 m from OSM-mapped houses. Kimble County, Texas: the Census server refuses that one file, so it
+      is left out with a warning. Not yet on the Pi (bench check 20).
       6.5.2 (saved places and spoken directions) `[SIM]` ([ADR-0040](architecture/adr/0040-saved-places-and-spoken-directions.md)):
       navigation keeps Home, up to 50 named favourites and the 10 latest destinations in `places.json` on the data drive (the
       SD card, saying so, while a drive is expected but not mounted), written atomically; a corrupt file is kept aside as

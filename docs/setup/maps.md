@@ -329,11 +329,13 @@ out; with `PBF=` name the states, `SEARCH_ARGS=--tiger-states=KS,NE`.
 The result is `build/search/search.sqlite`, also copied to
 `/tmp/f250/search/` for `make navigation` and `make sim`. Kansas: 63 MB in
 3 s with the address ranges (37 MB without). The lower 48: 5.2 GB in about 7 minutes without the
-address ranges; with 85 % of them, 7.0 GB in about 10 minutes, about 17.5 GB of
+address ranges; with them, 7.2 GB in about 11 minutes, 15–17.5 GB of
 memory at the peak either way; the ranges are about 2.7 GB to download
-[SIM, 2026-11-12, ADR-0041]. The Census's server refuses requests for a while
+[SIM, 2026-11-13, ADR-0041]. The Census's server refuses requests for a while
 when downloaded from too fast; the build then waits, and if it still can't,
-stops and says to run it again later (what is downloaded is kept). On the Mac, from a terminal:
+stops and says to run it again later (what is downloaded is kept). A single
+file it refuses while serving the rest is left out with a warning (Kimble
+County, Texas on 2026-11-13); run the same command later to fetch it. On the Mac, from a terminal:
 
 ```bash
 cargo run --release -p search-index -- query build/search/search.sqlite "120 n main st" --near 39.81,-98.56

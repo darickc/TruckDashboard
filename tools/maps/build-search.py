@@ -26,8 +26,8 @@
 
 Needs curl and cargo (and osmium for --bbox). Kansas builds in about 3 s into
 63 MB with the Census ranges (37 MB without); the lower 48 in about 7 min into
-5.2 GB without them, about 10 min and 7 GB with 85 % of them, with 17.5 GB of
-memory at its peak either way [SIM, 2026-11-12, M-series Mac, ADR-0041].
+5.2 GB without them, about 11 min and 7.2 GB with them, with 15-17.5 GB of
+memory at its peak either way [SIM, 2026-11-13, M-series Mac, ADR-0041].
 
 `make map-stick SEARCH=build/search/search.sqlite` puts it on the map stick.
 """
@@ -56,6 +56,7 @@ TIGER_USER_AGENT = "f250-search-build/1"
 # files a second) the Census's server began answering every request with a
 # "Request Rejected" page (HTTP 200, HTML) after about 2,600 files
 # [2026-11-12]; then the download waits and tries again (TIGER_BACKOFF_S).
+# A file refused while the others are served is left out (see fetch).
 TIGER_JOBS = 2
 TIGER_PAUSE_S = 0.25
 TIGER_BACKOFF_S = (60, 120, 300, 600)
@@ -195,10 +196,23 @@ def tiger_download(states, folder):
         except OSError:
             return False
 
+    def refusing_all():
+        """Whether the server refuses every file (its rate limit) rather
+        than one: the first four bytes of a file already here."""
+        have = next((n for n in wanted if os.path.exists(os.path.join(folder, n))), None)
+        if have is None:
+            return True
+        r = subprocess.run(["curl", "-sL", "-r", "0-3", "-A", TIGER_USER_AGENT, TIGER_URL + have],
+                           capture_output=True)
+        return r.stdout != b"PK\x03\x04"
+
     def fetch(name):
+        """True if downloaded now, False if already here, None if the server
+        refuses this one file while serving the others."""
         dest = os.path.join(folder, name)
         if os.path.exists(dest) and complete(dest):
             return False
+        alone = 0
         for wait in (*TIGER_BACKOFF_S, None):
             r = subprocess.run(["curl", "-sfL", "--retry", "5", "--retry-delay", "5", "-A",
                                 TIGER_USER_AGENT, "-o", dest + ".part", TIGER_URL + name],
@@ -207,10 +221,18 @@ def tiger_download(states, folder):
             if r.returncode == 0 and complete(dest + ".part"):
                 os.replace(dest + ".part", dest)
                 return True
-            why = ("the server refused it (\"Request Rejected\": too many requests)"
-                   if rejected(dest + ".part") else
-                   f"curl exit {r.returncode} {r.stderr.strip()}" if r.returncode
+            refused = rejected(dest + ".part")
+            why = ("the server refused it (\"Request Rejected\": too many requests)" if refused
+                   else f"curl exit {r.returncode} {r.stderr.strip()}" if r.returncode
                    else "not a zip with a shapefile")
+            # The server has refused a single file for hours while serving
+            # every other one (2026-11-12, ADR-0041): after two tries that
+            # file is left out rather than holding up the rest.
+            if refused and not refusing_all():
+                alone += 1
+                if alone == 2:
+                    os.remove(dest + ".part")
+                    return None
             if wait is None:
                 raise RuntimeError(f"{TIGER_URL}{name}: {why}")
             say(f"  {name}: {why}; trying again in {wait} s")
@@ -218,17 +240,23 @@ def tiger_download(states, folder):
 
     say(f"US Census address ranges: {len(wanted)} county files for {len(states)} state(s)"
         f" into {os.path.relpath(folder, ROOT)}")
-    fetched = 0
+    fetched, left_out = 0, []
     try:
         with concurrent.futures.ThreadPoolExecutor(TIGER_JOBS) as pool:
-            for i, got in enumerate(pool.map(fetch, wanted), 1):
-                fetched += got
+            for i, (name, got) in enumerate(zip(wanted, pool.map(fetch, wanted)), 1):
+                if got is None:
+                    left_out.append(name)
+                else:
+                    fetched += got
                 if i % 250 == 0 or i == len(wanted):
                     say(f"  {i} of {len(wanted)} ({fetched} downloaded now)")
     except RuntimeError as e:
         die(f"{e}. The files downloaded so far are kept: run the same command again later"
             " to carry on, or add --no-tiger to build without the address ranges")
-    return [os.path.join(folder, n) for n in wanted]
+    for name in left_out:
+        say(f"warning: left out {name}: the server refuses that file while serving the others;"
+            " its county has no address ranges. Run the same command again later to fetch it")
+    return [os.path.join(folder, n) for n in wanted if n not in left_out]
 
 
 def region_name(region):
