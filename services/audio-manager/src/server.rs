@@ -253,4 +253,19 @@ impl AudioService for Api {
             .stop_speaking(&source_of(&req.into_inner().source));
         Ok(Response::new(pb::StopSpeakingResponse { stopped }))
     }
+
+    async fn get_cover_art(
+        &self,
+        req: Request<pb::GetCoverArtRequest>,
+    ) -> Result<Response<pb::GetCoverArtResponse>, Status> {
+        let id = req.into_inner().id;
+        Ok(Response::new(match self.manager.cover_art(&id) {
+            Some(p) => pb::GetCoverArtResponse {
+                found: true,
+                image: p.bytes.as_ref().clone(),
+                mime_type: p.mime.to_string(),
+            },
+            None => pb::GetCoverArtResponse::default(),
+        }))
+    }
 }

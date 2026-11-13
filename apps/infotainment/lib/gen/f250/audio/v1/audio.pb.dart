@@ -283,6 +283,8 @@ class NowPlaying extends $pb.GeneratedMessage {
     $core.bool? hasPosition,
     $core.int? positionMs,
     $core.String? playerName,
+    $core.String? coverArtId,
+    $core.String? coverArtDetail,
   }) {
     final result = NowPlaying._();
     if (title != null) result.title = title;
@@ -293,6 +295,8 @@ class NowPlaying extends $pb.GeneratedMessage {
     if (hasPosition != null) result.hasPosition = hasPosition;
     if (positionMs != null) result.positionMs = positionMs;
     if (playerName != null) result.playerName = playerName;
+    if (coverArtId != null) result.coverArtId = coverArtId;
+    if (coverArtDetail != null) result.coverArtDetail = coverArtDetail;
     return result;
   }
 
@@ -318,6 +322,8 @@ class NowPlaying extends $pb.GeneratedMessage {
     ..aOB(6, _omitFieldNames ? '' : 'hasPosition')
     ..aI(7, _omitFieldNames ? '' : 'positionMs', fieldType: $pb.PbFieldType.OU3)
     ..aOS(8, _omitFieldNames ? '' : 'playerName')
+    ..aOS(9, _omitFieldNames ? '' : 'coverArtId')
+    ..aOS(10, _omitFieldNames ? '' : 'coverArtDetail')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -416,6 +422,30 @@ class NowPlaying extends $pb.GeneratedMessage {
   $core.bool hasPlayerName() => $_has(7);
   @$pb.TagNumber(8)
   void clearPlayerName() => $_clearField(8);
+
+  /// The track's picture (AVRCP 1.6 cover art, fetched from the phone over
+  /// OBEX BIP by audio-manager; ADR-0042), to fetch with GetCoverArt. Empty:
+  /// no picture for this track. A new track (or a new picture) gets a new id;
+  /// the id never names another track's picture.
+  @$pb.TagNumber(9)
+  $core.String get coverArtId => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set coverArtId($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasCoverArtId() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearCoverArtId() => $_clearField(9);
+
+  /// Why there is no picture, in words for the screen ("The phone doesn't
+  /// offer cover art"); empty while there is one, or nothing to say.
+  @$pb.TagNumber(10)
+  $core.String get coverArtDetail => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set coverArtDetail($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasCoverArtDetail() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearCoverArtDetail() => $_clearField(10);
 }
 
 /// A phone asking to pair, showing a six-digit code. The driver accepts
@@ -2738,6 +2768,151 @@ class StopSpeakingResponse extends $pb.GeneratedMessage {
   $core.bool hasStopped() => $_has(0);
   @$pb.TagNumber(1)
   void clearStopped() => $_clearField(1);
+}
+
+class GetCoverArtRequest extends $pb.GeneratedMessage {
+  factory GetCoverArtRequest({
+    $core.String? id,
+  }) {
+    final result = GetCoverArtRequest._();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  GetCoverArtRequest._();
+
+  factory GetCoverArtRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetCoverArtRequest()..mergeFromBuffer(data, registry);
+  factory GetCoverArtRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetCoverArtRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetCoverArtRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: GetCoverArtRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetCoverArtRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetCoverArtRequest copyWith(void Function(GetCoverArtRequest) updates) =>
+      super.copyWith((message) => updates(message as GetCoverArtRequest))
+          as GetCoverArtRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use GetCoverArtRequest() / GetCoverArtRequest.new instead')
+  static GetCoverArtRequest create() => GetCoverArtRequest._();
+  static $pb.GeneratedMessage $_createMessage() => GetCoverArtRequest._();
+  @$core.override
+  GetCoverArtRequest createEmptyInstance() => GetCoverArtRequest._();
+  @$core.pragma('dart2js:noInline')
+  static GetCoverArtRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetCoverArtRequest>(
+          GetCoverArtRequest.$_createMessage);
+  static GetCoverArtRequest? _defaultInstance;
+
+  /// NowPlaying.cover_art_id.
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class GetCoverArtResponse extends $pb.GeneratedMessage {
+  factory GetCoverArtResponse({
+    $core.bool? found,
+    $core.List<$core.int>? image,
+    $core.String? mimeType,
+  }) {
+    final result = GetCoverArtResponse._();
+    if (found != null) result.found = found;
+    if (image != null) result.image = image;
+    if (mimeType != null) result.mimeType = mimeType;
+    return result;
+  }
+
+  GetCoverArtResponse._();
+
+  factory GetCoverArtResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetCoverArtResponse()..mergeFromBuffer(data, registry);
+  factory GetCoverArtResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetCoverArtResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetCoverArtResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: GetCoverArtResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'found')
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'image', $pb.PbFieldType.OY)
+    ..aOS(3, _omitFieldNames ? '' : 'mimeType')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetCoverArtResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetCoverArtResponse copyWith(void Function(GetCoverArtResponse) updates) =>
+      super.copyWith((message) => updates(message as GetCoverArtResponse))
+          as GetCoverArtResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use GetCoverArtResponse() / GetCoverArtResponse.new instead')
+  static GetCoverArtResponse create() => GetCoverArtResponse._();
+  static $pb.GeneratedMessage $_createMessage() => GetCoverArtResponse._();
+  @$core.override
+  GetCoverArtResponse createEmptyInstance() => GetCoverArtResponse._();
+  @$core.pragma('dart2js:noInline')
+  static GetCoverArtResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetCoverArtResponse>(
+          GetCoverArtResponse.$_createMessage);
+  static GetCoverArtResponse? _defaultInstance;
+
+  /// False: not the current picture (the track changed, or the phone went).
+  @$pb.TagNumber(1)
+  $core.bool get found => $_getBF(0);
+  @$pb.TagNumber(1)
+  set found($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasFound() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFound() => $_clearField(1);
+
+  /// The picture's bytes, as the phone sent them (a JPEG from a phone; at
+  /// most 1 MiB).
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get image => $_getN(1);
+  @$pb.TagNumber(2)
+  set image($core.List<$core.int> value) => $_setBytes(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasImage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearImage() => $_clearField(2);
+
+  /// "image/jpeg", "image/png" or "image/bmp" (the simulated phone).
+  @$pb.TagNumber(3)
+  $core.String get mimeType => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set mimeType($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMimeType() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMimeType() => $_clearField(3);
 }
 
 const $core.bool _omitFieldNames =

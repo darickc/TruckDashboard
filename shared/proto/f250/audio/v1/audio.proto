@@ -56,6 +56,10 @@ service AudioService {
   rpc Speak(SpeakRequest) returns (SpeakResponse);
   // Stops the prompt being said, if any (muted, or the route ended).
   rpc StopSpeaking(StopSpeakingRequest) returns (StopSpeakingResponse);
+  // The picture of the track now playing (NowPlaying.cover_art_id), as the
+  // phone sent it. found is false for an id that isn't the current one: a
+  // picture is never served for a track that has gone.
+  rpc GetCoverArt(GetCoverArtRequest) returns (GetCoverArtResponse);
 }
 
 message WatchAudioRequest {}
@@ -124,6 +128,14 @@ message NowPlaying {
   uint32 position_ms = 7;
   // The player's name (the phone's app), when it gives one.
   string player_name = 8;
+  // The track's picture (AVRCP 1.6 cover art, fetched from the phone over
+  // OBEX BIP by audio-manager; ADR-0042), to fetch with GetCoverArt. Empty:
+  // no picture for this track. A new track (or a new picture) gets a new id;
+  // the id never names another track's picture.
+  string cover_art_id = 9;
+  // Why there is no picture, in words for the screen ("The phone doesn't
+  // offer cover art"); empty while there is one, or nothing to say.
+  string cover_art_detail = 10;
 }
 
 enum PairingState {
@@ -368,4 +380,19 @@ message StopSpeakingRequest {
 message StopSpeakingResponse {
   // False: nothing was being said.
   bool stopped = 1;
+}
+
+message GetCoverArtRequest {
+  // NowPlaying.cover_art_id.
+  string id = 1;
+}
+
+message GetCoverArtResponse {
+  // False: not the current picture (the track changed, or the phone went).
+  bool found = 1;
+  // The picture's bytes, as the phone sent them (a JPEG from a phone; at
+  // most 1 MiB).
+  bytes image = 2;
+  // "image/jpeg", "image/png" or "image/bmp" (the simulated phone).
+  string mime_type = 3;
 }

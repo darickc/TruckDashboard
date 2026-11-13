@@ -21,9 +21,12 @@ import 'nav_places.dart';
 import 'nav_search.dart';
 
 /// The offline map, the truck's position and routing (Phase 6.4, 6.5.1 and
-/// 6.5.2; ADR-0030, vector maps ADR-0032, routing ADR-0035). North up. It
-/// follows the truck until the map is dragged; the locate button follows
-/// again. Search for an address or place (ADR-0038), long-press the map, or
+/// 6.5.2; ADR-0030, vector maps ADR-0032, routing ADR-0035). Heading up
+/// (owner, 2026-11-12): while it follows the truck the map turns so the
+/// direction of travel is up, from the receiver's course while moving; it
+/// keeps its last turn while stopped (the course is noise then), and the
+/// compass shows where north is. It follows the truck until the map is
+/// dragged; the locate button follows again. Search for an address or place (ADR-0038), long-press the map, or
 /// pick a saved place (ADR-0040) to choose a destination. Directions are
 /// spoken by services/navigation; the route's buttons mute them.
 ///
@@ -42,6 +45,29 @@ class NavigationScreen extends StatefulWidget {
 
   /// The default zoom once a fix arrives.
   static const followZoom = 15.0;
+
+  /// The map turns only for a course at least this fast (the marker's
+  /// arrow uses the same: below it the course is noise).
+  static const headingMinMps = 1.0;
+
+  /// Course changes smaller than this don't turn the map (GPS jitter).
+  static const headingStepDeg = 2.0;
+
+  /// The map's rotation for heading up: flutter_map turns the map by its
+  /// rotation clockwise, so the course goes up when the map is turned by
+  /// minus the course.
+  static double rotationFor(double headingDeg) {
+    final r = (-headingDeg) % 360;
+    return r > 180 ? r - 360 : r;
+  }
+
+  /// A current course to turn to, or null (stale fix, no course, too slow).
+  static double? courseOf(FixReport fix, bool current) {
+    final track = fix.trackDeg;
+    if (!current || track == null || !track.isFinite) return null;
+    if ((fix.speedMps ?? 0) < NavigationScreen.headingMinMps) return null;
+    return track % 360;
+  }
 
   /// Above this the truck counts as moving, and search asks to type only
   /// when parked. An example value (5 mph), not a safety limit: typing is
@@ -98,6 +124,23 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   void _onPosition() => _centre();
 
+  /// The course the map is turned to (degrees clockwise from north); null
+  /// until the truck has moved: north up until then.
+  double? _heading;
+
+
+  /// Turns the map to the truck's course while following (heading up).
+  void _turn(FixReport fix, bool current) {
+    final course = NavigationScreen.courseOf(fix, current);
+    if (course != null) {
+      final last = _heading;
+      final step = last == null ? 360.0 : ((course - last + 540) % 360 - 180).abs();
+      if (step >= NavigationScreen.headingStepDeg) _heading = course;
+    }
+    final want = _heading == null ? 0.0 : NavigationScreen.rotationFor(_heading!);
+    if ((_map.camera.rotation - want).abs() > 0.01) _map.rotate(want);
+  }
+
   /// While a route's banner covers the top of the map, the truck is kept
   /// this far below the middle so the banner never hides it.
   static const _belowBanner = Offset(0, 60);
@@ -106,8 +149,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
   /// Keeps the truck in the middle (lower while routing) while following.
   void _centre({bool force = false}) {
     if (!_ready || !_follow) return;
-    final fix = _source?.status.value.report?.fix;
-    if (fix == null) return;
+    final status = _source?.status.value;
+    final fix = status?.report?.fix;
+    if (status == null || fix == null) return;
+    // Turned first, so the offset below is along the new up.
+    _turn(fix, status.isCurrent(_source!.clock.now()));
     final at = LatLng(fix.lat, fix.lon);
     if (!force && at == _lastCentered) return;
     _lastCentered = at;
@@ -414,6 +460,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         width: 48,
                         height: 48,
                         alignment: Alignment.topCenter,
+                        rotate: true, // upright on a turned map
                         child: Icon(
                           Icons.flag,
                           key: const ValueKey('nav-destination'),
@@ -428,6 +475,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                         width: 48,
                         height: 48,
                         alignment: Alignment.topCenter,
+                        rotate: true, // upright on a turned map
                         child: Icon(
                           Icons.place,
                           key: const ValueKey('nav-pending'),
@@ -458,10 +506,18 @@ class _NavigationScreenState extends State<NavigationScreen> {
                       point: LatLng(fix.lat, fix.lon),
                       width: 48,
                       height: 48,
+                      rotate: true, // upright; the arrow turns itself
                       child: _TruckMarker(fix: fix, current: current, palette: p),
                     ),
                   ],
                 ),
+              Align(
+                alignment: Alignment.bottomRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 14, bottom: 34),
+                  child: _Compass(palette: p),
+                ),
+              ),
             ],
           ),
         ),
@@ -856,6 +912,9 @@ class _TruckMarker extends StatelessWidget {
     final colour = current ? p.accent : p.stale;
     final track = fix.trackDeg;
     final moving = current && track != null && (fix.speedMps ?? 0) >= movingMps;
+    // The marker stays upright; the arrow points along the course on the
+    // map, however the map is turned.
+    final mapTurn = MapCamera.maybeOf(context)?.rotation ?? 0;
     return Semantics(
       label: current ? 'Truck position' : 'Last known truck position',
       child: Container(
@@ -867,7 +926,8 @@ class _TruckMarker extends StatelessWidget {
         ),
         child: moving
             ? Transform.rotate(
-                angle: track * math.pi / 180,
+                key: const ValueKey('nav-marker-arrow'),
+                angle: (track + mapTurn) * math.pi / 180,
                 child: Icon(Icons.navigation, color: colour, size: 30),
               )
             : Icon(
@@ -877,6 +937,52 @@ class _TruckMarker extends StatelessWidget {
               ),
       ),
     );
+  }
+}
+
+/// Where north is on the turned map (heading up): the needle points north.
+/// Shown always, so north up is visible as such too.
+class _Compass extends StatelessWidget {
+  const _Compass({required this.palette});
+  final Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = palette;
+    final turn = MapCamera.maybeOf(context)?.rotation ?? 0;
+    return Semantics(
+      label: 'Compass: north is ${_bearingWords(turn)}',
+      child: Container(
+        key: const ValueKey('nav-compass'),
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: p.surface.withValues(alpha: 0.92),
+          border: Border.all(color: p.border, width: 1.5),
+        ),
+        child: Transform.rotate(
+          key: const ValueKey('nav-compass-needle'),
+          angle: turn * math.pi / 180,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('N', style: TextStyle(fontSize: 13, height: 1, fontWeight: FontWeight.w900, color: p.critical)),
+              Icon(Icons.navigation, size: 22, color: p.critical),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Up, right, down or left of the screen, for the screen reader.
+  static String _bearingWords(double deg) {
+    final d = (deg % 360 + 360) % 360;
+    if (d < 45 || d >= 315) return 'up';
+    if (d < 135) return 'to the right';
+    if (d < 225) return 'down';
+    return 'to the left';
   }
 }
 

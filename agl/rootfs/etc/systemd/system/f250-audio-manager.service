@@ -21,6 +21,12 @@
 # LimitRTPRIO; the image's pipewire.service has CAP_SYS_NICE, this has no
 # capabilities. Fader, balance and sub level change live through pw-cli.
 #
+# The phone's cover art (ADR-0042): through obexd on the system bus
+# (f250-obexd.service, same user), which writes each picture to
+# /run/f250-obex/cover-art; audio-manager only reads it (ProtectSystem
+# leaves /run readable). bluetoothd runs with --experimental for the
+# player's ObexPort (bluetooth.service.d/50-f250.conf).
+#
 # Nothing here touches the vehicle bus (ADR-0007).
 #
 # Status: [SIM] (make agl-test; the service's tests against a simulated
@@ -29,8 +35,8 @@
 # the filter-chain keeps up without xruns.
 [Unit]
 Description=F-250 audio manager (Bluetooth audio, speaker DSP)
-Wants=bluetooth.service pipewire.socket
-After=bluetooth.service pipewire.socket dbus.service
+Wants=bluetooth.service pipewire.socket f250-obexd.service
+After=bluetooth.service pipewire.socket dbus.service f250-obexd.service
 
 [Service]
 Type=notify

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:f250_infotainment/audio/audio_state.dart';
 import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
@@ -94,6 +96,15 @@ class FakeAudio implements AudioSource {
     calls.add('speakers ${s.fader} ${s.balance} ${s.subLevelDb} ${s.crossoverHz}');
     return const CommandResult(ok: true);
   }
+
+  /// Pictures asked for, answered when the test completes them.
+  final pictures = <String, Completer<CoverArtImage?>>{};
+
+  @override
+  Future<CoverArtImage?> coverArt(String id) {
+    calls.add('cover art $id');
+    return (pictures[id] ??= Completer<CoverArtImage?>()).future;
+  }
 }
 
 const phone = Phone(address: 'AA:BB', name: 'Pixel 8', connected: true, paired: true);
@@ -135,6 +146,83 @@ void main() {
     await tester.tap(key('media-previous'));
     await tester.pump();
     expect(text(tester, 'media-title'), 'Simulated Track One');
+  });
+
+  testWidgets('cover art (ADR-0042): each track\'s picture, none for a track without one', (tester) async {
+    final audio = SimulatedAudioSource(autoRun: false);
+    final h = await Harness.start(tester, audio: audio);
+    await h.goTo(AppScreen.media);
+    await tester.pump();
+    expect(key('media-cover-art-1'), findsOneWidget);
+    final size = tester.getSize(key('media-cover-art-1'));
+    expect(size.width, size.height, reason: 'square');
+    expect(size.width, greaterThanOrEqualTo(150), reason: 'big enough to see at a glance');
+    await tester.tap(key('media-next'));
+    await tester.pump();
+    await tester.pump();
+    expect(key('media-cover-art-1'), findsNothing, reason: 'never the last track\'s picture');
+    expect(key('media-cover-art-2'), findsOneWidget);
+    await tester.tap(key('media-next'));
+    await tester.pump();
+    await tester.pump();
+    expect(key('media-cover-art-2'), findsNothing);
+    expect(key('media-cover-none'), findsOneWidget);
+    expect(text(tester, 'media-cover-why'), 'No picture for this track');
+    expectTouchTargets(tester, 'media, no picture');
+    audio.disconnect();
+    await tester.pump();
+    expect(key('media-cover-none'), findsNothing, reason: 'no track, no picture');
+  });
+
+  testWidgets('cover art: a picture that arrives after its track has gone is not shown', (tester) async {
+    final audio = FakeAudio();
+    AudioReport report(String id, String detail) => AudioReport(
+          bluetoothReady: true,
+          phone: phone,
+          nowPlaying: NowPlaying(title: 'Track $id', state: PlayState.playing, coverArtId: id, coverArtDetail: detail),
+        );
+    // A completed future reaches the widget in a microtask, then a frame.
+    Future<void> settle() async {
+      await tester.pump();
+      await tester.pump();
+    }
+
+    audio.value = up(report('a', ''));
+    final h = await Harness.start(tester, audio: audio);
+    await h.goTo(AppScreen.media);
+    await tester.pump();
+    expect(audio.calls, contains('cover art a'));
+    expect(key('media-cover-none'), findsOneWidget, reason: 'loading: the note, no words');
+    expect(key('media-cover-why'), findsNothing);
+    audio.value = up(report('b', ''));
+    await tester.pump();
+    audio.pictures['a']!.complete(CoverArtImage(bytes: simulatedCoverArt(0), mimeType: 'image/bmp'));
+    await settle();
+    expect(key('media-cover-art-a'), findsNothing, reason: 'track a has gone');
+    audio.pictures['b']!.complete(CoverArtImage(bytes: simulatedCoverArt(1), mimeType: 'image/bmp'));
+    await settle();
+    expect(key('media-cover-art-b'), findsOneWidget);
+
+    // No picture offered: why, from audio-manager.
+    audio.value = up(report('', 'The phone doesn\'t offer cover art'));
+    await tester.pump();
+    expect(key('media-cover-art-b'), findsNothing);
+    expect(text(tester, 'media-cover-why'), 'The phone doesn\'t offer cover art');
+
+    // Gone by the time it is asked for (null): the note.
+    audio.value = up(report('c', ''));
+    await tester.pump();
+    audio.pictures['c']!.complete(null);
+    await settle();
+    expect(key('media-cover-none'), findsOneWidget);
+    expect(key('media-cover-art-c'), findsNothing);
+
+    // audio-manager fails the call: said.
+    audio.value = up(report('d', ''));
+    await tester.pump();
+    audio.pictures['d']!.completeError(StateError('audio-manager not connected'));
+    await settle();
+    expect(text(tester, 'media-cover-why'), contains('The picture didn\'t arrive'));
   });
 
   testWidgets('link loss: the track goes with the phone, and comes back with it', (tester) async {

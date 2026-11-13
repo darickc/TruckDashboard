@@ -32,6 +32,10 @@
 #                       connected last every EVERY s for FOR s after start,
 #                       Bluetooth coming back or the link dropping. Defaults
 #                       20 and 300, examples; FOR 0: never by itself.
+#   AUDIO_COVER_ART     1: the phone's cover art on the Media screen, through
+#                       obexd (f250-obexd.service) into
+#                       /run/f250-obex/cover-art (ADR-0042). 0: none.
+#                       Default 1.
 #
 # The API is on /run/f250-audio/audio.sock (RuntimeDirectory); the driver's
 # speaker settings in /var/lib/f250-audio/speakers.json and the phone
@@ -71,6 +75,11 @@ esac
 [[ -n "${AUDIO_PROMPT_HOLD_MS:-}" ]] && args+=(--prompt-hold-ms "$AUDIO_PROMPT_HOLD_MS")
 [[ -n "${AUDIO_RECONNECT_EVERY_S:-}" ]] && args+=(--reconnect-every-s "$AUDIO_RECONNECT_EVERY_S")
 [[ -n "${AUDIO_RECONNECT_FOR_S:-}" ]] && args+=(--reconnect-for-s "$AUDIO_RECONNECT_FOR_S")
+case "${AUDIO_COVER_ART:-1}" in
+  1) [[ "${AUDIO_SIMULATE:-0}" == 1 ]] || args+=(--cover-art-file "${F250_OBEX_RUN:-/run/f250-obex}/cover-art") ;;
+  0) ;;
+  *) echo "audio-start: AUDIO_COVER_ART=$AUDIO_COVER_ART: use 0 or 1" >&2; exit 2 ;;
+esac
 
 echo "exec $BIN ${args[*]}" >&2
 exec "$BIN" "${args[@]}"

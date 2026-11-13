@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:f250_infotainment/core/clock.dart';
 import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/nav/offline_map.dart';
@@ -5,6 +7,7 @@ import 'package:f250_infotainment/nav/pmtiles.dart';
 import 'package:f250_infotainment/nav/pmtiles_file.dart';
 import 'package:f250_infotainment/nav/position_state.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
+import 'package:f250_infotainment/ui/screens/navigation_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -268,5 +271,113 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav-zoom-in')));
     await tester.tap(find.byKey(const ValueKey('nav-zoom-out')));
     await tester.pump();
+  });
+
+  group('heading up (owner, 2026-11-12)', () {
+    test('the map turns by minus the course', () {
+      expect(NavigationScreen.rotationFor(0), 0);
+      expect(NavigationScreen.rotationFor(90), -90);
+      expect(NavigationScreen.rotationFor(180), 180);
+      expect(NavigationScreen.rotationFor(270), 90);
+      expect(NavigationScreen.rotationFor(359), 1);
+    });
+
+    test('only a current course while moving counts', () {
+      const moving = FixReport(lat: 0, lon: 0, ageAtReceipt: Duration.zero, speedMps: 5, trackDeg: 370);
+      expect(NavigationScreen.courseOf(moving, true), 10);
+      expect(NavigationScreen.courseOf(moving, false), isNull, reason: 'stale');
+      const slow = FixReport(lat: 0, lon: 0, ageAtReceipt: Duration.zero, speedMps: 0.5, trackDeg: 10);
+      expect(NavigationScreen.courseOf(slow, true), isNull, reason: 'stopped: the course is noise');
+      const noCourse = FixReport(lat: 0, lon: 0, ageAtReceipt: Duration.zero, speedMps: 5);
+      expect(NavigationScreen.courseOf(noCourse, true), isNull);
+    });
+
+    testWidgets('the direction of travel is up while following; kept when stopped', (tester) async {
+      final clock = FakeMonotonicClock(const Duration(seconds: 5));
+      PositionState at(double track, {double speed = 20, bool current = true, double lat = 39.83}) => PositionState(
+        link: PositionLink.connected,
+        report: PositionReport(
+          status: FixStatus.fix3d,
+          receivedAt: clock.now(),
+          current: current,
+          staleAfter: const Duration(seconds: 3),
+          fix: FixReport(lat: lat, lon: -98.53, ageAtReceipt: Duration.zero, speedMps: speed, trackDeg: track),
+        ),
+      );
+      final src = FakePositionSource(clock, at(90));
+      final h = await Harness.start(tester, position: src);
+      await h.goTo(AppScreen.navigation);
+      await tester.pump();
+      double rotation() => tester.widget<FlutterMap>(find.byType(FlutterMap)).mapController!.camera.rotation;
+      String compass() => tester
+          .widget<Semantics>(
+            find.ancestor(of: find.byKey(const ValueKey('nav-compass')), matching: find.byType(Semantics)).first,
+          )
+          .properties
+          .label!;
+      double arrow() {
+        final m = tester.widget<Transform>(find.byKey(const ValueKey('nav-marker-arrow'))).transform;
+        return math.atan2(m.entry(1, 0), m.entry(0, 0)) * 180 / math.pi;
+      }
+
+      expect(rotation(), closeTo(-90, 0.01), reason: 'heading east: east is up');
+      expect(compass(), 'Compass: north is to the left');
+      expect(arrow(), closeTo(0, 0.01), reason: 'the truck points up');
+
+      src.value = at(180, lat: 39.82);
+      await tester.pump();
+      expect(rotation(), closeTo(180, 0.01));
+      expect(compass(), 'Compass: north is down');
+      expect(arrow(), closeTo(0, 0.01));
+
+      src.value = at(181, lat: 39.81);
+      await tester.pump();
+      expect(rotation(), closeTo(180, 0.01), reason: 'a degree of jitter turns nothing');
+
+      src.value = at(10, speed: 0.3, lat: 39.80);
+      await tester.pump();
+      expect(rotation(), closeTo(180, 0.01), reason: 'stopped: the last turn is kept');
+      expect(find.byKey(const ValueKey('nav-marker-arrow')), findsNothing, reason: 'a dot while stopped');
+
+      src.value = at(270, current: false, lat: 39.79);
+      await tester.pump();
+      expect(rotation(), closeTo(180, 0.01), reason: 'a stale course turns nothing');
+
+      // Dragged: not following, the map stays as it is; following again
+      // turns it to the course.
+      src.value = at(270, lat: 39.78);
+      await tester.pump();
+      expect(rotation(), closeTo(90, 0.01));
+      await tester.drag(find.byKey(const ValueKey('nav-marker-current')), const Offset(-150, 40));
+      await tester.pump();
+      src.value = at(0, lat: 39.77);
+      await tester.pump();
+      expect(rotation(), closeTo(90, 0.01), reason: 'not following: the driver is looking around');
+      await tester.tap(find.byKey(const ValueKey('nav-follow')));
+      await tester.pump();
+      expect(rotation(), closeTo(0, 0.01));
+      expect(compass(), 'Compass: north is up');
+    });
+
+    testWidgets('north up until the truck has moved', (tester) async {
+      final clock = FakeMonotonicClock(const Duration(seconds: 5));
+      final src = FakePositionSource(
+        clock,
+        PositionState(
+          link: PositionLink.connected,
+          report: PositionReport(
+            status: FixStatus.fix3d,
+            receivedAt: clock.now(),
+            current: true,
+            staleAfter: const Duration(seconds: 3),
+            fix: const FixReport(lat: 39.83, lon: -98.53, ageAtReceipt: Duration.zero, speedMps: 0, trackDeg: 123),
+          ),
+        ),
+      );
+      final h = await Harness.start(tester, position: src);
+      await h.goTo(AppScreen.navigation);
+      await tester.pump();
+      expect(tester.widget<FlutterMap>(find.byType(FlutterMap)).mapController!.camera.rotation, 0);
+    });
   });
 }

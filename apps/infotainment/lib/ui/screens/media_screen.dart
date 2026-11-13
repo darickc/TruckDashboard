@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../audio/audio_state.dart';
@@ -8,7 +10,8 @@ import '../widgets/panel.dart';
 import '../widgets/audio_button.dart';
 
 /// Bluetooth audio from a phone (ADR-0039), the full width: what is
-/// playing and the transport controls. Phones (paired phones, connecting
+/// playing, with the track's picture when the phone sends one (ADR-0042),
+/// and the transport controls. Phones (paired phones, connecting
 /// one, pairing a new one) is a screen of its own, opened from the button at
 /// the top right. Everything comes from services/audio-manager; nothing is
 /// shown as current without it, and a phone that has gone takes its track
@@ -192,7 +195,7 @@ class _MediaScreenState extends State<MediaScreen> {
                               ? p.advisory
                               : p.textDim)),
                 ])
-              : _track(np),
+              : _track(np, audio),
         ),
         if (_message != null)
           Padding(
@@ -232,7 +235,24 @@ class _MediaScreenState extends State<MediaScreen> {
     );
   }
 
-  Widget _track(NowPlaying np) {
+  /// The picture at the left, as big as the room allows, and the track
+  /// beside it.
+  Widget _track(NowPlaying np, AudioSource audio) {
+    return LayoutBuilder(builder: (context, c) {
+      final side = math.min(c.maxHeight, 220.0);
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          width: side,
+          height: side,
+          child: CoverArt(audio: audio, id: np.coverArtId, detail: np.coverArtDetail),
+        ),
+        const SizedBox(width: 16),
+        Expanded(child: _trackText(np)),
+      ]);
+    });
+  }
+
+  Widget _trackText(NowPlaying np) {
     final p = Palette.of(context);
     final d = np.duration;
     final pos = np.position;
@@ -298,5 +318,109 @@ class _MediaScreenState extends State<MediaScreen> {
       ]),
       const SizedBox(height: 8),
     ]);
+  }
+}
+
+/// The track's picture (ADR-0042), fetched from audio-manager by its id.
+/// A new id clears the old picture at once: another track's picture is never
+/// shown, not even while the new one loads. No id (or a failed fetch): a
+/// note symbol, with why when audio-manager says.
+class CoverArt extends StatefulWidget {
+  const CoverArt({super.key, required this.audio, required this.id, this.detail = ''});
+
+  final AudioSource audio;
+  final String id;
+  final String detail;
+
+  @override
+  State<CoverArt> createState() => _CoverArtState();
+}
+
+class _CoverArtState extends State<CoverArt> {
+  CoverArtImage? _image;
+  String _imageId = '';
+  String _failed = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(CoverArt old) {
+    super.didUpdateWidget(old);
+    if (old.id != widget.id || !identical(old.audio, widget.audio)) _load();
+  }
+
+  Future<void> _load() async {
+    final id = widget.id;
+    setState(() {
+      _image = null;
+      _imageId = '';
+      _failed = '';
+    });
+    if (id.isEmpty) return;
+    try {
+      final image = await widget.audio.coverArt(id);
+      if (!mounted || widget.id != id) return;
+      setState(() {
+        _image = image;
+        _imageId = id;
+      });
+    } catch (e) {
+      if (!mounted || widget.id != id) return;
+      setState(() => _failed = 'The picture didn\'t arrive: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final image = _imageId == widget.id ? _image : null;
+    if (image != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(
+          image.bytes,
+          key: ValueKey('media-cover-art-${widget.id}'),
+          fit: BoxFit.cover,
+          gaplessPlayback: false,
+          semanticLabel: 'Cover art',
+          errorBuilder: (context, _, _) => _none(p, 'The phone\'s picture couldn\'t be shown.'),
+        ),
+      );
+    }
+    final loading = widget.id.isNotEmpty && _failed.isEmpty;
+    return _none(p, loading ? '' : (_failed.isNotEmpty ? _failed : widget.detail));
+  }
+
+  Widget _none(Palette p, String why) {
+    return DecoratedBox(
+      key: const ValueKey('media-cover-none'),
+      decoration: BoxDecoration(
+        color: p.surfaceHigh,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: p.border),
+      ),
+      child: LayoutBuilder(builder: (context, c) {
+        final small = c.maxHeight < 140;
+        return Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.music_note_rounded, size: c.maxHeight * (why.isEmpty || small ? 0.45 : 0.32), color: p.textDim),
+            if (why.isNotEmpty && !small) ...[
+              const SizedBox(height: 6),
+              Text(why,
+                  key: const ValueKey('media-cover-why'),
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, color: p.textDim)),
+            ],
+          ]),
+        );
+      }),
+    );
   }
 }

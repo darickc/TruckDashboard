@@ -167,6 +167,8 @@ const NowPlaying$json = {
     {'1': 'has_position', '3': 6, '4': 1, '5': 8, '10': 'hasPosition'},
     {'1': 'position_ms', '3': 7, '4': 1, '5': 13, '10': 'positionMs'},
     {'1': 'player_name', '3': 8, '4': 1, '5': 9, '10': 'playerName'},
+    {'1': 'cover_art_id', '3': 9, '4': 1, '5': 9, '10': 'coverArtId'},
+    {'1': 'cover_art_detail', '3': 10, '4': 1, '5': 9, '10': 'coverArtDetail'},
   ],
 };
 
@@ -176,7 +178,9 @@ final $typed_data.Uint8List nowPlayingDescriptor = $convert.base64Decode(
     'lzdBIUCgVhbGJ1bRgDIAEoCVIFYWxidW0SLgoFc3RhdGUYBCABKA4yGC5mMjUwLmF1ZGlvLnYx'
     'LlBsYXlTdGF0ZVIFc3RhdGUSHwoLZHVyYXRpb25fbXMYBSABKA1SCmR1cmF0aW9uTXMSIQoMaG'
     'FzX3Bvc2l0aW9uGAYgASgIUgtoYXNQb3NpdGlvbhIfCgtwb3NpdGlvbl9tcxgHIAEoDVIKcG9z'
-    'aXRpb25NcxIfCgtwbGF5ZXJfbmFtZRgIIAEoCVIKcGxheWVyTmFtZQ==');
+    'aXRpb25NcxIfCgtwbGF5ZXJfbmFtZRgIIAEoCVIKcGxheWVyTmFtZRIgCgxjb3Zlcl9hcnRfaW'
+    'QYCSABKAlSCmNvdmVyQXJ0SWQSKAoQY292ZXJfYXJ0X2RldGFpbBgKIAEoCVIOY292ZXJBcnRE'
+    'ZXRhaWw=');
 
 @$core.Deprecated('Use passkeyQuestionDescriptor instead')
 const PasskeyQuestion$json = {
@@ -732,3 +736,30 @@ const StopSpeakingResponse$json = {
 final $typed_data.Uint8List stopSpeakingResponseDescriptor =
     $convert.base64Decode(
         'ChRTdG9wU3BlYWtpbmdSZXNwb25zZRIYCgdzdG9wcGVkGAEgASgIUgdzdG9wcGVk');
+
+@$core.Deprecated('Use getCoverArtRequestDescriptor instead')
+const GetCoverArtRequest$json = {
+  '1': 'GetCoverArtRequest',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+  ],
+};
+
+/// Descriptor for `GetCoverArtRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getCoverArtRequestDescriptor =
+    $convert.base64Decode('ChJHZXRDb3ZlckFydFJlcXVlc3QSDgoCaWQYASABKAlSAmlk');
+
+@$core.Deprecated('Use getCoverArtResponseDescriptor instead')
+const GetCoverArtResponse$json = {
+  '1': 'GetCoverArtResponse',
+  '2': [
+    {'1': 'found', '3': 1, '4': 1, '5': 8, '10': 'found'},
+    {'1': 'image', '3': 2, '4': 1, '5': 12, '10': 'image'},
+    {'1': 'mime_type', '3': 3, '4': 1, '5': 9, '10': 'mimeType'},
+  ],
+};
+
+/// Descriptor for `GetCoverArtResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getCoverArtResponseDescriptor = $convert.base64Decode(
+    'ChNHZXRDb3ZlckFydFJlc3BvbnNlEhQKBWZvdW5kGAEgASgIUgVmb3VuZBIUCgVpbWFnZRgCIA'
+    'EoDFIFaW1hZ2USGwoJbWltZV90eXBlGAMgASgJUghtaW1lVHlwZQ==');

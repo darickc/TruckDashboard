@@ -69,6 +69,13 @@ impl AudioService for Fake {
         Ok(Response::new(pb::StopSpeakingResponse { stopped: true }))
     }
 
+    async fn get_cover_art(
+        &self,
+        _: Request<pb::GetCoverArtRequest>,
+    ) -> Result<Response<pb::GetCoverArtResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
     async fn control(
         &self,
         _: Request<pb::ControlRequest>,

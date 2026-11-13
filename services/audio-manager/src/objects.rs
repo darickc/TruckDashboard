@@ -109,6 +109,13 @@ pub fn track(d: &Props) -> Track {
         artist: text("Artist"),
         album: text("Album"),
         duration_ms: u32_of(d, "Duration").filter(|&n| n > 0),
+        // AVRCP image handles are seven digits; anything else isn't one.
+        image_handle: str_of(d, "ImgHandle")
+            .map(str::trim)
+            .filter(|h| {
+                !h.is_empty() && h.len() <= 16 && h.chars().all(|c| c.is_ascii_alphanumeric())
+            })
+            .map(str::to_string),
     }
 }
 
@@ -136,6 +143,9 @@ pub fn player(path: &str, address: &str, p: &Props, now: Instant) -> Player {
         name: str_of(p, "Name")
             .map(|s| clean_text(s, MAX_TEXT))
             .unwrap_or_default(),
+        obex_port: u32_of(p, "ObexPort")
+            .and_then(|n| u16::try_from(n).ok())
+            .filter(|&n| n > 0),
         state: str_of(p, "Status").map_or(PlayState::Unknown, play_state),
         position_ms: position(u32_of(p, "Position"), track.duration_ms),
         track,
@@ -365,12 +375,45 @@ mod tests {
         assert_eq!(p.position_ms, Some(61_000));
         assert_eq!(p.name, "Spotify");
         assert_eq!(p.address, "AA:BB:CC:DD:EE:01");
+        assert_eq!(p.obex_port, None, "no ObexPort: no cover art");
+        assert_eq!(p.track.image_handle, None);
         assert!(snap.streaming);
         assert_eq!(snap.phones.len(), 1);
         assert_eq!(
             snap.phones[0].name, "Pixel 8",
             "the alias, not the raw name"
         );
+    }
+
+    /// `ObexPort` (uint16) and the track's `ImgHandle` (string), both
+    /// experimental in BlueZ 5.86's doc/org.bluez.MediaPlayer.rst.
+    #[test]
+    fn cover_art_port_and_image_handle() {
+        let now = Instant::now();
+        let mut objs = tree(true);
+        let props = objs
+            .get_mut(&format!("{DEV}/player0"))
+            .and_then(|i| i.get_mut(PLAYER))
+            .expect("player");
+        props.insert("ObexPort".into(), Value::U32(0x1005));
+        let Some(Value::Dict(t)) = props.get_mut("Track") else {
+            panic!("track")
+        };
+        t.insert("ImgHandle".into(), s(" 1000001 "));
+        let p = snapshot(&objs, "hci0", now).player.expect("a player");
+        assert_eq!(p.obex_port, Some(0x1005));
+        assert_eq!(p.track.image_handle.as_deref(), Some("1000001"));
+
+        for bad in ["", "   ", "../../etc/passwd", "12345678901234567"] {
+            let mut d = BTreeMap::new();
+            d.insert("ImgHandle".to_string(), s(bad));
+            assert_eq!(track(&d).image_handle, None, "{bad:?}");
+        }
+        let mut pl = BTreeMap::new();
+        pl.insert("ObexPort".to_string(), Value::U32(0));
+        assert_eq!(player("/p", "A", &pl, now).obex_port, None);
+        pl.insert("ObexPort".to_string(), Value::U32(70_000));
+        assert_eq!(player("/p", "A", &pl, now).obex_port, None, "not a u16");
     }
 
     #[test]

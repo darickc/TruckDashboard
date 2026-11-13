@@ -18,7 +18,7 @@ use tokio::time::Instant;
 
 use crate::backend::Bluetooth;
 use crate::dsp::{self, Limits, Settings};
-use crate::model::{Adapter, AgentAsk, AgentRequest, Command, PlayState, Snapshot};
+use crate::model::{Adapter, AgentAsk, AgentRequest, Command, Picture, PlayState, Snapshot};
 use crate::pairing::{self, Action, Outcome, State, Window};
 use crate::prompts::{Act, PromptPause};
 use crate::runner::{Dsp, DspState};
@@ -279,6 +279,7 @@ impl Manager {
     /// The main loop: until `agent` closes.
     pub async fn run(self: Arc<Self>, mut agent: mpsc::Receiver<AgentRequest>) {
         let mut snap = self.bt.snapshot();
+        let mut art = self.bt.cover_art();
         let mut dsp_state = self.dsp.state();
         self.dsp.start(self.settings()).await;
         self.on_snapshot();
@@ -291,6 +292,10 @@ impl Manager {
                     self.on_snapshot();
                 }
                 r = dsp_state.changed() => {
+                    if r.is_err() { return; }
+                    self.publish();
+                }
+                r = art.changed() => {
                     if r.is_err() { return; }
                     self.publish();
                 }
@@ -1011,6 +1016,18 @@ impl Manager {
 
     // ---- what the dashboard sees ---------------------------------------------
 
+    /// The picture named `id` (NowPlaying.cover_art_id), only while it is
+    /// the connected phone's current track's.
+    pub fn cover_art(&self, id: &str) -> Option<Picture> {
+        let s: Snapshot = self.bt.snapshot().borrow().clone();
+        let phone = Self::current(&self.lock(), &s)?;
+        let player = s.player.as_ref().filter(|pl| pl.address == phone.address)?;
+        let art = self.bt.cover_art().borrow().clone();
+        art.for_player(player)
+            .filter(|p| p.id.to_string() == id)
+            .cloned()
+    }
+
     pub fn publish(&self) {
         let s: Snapshot = self.bt.snapshot().borrow().clone();
         let now = Instant::now();
@@ -1027,6 +1044,7 @@ impl Manager {
             paired: p.paired,
             last: inner.last_phone.as_deref() == Some(p.address.as_str()),
         };
+        let art = self.bt.cover_art().borrow().clone();
         // Only the connected phone's player, never a gone phone's track.
         let now_playing = s
             .player
@@ -1034,6 +1052,8 @@ impl Manager {
             .filter(|pl| phone.as_ref().is_some_and(|p| p.address == pl.address))
             .map(|pl| {
                 let pos = pl.position_at(now);
+                // Only the picture of this track (ADR-0042).
+                let picture = art.for_player(pl);
                 pb::NowPlaying {
                     title: pl.track.title.clone(),
                     artist: pl.track.artist.clone(),
@@ -1043,6 +1063,12 @@ impl Manager {
                     has_position: pos.is_some(),
                     position_ms: pos.unwrap_or(0),
                     player_name: pl.name.clone(),
+                    cover_art_id: picture.map(|p| p.id.to_string()).unwrap_or_default(),
+                    cover_art_detail: if picture.is_some() {
+                        String::new()
+                    } else {
+                        art.detail.clone()
+                    },
                 }
             });
         let w = &inner.window;

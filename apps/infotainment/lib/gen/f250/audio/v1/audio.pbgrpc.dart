@@ -149,6 +149,16 @@ class AudioServiceClient extends $grpc.Client {
     return $createUnaryCall(_$stopSpeaking, request, options: options);
   }
 
+  /// The picture of the track now playing (NowPlaying.cover_art_id), as the
+  /// phone sent it. found is false for an id that isn't the current one: a
+  /// picture is never served for a track that has gone.
+  $grpc.ResponseFuture<$0.GetCoverArtResponse> getCoverArt(
+    $0.GetCoverArtRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getCoverArt, request, options: options);
+  }
+
   // method descriptors
 
   static final _$watchAudio =
@@ -210,6 +220,11 @@ class AudioServiceClient extends $grpc.Client {
           '/f250.audio.v1.AudioService/StopSpeaking',
           ($0.StopSpeakingRequest value) => value.writeToBuffer(),
           $0.StopSpeakingResponse.fromBuffer);
+  static final _$getCoverArt =
+      $grpc.ClientMethod<$0.GetCoverArtRequest, $0.GetCoverArtResponse>(
+          '/f250.audio.v1.AudioService/GetCoverArt',
+          ($0.GetCoverArtRequest value) => value.writeToBuffer(),
+          $0.GetCoverArtResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('f250.audio.v1.AudioService')
@@ -319,6 +334,15 @@ abstract class AudioServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.StopSpeakingRequest.fromBuffer(value),
             ($0.StopSpeakingResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.GetCoverArtRequest, $0.GetCoverArtResponse>(
+            'GetCoverArt',
+            getCoverArt_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.GetCoverArtRequest.fromBuffer(value),
+            ($0.GetCoverArtResponse value) => value.writeToBuffer()));
   }
 
   $async.Stream<$0.WatchAudioResponse> watchAudio_Pre($grpc.ServiceCall $call,
@@ -423,4 +447,12 @@ abstract class AudioServiceBase extends $grpc.Service {
 
   $async.Future<$0.StopSpeakingResponse> stopSpeaking(
       $grpc.ServiceCall call, $0.StopSpeakingRequest request);
+
+  $async.Future<$0.GetCoverArtResponse> getCoverArt_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.GetCoverArtRequest> $request) async {
+    return getCoverArt($call, await $request);
+  }
+
+  $async.Future<$0.GetCoverArtResponse> getCoverArt(
+      $grpc.ServiceCall call, $0.GetCoverArtRequest request);
 }

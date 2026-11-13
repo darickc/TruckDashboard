@@ -281,6 +281,10 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       graph, the runner against fake `pipewire`/`pw-cli`, end to end over gRPC, the screens at 800×480, and the real binary
       against the dashboard's client. **Never run against a real BlueZ or PipeWire; nothing heard.** The DAC8x's node name and
       jack map are UNVERIFIED. Next: bench check 21 (agl.md), then 6.2 and 6.3, which attach to the filter-chain and the manager
+      Cover art `[SIM]` ([ADR-0042](architecture/adr/0042-cover-art-from-the-phone.md), owner 2026-11-12): audio-manager fetches
+      each track's thumbnail over AVRCP 1.6 BIP through obexd (`f250-obexd.service`: system bus, user f250, no servers;
+      bluetoothd `--experimental` for `ObexPort`), `GetCoverArt`; the Media screen shows it beside the track, never another
+      track's, and a note with the reason when there is none. Never run against a real obexd or phone: bench check 23
 - [ ] 6.2 DAC mute sequencing (H6) and the crash test with the amps on (H5). The amps' remote is straight on ACC, no timer, not the Pi ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md), 2026-11-09). Wiring design: [wiring/audio.md](wiring/audio.md)
 - [ ] 6.3 Volume knob
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
@@ -293,7 +297,7 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       Follow-up: power-manager's location and clock from GPS (ADR-0028)
 - [~] 6.5 Offline map, then routing, then the update workflow
       6.5.1 `[SIM]`: the Navigation tab shows a raster PMTiles map (`/var/lib/f250/maps/map.pmtiles`) with the truck's
-      position: follows until dragged, north up, 60 px zoom and locate buttons, "LAST KNOWN · n S AGO" and a grey marker
+      position: follows until dragged, north up (heading up since 2026-11-12, ADR-0032), 60 px zoom and locate buttons, "LAST KNOWN · n S AGO" and a grey marker
       when the fix isn't current, SIMULATED when it's simulated, the tileset's attribution, night-darkened tiles. A pure
       Dart PMTiles v3 reader, tested against files the official `pmtiles` tool wrote. Vector tiles can't be used: the
       vector stack needs protobuf 3, gRPC needs 6 (ADR-0030). `make map-test-pattern` writes a test pattern (not map

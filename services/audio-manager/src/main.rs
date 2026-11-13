@@ -110,6 +110,12 @@ struct Args {
     /// dropping, seconds; 0: never by itself. An example value.
     #[arg(long, default_value_t = 300)]
     reconnect_for_s: u64,
+    /// Cover art (ADR-0042): the file obexd fetches each picture into, an
+    /// absolute path both obexd and audio-manager can reach. Empty: no cover
+    /// art. Needs obexd on the system bus (f250-obexd.service) and
+    /// bluetoothd with --experimental (for the player's ObexPort).
+    #[arg(long, default_value = "")]
+    cover_art_file: String,
 }
 
 #[tokio::main]
@@ -181,7 +187,12 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         tokio::spawn(sim.clone().run());
         Arc::new(sim)
     } else {
-        Arc::new(Bluez::start(&args.adapter, &args.name, agent_tx))
+        let cover_art =
+            (!args.cover_art_file.is_empty()).then(|| PathBuf::from(&args.cover_art_file));
+        if cover_art.as_ref().is_some_and(|p| !p.is_absolute()) {
+            return Err("--cover-art-file: an absolute path (obexd is another process)".into());
+        }
+        Arc::new(Bluez::start(&args.adapter, &args.name, agent_tx, cover_art))
     };
     let dsp: Arc<dyn Dsp> = if args.no_dsp || args.simulate {
         Arc::new(NoDsp::new(if args.simulate {

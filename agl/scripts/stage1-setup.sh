@@ -62,6 +62,7 @@ F250_UNITS=(f250-gateway.service f250-recorder.service f250-power-manager.servic
 COMPOSITOR=agl-compositor.service
 COMPOSITOR_DROPIN=etc/systemd/system/agl-compositor.service.d/50-f250.conf
 CONNMAN_DROPIN=etc/systemd/system/connman.service.d/50-f250.conf
+BLUEZ_DROPIN=etc/systemd/system/bluetooth.service.d/50-f250.conf
 RFKILL=/sys/class/rfkill
 JOURNAL_DIR=/var/lib/journal
 JOURNAL_MOUNT=var-volatile-log-journal.mount
@@ -311,6 +312,11 @@ check() {
   if [[ -n "$cmdline" && "$cmdline" != *--noplugin=bluetooth* ]]; then
     warn "connman still runs with its Bluetooth plugin: reboot to apply the drop-in"
   fi
+  if cmp -s "$HERE/rootfs/$BLUEZ_DROPIN" "$ROOT/$BLUEZ_DROPIN"; then
+    ok "bluetoothd with --experimental, for the phone's cover art (/$BLUEZ_DROPIN)"
+  else
+    warn "/$BLUEZ_DROPIN missing or old: no cover art from the phone (run this script)"
+  fi
   rf="$(bt_rfkill)"
   if [[ -z "$rf" ]]; then
     warn "no Bluetooth controller (no rfkill switch of type bluetooth): the obdlink transport can't reach the MX+"
@@ -359,7 +365,7 @@ install_file() {  # install_file <src> <dest> <mode>: say whether it changed
 }
 
 apply() {
-  local u d cfg ver bundle engine f rel mode new rf
+  local u d cfg ver bundle engine f rel mode new rf bluez_new=0
   [[ -n "$ROOT" || "$(id -u)" == 0 ]] || die "Run as root (on AGL, ssh root@<pi>)"
   [[ -n "$ROOT" || -f /etc/default/flutter ]] || die "/etc/default/flutter missing: this is not the AGL Flutter image"
 
@@ -420,7 +426,9 @@ apply() {
     esac
     mode=0644
     [[ "$rel" == opt/f250/libexec/* ]] && mode=0755
-    install_file "$f" "$ROOT/$rel" "$mode" || true
+    if install_file "$f" "$ROOT/$rel" "$mode"; then
+      if [[ "$rel" == "$BLUEZ_DROPIN" ]]; then bluez_new=1; fi
+    fi
   done < <(find "$HERE/rootfs" -type f | sort)
   sys systemctl daemon-reload
   # The backlight rule (ADR-0028) applies at boot; apply it now as well.
@@ -515,6 +523,13 @@ apply() {
   sys systemctl start f250-dashboard.service
 
   say "8. Bluetooth (ADR-0023)"
+  # bluetoothd's drop-in (--experimental, the phone's cover art: ADR-0042)
+  # applies when it restarts. The MX+ (gateway) and the phone (audio-manager)
+  # reconnect by themselves; connman isn't involved.
+  if [[ "$bluez_new" == 1 ]]; then
+    sys systemctl restart bluetooth.service
+    echo "  restarted bluetoothd (/$BLUEZ_DROPIN)"
+  fi
   # The drop-in (step 4) takes effect when connman next starts. Until then
   # the old connman doesn't block the controller again: it only re-blocks
   # when it first sees a switch (technology.c, __connman_technology_add_rfkill).

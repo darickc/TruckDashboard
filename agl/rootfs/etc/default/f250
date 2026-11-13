@@ -222,6 +222,9 @@ AUDIO_FRONT=
 AUDIO_REAR=
 AUDIO_SUB=
 AUDIO_CROSSOVER_HZ=
+# AUDIO_COVER_ART  1 (or empty): the playing track's picture on the Media
+#            screen, fetched from the phone through obexd (ADR-0042). 0: none.
+AUDIO_COVER_ART=
 # Spoken directions (ADR-0039 decision 9; navigation, ADR-0040). The music
 # is paused while a prompt is said (owner, 2026-11-12) and resumed after.
 # AUDIO_VOICE  a program that says its argument (empty:

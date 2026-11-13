@@ -30,7 +30,7 @@ use zbus::zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value as Z};
 use zbus::{Connection, MatchRule, MessageStream, Proxy, fdo};
 
 use crate::backend::Bluetooth;
-use crate::model::{AgentAsk, AgentRequest, Command, Snapshot};
+use crate::model::{AgentAsk, AgentRequest, Command, CoverArt, Snapshot};
 use crate::objects::{self, Objects, Value};
 
 const BLUEZ: &str = "org.bluez";
@@ -236,6 +236,7 @@ pub struct Bluez {
     conn: Mutex<Option<Connection>>,
     paths: Mutex<Paths>,
     agent_tx: mpsc::Sender<AgentRequest>,
+    art: Arc<watch::Sender<CoverArt>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -248,8 +249,14 @@ fn err(e: impl std::fmt::Display) -> String {
 
 impl Bluez {
     /// Starts following BlueZ on the system bus. `adapter`: "hci0" (empty:
-    /// the first); `alias`: the name phones see.
-    pub fn start(adapter: &str, alias: &str, agent_tx: mpsc::Sender<AgentRequest>) -> Arc<Bluez> {
+    /// the first); `alias`: the name phones see; `cover_art_file`: where
+    /// obexd puts each picture (`cover_art.rs`; None: no cover art).
+    pub fn start(
+        adapter: &str,
+        alias: &str,
+        agent_tx: mpsc::Sender<AgentRequest>,
+        cover_art_file: Option<std::path::PathBuf>,
+    ) -> Arc<Bluez> {
         let b = Arc::new(Bluez {
             adapter: adapter.into(),
             alias: alias.into(),
@@ -257,8 +264,16 @@ impl Bluez {
             conn: Mutex::new(None),
             paths: Mutex::default(),
             agent_tx,
+            art: Arc::new(watch::Sender::new(CoverArt::default())),
         });
         tokio::spawn(Arc::clone(&b).run());
+        if let Some(file) = cover_art_file {
+            tokio::spawn(crate::cover_art::run(
+                b.snap.subscribe(),
+                file,
+                Arc::clone(&b.art),
+            ));
+        }
         b
     }
 
@@ -432,6 +447,10 @@ impl Bluez {
 impl Bluetooth for Arc<Bluez> {
     fn snapshot(&self) -> watch::Receiver<Snapshot> {
         self.snap.subscribe()
+    }
+
+    fn cover_art(&self) -> watch::Receiver<CoverArt> {
+        self.art.subscribe()
     }
 
     async fn set_pairing(&self, on: bool, timeout_s: u32) -> Result<(), String> {

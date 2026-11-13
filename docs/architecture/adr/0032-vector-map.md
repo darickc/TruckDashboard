@@ -115,5 +115,13 @@ needs no change either way: every protobuf version reads the same messages.
   logged as before. Drop it if a later version catches its own.
 - The map is still north-up. Turning it with the truck is now possible
   (labels stay along roads when rotated, seen in the spike) but not built.
+  *Amended 2026-11-12 (owner):* built. While it follows the truck, the map
+  turns so the direction of travel is up (the receiver's course while
+  moving at 1 m/s or more; changes under 2° ignored; kept while stopped;
+  north up until the truck has first moved). Dragged, it stays as it is;
+  the locate button turns it again. A compass shows north; the truck,
+  destination and chosen-point markers stay upright. vector_map_tiles is
+  given the map's rotation for its labels. [SIM]: widget tests and a render
+  of the Lebanon, Kansas fixture at 0°, 45° and 90°; not on the Pi.
 - Third-party notices: the fonts' OFL and the style and icon licences are in
   `assets/map/README.md`. The map data's ODbL attribution is on screen.

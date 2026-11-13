@@ -13,7 +13,8 @@ use tokio::time::Instant;
 
 use crate::backend::Bluetooth;
 use crate::model::{
-    Adapter, AgentAsk, AgentRequest, Command, Phone, PlayState, Player, Snapshot, Track,
+    Adapter, AgentAsk, AgentRequest, Command, CoverArt, Phone, Picture, PlayState, Player,
+    Snapshot, Track,
 };
 
 #[derive(Debug, Clone)]
@@ -97,6 +98,7 @@ impl State {
                 path: format!("/sim/{}/player0", p.address),
                 address: p.address.clone(),
                 name: "Simulated player".into(),
+                obex_port: Some(SIM_OBEX_PSM),
                 state: self.play,
                 track: self.playlist[self.index].clone(),
                 position_ms: Some(self.position(now)),
@@ -106,6 +108,95 @@ impl State {
             phones,
         }
     }
+}
+
+/// The simulated player's cover art "port" (not a real PSM: nothing
+/// connects to it).
+pub const SIM_OBEX_PSM: u16 = 0x1005;
+
+/// The simulated phone's cover art for `snap`: a made-up picture for every
+/// track with an image handle; "No picture for this track" for one without.
+fn sim_art(snap: &Snapshot, pictures: &[Option<Arc<Vec<u8>>>], playlist: &[Track]) -> CoverArt {
+    let Some(p) = &snap.player else {
+        return CoverArt::default();
+    };
+    let Some(handle) = &p.track.image_handle else {
+        return CoverArt::none(crate::cover_art::NO_PICTURE);
+    };
+    let Some(i) = playlist
+        .iter()
+        .position(|t| t.image_handle.as_ref() == Some(handle))
+    else {
+        return CoverArt::none(crate::cover_art::NO_PICTURE);
+    };
+    match &pictures[i] {
+        Some(bytes) => CoverArt {
+            picture: Some(Picture {
+                address: p.address.clone(),
+                handle: handle.clone(),
+                id: (i as u64) + 1,
+                bytes: Arc::clone(bytes),
+                mime: "image/bmp",
+            }),
+            detail: String::new(),
+        },
+        None => CoverArt::none(crate::cover_art::NO_PICTURE),
+    }
+}
+
+/// A made-up picture for a simulated track: a 200×200 BMP (no image
+/// library needed): a record on a gradient in the track's colours, so each
+/// track's picture looks different.
+pub fn sim_picture(seed: usize) -> Vec<u8> {
+    const W: u32 = 200;
+    const PALETTE: [([u8; 3], [u8; 3]); 3] = [
+        ([0x1d, 0x4e, 0x89], [0x5d, 0xad, 0xe2]),
+        ([0x8e, 0x2c, 0x1f], [0xf0, 0x9a, 0x3e]),
+        ([0x1e, 0x6b, 0x3a], [0xb8, 0xd8, 0x5a]),
+    ];
+    let (a, b) = PALETTE[seed % PALETTE.len()];
+    let row = W * 3; // 600 bytes: already a multiple of 4
+    let size = 54 + row * W;
+    let mut out = Vec::with_capacity(size as usize);
+    out.extend_from_slice(b"BM");
+    out.extend_from_slice(&size.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&54u32.to_le_bytes());
+    out.extend_from_slice(&40u32.to_le_bytes());
+    out.extend_from_slice(&W.to_le_bytes()); // width
+    out.extend_from_slice(&W.to_le_bytes()); // height (bottom-up)
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&24u16.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes()); // no compression
+    out.extend_from_slice(&(row * W).to_le_bytes());
+    out.extend_from_slice(&2835u32.to_le_bytes());
+    out.extend_from_slice(&2835u32.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes());
+    let mix = |x: u8, y: u8, t: u32| -> u8 {
+        let v = (u32::from(x) * (2 * W - t) + u32::from(y) * t) / (2 * W);
+        u8::try_from(v).unwrap_or(u8::MAX)
+    };
+    let c = i64::from(W / 2);
+    for y in 0..W {
+        for x in 0..W {
+            let t = x + y;
+            let mut px = [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)];
+            let dx = i64::from(x) - c;
+            let dy = i64::from(y) - c;
+            let d2 = dx * dx + dy * dy;
+            if (14 * 14..70 * 70).contains(&d2) {
+                // The record: dark, with faint grooves.
+                let g = if (d2 / 150) % 3 == 0 { 0x30 } else { 0x18 };
+                px = [g, g, g];
+            } else if (3 * 3..14 * 14).contains(&d2) {
+                px = [b[0], b[1], b[2]];
+            }
+            // BMP is blue, green, red.
+            out.extend_from_slice(&[px[2], px[1], px[0]]);
+        }
+    }
+    out
 }
 
 fn playlist() -> Vec<Track> {
@@ -125,11 +216,14 @@ fn playlist() -> Vec<Track> {
         ("A Third One", "Placeholder Band", "Made Up", 201_000),
     ]
     .into_iter()
-    .map(|(t, a, al, d)| Track {
+    .enumerate()
+    .map(|(i, (t, a, al, d))| Track {
         title: t.into(),
         artist: a.into(),
         album: al.into(),
         duration_ms: Some(d),
+        // The third track has no picture, like a track a phone has none for.
+        image_handle: (i < 2).then(|| format!("{}", 1_000_001 + i)),
     })
     .collect()
 }
@@ -138,6 +232,9 @@ fn playlist() -> Vec<Track> {
 pub struct SimPhone {
     state: Arc<Mutex<State>>,
     snap: watch::Sender<Snapshot>,
+    art: Arc<watch::Sender<CoverArt>>,
+    /// Each track's picture (None: the track has none).
+    pictures: Arc<Vec<Option<Arc<Vec<u8>>>>>,
     agent: mpsc::Sender<AgentRequest>,
     cfg: SimConfig,
 }
@@ -167,10 +264,24 @@ impl SimPhone {
             connects: Vec::new(),
             disconnects: Vec::new(),
         };
-        let snap = watch::Sender::new(state.snapshot(now));
+        let pictures: Vec<Option<Arc<Vec<u8>>>> = state
+            .playlist
+            .iter()
+            .enumerate()
+            .map(|(i, t)| t.image_handle.as_ref().map(|_| Arc::new(sim_picture(i))))
+            .collect();
+        let first = state.snapshot(now);
+        let art = Arc::new(watch::Sender::new(sim_art(
+            &first,
+            &pictures,
+            &state.playlist,
+        )));
+        let snap = watch::Sender::new(first);
         SimPhone {
             state: Arc::new(Mutex::new(state)),
             snap,
+            art,
+            pictures: Arc::new(pictures),
             agent,
             cfg,
         }
@@ -183,7 +294,16 @@ impl SimPhone {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let r = f(&mut s, now);
-        self.snap.send_replace(s.snapshot(now));
+        let snap = s.snapshot(now);
+        let art = sim_art(&snap, &self.pictures, &s.playlist);
+        self.snap.send_replace(snap);
+        self.art.send_if_modified(|a| {
+            let changed = *a != art;
+            if changed {
+                *a = art;
+            }
+            changed
+        });
         r
     }
 
@@ -351,6 +471,10 @@ impl SimPhone {
 impl Bluetooth for SimPhone {
     fn snapshot(&self) -> watch::Receiver<Snapshot> {
         self.snap.subscribe()
+    }
+
+    fn cover_art(&self) -> watch::Receiver<CoverArt> {
+        self.art.subscribe()
     }
 
     async fn set_pairing(&self, on: bool, _timeout_s: u32) -> Result<(), String> {

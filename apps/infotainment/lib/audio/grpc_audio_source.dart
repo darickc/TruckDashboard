@@ -191,6 +191,13 @@ class GrpcAudioSource implements AudioSource {
     );
     return CommandResult(ok: r.applied, detail: r.detail);
   }
+
+  @override
+  Future<CoverArtImage?> coverArt(String id) async {
+    final r = await _need().getCoverArt(pb.GetCoverArtRequest(id: id), options: _opts);
+    if (!r.found || r.image.isEmpty) return null;
+    return CoverArtImage(bytes: Uint8List.fromList(r.image), mimeType: r.mimeType);
+  }
 }
 
 SpeakerSettings speakersFromPb(pb.SpeakerSettings s) => SpeakerSettings(
@@ -239,6 +246,8 @@ AudioReport reportFromPb(pb.WatchAudioResponse r) {
             state: playStateFromPb(np.state),
             duration: np.durationMs == 0 ? null : Duration(milliseconds: np.durationMs),
             position: np.hasPosition ? Duration(milliseconds: np.positionMs) : null,
+            coverArtId: np.coverArtId,
+            coverArtDetail: np.coverArtDetail,
           )
         : null,
     streaming: phone != null && r.streaming,

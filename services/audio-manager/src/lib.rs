@@ -9,6 +9,7 @@
 
 pub mod backend;
 pub mod bluez;
+pub mod cover_art;
 pub mod dsp;
 pub mod manager;
 pub mod model;

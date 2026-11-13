@@ -33,6 +33,9 @@ pub struct Track {
     pub album: String,
     /// Milliseconds; None when the phone doesn't say (or says 0).
     pub duration_ms: Option<u32>,
+    /// The track's picture on the phone (`ImgHandle`, AVRCP 1.6 cover art):
+    /// valid only while audio-manager has a BIP session open to the phone.
+    pub image_handle: Option<String>,
 }
 
 /// The connected phone's player, as last reported.
@@ -44,6 +47,10 @@ pub struct Player {
     pub address: String,
     /// The app's name, when the phone gives one.
     pub name: String,
+    /// The L2CAP PSM of the phone's cover art server (`ObexPort`, BlueZ
+    /// experimental); None: the phone doesn't offer cover art, or bluetoothd
+    /// runs without `--experimental`.
+    pub obex_port: Option<u16>,
     pub state: PlayState,
     pub track: Track,
     /// Milliseconds into the track when it was read; None: unknown.
@@ -115,6 +122,59 @@ impl Snapshot {
 
     pub fn connected_phone(&self) -> Option<&Phone> {
         self.phones.iter().find(|p| p.connected)
+    }
+}
+
+/// A picture of a track, fetched from the phone.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Picture {
+    /// The phone and the track's image handle it was fetched for.
+    pub address: String,
+    pub handle: String,
+    /// Different for every picture fetched, so the dashboard knows when to
+    /// fetch again.
+    pub id: u64,
+    pub bytes: std::sync::Arc<Vec<u8>>,
+    pub mime: &'static str,
+}
+
+/// The connected phone's cover art (ADR-0042): the picture fetched last, or
+/// why there is none. Shown only for the track it was fetched for.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CoverArt {
+    pub picture: Option<Picture>,
+    /// Why there is no picture (for the screen and the log); empty: nothing
+    /// to say.
+    pub detail: String,
+}
+
+impl CoverArt {
+    pub fn none(detail: impl Into<String>) -> CoverArt {
+        CoverArt {
+            picture: None,
+            detail: detail.into(),
+        }
+    }
+
+    /// The picture, if it is the one for `player`'s current track.
+    pub fn for_player(&self, player: &Player) -> Option<&Picture> {
+        self.picture.as_ref().filter(|p| {
+            p.address == player.address && player.track.image_handle.as_deref() == Some(&p.handle)
+        })
+    }
+}
+
+/// The type of a picture from its first bytes: JPEG, PNG or BMP; None for
+/// anything else (refused).
+pub fn image_mime(bytes: &[u8]) -> Option<&'static str> {
+    if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        Some("image/jpeg")
+    } else if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+        Some("image/png")
+    } else if bytes.starts_with(b"BM") && bytes.len() > 54 {
+        Some("image/bmp")
+    } else {
+        None
     }
 }
 

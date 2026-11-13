@@ -213,6 +213,81 @@ async fn now_playing_and_controls() {
     assert_eq!(bad.unwrap_err().code(), tonic::Code::InvalidArgument);
 }
 
+fn art_id(m: &pb::WatchAudioResponse) -> &str {
+    m.now_playing
+        .as_ref()
+        .map_or("", |n| n.cover_art_id.as_str())
+}
+
+async fn cover_art(c: &mut Client, id: &str) -> pb::GetCoverArtResponse {
+    c.get_cover_art(pb::GetCoverArtRequest { id: id.into() })
+        .await
+        .expect("get cover art")
+        .into_inner()
+}
+
+/// ADR-0042: each track's picture by its id; a picture is never served
+/// for a track that has gone, nor for a phone that has gone.
+#[tokio::test]
+async fn cover_art_follows_the_track() {
+    let mut r = start(
+        "cover-art",
+        SimConfig {
+            pair_after: None,
+            ..SimConfig::default()
+        },
+    )
+    .await;
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "track one's picture", |m| !art_id(m).is_empty()).await;
+    let one = art_id(&m).to_string();
+    assert_eq!(m.now_playing.as_ref().unwrap().cover_art_detail, "");
+    let a = cover_art(&mut r.client, &one).await;
+    assert!(a.found);
+    assert_eq!(a.mime_type, "image/bmp");
+    assert_eq!(
+        a.image,
+        sim::sim_picture(0),
+        "the picture as the phone sent it"
+    );
+
+    assert!(control(&mut r.client, pb::Command::Next).await.sent);
+    let m = until(&mut s, "track two's picture", |m| {
+        title(m) == "Second Simulated Song" && !art_id(m).is_empty()
+    })
+    .await;
+    let two = art_id(&m).to_string();
+    assert_ne!(two, one, "another track, another id");
+    assert!(cover_art(&mut r.client, &two).await.found);
+    assert!(
+        !cover_art(&mut r.client, &one).await.found,
+        "never the last track's picture"
+    );
+
+    // The third track has none: no id, and why.
+    assert!(control(&mut r.client, pb::Command::Next).await.sent);
+    let m = until(&mut s, "track three", |m| title(m) == "A Third One").await;
+    assert_eq!(art_id(&m), "");
+    assert_eq!(
+        m.now_playing.as_ref().unwrap().cover_art_detail,
+        "No picture for this track"
+    );
+    assert!(!cover_art(&mut r.client, &two).await.found);
+
+    // Back to one, then the phone goes: nothing is served.
+    assert!(control(&mut r.client, pb::Command::Next).await.sent);
+    let m = until(&mut s, "track one again", |m| {
+        title(m) == "Simulated Track One" && !art_id(m).is_empty()
+    })
+    .await;
+    let again = art_id(&m).to_string();
+    assert!(cover_art(&mut r.client, &again).await.found);
+    r.sim.disconnect();
+    until(&mut s, "no phone", |m| m.phone.is_none()).await;
+    assert!(!cover_art(&mut r.client, &again).await.found);
+    assert!(!cover_art(&mut r.client, "").await.found);
+}
+
 #[tokio::test]
 async fn link_loss_clears_the_track_and_it_comes_back() {
     let mut r = start(

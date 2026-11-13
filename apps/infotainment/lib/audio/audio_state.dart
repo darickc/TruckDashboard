@@ -57,6 +57,8 @@ class NowPlaying {
     this.duration,
     this.position,
     this.playerName = '',
+    this.coverArtId = '',
+    this.coverArtDetail = '',
   });
 
   final String title, artist, album, playerName;
@@ -67,6 +69,22 @@ class NowPlaying {
 
   /// As of the report; null: unknown.
   final Duration? position;
+
+  /// The track's picture, for [AudioSource.coverArt] (ADR-0042). Empty: no
+  /// picture for this track. A new track gets a new id.
+  final String coverArtId;
+
+  /// Why there is no picture ("The phone doesn't offer cover art"); empty
+  /// while there is one.
+  final String coverArtDetail;
+}
+
+/// A track's picture as the phone sent it.
+@immutable
+class CoverArtImage {
+  const CoverArtImage({required this.bytes, required this.mimeType});
+  final Uint8List bytes;
+  final String mimeType;
 }
 
 enum PairingPhase { closed, opening, open, closing, failed }
@@ -293,6 +311,10 @@ abstract class AudioSource {
   Future<CommandResult> forgetPhone(String address);
   Future<SpeakerSnapshot> getSpeakers();
   Future<CommandResult> setSpeakers(SpeakerSettings s);
+
+  /// The picture named [id] (NowPlaying.coverArtId); null when it is no
+  /// longer the current track's.
+  Future<CoverArtImage?> coverArt(String id);
 }
 
 /// A phone, a playlist and a pairing window that don't exist, for the
@@ -316,10 +338,11 @@ class SimulatedAudioSource implements AudioSource {
   /// null: never.
   final int? pairAfterTicks;
 
+  /// The third track has no picture, like a track a phone has none for.
   static const tracks = [
-    NowPlaying(title: 'Simulated Track One', artist: 'The Test Tones', album: 'Not a Real Album', duration: Duration(seconds: 185)),
-    NowPlaying(title: 'Second Simulated Song', artist: 'The Test Tones', album: 'Not a Real Album', duration: Duration(seconds: 242)),
-    NowPlaying(title: 'A Third One', artist: 'Placeholder Band', album: 'Made Up', duration: Duration(seconds: 201)),
+    NowPlaying(title: 'Simulated Track One', artist: 'The Test Tones', album: 'Not a Real Album', duration: Duration(seconds: 185), coverArtId: '1'),
+    NowPlaying(title: 'Second Simulated Song', artist: 'The Test Tones', album: 'Not a Real Album', duration: Duration(seconds: 242), coverArtId: '2'),
+    NowPlaying(title: 'A Third One', artist: 'Placeholder Band', album: 'Made Up', duration: Duration(seconds: 201), coverArtDetail: 'No picture for this track'),
   ];
   static const passkey = 246810;
   static const windowSeconds = 120;
@@ -389,6 +412,8 @@ class SimulatedAudioSource implements AudioSource {
                 state: _play,
                 position: Duration(seconds: _positionS),
                 playerName: 'Simulated player',
+                coverArtId: t.coverArtId,
+                coverArtDetail: t.coverArtDetail,
               ),
         streaming: phone != null && _play == PlayState.playing,
         pairing: PairingStatus(
@@ -582,6 +607,68 @@ class SimulatedAudioSource implements AudioSource {
     _speakers = s;
     return const CommandResult(ok: true, detail: 'Saved, not applied: simulated: no PipeWire.');
   }
+
+  final _pictures = <String, CoverArtImage>{};
+
+  @override
+  Future<CoverArtImage?> coverArt(String id) async {
+    final c = _bluetooth ? _connected : null;
+    final t = tracks[_index];
+    if (c == null || id.isEmpty || t.coverArtId != id) return null;
+    return _pictures[id] ??=
+        CoverArtImage(bytes: simulatedCoverArt(tracks.indexOf(t)), mimeType: 'image/bmp');
+  }
+}
+
+/// A made-up picture for a simulated track: a 200×200 BMP (no image
+/// library needed), a record on a gradient in the track's colours. The same
+/// drawing as audio-manager's simulated phone (`sim.rs`, `sim_picture`).
+Uint8List simulatedCoverArt(int seed) {
+  const w = 200;
+  const palette = [
+    ([0x1d, 0x4e, 0x89], [0x5d, 0xad, 0xe2]),
+    ([0x8e, 0x2c, 0x1f], [0xf0, 0x9a, 0x3e]),
+    ([0x1e, 0x6b, 0x3a], [0xb8, 0xd8, 0x5a]),
+  ];
+  final (a, b) = palette[seed % palette.length];
+  const row = w * 3;
+  const size = 54 + row * w;
+  final out = ByteData(size);
+  void u16(int o, int v) => out.setUint16(o, v, Endian.little);
+  void u32(int o, int v) => out.setUint32(o, v, Endian.little);
+  out.setUint8(0, 0x42); // B
+  out.setUint8(1, 0x4D); // M
+  u32(2, size);
+  u32(10, 54);
+  u32(14, 40);
+  u32(18, w);
+  u32(22, w); // bottom-up
+  u16(26, 1);
+  u16(28, 24);
+  u32(34, row * w);
+  u32(38, 2835);
+  u32(42, 2835);
+  int mix(int x, int y, int t) => (x * (2 * w - t) + y * t) ~/ (2 * w);
+  const c = w ~/ 2;
+  var o = 54;
+  for (var y = 0; y < w; y++) {
+    for (var x = 0; x < w; x++) {
+      final t = x + y;
+      var px = [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)];
+      final d2 = (x - c) * (x - c) + (y - c) * (y - c);
+      if (d2 >= 14 * 14 && d2 < 70 * 70) {
+        final g = (d2 ~/ 150) % 3 == 0 ? 0x30 : 0x18;
+        px = [g, g, g];
+      } else if (d2 >= 3 * 3 && d2 < 14 * 14) {
+        px = b;
+      }
+      // BMP is blue, green, red.
+      out.setUint8(o++, px[2]);
+      out.setUint8(o++, px[1]);
+      out.setUint8(o++, px[0]);
+    }
+  }
+  return out.buffer.asUint8List();
 }
 
 extension on PairingPhase {

@@ -3,12 +3,14 @@
 
 use tokio::sync::watch;
 
-use crate::model::{Command, Snapshot};
+use crate::model::{Command, CoverArt, Snapshot};
 
 #[tonic::async_trait]
 pub trait Bluetooth: Send + Sync {
     /// The current state, replaced as a whole on each change.
     fn snapshot(&self) -> watch::Receiver<Snapshot>;
+    /// The connected phone's cover art (ADR-0042), replaced on each change.
+    fn cover_art(&self) -> watch::Receiver<CoverArt>;
     /// Makes the adapter discoverable and pairable (`on`), with BlueZ's own
     /// timeouts set to `timeout_s` as a backstop, or neither.
     async fn set_pairing(&self, on: bool, timeout_s: u32) -> Result<(), String>;
