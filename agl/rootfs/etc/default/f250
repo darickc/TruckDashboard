@@ -257,3 +257,9 @@ AUDIO_VOLUME_START_MAX=
 # AUDIO_KNOB_INVERT  1: the dial counts counter-clockwise as up.
 AUDIO_KNOB=
 AUDIO_KNOB_INVERT=
+
+# The knob display (ADR-0044): knob-link feeds it from the gateway.
+# KNOB_UNITS   imperial (or empty) or metric.
+# KNOB_DEVICE  its serial port (empty: found by its USB name, F-250 knob).
+KNOB_UNITS=
+KNOB_DEVICE=

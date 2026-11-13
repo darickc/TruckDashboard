@@ -68,10 +68,11 @@ project has.
 
 ```
 firmware/esp32/      PlatformIO firmware (C++17); auxiliary controller, ELM reference implementation
+firmware/knob-display/ ESP32-S3 round gauge and volume knob (ADR-0044)
 shared/signals/      signal registry (YAML); imports/torque/exportedPIDs.csv
 shared/proto/        versioned gRPC/protobuf API (f250.<domain>.v1); `make proto` regenerates Dart
 crates/              Rust libraries: elm (MX+ client), telemetry, powerstroke-sim, proto, sd-notify, camera-policy, recording, daylight, clock-sync, gpsd, geocode, evdev
-services/            Rust daemons: vehicle-gateway, recorder, power-manager, camera-manager, navigation, usb-export, audio-manager
+services/            Rust daemons: vehicle-gateway, recorder, power-manager, camera-manager, navigation, usb-export, audio-manager, knob-link
 apps/infotainment/   Flutter UI, 800×480 (simulated data source today)
 simulator/           Power Stroke scenarios (f250.scenario.v1) + Dart engine; Rust transport in Phase 3
 agl/                 AGL Stage 1: release pin, boot config, rootfs files, target scripts; meta-f250 in 5.4
@@ -91,6 +92,7 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make lint` | Link check, plus Rust/Flutter/proto lint once those exist |
 | `make fw-test` | ESP32 host tests (`pio test -e native`) |
 | `make fw-build` | ESP32 firmware build |
+| `make knob-test` / `make knob-build` | Knob display host tests / its ESP32-S3 firmware build (ADR-0044) |
 | `make sim-test` | Scenario simulator tests (Dart) |
 | `make ui-test` / `make ui-lint` | Flutter tests / analyzer |
 | `make ui-web` | Dashboard in a browser at http://127.0.0.1:8250. Add `SCENARIO=<id> START=<s>` to jump into a scenario |

@@ -85,8 +85,8 @@ The knob's hardware isn't chosen. PROJECT_PLAN 6.3 says "on the ESP32
      encoder needs only its overlay in config.txt (UNVERIFIED, above). An
      ESP32 encoder would need a way into the Pi: for the owner's candidate
      knob display, its S3 appearing on USB as a HID knob (volume, mute,
-     play/pause) alongside a serial port for the gauge data. Its own ADR when
-     it's built.
+     play/pause) alongside a serial port for the gauge data:
+     [ADR-0044](0044-knob-display.md).
 8. **Without the filter-chain** (`AUDIO_DSP=0`, or it isn't running) the
    level is kept and shown with "not applied" and why; nothing else changes
    the volume.

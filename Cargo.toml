@@ -22,6 +22,7 @@ members = [
     "services/navigation",
     "services/usb-export",
     "services/audio-manager",
+    "services/knob-link",
     "tools/obd-console",
     "tools/can-monitor",
     "tools/pid-importer",

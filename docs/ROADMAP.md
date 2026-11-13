@@ -300,6 +300,15 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       Which knob is the owner's choice: the candidate is Waveshare's ESP32-S3 knob display (round touch screen with the
       gauges, the knob and push/tap as USB HID; not bought, not designed yet). A GPIO encoder's overlay is UNVERIFIED.
       Next: bench check 24 (agl.md)
+      Knob display `[SIM]` ([ADR-0044](architecture/adr/0044-knob-display.md), owner 2026-11-13): Waveshare's ESP32-S3 round
+      touch screen with a knob, on one USB cable. `services/knob-link` reads the gateway's snapshots and writes line frames
+      (config, data with current/alert/stale-with-age/nothing, NMEA checksum) to its serial port; `firmware/knob-display`
+      (ESP32-S3, its own PlatformIO project) parses them into the dial's model (everything stale after 2 s without a
+      frame), with the layout (speed in the middle, fuel along the bottom, EOT/ECT/EOT − ECT along the top) and the tap
+      rules, and is a USB HID knob for audio-manager. Tests: the frames on both sides (the same golden lines), the model,
+      the layout, taps, the serial loop over a pipe; knob-link ran on the Mac against the simulated gateway into a
+      pseudo-terminal. The S3 firmware builds; **no board yet**: its display, touch and encoder drivers aren't written.
+      Next: buy the board (no battery), its drivers from Waveshare's demo, bench check 25
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
       JSON and tracks the position honestly (status, the last fix with its age, never stale as current); 23 tests,
       with gpsd 3.27.5's own output from synthetic NMEA as the test vectors. `services/navigation` serves

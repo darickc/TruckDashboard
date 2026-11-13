@@ -1,0 +1,23 @@
+#!/bin/bash
+# ExecStart of f250-knob-link.service on AGL: knob-link with the settings
+# from /etc/default/f250 (ADR-0044).
+#
+#   KNOB_UNITS   imperial (mph, °F) or metric (km/h, °C). Default imperial.
+#   KNOB_DEVICE  the dial's serial port. Default: found by its USB name
+#                (/dev/serial/by-id/*F-250_knob*).
+#
+# Status: [SIM] (make agl-test).
+set -euo pipefail
+
+BIN="${F250_KNOB_BIN:-/opt/f250/bin/knob-link}"
+SOCK="${F250_SOCK:-/run/f250/vehicle.sock}"
+
+args=(--gateway "unix:$SOCK")
+case "${KNOB_UNITS:-imperial}" in
+  imperial|metric) args+=(--units "${KNOB_UNITS:-imperial}") ;;
+  *) echo "knob-start: KNOB_UNITS=$KNOB_UNITS: use imperial or metric" >&2; exit 2 ;;
+esac
+[[ -n "${KNOB_DEVICE:-}" ]] && args+=(--device "$KNOB_DEVICE")
+
+echo "exec $BIN ${args[*]}" >&2
+exec "$BIN" "${args[@]}"

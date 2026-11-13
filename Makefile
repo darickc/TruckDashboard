@@ -15,6 +15,7 @@ FLUTTER ?= fvm flutter
 export PATH := $(shell brew --prefix rustup 2>/dev/null)/bin:$(HOME)/.cargo/bin:$(HOME)/fvm/bin:$(PATH)
 
 FW_DIR  := firmware/esp32
+KNOB_DIR := firmware/knob-display
 APP_DIR := apps/infotainment
 SIM_DIR := simulator/powerstroke
 
@@ -81,7 +82,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
               --dart-define=MAP_STATUS=$(MAP_STATUS) --dart-define=AUDIO=$(AUDIO)
 
 .PHONY: help setup doctor test lint \
-        fw-test fw-build \
+        fw-test fw-build knob-test knob-build \
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
@@ -109,7 +110,7 @@ doctor: ## Print tool versions without installing anything
 
 # ---- aggregate --------------------------------------------------------------
 
-test: fw-test sim-test rust-test ui-test agl-test ## Run every test available in this environment
+test: fw-test knob-test sim-test rust-test ui-test agl-test ## Run every test available in this environment
 
 lint: docs-lint rust-lint proto-lint ui-lint ## Run every linter available
 
@@ -120,6 +121,12 @@ fw-test: ## ESP32 host-side unit tests (no hardware)
 
 fw-build: ## Build the ESP32 firmware
 	cd $(FW_DIR) && $(PIO) run -e esp32dev
+
+knob-test: ## Knob display host tests (ADR-0044; no hardware)
+	cd $(KNOB_DIR) && $(PIO) test -e native
+
+knob-build: ## Build the knob display's ESP32-S3 firmware (ADR-0044)
+	cd $(KNOB_DIR) && $(PIO) run -e knob
 
 # ---- Rust (Phase 3) ---------------------------------------------------------
 

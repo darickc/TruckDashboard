@@ -1,0 +1,64 @@
+# The knob display's data (ADR-0044): knob-link reads vehicle-gateway's
+# snapshots (/run/f250/vehicle.sock) and writes frames to the dial's USB
+# serial port (/dev/serial/by-id/*F-250_knob*, a ttyACM device). The dial's
+# knob reaches audio-manager as a USB HID device, not through here. A dial
+# that isn't plugged in is normal: knob-link waits for it.
+#
+# Nothing here touches the vehicle bus (ADR-0007): it only reads the
+# gateway's API (CLAUDE.md rule 5).
+#
+# Status: [SIM] (knob-link's tests; run on the Mac against the simulated
+# gateway and a pseudo-terminal). UNVERIFIED on the Pi: no dial yet; that
+# ttyACM devices are group dialout on the image (udev 50-udev-default.rules
+# says so for tty[A-Z]*[0-9]).
+[Unit]
+Description=F-250 knob display link
+Wants=f250-gateway.service
+After=f250-gateway.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=30
+User=f250
+Group=f250
+# dialout: the dial's /dev/ttyACM*.
+SupplementaryGroups=dialout
+EnvironmentFile=-/etc/default/f250
+ExecStart=/opt/f250/libexec/knob-start
+Restart=on-failure
+RestartSec=2
+
+# Sandbox (ADR-0021), like the recorder's, except: no PrivateDevices and no
+# PrivateUsers (the dial's tty, group dialout), and no state of its own.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+DevicePolicy=closed
+DeviceAllow=char-ttyACM rw
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target

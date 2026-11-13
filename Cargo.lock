@@ -1039,6 +1039,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "knob-link"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "f250-proto",
+ "f250-sd-notify",
+ "hyper-util",
+ "tokio",
+ "tokio-serial",
+ "tonic",
+ "tower",
+]
+
+[[package]]
 name = "kstring"
 version = "2.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
