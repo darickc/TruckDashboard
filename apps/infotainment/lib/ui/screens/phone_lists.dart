@@ -407,7 +407,8 @@ class _KeypadViewState extends State<KeypadView> {
         final note = widget.note.isNotEmpty
             ? widget.note
             : !stopped
-                ? 'Stop the truck to use the keypad. Contacts and Recent work while driving.'
+                // One line under an alert banner on the panel's font.
+                ? 'Stop the truck to use the keypad.'
                 : block;
         Widget key(String k) {
           final sub = KeypadView.letters[k];

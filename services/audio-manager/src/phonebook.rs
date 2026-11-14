@@ -666,6 +666,14 @@ fn reason(e: &zbus::Error) -> String {
             if name == "org.freedesktop.DBus.Error.ServiceUnknown" {
                 return "obexd isn't running".into();
             }
+            // obexd's own 10 s OBEX connect timeout (connect_cb): the
+            // phone didn't answer, as when it is asking its user first
+            // (bench Pi with a Z Fold8, 2026-11-14).
+            if msg.as_deref().is_some_and(|m| m.contains("Timed out")) {
+                return "the phone didn't answer: if it asks to share contacts with this head unit, \
+                        allow it, then Try again"
+                    .into();
+            }
             if name.ends_with(".Forbidden") {
                 return "the phone didn't allow it: allow contact sharing for this head unit in the \
                         phone's Bluetooth settings"
@@ -925,6 +933,29 @@ mod tests {
         );
         assert_eq!(name_for(&c, "101002"), None, "too short to match a part");
         assert_eq!(name_for(&c, ""), None);
+    }
+
+    #[test]
+    fn obexd_errors_say_what_to_do() {
+        let e = |name: &str, msg: &str| {
+            reason(&zbus::Error::MethodError(
+                zbus::names::OwnedErrorName::try_from(name.to_string()).unwrap(),
+                Some(msg.into()),
+                zbus::message::Message::method_call("/", "x")
+                    .unwrap()
+                    .build(&())
+                    .unwrap(),
+            ))
+        };
+        assert!(
+            e(
+                "org.bluez.obex.Error.Failed",
+                "Timed out waiting for response"
+            )
+            .starts_with("the phone didn't answer: if it asks")
+        );
+        assert!(e("org.bluez.obex.Error.Forbidden", "").contains("allow contact sharing"));
+        assert_eq!(e("org.bluez.obex.Error.Failed", "Busy"), "Failed: Busy");
     }
 
     #[test]
