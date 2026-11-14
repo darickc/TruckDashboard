@@ -1070,6 +1070,7 @@ class Calls extends $pb.GeneratedMessage {
     $core.int? otherCalls,
     $core.bool? micMuted,
     $core.String? phoneName,
+    $core.bool? localRing,
   }) {
     final result = Calls._();
     if (available != null) result.available = available;
@@ -1078,6 +1079,7 @@ class Calls extends $pb.GeneratedMessage {
     if (otherCalls != null) result.otherCalls = otherCalls;
     if (micMuted != null) result.micMuted = micMuted;
     if (phoneName != null) result.phoneName = phoneName;
+    if (localRing != null) result.localRing = localRing;
     return result;
   }
 
@@ -1101,6 +1103,7 @@ class Calls extends $pb.GeneratedMessage {
     ..aI(4, _omitFieldNames ? '' : 'otherCalls', fieldType: $pb.PbFieldType.OU3)
     ..aOB(5, _omitFieldNames ? '' : 'micMuted')
     ..aOS(6, _omitFieldNames ? '' : 'phoneName')
+    ..aOB(7, _omitFieldNames ? '' : 'localRing')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1187,6 +1190,17 @@ class Calls extends $pb.GeneratedMessage {
   $core.bool hasPhoneName() => $_has(5);
   @$pb.TagNumber(6)
   void clearPhoneName() => $_clearField(6);
+
+  /// audio-manager rings through the speakers: a call rings and the phone
+  /// sends no ring tone of its own (ADR-0045 decision 7).
+  @$pb.TagNumber(7)
+  $core.bool get localRing => $_getBF(6);
+  @$pb.TagNumber(7)
+  set localRing($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasLocalRing() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearLocalRing() => $_clearField(7);
 }
 
 /// Spoken prompts (Speak).

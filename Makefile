@@ -48,7 +48,9 @@ AUDIO    ?= sim
 AUDIO_LISTEN ?= tcp:127.0.0.1:50254
 # A made-up phone call rings every SIM_CALL seconds on the simulated phone
 # (the app's, or audio-manager's with `make sim`/`make audio`); empty: never.
+# RING=afplay makes audio-manager's ring tone heard on the Mac.
 SIM_CALL ?=
+RING ?=
 # The offline map (PMTiles, vector or raster; ADR-0030, ADR-0032);
 # `make map-test-pattern` writes a raster one there. The macOS app's sandbox
 # may read /tmp/f250/maps/ only.
@@ -259,13 +261,13 @@ gateway: ## Run the vehicle gateway with the simulator (SCENARIO=, START=) on $(
 	cargo run -q -p vehicle-gateway -- --listen $(GATEWAY) --scenario $(SCENARIO) --sim-start-s $(START)
 
 sim: ## Gateway, navigation and audio-manager (simulated) + the macOS app reading from them over gRPC
-	NAV_ROUTING="$(NAV_ROUTING)" VOICE="$(VOICE)" SIM_CALL="$(SIM_CALL)" tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)" "$(AUDIO_LISTEN)"
+	NAV_ROUTING="$(NAV_ROUTING)" VOICE="$(VOICE)" SIM_CALL="$(SIM_CALL)" RING="$(RING)" tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)" "$(AUDIO_LISTEN)"
 
 navigation: ## Run services/navigation with a simulated receiver on $(NAV_LISTEN), routing with Valhalla in Docker (VOICE=say speaks)
 	cargo run -q -p navigation -- --listen $(NAV_LISTEN) --simulate $(NAV_ROUTING) $(if $(VOICE),--voice-command $(VOICE))
 
 audio: ## Run services/audio-manager with a simulated phone (no Bluetooth, no PipeWire) on $(AUDIO_LISTEN)
-	mkdir -p /tmp/f250/audio && cargo run -q -p audio-manager -- --listen $(AUDIO_LISTEN) --simulate --settings-file /tmp/f250/audio/speakers.json $(if $(VOICE),--voice-command $(VOICE)) $(if $(SIM_CALL),--sim-call-every-s $(SIM_CALL))
+	mkdir -p /tmp/f250/audio && cargo run -q -p audio-manager -- --listen $(AUDIO_LISTEN) --simulate --settings-file /tmp/f250/audio/speakers.json $(if $(VOICE),--voice-command $(VOICE)) $(if $(SIM_CALL),--sim-call-every-s $(SIM_CALL)) $(if $(RING),--ring-command $(RING))
 
 route-region: ## Build Valhalla routing data for REGION= (Geofabrik path(s), e.g. north-america/us/kansas) into $(ROUTING_TILES) (ROUTE_ARGS= passes build-routing.py options); needs Docker
 	@test -n "$(REGION)" || { echo "usage: make route-region REGION=north-america/us/kansas [REGION='a b']"; exit 2; }

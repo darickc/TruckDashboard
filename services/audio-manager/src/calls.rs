@@ -6,7 +6,8 @@
 //! The Telephony service (PipeWire 1.6.8, `spa/plugins/bluez5/telephony.c`
 //! and `README-Telephony.md`): a manager object `/org/pipewire/Telephony`
 //! whose ObjectManager lists one `org.pipewire.Telephony.AudioGateway1` per
-//! connected phone (`…/ag0`, property `Address`), and each gateway's own
+//! connected phone (`…/ag0`, property `Address`; its call audio link in
+//! `AudioGatewayTransport1.State`: error, idle, pending, active), and each gateway's own
 //! ObjectManager lists its `org.pipewire.Telephony.Call1` objects
 //! (`…/ag0/call0`: `State`, `LineIdentification`, `Name`, `Multiparty`).
 //! The trees are read whole (`GetManagedObjects`), never property by
@@ -18,6 +19,7 @@ use crate::objects::{Objects, Props, Value, clean_text};
 pub const SERVICE: &str = "org.pipewire.Telephony";
 pub const MANAGER_PATH: &str = "/org/pipewire/Telephony";
 pub const GATEWAY: &str = "org.pipewire.Telephony.AudioGateway1";
+pub const GATEWAY_TRANSPORT: &str = "org.pipewire.Telephony.AudioGatewayTransport1";
 pub const CALL: &str = "org.pipewire.Telephony.Call1";
 
 /// `Call1.State` (README-Telephony.md lists these seven).
@@ -96,13 +98,24 @@ pub enum Availability {
     Ready,
 }
 
+/// A phone's hands-free gateway.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Gateway {
+    /// The phone's address, upper case.
+    pub address: String,
+    /// Call audio is flowing from the phone (the transport is "active"):
+    /// while a call rings, the phone sends its own ring tone (in-band; the
+    /// owner's Z Fold8 does, bench-log 2026-11-14).
+    pub audio: bool,
+}
+
 /// Everything the telephony backend knows, replaced as a whole on each
 /// change.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CallSnapshot {
     pub availability: Availability,
-    /// Phones whose hands-free gateway is connected (addresses, upper case).
-    pub gateways: Vec<String>,
+    /// Phones whose hands-free gateway is connected.
+    pub gateways: Vec<Gateway>,
     pub calls: Vec<Call>,
 }
 
@@ -136,12 +149,19 @@ const MAX_TEXT: usize = 64;
 /// The gateways and calls in the Telephony tree: the manager's
 /// `GetManagedObjects` and each gateway's, merged by path. A call whose
 /// gateway isn't in the tree is left out (it can't be placed on a phone).
-pub fn from_objects(objs: &Objects) -> (Vec<String>, Vec<Call>) {
-    let gateways: Vec<(String, String)> = objs
+pub fn from_objects(objs: &Objects) -> (Vec<Gateway>, Vec<Call>) {
+    let gateways: Vec<(String, Gateway)> = objs
         .iter()
         .filter_map(|(path, i)| {
             let a = str_of(i.get(GATEWAY)?, "Address")?;
-            Some((path.clone(), a.trim().to_ascii_uppercase()))
+            let audio = i.get(GATEWAY_TRANSPORT).and_then(|t| str_of(t, "State")) == Some("active");
+            Some((
+                path.clone(),
+                Gateway {
+                    address: a.trim().to_ascii_uppercase(),
+                    audio,
+                },
+            ))
         })
         .collect();
     let calls = objs
@@ -149,7 +169,12 @@ pub fn from_objects(objs: &Objects) -> (Vec<String>, Vec<Call>) {
         .filter_map(|(path, i)| {
             let c = i.get(CALL)?;
             let (parent, _) = path.rsplit_once('/')?;
-            let address = gateways.iter().find(|(p, _)| p == parent)?.1.clone();
+            let address = gateways
+                .iter()
+                .find(|(p, _)| p == parent)?
+                .1
+                .address
+                .clone();
             let line = clean_text(str_of(c, "LineIdentification").unwrap_or(""), MAX_TEXT);
             let withheld = line.eq_ignore_ascii_case("withheld");
             Some(Call {
@@ -245,7 +270,13 @@ mod tests {
             ),
         ]);
         let (gateways, calls) = from_objects(&objs);
-        assert_eq!(gateways, vec!["B0:DE:31:1E:55:96".to_string()]);
+        assert_eq!(
+            gateways,
+            vec![Gateway {
+                address: "B0:DE:31:1E:55:96".into(),
+                audio: false
+            }]
+        );
         assert_eq!(
             calls,
             vec![Call {
@@ -294,6 +325,23 @@ mod tests {
         assert_eq!(caller(&calls[1]), "+1555");
         assert_eq!(calls[2].state, CallState::Unknown);
         assert_eq!(caller(&calls[2]), "an unknown caller");
+    }
+
+    #[test]
+    fn a_phone_ringing_in_band() {
+        let mut objs = tree(vec![(AG, GATEWAY, gateway("02:00:00:00:00:01"))]);
+        let transport = |st: &str| props(&[("State", s(st)), ("Codec", Value::U32(2))]);
+        for (st, audio) in [
+            ("active", true),
+            ("pending", false),
+            ("idle", false),
+            ("error", false),
+        ] {
+            objs.get_mut(AG)
+                .unwrap()
+                .insert(GATEWAY_TRANSPORT.into(), transport(st));
+            assert_eq!(from_objects(&objs).0[0].audio, audio, "{st}");
+        }
     }
 
     #[test]

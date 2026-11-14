@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use tokio::sync::watch;
 
-use crate::calls::{Availability, Call, CallSnapshot, CallState};
+use crate::calls::{Availability, Call, CallSnapshot, CallState, Gateway};
 use crate::sim::FIRST;
 use crate::telephony::Telephony;
 
@@ -44,6 +44,8 @@ struct State {
     /// Counts state changes, so an old timer does nothing.
     generation: u64,
     muted: Vec<bool>,
+    /// The phone sends its own ring tone (and call audio) while a call rings.
+    in_band: bool,
 }
 
 #[derive(Clone)]
@@ -60,7 +62,7 @@ impl SimCalls {
             state: Arc::default(),
             snap: watch::Sender::new(CallSnapshot {
                 availability: Availability::Ready,
-                gateways: vec![FIRST.into()],
+                gateways: Vec::new(),
                 calls: Vec::new(),
             }),
         };
@@ -75,11 +77,28 @@ impl SimCalls {
     }
 
     fn publish(&self, st: &State) {
+        // Call audio flows during a call, and while ringing if the phone
+        // rings in-band.
+        let audio = st
+            .calls
+            .iter()
+            .any(|c| !c.state.rings() || (st.in_band && c.state == CallState::Incoming));
         self.snap.send_replace(CallSnapshot {
             availability: Availability::Ready,
-            gateways: vec![FIRST.into()],
+            gateways: vec![Gateway {
+                address: FIRST.into(),
+                audio,
+            }],
             calls: st.calls.clone(),
         });
+    }
+
+    /// The simulated phone sends its own ring tone (as the Z Fold8 does), or
+    /// not (the default: audio-manager rings).
+    pub fn set_in_band(&self, yes: bool) {
+        let mut st = self.lock();
+        st.in_band = yes;
+        self.publish(&st);
     }
 
     /// Rings `every`, if set: a call after start, and again after each one

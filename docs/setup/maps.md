@@ -409,7 +409,7 @@ can't be said at once is dropped, never said late.
 
 | Where prompts go | |
 |---|---|
-| The Mac | `make sim`: audio-manager's simulated phone, whose music pauses for them; silent unless `VOICE=say`. `make navigation VOICE=say` alone speaks them with no music to pause. With `SIM_CALL=30` a made-up call rings every 30 s, and directions are skipped during it (ADR-0045) |
+| The Mac | `make sim`: audio-manager's simulated phone, whose music pauses for them; silent unless `VOICE=say`. `make navigation VOICE=say` alone speaks them with no music to pause. With `SIM_CALL=30` a made-up call rings every 30 s, and directions are skipped during it; `RING=afplay` makes its ring tone heard (ADR-0045) |
 | The Pi | audio-manager (`NAV_AUDIO_MANAGER`, `/run/f250-audio/audio.sock`), which says them with Flite. **Not heard on the Pi yet.** With `NAV_AUDIO_MANAGER=` they go to `journalctl -u f250-navigation` only |
 
 ## GPS

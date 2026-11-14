@@ -285,6 +285,9 @@ message Calls {
   bool mic_muted = 5;
   // The connected phone's name, for "on Pixel 8".
   string phone_name = 6;
+  // audio-manager rings through the speakers: a call rings and the phone
+  // sends no ring tone of its own (ADR-0045 decision 7).
+  bool local_ring = 7;
 }
 
 // Spoken prompts (Speak).

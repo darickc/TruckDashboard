@@ -423,6 +423,7 @@ const Calls$json = {
     {'1': 'other_calls', '3': 4, '4': 1, '5': 13, '10': 'otherCalls'},
     {'1': 'mic_muted', '3': 5, '4': 1, '5': 8, '10': 'micMuted'},
     {'1': 'phone_name', '3': 6, '4': 1, '5': 9, '10': 'phoneName'},
+    {'1': 'local_ring', '3': 7, '4': 1, '5': 8, '10': 'localRing'},
   ],
 };
 
@@ -431,7 +432,8 @@ final $typed_data.Uint8List callsDescriptor = $convert.base64Decode(
     'CgVDYWxscxIcCglhdmFpbGFibGUYASABKAhSCWF2YWlsYWJsZRIWCgZkZXRhaWwYAiABKAlSBm'
     'RldGFpbBInCgRjYWxsGAMgASgLMhMuZjI1MC5hdWRpby52MS5DYWxsUgRjYWxsEh8KC290aGVy'
     'X2NhbGxzGAQgASgNUgpvdGhlckNhbGxzEhsKCW1pY19tdXRlZBgFIAEoCFIIbWljTXV0ZWQSHQ'
-    'oKcGhvbmVfbmFtZRgGIAEoCVIJcGhvbmVOYW1l');
+    'oKcGhvbmVfbmFtZRgGIAEoCVIJcGhvbmVOYW1lEh0KCmxvY2FsX3JpbmcYByABKAhSCWxvY2Fs'
+    'UmluZw==');
 
 @$core.Deprecated('Use promptsDescriptor instead')
 const Prompts$json = {

@@ -15,6 +15,7 @@ use audio_manager::backend::Bluetooth;
 use audio_manager::dsp::{Limits, Settings};
 use audio_manager::manager::{Config, Manager, Reconnect};
 use audio_manager::pairing;
+use audio_manager::ring::SimRinger;
 use audio_manager::runner::NoDsp;
 use audio_manager::server::Api;
 use audio_manager::sim::{self, SimConfig, SimPhone};
@@ -64,6 +65,7 @@ struct Running {
     client: Client,
     sim: SimPhone,
     calls: SimCalls,
+    ringer: Arc<SimRinger>,
     dir: std::path::PathBuf,
 }
 
@@ -93,6 +95,7 @@ async fn start_full(
     let sim = SimPhone::new(sim_cfg, agent_tx);
     let bt: Arc<dyn Bluetooth> = Arc::new(sim.clone());
     let calls = SimCalls::new(SimCallsConfig::default());
+    let ringer = Arc::new(SimRinger::new(Duration::from_millis(200)));
     let mut cfg = Config {
         pairing: pairing::Config::default(),
         name: "F-250".into(),
@@ -108,6 +111,7 @@ async fn start_full(
             ..VolumeLimits::default()
         },
         volume_file: Some(dir.join("volume.json")),
+        ring_after: Duration::from_millis(300),
     };
     change(&mut cfg, &dir);
     let manager = Manager::new(
@@ -119,6 +123,7 @@ async fn start_full(
             min: Duration::from_millis(300),
         }),
         tel.unwrap_or_else(|| Arc::new(calls.clone())),
+        ringer.clone(),
     );
     tokio::spawn(Arc::clone(&manager).run(agent_rx));
     let api = Api::new(Arc::clone(&manager));
@@ -135,6 +140,7 @@ async fn start_full(
         client: client(sock).await,
         sim,
         calls,
+        ringer,
         dir,
     }
 }
@@ -596,6 +602,7 @@ async fn speaker_settings_are_validated_saved_and_kept() {
         reconnect: Reconnect::OFF,
         volume: VolumeLimits::default(),
         volume_file: None,
+        ring_after: Duration::from_secs(1),
     };
     let (loaded, problem) = audio_manager::manager::load_settings(&cfg);
     assert!(problem.is_none(), "{file}");
@@ -1558,4 +1565,64 @@ async fn the_knobs_push_answers_and_hangs_up() {
         play_state_of(m) == pb::PlayState::Paused
     })
     .await;
+}
+
+#[tokio::test]
+async fn a_phone_without_its_own_ring_tone_is_rung_through_the_speakers() {
+    let mut r = start("call-ring", no_pairing()).await;
+    let mut s = watch(&mut r.client).await;
+    until(&mut s, "ready", |m| calls(m).available).await;
+
+    // No ring tone from the phone: after ring_after, audio-manager rings
+    // until the call is answered.
+    r.calls.ring(SIM_NUMBER, SIM_CALLER);
+    let m = until(&mut s, "ringing", |m| {
+        call_state(m) == pb::CallState::Incoming
+    })
+    .await;
+    assert!(!calls(&m).local_ring, "not before ring_after");
+    let m = until(&mut s, "rung here", |m| calls(m).local_ring).await;
+    let id = calls(&m).call.unwrap().id;
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert!(r.ringer.rings() >= 2, "it repeats: {}", r.ringer.rings());
+    assert!(answer(&mut r.client, id).await.accepted);
+    until(&mut s, "answered, quiet", |m| {
+        call_state(m) == pb::CallState::Active && !calls(m).local_ring
+    })
+    .await;
+    let rung = r.ringer.rings();
+
+    // A waiting call isn't rung over the call in progress.
+    let w = r.calls.ring("+15550199", "");
+    until(&mut s, "waiting", |m| {
+        call_state(m) == pb::CallState::Waiting
+    })
+    .await;
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    let m = until(&mut s, "a later report", |_| true).await;
+    assert!(!calls(&m).local_ring);
+    assert_eq!(r.ringer.rings(), rung);
+    r.calls.end(&w);
+    let m = until(&mut s, "the first again", |m| {
+        call_state(m) == pb::CallState::Active
+    })
+    .await;
+    assert!(
+        hang_up(&mut r.client, calls(&m).call.unwrap().id)
+            .await
+            .accepted
+    );
+    until(&mut s, "no call", |m| calls(m).call.is_none()).await;
+
+    // A phone that rings in-band: audio-manager stays quiet.
+    r.calls.set_in_band(true);
+    r.calls.ring(SIM_NUMBER, SIM_CALLER);
+    until(&mut s, "ringing in-band", |m| {
+        call_state(m) == pb::CallState::Incoming
+    })
+    .await;
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    let m = until(&mut s, "a later report", |_| true).await;
+    assert!(!calls(&m).local_ring);
+    assert_eq!(r.ringer.rings(), rung);
 }

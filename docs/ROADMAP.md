@@ -327,7 +327,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       dashboard shows the call over every screen under the alert banner (Answer/Decline, then the time, Mute, Hang up),
       and in camera mode in the left column, the cameras as a 2×2 grid of arrows, never over the picture. The knob's
       push answers a ringing call and hangs up one in progress; the knob display gets the call as a `P1` frame and it
-      takes over the dial, touches ignored (frame and model host-tested; nothing drawn without the board).
+      takes over the dial, touches ignored (frame and model host-tested; nothing drawn without the board). A phone that
+      doesn't ring in-band (its gateway's call audio link not active while ringing) is rung through the speakers with a
+      generated tone (`--ring-command`; `RING=afplay` on the Mac); a waiting call isn't.
       Simulated calls on both sides (`SIM_CALL=<s>`). Not on the Pi: the D-Bus client has only run against the
       simulation, and the hands-free role, its D-Bus policy and the call audio path aren't shipped.
       Next: S2 with audio-manager on the bench, then the packaging; S3/S4 after

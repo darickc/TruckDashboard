@@ -17,9 +17,10 @@ GW=$!
 NV=$!
 mkdir -p /tmp/f250/audio
 # Its voice is silent unless VOICE names a program (VOICE=say); a made-up
-# call rings every SIM_CALL seconds if set (ADR-0045).
+# call rings every SIM_CALL seconds if set, heard with RING=afplay (ADR-0045).
 ./target/debug/audio-manager --listen "$AUDIO" --simulate --settings-file /tmp/f250/audio/speakers.json \
-  ${VOICE:+--voice-command "$VOICE"} ${SIM_CALL:+--sim-call-every-s "$SIM_CALL"} &
+  ${VOICE:+--voice-command "$VOICE"} ${SIM_CALL:+--sim-call-every-s "$SIM_CALL"} \
+  ${RING:+--ring-command "$RING"} &
 AU=$!
 trap 'kill $GW $NV $AU 2>/dev/null || true' EXIT
 sleep 1

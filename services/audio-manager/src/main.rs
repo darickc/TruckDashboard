@@ -15,6 +15,7 @@ use audio_manager::dsp::{ChannelMap, Limits, Settings, Target, render};
 use audio_manager::knob::{self, KnobConfig};
 use audio_manager::manager::{Config, Manager, Reconnect, load_settings};
 use audio_manager::pairing;
+use audio_manager::ring::{CommandRinger, NoRinger, Ringer, SimRinger, Tone};
 use audio_manager::runner::{Dsp, NoDsp, PipewireConfig, PipewireDsp};
 use audio_manager::server::Api;
 use audio_manager::sim::{SimConfig, SimPhone};
@@ -155,6 +156,19 @@ struct Args {
     /// bluez5 roles include hfp_hf (configured with it, not by this flag).
     #[arg(long, default_value = "")]
     call_mic: String,
+    /// The ring tone for a phone that sends none (ADR-0045): a program that
+    /// plays the WAV file named by its argument and exits (`afplay` on the
+    /// Mac). Empty: simulated (silent) with --simulate, else such a phone
+    /// rings only on the phone.
+    #[arg(long)]
+    ring_command: Option<PathBuf>,
+    /// Where the ring tone's WAV is written for --ring-command.
+    #[arg(long, default_value = "/tmp/f250/audio/ring.wav")]
+    ring_file: PathBuf,
+    /// A call ringing this long without the phone's own ring tone is rung
+    /// through the speakers, milliseconds. An example value.
+    #[arg(long, default_value_t = 1500)]
+    ring_after_ms: u64,
     /// With --simulate: a made-up call rings this often (after start and
     /// after each call ends), seconds; 0: never.
     #[arg(long, default_value_t = 0)]
@@ -213,6 +227,7 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         },
         volume: volume_limits,
         volume_file: (!args.volume_file.is_empty()).then(|| PathBuf::from(&args.volume_file)),
+        ring_after: Duration::from_millis(args.ring_after_ms),
     };
     let target = Target {
         dac_node: args.dac_node.clone(),
@@ -297,7 +312,20 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             pw_cli: args.pw_cli.clone(),
         }))
     };
-    let manager = Manager::new(config, bt, dsp, voice, calls);
+    let ringer: Arc<dyn Ringer> = if let Some(program) = &args.ring_command {
+        Arc::new(CommandRinger {
+            program: program.clone(),
+            file: args.ring_file.clone(),
+            tone: Tone::default(),
+        })
+    } else if args.simulate {
+        Arc::new(SimRinger::new(Tone::default().cycle()))
+    } else {
+        Arc::new(NoRinger(
+            "no ring tone is configured (--ring-command)".into(),
+        ))
+    };
+    let manager = Manager::new(config, bt, dsp, voice, calls, ringer);
     tokio::spawn(run_watchdog(
         notifier.clone(),
         manager.heartbeat.clone(),

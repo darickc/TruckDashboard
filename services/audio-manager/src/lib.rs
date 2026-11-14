@@ -21,6 +21,7 @@ pub mod model;
 pub mod objects;
 pub mod pairing;
 pub mod prompts;
+pub mod ring;
 pub mod runner;
 pub mod server;
 pub mod sim;

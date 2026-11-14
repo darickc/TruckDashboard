@@ -23,6 +23,7 @@ use crate::dsp::{self, Limits, Mix, Settings};
 use crate::model::{Adapter, AgentAsk, AgentRequest, Command, Picture, PlayState, Snapshot};
 use crate::pairing::{self, Action, Outcome, State, Window};
 use crate::prompts::{Act, PromptPause};
+use crate::ring::Ringer;
 use crate::runner::{Dsp, DspState};
 use crate::telephony::Telephony;
 use crate::voice::{Voice, clean_prompt};
@@ -52,6 +53,10 @@ pub struct Config {
     pub volume: VolumeLimits,
     /// Where the level is kept; None: only in memory.
     pub volume_file: Option<PathBuf>,
+    /// A call that rings without the phone's own ring tone this long is
+    /// rung through the speakers (an example: the phone's in-band ring may
+    /// take a moment to start).
+    pub ring_after: Duration,
 }
 
 /// Reconnecting the last phone by itself: at start, when Bluetooth comes
@@ -159,6 +164,10 @@ struct Inner {
     mic_muted: bool,
     /// The music paused for a call, resumed after it (as for prompts).
     call_pause: PromptPause,
+    /// The ring tone playing through the speakers.
+    ring: Option<tokio::task::AbortHandle>,
+    /// The call ringing on the phone in use, and since when.
+    incoming: Option<(u64, Instant)>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -174,6 +183,7 @@ pub struct Manager {
     dsp: Arc<dyn Dsp>,
     voice: Arc<dyn Voice>,
     tel: Arc<dyn Telephony>,
+    ringer: Arc<dyn Ringer>,
     inner: Mutex<Inner>,
     out: watch::Sender<pb::WatchAudioResponse>,
     /// Bumped by the main loop (systemd watchdog).
@@ -262,6 +272,7 @@ impl Manager {
         dsp: Arc<dyn Dsp>,
         voice: Arc<dyn Voice>,
         tel: Arc<dyn Telephony>,
+        ringer: Arc<dyn Ringer>,
     ) -> Arc<Manager> {
         let (settings, problem) = load_settings(&cfg);
         if let Some(p) = problem {
@@ -312,12 +323,15 @@ impl Manager {
                 in_call: false,
                 mic_muted: false,
                 call_pause: PromptPause::new(cfg.prompt_hold),
+                ring: None,
+                incoming: None,
             }),
             cfg,
             bt,
             dsp,
             voice,
             tel,
+            ringer,
             out: watch::Sender::new(pb::WatchAudioResponse::default()),
             heartbeat: f250_sd_notify::Heartbeat::new(),
             stopping: std::sync::atomic::AtomicBool::new(false),
@@ -635,6 +649,8 @@ impl Manager {
             self.carry_out(inner, out);
             let snap = self.bt.snapshot().borrow().clone();
             self.reconnect_tick(inner, &snap, now);
+            let t = self.tel.calls().borrow().clone();
+            self.ring_check(inner, &snap, &t, now);
             let paused = self
                 .bt
                 .snapshot()
@@ -1221,6 +1237,67 @@ impl Manager {
             }
         }
         inner.in_call = in_call;
+        self.ring_check(inner, s, t, now);
+    }
+
+    /// Rings through the speakers while the call shown rings (incoming)
+    /// and its phone sends no ring tone of its own, after `ring_after`
+    /// (ADR-0045 decision 7). A waiting call isn't rung: it would sound over
+    /// the call in progress.
+    fn ring_check(
+        self: &Arc<Self>,
+        inner: &mut Inner,
+        s: &Snapshot,
+        t: &CallSnapshot,
+        now: Instant,
+    ) {
+        let phone = Self::current(inner, s);
+        let address = phone.as_ref().map_or("", |p| p.address.as_str());
+        let mine = Self::phone_calls(inner, s, t);
+        let ringing = calls::pick(&mine, address)
+            .0
+            .filter(|c| c.state == CallState::Incoming)
+            .and_then(|c| inner.calls.get(&c.path).map(|m| m.id));
+        inner.incoming = match (ringing, inner.incoming) {
+            (Some(id), Some((was, since))) if id == was => Some((id, since)),
+            (Some(id), _) => Some((id, now)),
+            (None, _) => None,
+        };
+        let in_band = t.gateways.iter().any(|g| g.address == address && g.audio);
+        let ring = inner
+            .incoming
+            .is_some_and(|(_, since)| now.saturating_duration_since(since) >= self.cfg.ring_after)
+            && !in_band
+            && self.ringer.available().is_ok();
+        match (ring, inner.ring.is_some()) {
+            (true, false) => {
+                eprintln!("[audio] ringing through the speakers (the phone sends no ring tone)");
+                let me = Arc::clone(self);
+                let task = tokio::spawn(async move {
+                    loop {
+                        if let Err(e) = me.ringer.ring_once().await {
+                            eprintln!("[audio] ring tone: {e}");
+                            tokio::time::sleep(Duration::from_secs(3)).await;
+                        }
+                    }
+                });
+                inner.ring = Some(task.abort_handle());
+            }
+            (false, true) => {
+                if let Some(task) = inner.ring.take() {
+                    task.abort();
+                }
+                eprintln!(
+                    "[audio] ring tone stopped{}",
+                    if in_band && inner.incoming.is_some() {
+                        ": the phone's own started"
+                    } else {
+                        ""
+                    }
+                );
+            }
+            _ => {}
+        }
     }
 
     /// The call named `id` on the phone in use, if it is still there.
@@ -1355,13 +1432,17 @@ impl Manager {
             (Availability::Off(why), _) => (false, format!("Calls stay on the phone: {why}.")),
             (Availability::Unavailable(why), _) => (false, format!("Calls unavailable: {why}.")),
             (Availability::Ready, None) => (false, "No phone is connected.".to_string()),
-            (Availability::Ready, Some(p)) if !t.gateways.contains(&p.address) => (
-                false,
-                format!(
-                    "{} hasn't connected for calls: they stay on the phone.",
-                    p.name
-                ),
-            ),
+            (Availability::Ready, Some(p))
+                if !t.gateways.iter().any(|g| g.address == p.address) =>
+            {
+                (
+                    false,
+                    format!(
+                        "{} hasn't connected for calls: they stay on the phone.",
+                        p.name
+                    ),
+                )
+            }
             (Availability::Ready, Some(_)) => (true, String::new()),
         };
         let mine = Self::phone_calls(inner, s, &t);
@@ -1396,6 +1477,7 @@ impl Manager {
             other_calls: others,
             mic_muted: inner.mic_muted && inner.in_call,
             phone_name: phone.map(|p| p.name).unwrap_or_default(),
+            local_ring: inner.ring.is_some(),
         }
     }
 
