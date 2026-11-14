@@ -3,7 +3,9 @@
 - **Status:** Proposed (owner asked for a plan, 2026-11-14). Nothing is built.
   The facts below were read on the bench Pi (image f3bf43b, AGL 22.0.1) and
   from PipeWire 1.6.8's source on 2026-11-14; the open questions are bench
-  spikes S1–S4, in order, before any code.
+  spikes S1–S4, in order, before any code. **S1 done [BENCH] 2026-11-14:**
+  call audio crosses into the Pi (mSBC, both ways), and a call was answered
+  over D-Bus (bench-log); S2 is partly done with it.
 - **Date:** 2026-11-14
 - **Refines:** [ADR-0039](0039-audio-manager.md) (audio-manager; A2DP sink
   only, "HFP: not part of release 1"), [ADR-0043](0043-master-volume-and-the-volume-knob.md)
@@ -28,13 +30,17 @@ display's microphone. Today audio-manager offers phones only an A2DP sink:
 | oFono 2.19 is installed and disabled; `/usr/share/dbus-1/system.d/ofono.conf` exists; nothing for `org.pipewire.Telephony` | the bench Pi | Verified |
 | PipeWire's echo-cancel module is installed, but only the **null** canceller (`libspa-aec-null.so`): AGL's `pipewire_1.%.bbappend` replaces PACKAGECONFIG without `webrtc-echo-cancelling`. The recipe has it (`-Decho-cancel-webrtc`, needs `webrtc-audio-processing-2`, which meta-multimedia has, 2.1) | the bench Pi; `meta-agl/meta-pipewire/…/pipewire_1.%.bbappend`; meta-oe `pipewire_1.6.8.bb` | Verified |
 | The controller is a BCM4345C0 (CYW43455) on the UART (`hci_uart_bcm`, `brcm/BCM4345C0.hcd`) | the bench Pi's kernel log | Verified |
-| On Raspberry Pis this chip sends SCO (call) audio to its PCM pins by default, not over HCI to the host; a vendor command (Write_SCO_PCM_Int_Param, OCF 0x01C) is said to route it over HCI | Raspberry Pi forum threads, from memory | **UNVERIFIED**: spike S1. If true and not fixable, calls need a USB Bluetooth adapter that does SCO over USB |
+| SCO reaches the host over HCI on this chip, with no vendor command: eSCO, transparent air mode (mSBC), about 133 packets a second each way; the forum claim that it goes to the PCM pins by default doesn't hold here (kernel 6.18.33, BCM4345C0 003.001.025) | btmon on the bench Pi during calls to the owner's Z Fold8, 2026-11-14 | [BENCH] |
+| BlueZ 5.86's own Hands-Free unit (`profiles/audio/hfp-hf.c`, profile `hfp`, experimental) comes on with `--experimental`, competes with PipeWire's for the phone's gateway, and on its own connected to the owner's phone with the shipped config (a phone would then route calls to a truck with no call audio) | bluez-5.86 source; the bench Pi, 2026-11-14 | [BENCH]; `--noplugin=hfp` shipped (ADR-0042 amended) |
+| PipeWire's native backend made the service level connection with an iPhone and the Z Fold8 (both offer CVSD and mSBC), registered the gateway on the system bus, showed an incoming call (`State` incoming, caller ID over `+CLIP`), and `Call1.Answer`/`Hangup` over D-Bus worked; a tone sent to the phone was heard by the caller | the bench Pi, 2026-11-14 | [BENCH]; a voice through the Pi not yet tested |
+| PipeWire 1.6.8 bug: `Properties.Get` on `Call1` answers "No such interface" for `org.pipewire.Telephony.Call1` itself (inverted check in `call_properties_get`); `GetAll` and the gateway's ObjectManager work. Fixed on PipeWire's master | 1.6.8 `telephony.c`; the bench Pi | Verified; audio-manager must use GetAll/ObjectManager |
 | The knob display has a microphone; which of its two chips it reaches, and whether the S3 could present it to the Pi as a USB microphone | Waveshare's page (ADR-0044) | **UNVERIFIED**: spike S4 |
 
 ## Decision (proposed)
 
 1. **Hands-free through PipeWire's native backend**, not oFono (which stays
-   disabled): `bluez5.roles = [ a2dp_sink hfp_hf ]`,
+   disabled), and never BlueZ's own experimental one (`--noplugin=hfp`,
+   shipped 2026-11-14): `bluez5.roles = [ a2dp_sink hfp_hf ]`,
    `bluez5.hfphsp-backend = "native"`, the Telephony service on the
    **system bus** (`bluez5.telephony.use-system-bus = true`), and a D-Bus
    policy (`f250-telephony.conf`) letting user `pipewire` own
@@ -77,12 +83,10 @@ display's microphone. Today audio-manager offers phones only an A2DP sink:
 
 ## Bench spikes before any code
 
-- **S1 — SCO on the BCM4345C0.** On the bench Pi only (the truck card
-  untouched): enable `hfp_hf` with the native backend, place a call with the
-  owner's phone, and check with `pw-top` that the bluez SCO source and sink
-  move data, CVSD then mSBC; listen on the speakers. If silent: try the HCI
-  routing command and record the result; else a USB Bluetooth adapter. Log
-  in bench-log either way.
+- **S1 — SCO on the BCM4345C0. Done [BENCH] 2026-11-14** (bench-log): mSBC
+  both ways over HCI, a call answered over D-Bus, a tone heard by the
+  caller. Left for the bench with the DAC: a voice through the Pi both ways,
+  and CVSD (only mSBC was negotiated).
 - **S2 — Telephony on the system bus.** `busctl --system tree
   org.pipewire.Telephony` shows `ag0`; an incoming call appears as `call0`
   with `State` "incoming" and `LineIdentification`; `Answer` and `Hangup`

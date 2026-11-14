@@ -80,7 +80,11 @@ packages (`bluez5`, `bluez5-obex` 5.86-r0 RPMs):
    bluetoothd and a phone is offered nothing new (amended 2026-11-13 after
    `--noplugin='*'` failed on the bench Pi).
 6. **bluetoothd with `--experimental`** (`bluetooth.service.d/50-f250.conf`
-   replaces ExecStart; the package's main.conf is left alone). Stage 1
+   replaces ExecStart; the package's main.conf is left alone), and
+   `--noplugin=hfp` (amended 2026-11-14): --experimental also turns on
+   BlueZ 5.86's own Hands-Free unit, which connected to the owner's phone on
+   the bench, so the phone would route calls to a truck with no call audio
+   (ADR-0045, bench-log). Stage 1
    restarts bluetoothd when the drop-in changes; the MX+ and the phone
    reconnect by themselves.
 7. **mpris-proxy is off for every user**, because a phone allows one cover

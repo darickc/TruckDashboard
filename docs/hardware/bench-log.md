@@ -2535,3 +2535,52 @@ counted to (no jump). The test copy is gone again at the next boot: the
 image needs rebuilding (`make agl-build`) and flashing for the fix to stay.
 Not seen: Media's own screen during the skip (audio-manager follows BlueZ's
 PropertiesChanged like any other), other players and phones.
+
+## 2026-11-14 — Call audio on the Pi 5's Bluetooth (ADR-0045 spike S1) [BENCH]
+
+Spike S1 of the calls plan, on the bench Pi (image f3bf43b plus deploys), with
+temporary files only (all removed afterwards; `stage1-setup.sh --check`
+clean): a WirePlumber drop-in with `bluez5.roles = [ a2dp_sink hfp_hf ]`,
+`bluez5.hfphsp-backend = "native"`, `bluez5.telephony.use-system-bus =
+true`; a D-Bus policy letting `pipewire` own `org.pipewire.Telephony`; btmon
+recording. No DAC yet (it arrives in a few days), so nothing was heard on
+speakers: the test was whether call audio crosses into the Pi.
+
+- **BlueZ's own hands-free got in the way.** With `--experimental` (for
+  cover art, ADR-0042), BlueZ 5.86's experimental `hfp` profile
+  (`profiles/audio/hfp-hf.c`) competes for the phone's hands-free gateway
+  ("hfp profile connect failed … Input/output error"). With
+  `--noplugin=hfp`, PipeWire's native backend made the service level
+  connection with a household iPhone and with the owner's Z Fold8 (Android):
+  `AT+BRSF`, `AT+BAC=1,2` (CVSD and mSBC), `+CIND`, `AT+CMER`, `AT+CHLD=?`,
+  `AT+CLIP=1`, and registered `/org/pipewire/Telephony/ag1`.
+- **The shipped config had the problem too.** Back on the shipped
+  `--experimental` alone, bluetoothd's own hands-free connected to the Fold8
+  (`/org/bluez/hci0/dev_…/telephony1` appeared): the phone would route calls
+  to a truck that has no call audio. The journal shows it trying the Fold8 on
+  2026-11-13 as well. Fixed: `50-f250.conf` now runs `bluetoothd
+  --experimental --noplugin=hfp`, on the bench Pi and in the repo
+  (`make agl-test`); after it, no telephony object on the connected phone.
+  The image built at ce717ad doesn't have this yet: rebuild before flashing.
+- **SCO crosses HCI on the BCM4345C0.** A call to the Fold8 (from another
+  phone): RING and the caller's number and name over `+CLIP`; the transport
+  went `active` while ringing (the Fold8 rings in-band) and PipeWire made
+  `bluez_input.…`/`bluez_output.…`. btmon: eSCO, air mode Transparent
+  (mSBC), 3,959 SCO packets in and 3,924 out in 30 s. Parsed from the
+  capture: the incoming frames are mSBC (H2 header, 0xAD sync), 3,786
+  different payloads out of 3,959 (the ringtone, not silence). The forum
+  claim that this chip sends SCO to its PCM pins by default doesn't hold on
+  this kernel and firmware (BCM4345C0 003.001.025): no vendor command was
+  needed.
+- **Answering over D-Bus, and audio both ways.** A third call: the call
+  appeared as `/org/pipewire/Telephony/ag1/call1`, `State` incoming;
+  `Call1.Answer` over the system bus answered it; a 600 Hz tone played into
+  `bluez_output.…` was heard by the owner on the calling phone; 10 s
+  recorded from `bluez_input.…` (deleted afterwards): silent for 7 s, then a
+  low signal (peak about −36 dBFS) — the owner didn't speak, so that is the
+  far end's background, and a voice through the Pi is still untested. `Hangup`
+  ended it.
+- **A PipeWire 1.6.8 bug:** `Properties.Get` on `org.pipewire.Telephony.Call1`
+  answers "No such interface" for that very interface (the check in
+  `call_properties_get` is inverted; fixed on PipeWire's master). `GetAll`
+  and the gateway's ObjectManager work.
