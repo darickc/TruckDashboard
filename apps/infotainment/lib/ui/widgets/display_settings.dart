@@ -46,6 +46,7 @@ class DisplaySettings extends StatelessWidget {
             );
         final modeName = st.mode == DayNight.day ? 'day' : 'night';
         final backlight = describeBacklight(st);
+        final sources = describeSources(st);
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             if (st.canAuto) ...[choice(DisplayChoice.auto, 'Auto'), const SizedBox(width: kGap)],
@@ -56,6 +57,14 @@ class DisplaySettings extends StatelessWidget {
           const SizedBox(height: 6),
           Text(describeMode(st),
               key: const ValueKey('display-detail'), style: TextStyle(fontSize: 14, color: p.text)),
+          if (sources != null)
+            Text(sources,
+                key: const ValueKey('display-sources'),
+                style: TextStyle(
+                    fontSize: 13,
+                    color: st.report?.locationSource == LocationSource.gpsSimulated
+                        ? p.advisory
+                        : p.textDim)),
           if (backlight != null)
             Text(backlight,
                 key: const ValueKey('display-backlight'),

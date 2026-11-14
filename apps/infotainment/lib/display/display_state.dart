@@ -14,6 +14,14 @@ enum ModeBasis { sun, manual, fallback }
 /// Whether the sun is known, and if not, why.
 enum SunStatus { known, noLocation, clockNotSynchronized, clockNotSet }
 
+/// Where power-manager's location for the sun comes from (ADR-0028
+/// amendment). [unknown]: a power-manager that doesn't say.
+enum LocationSource { unknown, none, gps, gpsSaved, configured, gpsSimulated }
+
+/// Which clock power-manager works the sun out from. [unknown]: it doesn't
+/// say.
+enum ClockSource { unknown, none, system, gps, trusted }
+
 /// Where the display state comes from.
 enum DisplayLink {
   /// No power-manager: the browser preview, the macOS window, tests.
@@ -41,6 +49,9 @@ class DisplayReport {
     this.backlight,
     required this.brightnessPct,
     this.backlightProblem = '',
+    this.locationSource = LocationSource.unknown,
+    this.locationAgeS = 0,
+    this.clockSource = ClockSource.unknown,
   });
 
   final DayNight mode;
@@ -63,6 +74,12 @@ class DisplayReport {
   /// Why the backlight isn't following; empty when it is.
   final String backlightProblem;
 
+  final LocationSource locationSource;
+
+  /// How old the GPS fix was when the sun was last worked out (GPS only).
+  final int locationAgeS;
+  final ClockSource clockSource;
+
   int pctFor(DayNight m) => m == DayNight.day ? dayPct : nightPct;
 
   @override
@@ -78,11 +95,14 @@ class DisplayReport {
       other.minPct == minPct &&
       other.backlight == backlight &&
       other.brightnessPct == brightnessPct &&
-      other.backlightProblem == backlightProblem;
+      other.backlightProblem == backlightProblem &&
+      other.locationSource == locationSource &&
+      other.locationAgeS == locationAgeS &&
+      other.clockSource == clockSource;
 
   @override
   int get hashCode => Object.hash(mode, choice, basis, sun, sunElevationDeg, dayPct, nightPct,
-      minPct, backlight, brightnessPct, backlightProblem);
+      minPct, backlight, brightnessPct, backlightProblem, locationSource, locationAgeS, clockSource);
 }
 
 /// What the dashboard shows and offers.
@@ -170,13 +190,45 @@ String describeMode(DisplayStatus s) {
         ModeBasis.sun => 'Auto: ${_modeName(r.mode)} by the sun ($sun).',
         ModeBasis.manual => '${_modeName(r.mode)}, chosen by hand${sun.isEmpty ? '' : ' ($sun)'}.',
         ModeBasis.fallback => 'Auto unavailable: ${switch (r.sun) {
-            SunStatus.noLocation => 'no location configured',
-            SunStatus.clockNotSynchronized => 'clock not synchronized',
+            SunStatus.noLocation => 'no GPS position and no location configured',
+            SunStatus.clockNotSynchronized => 'clock not synchronized and no GPS time',
             SunStatus.clockNotSet => 'clock not set',
             SunStatus.known => 'sun unknown',
           }}. Showing ${_modeName(r.mode)}.',
       };
   }
+}
+
+/// Where the sun's location and clock come from, or null when
+/// power-manager doesn't say (not connected, or an older one).
+String? describeSources(DisplayStatus s) {
+  final r = s.report;
+  if (s.link != DisplayLink.connected || r == null) return null;
+  if (r.locationSource == LocationSource.unknown && r.clockSource == ClockSource.unknown) {
+    return null;
+  }
+  String age() {
+    final m = r.locationAgeS ~/ 60;
+    if (m < 1) return '';
+    return m < 120 ? ' (last fix $m min old)' : ' (last fix ${m ~/ 60} h old)';
+  }
+
+  final location = switch (r.locationSource) {
+    LocationSource.gps => 'GPS${age()}',
+    LocationSource.gpsSaved => 'last saved GPS position',
+    LocationSource.configured => 'configured (no GPS position yet)',
+    LocationSource.gpsSimulated => 'SIMULATED GPS${age()}: not the truck',
+    LocationSource.none => 'none',
+    LocationSource.unknown => 'not reported',
+  };
+  final clock = switch (r.clockSource) {
+    ClockSource.system => 'synchronized',
+    ClockSource.gps => 'GPS time',
+    ClockSource.trusted => 'trusted by configuration',
+    ClockSource.none => 'not trusted',
+    ClockSource.unknown => 'not reported',
+  };
+  return 'Location: $location · Clock: $clock';
 }
 
 /// One line about the backlight, or null when there is nothing to say

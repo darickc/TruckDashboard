@@ -101,11 +101,13 @@ class SunStatus extends $pb.ProtobufEnum {
   static const SunStatus SUN_STATUS_KNOWN =
       SunStatus._(1, _omitEnumNames ? '' : 'SUN_STATUS_KNOWN');
 
-  /// No latitude and longitude configured (DISPLAY_LATITUDE/LONGITUDE).
+  /// No location: no GPS position yet, none saved, and none configured
+  /// (DISPLAY_LATITUDE/LONGITUDE).
   static const SunStatus SUN_STATUS_NO_LOCATION =
       SunStatus._(2, _omitEnumNames ? '' : 'SUN_STATUS_NO_LOCATION');
 
-  /// The system doesn't report the clock synchronized.
+  /// The system doesn't report the clock synchronized, and there is no GPS
+  /// time either.
   static const SunStatus SUN_STATUS_CLOCK_NOT_SYNCHRONIZED =
       SunStatus._(3, _omitEnumNames ? '' : 'SUN_STATUS_CLOCK_NOT_SYNCHRONIZED');
 
@@ -127,6 +129,90 @@ class SunStatus extends $pb.ProtobufEnum {
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
   const SunStatus._(super.value, super.name);
+}
+
+/// Where the location for the sun comes from (ADR-0028 amendment,
+/// 2026-11-14), in this order of preference.
+class LocationSource extends $pb.ProtobufEnum {
+  static const LocationSource LOCATION_SOURCE_UNSPECIFIED =
+      LocationSource._(0, _omitEnumNames ? '' : 'LOCATION_SOURCE_UNSPECIFIED');
+
+  /// Nothing: no GPS position yet, none saved, none configured.
+  static const LocationSource LOCATION_SOURCE_NONE =
+      LocationSource._(1, _omitEnumNames ? '' : 'LOCATION_SOURCE_NONE');
+
+  /// The receiver's latest fix, through navigation (current or not: the
+  /// truck can't be far from its last fix).
+  static const LocationSource LOCATION_SOURCE_GPS =
+      LocationSource._(2, _omitEnumNames ? '' : 'LOCATION_SOURCE_GPS');
+
+  /// The last GPS position power-manager saved (to 0.1°), while navigation
+  /// has given none since power-manager started.
+  static const LocationSource LOCATION_SOURCE_GPS_SAVED =
+      LocationSource._(3, _omitEnumNames ? '' : 'LOCATION_SOURCE_GPS_SAVED');
+
+  /// DISPLAY_LATITUDE/LONGITUDE: no GPS position yet and none saved.
+  static const LocationSource LOCATION_SOURCE_CONFIGURED =
+      LocationSource._(4, _omitEnumNames ? '' : 'LOCATION_SOURCE_CONFIGURED');
+
+  /// navigation's simulated receiver: never the truck. Accepted only with
+  /// power-manager's --gps-accept-simulated, for development.
+  static const LocationSource LOCATION_SOURCE_GPS_SIMULATED = LocationSource._(
+      5, _omitEnumNames ? '' : 'LOCATION_SOURCE_GPS_SIMULATED');
+
+  static const $core.List<LocationSource> values = <LocationSource>[
+    LOCATION_SOURCE_UNSPECIFIED,
+    LOCATION_SOURCE_NONE,
+    LOCATION_SOURCE_GPS,
+    LOCATION_SOURCE_GPS_SAVED,
+    LOCATION_SOURCE_CONFIGURED,
+    LOCATION_SOURCE_GPS_SIMULATED,
+  ];
+
+  static final $core.List<LocationSource?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 5);
+  static LocationSource? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const LocationSource._(super.value, super.name);
+}
+
+/// Which clock the sun is worked out from, in this order of preference.
+class ClockSource extends $pb.ProtobufEnum {
+  static const ClockSource CLOCK_SOURCE_UNSPECIFIED =
+      ClockSource._(0, _omitEnumNames ? '' : 'CLOCK_SOURCE_UNSPECIFIED');
+
+  /// None believed: the sun isn't worked out.
+  static const ClockSource CLOCK_SOURCE_NONE =
+      ClockSource._(1, _omitEnumNames ? '' : 'CLOCK_SOURCE_NONE');
+
+  /// The system reports the clock synchronized.
+  static const ClockSource CLOCK_SOURCE_SYSTEM =
+      ClockSource._(2, _omitEnumNames ? '' : 'CLOCK_SOURCE_SYSTEM');
+
+  /// A current GPS fix's UTC time, carried on with the monotonic clock. The
+  /// system clock itself isn't changed.
+  static const ClockSource CLOCK_SOURCE_GPS =
+      ClockSource._(3, _omitEnumNames ? '' : 'CLOCK_SOURCE_GPS');
+
+  /// The system clock, unsynchronized, trusted by DISPLAY_TRUST_CLOCK=always.
+  static const ClockSource CLOCK_SOURCE_TRUSTED =
+      ClockSource._(4, _omitEnumNames ? '' : 'CLOCK_SOURCE_TRUSTED');
+
+  static const $core.List<ClockSource> values = <ClockSource>[
+    CLOCK_SOURCE_UNSPECIFIED,
+    CLOCK_SOURCE_NONE,
+    CLOCK_SOURCE_SYSTEM,
+    CLOCK_SOURCE_GPS,
+    CLOCK_SOURCE_TRUSTED,
+  ];
+
+  static final $core.List<ClockSource?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
+  static ClockSource? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const ClockSource._(super.value, super.name);
 }
 
 const $core.bool _omitEnumNames =

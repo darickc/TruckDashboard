@@ -222,5 +222,21 @@ DisplayReport? reportFromPb(pb.Display d) {
     backlight: d.backlightPresent ? d.backlight : null,
     brightnessPct: d.brightnessPct,
     backlightProblem: d.backlightProblem,
+    locationSource: switch (d.locationSource) {
+      pb.LocationSource.LOCATION_SOURCE_NONE => LocationSource.none,
+      pb.LocationSource.LOCATION_SOURCE_GPS => LocationSource.gps,
+      pb.LocationSource.LOCATION_SOURCE_GPS_SAVED => LocationSource.gpsSaved,
+      pb.LocationSource.LOCATION_SOURCE_CONFIGURED => LocationSource.configured,
+      pb.LocationSource.LOCATION_SOURCE_GPS_SIMULATED => LocationSource.gpsSimulated,
+      _ => LocationSource.unknown,
+    },
+    locationAgeS: d.locationAgeS.toInt(),
+    clockSource: switch (d.clockSource) {
+      pb.ClockSource.CLOCK_SOURCE_NONE => ClockSource.none,
+      pb.ClockSource.CLOCK_SOURCE_SYSTEM => ClockSource.system,
+      pb.ClockSource.CLOCK_SOURCE_GPS => ClockSource.gps,
+      pb.ClockSource.CLOCK_SOURCE_TRUSTED => ClockSource.trusted,
+      _ => ClockSource.unknown,
+    },
   );
 }

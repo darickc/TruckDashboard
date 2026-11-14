@@ -5,7 +5,8 @@
 //! night and sets the backlight, served as `f250.power.v1` (ADR-0028).
 //!
 //!   power-manager --boot-key-ignore-s 30 --camera-manager unix:/run/f250-camera/camera.sock \
-//!       --display-listen unix:/run/f250-power/power.sock --latitude=39.74 --longitude=-104.99
+//!       --display-listen unix:/run/f250-power/power.sock --latitude=39.74 --longitude=-104.99 \
+//!       --navigation unix:/run/f250-nav/nav.sock --location-state /var/lib/f250-power/location
 //!   power-manager --dry-run --key-device /dev/input/event0    # bench: log, don't power off
 //!
 //! Powering off is an exit with status 42; the unit's `ExecStopPost` (as root)
@@ -27,6 +28,7 @@ use power_manager::camera_switch::{Debouncer, Direction};
 use power_manager::display::{self, BacklightInfo, DisplayIo, DisplayState, RawSettings};
 use power_manager::display_server;
 use power_manager::evdev::{EVENT_SIZE, Event, KEY_POWER, device_keys, find_keys};
+use power_manager::gps;
 use power_manager::policy::{Action, Input, Policy, State};
 use power_manager::uptime;
 use tokio::sync::mpsc;
@@ -122,6 +124,20 @@ struct Args {
     /// until power-manager restarts.
     #[arg(long, value_name = "PATH")]
     display_state: Option<PathBuf>,
+    /// navigation's API (unix:PATH or tcp:HOST:PORT): the truck's position
+    /// for the sun, replacing --latitude/--longitude once there is a fix,
+    /// and its time while the system clock isn't synchronized (ADR-0028
+    /// amendment). Without it, only the configured location.
+    #[arg(long, value_name = "ENDPOINT")]
+    navigation: Option<String>,
+    /// Where the last GPS position is kept (to 0.1°), for the sun after a
+    /// restart without a fix.
+    #[arg(long, value_name = "PATH")]
+    location_state: Option<PathBuf>,
+    /// Development only: take the simulated receiver's position (never its
+    /// time), labelled SIMULATED. It is never the truck.
+    #[arg(long)]
+    gps_accept_simulated: bool,
 }
 
 /// What a set of devices is read for.
@@ -343,10 +359,43 @@ fn start_display(args: &Args) {
             settings.thresholds.night_below_deg
         ),
         None => eprintln!(
-            "[power-manager] display: no location (DISPLAY_LATITUDE/DISPLAY_LONGITUDE): Auto uses the {} fallback",
+            "[power-manager] display: no configured location (DISPLAY_LATITUDE/DISPLAY_LONGITUDE): until a GPS position, Auto uses the {} fallback",
             settings.fallback.name()
         ),
     }
+    let saved = match args.location_state.as_deref() {
+        Some(path) => {
+            let (saved, note) = gps::load_location(path);
+            if let Some(n) = note {
+                eprintln!("[power-manager] display: {n}");
+            }
+            if let Some(at) = saved {
+                eprintln!(
+                    "[power-manager] display: saved GPS position {:.1}, {:.1}",
+                    at.latitude_deg(),
+                    at.longitude_deg()
+                );
+            }
+            saved
+        }
+        None => None,
+    };
+    let positions = match args.navigation.as_deref().map(str::trim) {
+        None | Some("") => {
+            eprintln!("[power-manager] display: no --navigation: no GPS position or time");
+            None
+        }
+        Some(endpoint) => {
+            if args.gps_accept_simulated {
+                eprintln!(
+                    "[power-manager] display: --gps-accept-simulated: a simulated position is used, labelled SIMULATED"
+                );
+            }
+            let (tx, rx) = tokio::sync::watch::channel(None);
+            tokio::spawn(gps::follow(endpoint.to_string(), tx));
+            Some(rx)
+        }
+    };
     let (prefs, notes) = display::load_prefs(args.display_state.as_deref());
     for n in notes {
         eprintln!("[power-manager] display: {n}");
@@ -381,6 +430,8 @@ fn start_display(args: &Args) {
     };
     let state = DisplayState::new(
         settings.location,
+        gps::GpsInput::new(saved, args.gps_accept_simulated),
+        settings.trust,
         daylight::DayNight::new(settings.thresholds, settings.fallback),
         settings.min_pct,
         prefs,
@@ -391,7 +442,6 @@ fn start_display(args: &Args) {
     );
     let io = DisplayIo {
         clock_synchronized: std::sync::Arc::new(clock_sync::system_synchronized),
-        trust: settings.trust,
         now_unix: std::sync::Arc::new(|| {
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -399,6 +449,8 @@ fn start_display(args: &Args) {
                 .unwrap_or(0.0)
         }),
         state_file: args.display_state.clone(),
+        location_file: args.location_state.clone(),
+        positions,
         writer,
         evaluate_every: display::EVALUATE_EVERY,
     };

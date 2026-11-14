@@ -7,27 +7,61 @@
 //! settings in a file, sends targets to the backlight thread and publishes
 //! the state for `WatchDisplay`.
 //!
+//! The location and the clock for the sun come from GPS when there is one
+//! ([`crate::gps`], ADR-0028 amendment); the snapshot says which.
+//!
 //! Nothing here can hold up the power key: the clock check (`timedatectl`)
-//! and the settings file run on the blocking pool, and the backlight on its
-//! own thread.
+//! and the files run on the blocking pool, and the backlight on its own
+//! thread.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use daylight::brightness::{Levels, clamp_pct, pct_of, raw_for};
 use daylight::prefs::Prefs;
 use daylight::{
     Basis, Choice, DayNight, Decision, Location, Mode, SunState, Thresholds, Unavailable,
 };
+use f250_proto::nav::v1 as nav;
 use f250_proto::power::v1 as pb;
 use tokio::sync::{mpsc, oneshot, watch};
 
 use crate::backlight::{Report, Writer};
+use crate::gps::{GpsInput, Located, LocationSource};
 
 /// How often the sun is looked at again. It moves about a quarter of a
 /// degree a minute at most.
 pub const EVALUATE_EVERY: Duration = Duration::from_secs(30);
+
+/// Which clock the sun was worked out from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClockSource {
+    None,
+    System,
+    Gps,
+    Trusted,
+}
+
+impl ClockSource {
+    pub fn to_pb(self) -> pb::ClockSource {
+        match self {
+            ClockSource::None => pb::ClockSource::None,
+            ClockSource::System => pb::ClockSource::System,
+            ClockSource::Gps => pb::ClockSource::Gps,
+            ClockSource::Trusted => pb::ClockSource::Trusted,
+        }
+    }
+}
+
+/// The system's wall clock, read off the loop.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SystemClock {
+    /// Seconds since 1970 (UTC).
+    pub unix: f64,
+    /// The system reports it synchronized.
+    pub synchronized: bool,
+}
 
 /// When the clock counts as trustworthy (ADR-0028 decision 3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -182,7 +216,10 @@ pub struct Change {
 
 #[derive(Debug, Clone)]
 pub struct DisplayState {
-    location: Option<Location>,
+    /// DISPLAY_LATITUDE/LONGITUDE: the last resort.
+    configured: Option<Location>,
+    gps: GpsInput,
+    trust: TrustClock,
     day_night: DayNight,
     min_pct: u8,
     prefs: Prefs,
@@ -190,12 +227,19 @@ pub struct DisplayState {
     /// Why the backlight isn't following; `None` when it is.
     problem: Option<String>,
     decision: Option<Decision>,
+    /// Where the location and the clock came from at the last evaluation.
+    located: Option<Located>,
+    clock: Option<ClockSource>,
 }
 
 impl DisplayState {
-    /// `backlight`: the device found, or why there is none.
+    /// `configured`: DISPLAY_LATITUDE/LONGITUDE; `gps`: navigation's
+    /// positions and the saved one. `backlight`: the device found, or why
+    /// there is none.
     pub fn new(
-        location: Option<Location>,
+        configured: Option<Location>,
+        gps: GpsInput,
+        trust: TrustClock,
         day_night: DayNight,
         min_pct: u8,
         prefs: Prefs,
@@ -207,7 +251,9 @@ impl DisplayState {
             Err(e) => (None, Some(e)),
         };
         Self {
-            location,
+            configured,
+            gps,
+            trust,
             day_night,
             min_pct,
             prefs: Prefs {
@@ -217,6 +263,35 @@ impl DisplayState {
             backlight,
             problem,
             decision: None,
+            located: None,
+            clock: None,
+        }
+    }
+
+    /// Takes a position from navigation; a position to save, if any.
+    pub fn position(&mut self, p: &nav::Position, at: Instant) -> Option<Location> {
+        self.gps.position(p, at)
+    }
+
+    /// Where the location and the clock would come from at `now`: a change
+    /// is worth evaluating at once rather than at the next tick.
+    pub fn sources(&self, sys: SystemClock, now: Instant) -> (LocationSource, ClockSource) {
+        (
+            self.gps.locate(self.configured, now).source,
+            self.clock_at(sys, now).2,
+        )
+    }
+
+    /// The time for the sun, whether it is believed, and why.
+    fn clock_at(&self, sys: SystemClock, now: Instant) -> (f64, bool, ClockSource) {
+        if sys.synchronized {
+            (sys.unix, true, ClockSource::System)
+        } else if let Some(t) = self.gps.utc_now(now) {
+            (t, true, ClockSource::Gps)
+        } else if self.trust == TrustClock::Always {
+            (sys.unix, true, ClockSource::Trusted)
+        } else {
+            (sys.unix, false, ClockSource::None)
         }
     }
 
@@ -239,12 +314,16 @@ impl DisplayState {
         self.prefs != before
     }
 
-    /// Decides the mode at `now_unix`. Returns the decision.
-    pub fn evaluate(&mut self, now_unix: f64, clock_trusted: bool) -> Decision {
+    /// Decides the mode with the system clock `sys` at monotonic `now`.
+    pub fn evaluate(&mut self, sys: SystemClock, now: Instant) -> Decision {
+        let located = self.gps.locate(self.configured, now);
+        let (now_unix, trusted, clock) = self.clock_at(sys, now);
         let d = self
             .day_night
-            .decide(self.prefs.choice, self.location, clock_trusted, now_unix);
+            .decide(self.prefs.choice, located.location, trusted, now_unix);
         self.decision = Some(d);
+        self.located = Some(located);
+        self.clock = Some(clock);
         d
     }
 
@@ -305,6 +384,13 @@ impl DisplayState {
                 }
                 SunState::Unknown(Unavailable::ClockImplausible) => pb::SunStatus::ClockNotSet,
             } as i32;
+            if let Some(l) = self.located {
+                out.location_source = l.source.to_pb() as i32;
+                out.location_age_s = l.age.map_or(0, |a| a.as_secs());
+            }
+            if let Some(c) = self.clock {
+                out.clock_source = c.to_pb() as i32;
+            }
             out.brightness_pct = u32::from(levels.for_mode(d.mode));
             if let Some(b) = &self.backlight {
                 // What the device will actually get, after rounding.
@@ -348,13 +434,18 @@ pub fn describe(d: &pb::Display) -> String {
         "day"
     };
     let why = match pb::ModeBasis::try_from(d.basis).unwrap_or_default() {
-        pb::ModeBasis::Sun => format!("auto, sun {:.1}°", d.sun_elevation_deg),
+        pb::ModeBasis::Sun => format!(
+            "auto, sun {:.1}° ({}, {})",
+            d.sun_elevation_deg,
+            describe_location(d),
+            describe_clock(d)
+        ),
         pb::ModeBasis::Manual => "chosen by hand".to_string(),
         pb::ModeBasis::Fallback => format!(
             "auto unavailable ({}): the fallback",
             match pb::SunStatus::try_from(d.sun).unwrap_or_default() {
-                pb::SunStatus::NoLocation => "no location configured",
-                pb::SunStatus::ClockNotSynchronized => "clock not synchronized",
+                pb::SunStatus::NoLocation => "no GPS position, none configured",
+                pb::SunStatus::ClockNotSynchronized => "clock not synchronized, no GPS time",
                 pb::SunStatus::ClockNotSet => "clock not set",
                 _ => "sun unknown",
             }
@@ -372,6 +463,32 @@ pub fn describe(d: &pb::Display) -> String {
         format!(" ({})", d.backlight_problem)
     };
     format!("{mode}: {why}; {light}{problem}")
+}
+
+fn describe_location(d: &pb::Display) -> String {
+    let what = match pb::LocationSource::try_from(d.location_source).unwrap_or_default() {
+        pb::LocationSource::Gps => "GPS position",
+        pb::LocationSource::GpsSaved => "saved GPS position",
+        pb::LocationSource::Configured => "configured location",
+        pb::LocationSource::GpsSimulated => "SIMULATED GPS position",
+        pb::LocationSource::None | pb::LocationSource::Unspecified => "no location",
+    };
+    // Minutes: the log line changes only when something worth reading does.
+    match pb::LocationSource::try_from(d.location_source).unwrap_or_default() {
+        pb::LocationSource::Gps | pb::LocationSource::GpsSimulated if d.location_age_s >= 60 => {
+            format!("{what} {} min old", d.location_age_s / 60)
+        }
+        _ => what.to_string(),
+    }
+}
+
+fn describe_clock(d: &pb::Display) -> &'static str {
+    match pb::ClockSource::try_from(d.clock_source).unwrap_or_default() {
+        pb::ClockSource::System => "synchronized clock",
+        pb::ClockSource::Gps => "GPS time",
+        pb::ClockSource::Trusted => "clock trusted by configuration",
+        pb::ClockSource::None | pb::ClockSource::Unspecified => "no clock",
+    }
 }
 
 /// A request from the API.
@@ -421,11 +538,14 @@ pub fn save_prefs(path: &Path, prefs: &Prefs) -> Result<(), String> {
 pub struct DisplayIo {
     /// Whether the system reports the clock synchronized; blocking.
     pub clock_synchronized: Arc<dyn Fn() -> bool + Send + Sync>,
-    pub trust: TrustClock,
     /// Seconds since 1970 (UTC), now.
     pub now_unix: Arc<dyn Fn() -> f64 + Send + Sync>,
     /// Where the settings are kept; `None`: not kept.
     pub state_file: Option<PathBuf>,
+    /// Where the last GPS position is kept; `None`: not kept.
+    pub location_file: Option<PathBuf>,
+    /// navigation's positions ([`crate::gps::follow`]); `None`: no GPS.
+    pub positions: Option<watch::Receiver<Option<(nav::Position, Instant)>>>,
     pub writer: Option<Writer>,
     pub evaluate_every: Duration,
 }
@@ -438,25 +558,28 @@ pub async fn run(
     mut reports: mpsc::Receiver<Report>,
     out: watch::Sender<pb::Display>,
 ) {
-    let trusted = || {
+    // The clock check is a process (timedatectl): off the loop, and only
+    // once a tick. Between ticks the last answer stands.
+    let synchronized = || {
         let check = io.clock_synchronized.clone();
-        let trust = io.trust;
         async move {
-            match trust {
-                TrustClock::Always => true,
-                TrustClock::Synchronized => tokio::task::spawn_blocking(move || check())
-                    .await
-                    .unwrap_or(false),
-            }
+            tokio::task::spawn_blocking(move || check())
+                .await
+                .unwrap_or(false)
         }
     };
-    let mut clock_trusted = trusted().await;
-    state.evaluate((io.now_unix)(), clock_trusted);
+    let mut synced = synchronized().await;
+    let sys = |synced: bool| SystemClock {
+        unix: (io.now_unix)(),
+        synchronized: synced,
+    };
+    state.evaluate(sys(synced), Instant::now());
     let mut sent: Option<u32> = None;
     let mut last_log = String::new();
     let mut tick = tokio::time::interval(io.evaluate_every);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     tick.tick().await; // the first tick is immediate: just evaluated
+    let mut positions = io.positions;
     let mut cmds_open = true;
     let mut reports_open = true;
 
@@ -489,8 +612,41 @@ pub async fn run(
         }
         tokio::select! {
             _ = tick.tick() => {
-                clock_trusted = trusted().await;
-                state.evaluate((io.now_unix)(), clock_trusted);
+                synced = synchronized().await;
+                state.evaluate(sys(synced), Instant::now());
+            }
+            changed = async {
+                match positions.as_mut() {
+                    Some(rx) => rx.changed().await.is_ok(),
+                    None => std::future::pending().await,
+                }
+            } => {
+                let Some(rx) = positions.as_mut() else { continue };
+                if !changed {
+                    // The follower ended (a bad endpoint, logged there).
+                    positions = None;
+                    continue;
+                }
+                let latest = rx.borrow_and_update().clone();
+                if let Some((p, at)) = latest {
+                    let now = Instant::now();
+                    let before = state.sources(sys(synced), now);
+                    if let (Some(save), Some(path)) =
+                        (state.position(&p, at), io.location_file.clone())
+                    {
+                            let saved = tokio::task::spawn_blocking(move || {
+                                crate::gps::save_location(&path, save)
+                            })
+                            .await;
+                            if let Ok(Err(e)) = saved {
+                                eprintln!("[power-manager] display: {e}");
+                            }
+                    }
+                    // A first fix or GPS time decides now; otherwise the tick.
+                    if state.sources(sys(synced), now) != before {
+                        state.evaluate(sys(synced), now);
+                    }
+                }
             }
             cmd = cmds.recv(), if cmds_open => match cmd {
                 None => cmds_open = false,
@@ -505,7 +661,7 @@ pub async fn run(
                             }
                         }
                     }
-                    state.evaluate((io.now_unix)(), clock_trusted);
+                    state.evaluate(sys(synced), Instant::now());
                     let _ = reply.send(state.snapshot());
                 }
             },
@@ -556,9 +712,15 @@ mod tests {
         })
     }
 
+    fn at(unix: f64, synchronized: bool) -> SystemClock {
+        SystemClock { unix, synchronized }
+    }
+
     fn state(prefs: Prefs, backlight: Result<BacklightInfo, String>) -> DisplayState {
         DisplayState::new(
             denver(),
+            GpsInput::new(None, false),
+            TrustClock::Synchronized,
             DayNight::new(Thresholds::default(), Mode::Day),
             10,
             prefs,
@@ -569,7 +731,7 @@ mod tests {
     #[test]
     fn auto_by_day_and_by_night() {
         let mut s = state(Prefs::default(), panel());
-        s.evaluate(MIDDAY, true);
+        s.evaluate(at(MIDDAY, true), Instant::now());
         let d = s.snapshot();
         assert_eq!(d.mode, pb::DisplayMode::Day as i32);
         assert_eq!(d.basis, pb::ModeBasis::Sun as i32);
@@ -578,7 +740,7 @@ mod tests {
         assert_eq!(d.brightness_pct, 100);
         assert_eq!(s.target_raw(), Some(255));
 
-        s.evaluate(NIGHT, true);
+        s.evaluate(at(NIGHT, true), Instant::now());
         let d = s.snapshot();
         assert_eq!(d.mode, pb::DisplayMode::Night as i32);
         assert_eq!(d.brightness_pct, 40);
@@ -588,7 +750,7 @@ mod tests {
     #[test]
     fn an_untrusted_clock_falls_back_and_says_so() {
         let mut s = state(Prefs::default(), panel());
-        s.evaluate(NIGHT, false);
+        s.evaluate(at(NIGHT, false), Instant::now());
         let d = s.snapshot();
         assert_eq!(d.mode, pb::DisplayMode::Day as i32);
         assert_eq!(d.basis, pb::ModeBasis::Fallback as i32);
@@ -600,12 +762,14 @@ mod tests {
     fn no_location_says_so() {
         let mut s = DisplayState::new(
             None,
+            GpsInput::new(None, false),
+            TrustClock::Synchronized,
             DayNight::new(Thresholds::default(), Mode::Night),
             10,
             Prefs::default(),
             panel(),
         );
-        s.evaluate(MIDDAY, true);
+        s.evaluate(at(MIDDAY, true), Instant::now());
         let d = s.snapshot();
         assert_eq!(d.mode, pb::DisplayMode::Night as i32);
         assert_eq!(d.sun, pb::SunStatus::NoLocation as i32);
@@ -633,7 +797,7 @@ mod tests {
             }),
             "day is already 100"
         );
-        s.evaluate(MIDDAY, true);
+        s.evaluate(at(MIDDAY, true), Instant::now());
         let d = s.snapshot();
         assert_eq!(d.mode, pb::DisplayMode::Night as i32);
         assert_eq!(d.basis, pb::ModeBasis::Manual as i32);
@@ -658,7 +822,7 @@ mod tests {
     #[test]
     fn no_backlight_still_decides_the_mode() {
         let mut s = state(Prefs::default(), Err("no backlight device".into()));
-        s.evaluate(NIGHT, true);
+        s.evaluate(at(NIGHT, true), Instant::now());
         let d = s.snapshot();
         assert_eq!(d.mode, pb::DisplayMode::Night as i32);
         assert!(!d.backlight_present);
@@ -672,7 +836,7 @@ mod tests {
     #[test]
     fn write_failures_show_until_a_ramp_finishes() {
         let mut s = state(Prefs::default(), panel());
-        s.evaluate(MIDDAY, true);
+        s.evaluate(at(MIDDAY, true), Instant::now());
         s.report(Report::Failed("can't write: permission denied".into()));
         assert_eq!(
             s.snapshot().backlight_problem,
@@ -710,12 +874,13 @@ mod tests {
         assert_eq!(TrustClock::parse("sometimes"), None);
     }
 
-    fn io(trust: TrustClock, synced: bool, now: f64, state_file: Option<PathBuf>) -> DisplayIo {
+    fn io(synced: bool, now: f64, state_file: Option<PathBuf>) -> DisplayIo {
         DisplayIo {
             clock_synchronized: Arc::new(move || synced),
-            trust,
             now_unix: Arc::new(move || now),
             state_file,
+            location_file: None,
+            positions: None,
             writer: None,
             evaluate_every: Duration::from_secs(3600),
         }
@@ -744,7 +909,7 @@ mod tests {
         let (out, mut watch_rx) = watch::channel(pb::Display::default());
         let task = tokio::spawn(run(
             state(Prefs::default(), panel()),
-            io(TrustClock::Synchronized, true, NIGHT, Some(file.clone())),
+            io(true, NIGHT, Some(file.clone())),
             cmd_rx,
             rep_rx,
             out,
@@ -783,19 +948,194 @@ mod tests {
             let (cmd_tx, cmd_rx) = mpsc::channel(4);
             let (rep_tx, rep_rx) = mpsc::channel(4);
             let (out, mut watch_rx) = watch::channel(pb::Display::default());
-            let task = tokio::spawn(run(
-                state(Prefs::default(), panel()),
-                io(trust, false, NIGHT, None),
-                cmd_rx,
-                rep_rx,
-                out,
-            ));
+            let mut st = state(Prefs::default(), panel());
+            st.trust = trust;
+            let task = tokio::spawn(run(st, io(false, NIGHT, None), cmd_rx, rep_rx, out));
             watch_rx.changed().await.expect("first state");
             assert_eq!(watch_rx.borrow().basis, want as i32, "{trust:?}");
             drop(cmd_tx);
             drop(rep_tx);
             task.await.expect("task ends");
         }
+    }
+
+    /// A real (not simulated) current 3D fix in Wichita, timed `utc`.
+    fn wichita(utc: f64) -> nav::Position {
+        nav::Position {
+            status: nav::FixStatus::Fix3d as i32,
+            fix: Some(nav::Fix {
+                latitude_deg: 37.687,
+                longitude_deg: -97.330,
+                age_ms: 0,
+                utc_time_ms: Some((utc * 1000.0) as i64),
+                ..Default::default()
+            }),
+            current: true,
+            stale_after_ms: 3000,
+            source: "gpsd 3.27.5: /dev/ttyACM0".into(),
+            ..Default::default()
+        }
+    }
+
+    /// The clock reads 2020: never believed, whatever the trust setting.
+    const UNSET: f64 = 1_600_000_000.0;
+
+    #[test]
+    fn gps_position_replaces_the_configured_one_and_says_so() {
+        let mut s = state(Prefs::default(), panel());
+        let t = Instant::now();
+        s.evaluate(at(MIDDAY, true), t);
+        let d = s.snapshot();
+        assert_eq!(d.location_source, pb::LocationSource::Configured as i32);
+        assert_eq!(d.clock_source, pb::ClockSource::System as i32);
+        let denver_elevation = d.sun_elevation_deg;
+
+        assert_eq!(
+            s.position(&wichita(MIDDAY), t),
+            Some(Location::new(37.7, -97.3).expect("valid")),
+            "the first fix is saved"
+        );
+        s.evaluate(at(MIDDAY, true), t + Duration::from_secs(90));
+        let d = s.snapshot();
+        assert_eq!(d.location_source, pb::LocationSource::Gps as i32);
+        assert_eq!(d.location_age_s, 90);
+        assert_eq!(d.basis, pb::ModeBasis::Sun as i32);
+        // Worked out for Wichita, not Denver (about 33.7° against 32.7°).
+        assert!(
+            (d.sun_elevation_deg - denver_elevation).abs() > 0.5,
+            "{d:?}"
+        );
+        assert!(
+            describe(&d).contains("GPS position 1 min old, synchronized clock"),
+            "{}",
+            describe(&d)
+        );
+    }
+
+    #[test]
+    fn gps_time_stands_in_for_an_unsynchronized_clock() {
+        let mut s = state(Prefs::default(), panel());
+        let t = Instant::now();
+        // The Pi after a cold start: no network, no RTC cell, the clock unset.
+        s.evaluate(at(UNSET, false), t);
+        let d = s.snapshot();
+        assert_eq!(d.basis, pb::ModeBasis::Fallback as i32);
+        assert_eq!(d.sun, pb::SunStatus::ClockNotSet as i32);
+        assert_eq!(d.clock_source, pb::ClockSource::None as i32);
+
+        // A current fix at night: the sun from GPS time, an hour on.
+        s.position(&wichita(NIGHT), t);
+        s.evaluate(at(UNSET, false), t + Duration::from_secs(3600));
+        let d = s.snapshot();
+        assert_eq!(d.basis, pb::ModeBasis::Sun as i32);
+        assert_eq!(d.mode, pb::DisplayMode::Night as i32);
+        assert_eq!(d.clock_source, pb::ClockSource::Gps as i32);
+        assert!(describe(&d).contains("GPS time"), "{}", describe(&d));
+    }
+
+    #[test]
+    fn clocks_in_order_synchronized_gps_trusted() {
+        let t = Instant::now();
+        let mut s = state(Prefs::default(), panel());
+        s.trust = TrustClock::Always;
+        assert_eq!(s.sources(at(NIGHT, false), t).1, ClockSource::Trusted);
+        s.position(&wichita(MIDDAY), t);
+        assert_eq!(s.sources(at(NIGHT, false), t).1, ClockSource::Gps);
+        assert_eq!(s.sources(at(NIGHT, true), t).1, ClockSource::System);
+        // The synchronized system clock wins: by it, it is night.
+        s.evaluate(at(NIGHT, true), t);
+        assert_eq!(s.snapshot().mode, pb::DisplayMode::Night as i32);
+        // GPS time (midday) over a trusted but unsynchronized clock.
+        s.evaluate(at(NIGHT, false), t);
+        assert_eq!(s.snapshot().mode, pb::DisplayMode::Day as i32);
+    }
+
+    #[test]
+    fn no_gps_and_nothing_configured_says_so() {
+        let mut s = DisplayState::new(
+            None,
+            GpsInput::new(None, false),
+            TrustClock::Synchronized,
+            DayNight::new(Thresholds::default(), Mode::Day),
+            10,
+            Prefs::default(),
+            panel(),
+        );
+        s.evaluate(at(MIDDAY, true), Instant::now());
+        let d = s.snapshot();
+        assert_eq!(d.location_source, pb::LocationSource::None as i32);
+        assert_eq!(d.sun, pb::SunStatus::NoLocation as i32);
+        assert!(describe(&d).contains("no GPS position, none configured"));
+        // A position saved by an earlier run is enough.
+        let mut s = DisplayState::new(
+            None,
+            GpsInput::new(Some(Location::new(37.7, -97.3).expect("valid")), false),
+            TrustClock::Synchronized,
+            DayNight::new(Thresholds::default(), Mode::Day),
+            10,
+            Prefs::default(),
+            panel(),
+        );
+        s.evaluate(at(MIDDAY, true), Instant::now());
+        let d = s.snapshot();
+        assert_eq!(d.location_source, pb::LocationSource::GpsSaved as i32);
+        assert_eq!(d.basis, pb::ModeBasis::Sun as i32);
+    }
+
+    #[tokio::test]
+    async fn the_task_follows_positions_at_once_and_saves_them() {
+        let dir = std::env::temp_dir().join(format!("f250-display-gps-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("dir");
+        let file = dir.join("location");
+        let _ = std::fs::remove_file(&file);
+        let (pos_tx, pos_rx) = watch::channel(None);
+        let (cmd_tx, cmd_rx) = mpsc::channel(4);
+        let (rep_tx, rep_rx) = mpsc::channel(4);
+        let (out, mut watch_rx) = watch::channel(pb::Display::default());
+        let mut io = io(false, UNSET, None);
+        io.location_file = Some(file.clone());
+        io.positions = Some(pos_rx);
+        let task = tokio::spawn(run(
+            state(Prefs::default(), panel()),
+            io,
+            cmd_rx,
+            rep_rx,
+            out,
+        ));
+        watch_rx.changed().await.expect("first state");
+        assert_eq!(watch_rx.borrow().basis, pb::ModeBasis::Fallback as i32);
+
+        pos_tx.send_replace(Some((wichita(NIGHT), Instant::now())));
+        // Long before the hour-long tick: the new sources decide at once.
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                watch_rx.changed().await.expect("state");
+                if watch_rx.borrow().basis == pb::ModeBasis::Sun as i32 {
+                    break;
+                }
+            }
+        })
+        .await
+        .expect("follows the fix");
+        let d = watch_rx.borrow().clone();
+        assert_eq!(d.location_source, pb::LocationSource::Gps as i32);
+        assert_eq!(d.clock_source, pb::ClockSource::Gps as i32);
+        assert_eq!(d.mode, pb::DisplayMode::Night as i32);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !file.exists() {
+            assert!(Instant::now() < deadline, "location saved");
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(
+            crate::gps::load_location(&file).0,
+            Some(Location::new(37.7, -97.3).expect("valid"))
+        );
+
+        drop(pos_tx);
+        drop(cmd_tx);
+        drop(rep_tx);
+        task.await.expect("task ends");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn raw(pairs: &[(&str, &str)]) -> RawSettings {

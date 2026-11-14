@@ -44,12 +44,47 @@ enum ModeBasis {
 enum SunStatus {
   SUN_STATUS_UNSPECIFIED = 0;
   SUN_STATUS_KNOWN = 1;
-  // No latitude and longitude configured (DISPLAY_LATITUDE/LONGITUDE).
+  // No location: no GPS position yet, none saved, and none configured
+  // (DISPLAY_LATITUDE/LONGITUDE).
   SUN_STATUS_NO_LOCATION = 2;
-  // The system doesn't report the clock synchronized.
+  // The system doesn't report the clock synchronized, and there is no GPS
+  // time either.
   SUN_STATUS_CLOCK_NOT_SYNCHRONIZED = 3;
   // The clock reads before 2026: never set.
   SUN_STATUS_CLOCK_NOT_SET = 4;
+}
+
+// Where the location for the sun comes from (ADR-0028 amendment,
+// 2026-11-14), in this order of preference.
+enum LocationSource {
+  LOCATION_SOURCE_UNSPECIFIED = 0;
+  // Nothing: no GPS position yet, none saved, none configured.
+  LOCATION_SOURCE_NONE = 1;
+  // The receiver's latest fix, through navigation (current or not: the
+  // truck can't be far from its last fix).
+  LOCATION_SOURCE_GPS = 2;
+  // The last GPS position power-manager saved (to 0.1°), while navigation
+  // has given none since power-manager started.
+  LOCATION_SOURCE_GPS_SAVED = 3;
+  // DISPLAY_LATITUDE/LONGITUDE: no GPS position yet and none saved.
+  LOCATION_SOURCE_CONFIGURED = 4;
+  // navigation's simulated receiver: never the truck. Accepted only with
+  // power-manager's --gps-accept-simulated, for development.
+  LOCATION_SOURCE_GPS_SIMULATED = 5;
+}
+
+// Which clock the sun is worked out from, in this order of preference.
+enum ClockSource {
+  CLOCK_SOURCE_UNSPECIFIED = 0;
+  // None believed: the sun isn't worked out.
+  CLOCK_SOURCE_NONE = 1;
+  // The system reports the clock synchronized.
+  CLOCK_SOURCE_SYSTEM = 2;
+  // A current GPS fix's UTC time, carried on with the monotonic clock. The
+  // system clock itself isn't changed.
+  CLOCK_SOURCE_GPS = 3;
+  // The system clock, unsynchronized, trusted by DISPLAY_TRUST_CLOCK=always.
+  CLOCK_SOURCE_TRUSTED = 4;
 }
 
 message Display {
@@ -71,6 +106,11 @@ message Display {
   // Why the backlight isn't following (none found, a write failed). Empty
   // when it is.
   string backlight_problem = 12;
+  LocationSource location_source = 13;
+  // How old the GPS fix was when the sun was last worked out, seconds. GPS
+  // and GPS_SIMULATED only.
+  uint64 location_age_s = 14;
+  ClockSource clock_source = 15;
 }
 
 message WatchDisplayRequest {}

@@ -157,12 +157,15 @@ There is no illumination wire ([ADR-0013](adr/0013-dcdc-usb-power-supply.md)).
 
 - **The driver's choice**: Auto, Day or Night, and a brightness for each of
   day and night. Kept in `/var/lib/f250-power/display` across key cycles.
-- **Auto** follows the sun's elevation, from the wall clock and
-  `DISPLAY_LATITUDE` / `DISPLAY_LONGITUDE` (GPS replaces these in 6.4).
-  Night below −3°, day again above −2° (examples). Auto runs only with a
-  location and a clock the system reports synchronized (or
-  `DISPLAY_TRUST_CLOCK=always` once the RTC cell holds the time, H20);
-  otherwise it shows the fallback, Day, and says why on screen.
+- **Auto** follows the sun's elevation. The location: navigation's GPS fix,
+  else the last one saved (to 0.1°, `/var/lib/f250-power/location`), else
+  `DISPLAY_LATITUDE` / `DISPLAY_LONGITUDE`. The clock: the system's while
+  synchronized, else a current GPS fix's time (the system clock isn't
+  changed), else the system's with `DISPLAY_TRUST_CLOCK=always` once the RTC
+  cell holds the time (H20) (ADR-0028 amendment). Night below −3°, day again
+  above −2° (examples). Without a location and a clock it shows the
+  fallback, Day, and says why on screen; Settings → Display says where both
+  came from.
 - **Backlight**: found under `/sys/class/backlight/` at runtime (`10-0045` on
   the bench Pi), never below 10 % (example), ramped over 1 s from a thread of
   its own so a slow I2C write can't hold up the power key. A udev rule
@@ -172,7 +175,8 @@ There is no illumination wire ([ADR-0013](adr/0013-dcdc-usb-power-supply.md)).
 
 | Setting (`/etc/default/f250`) | Default (an example) |
 |---|---|
-| `DISPLAY_LATITUDE`, `DISPLAY_LONGITUDE` | empty: Auto unavailable |
+| `DISPLAY_LATITUDE`, `DISPLAY_LONGITUDE` | empty: GPS only; with no fix yet, Auto unavailable |
+| `DISPLAY_NAVIGATION` | `unix:/run/f250-nav/nav.sock` (the unit); empty: no GPS |
 | `DISPLAY_NIGHT_BELOW_DEG` / `DISPLAY_HYSTERESIS_DEG` | −3 / 1 |
 | `DISPLAY_FALLBACK` | day |
 | `DISPLAY_TRUST_CLOCK` | synchronized |

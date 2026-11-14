@@ -12,6 +12,7 @@
 
 import 'dart:core' as $core;
 
+import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 import 'display.pbenum.dart';
@@ -34,6 +35,9 @@ class Display extends $pb.GeneratedMessage {
     $core.String? backlight,
     $core.int? brightnessPct,
     $core.String? backlightProblem,
+    LocationSource? locationSource,
+    $fixnum.Int64? locationAgeS,
+    ClockSource? clockSource,
   }) {
     final result = Display._();
     if (mode != null) result.mode = mode;
@@ -49,6 +53,9 @@ class Display extends $pb.GeneratedMessage {
     if (backlight != null) result.backlight = backlight;
     if (brightnessPct != null) result.brightnessPct = brightnessPct;
     if (backlightProblem != null) result.backlightProblem = backlightProblem;
+    if (locationSource != null) result.locationSource = locationSource;
+    if (locationAgeS != null) result.locationAgeS = locationAgeS;
+    if (clockSource != null) result.clockSource = clockSource;
     return result;
   }
 
@@ -85,6 +92,13 @@ class Display extends $pb.GeneratedMessage {
     ..aI(11, _omitFieldNames ? '' : 'brightnessPct',
         fieldType: $pb.PbFieldType.OU3)
     ..aOS(12, _omitFieldNames ? '' : 'backlightProblem')
+    ..aE<LocationSource>(13, _omitFieldNames ? '' : 'locationSource',
+        enumValues: LocationSource.values)
+    ..a<$fixnum.Int64>(
+        14, _omitFieldNames ? '' : 'locationAgeS', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aE<ClockSource>(15, _omitFieldNames ? '' : 'clockSource',
+        enumValues: ClockSource.values)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -220,6 +234,35 @@ class Display extends $pb.GeneratedMessage {
   $core.bool hasBacklightProblem() => $_has(11);
   @$pb.TagNumber(12)
   void clearBacklightProblem() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  LocationSource get locationSource => $_getN(12);
+  @$pb.TagNumber(13)
+  set locationSource(LocationSource value) => $_setField(13, value);
+  @$pb.TagNumber(13)
+  $core.bool hasLocationSource() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearLocationSource() => $_clearField(13);
+
+  /// How old the GPS fix was when the sun was last worked out, seconds. GPS
+  /// and GPS_SIMULATED only.
+  @$pb.TagNumber(14)
+  $fixnum.Int64 get locationAgeS => $_getI64(13);
+  @$pb.TagNumber(14)
+  set locationAgeS($fixnum.Int64 value) => $_setInt64(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasLocationAgeS() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearLocationAgeS() => $_clearField(14);
+
+  @$pb.TagNumber(15)
+  ClockSource get clockSource => $_getN(14);
+  @$pb.TagNumber(15)
+  set clockSource(ClockSource value) => $_setField(15, value);
+  @$pb.TagNumber(15)
+  $core.bool hasClockSource() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearClockSource() => $_clearField(15);
 }
 
 class WatchDisplayRequest extends $pb.GeneratedMessage {

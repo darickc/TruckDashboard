@@ -6,6 +6,7 @@ import 'package:f250_infotainment/data/gateway_connection.dart';
 import 'package:f250_infotainment/display/display_state.dart';
 import 'package:f250_infotainment/display/grpc_display_source.dart';
 import 'package:f250_infotainment/gen/f250/power/v1/display.pbgrpc.dart' as pb;
+import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:grpc/grpc.dart' as grpc;
 
@@ -180,6 +181,48 @@ void main() {
             choice: clockNotSet.choice,
             report: clockNotSet)),
         'Auto unavailable: clock not set. Showing Night.');
+  });
+
+  test('location and clock sources map from the API; unknown ones say nothing', () {
+    final r = reportFromPb(pb.Display(
+      mode: pb.DisplayMode.DISPLAY_MODE_NIGHT,
+      basis: pb.ModeBasis.MODE_BASIS_SUN,
+      sun: pb.SunStatus.SUN_STATUS_KNOWN,
+      locationSource: pb.LocationSource.LOCATION_SOURCE_GPS,
+      locationAgeS: Int64(125),
+      clockSource: pb.ClockSource.CLOCK_SOURCE_GPS,
+    ))!;
+    expect(r.locationSource, LocationSource.gps);
+    expect(r.locationAgeS, 125);
+    expect(r.clockSource, ClockSource.gps);
+    final st = DisplayStatus(link: DisplayLink.connected, mode: r.mode, choice: r.choice, report: r);
+    expect(describeSources(st), 'Location: GPS (last fix 2 min old) · Clock: GPS time');
+
+    for (final (wire, want) in [
+      (pb.LocationSource.LOCATION_SOURCE_NONE, LocationSource.none),
+      (pb.LocationSource.LOCATION_SOURCE_GPS_SAVED, LocationSource.gpsSaved),
+      (pb.LocationSource.LOCATION_SOURCE_CONFIGURED, LocationSource.configured),
+      (pb.LocationSource.LOCATION_SOURCE_GPS_SIMULATED, LocationSource.gpsSimulated),
+      (pb.LocationSource.LOCATION_SOURCE_UNSPECIFIED, LocationSource.unknown),
+    ]) {
+      final r = reportFromPb(pb.Display(mode: pb.DisplayMode.DISPLAY_MODE_DAY, locationSource: wire))!;
+      expect(r.locationSource, want, reason: '$wire');
+    }
+    for (final (wire, want) in [
+      (pb.ClockSource.CLOCK_SOURCE_NONE, ClockSource.none),
+      (pb.ClockSource.CLOCK_SOURCE_SYSTEM, ClockSource.system),
+      (pb.ClockSource.CLOCK_SOURCE_TRUSTED, ClockSource.trusted),
+      (pb.ClockSource.CLOCK_SOURCE_UNSPECIFIED, ClockSource.unknown),
+    ]) {
+      final r = reportFromPb(pb.Display(mode: pb.DisplayMode.DISPLAY_MODE_DAY, clockSource: wire))!;
+      expect(r.clockSource, want, reason: '$wire');
+    }
+    final old = reportFromPb(pb.Display(mode: pb.DisplayMode.DISPLAY_MODE_DAY))!;
+    expect(
+        describeSources(
+            DisplayStatus(link: DisplayLink.connected, mode: old.mode, choice: old.choice, report: old)),
+        isNull,
+        reason: 'an older power-manager says nothing');
   });
 
   test('choices map to the API', () {

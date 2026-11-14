@@ -3,7 +3,8 @@
 - **Status:** Accepted. [SIM] only: the sun calculation, the day/night
   decision, the brightness ramp and the API are unit-tested, and the dashboard
   follows a simulated source and a fake power-manager. Nothing has dimmed the
-  Pi's panel through power-manager yet
+  Pi's panel through power-manager yet. Amended 2026-11-14: the location and
+  the clock from GPS (below), [SIM]
 - **Date:** 2026-11-11
 - **Refines:** [power-states.md](../power-states.md) "Day/night and
   brightness", [ADR-0013](0013-dcdc-usb-power-supply.md) (no illumination
@@ -88,3 +89,60 @@ systemd-backlight saves the level at shutdown and restores it at boot.
 - power-manager's sandbox writes it without `ProtectKernelTunables=`
 - the ramp looks smooth on the panel, and 10 % is readable
 - systemd-backlight's restore at boot followed by power-manager's level
+
+## Amendment, 2026-11-14: the location and the clock from GPS
+
+GPS is built (6.4, ADR-0030): navigation serves `f250.nav.v1`
+`WatchPosition` on `/run/f250-nav/nav.sock`. Decision 2 said GPS would
+replace the configured location; this is how, and it also takes the
+Consequences' "GPS time would remove this" at its word.
+
+1. **power-manager follows navigation's `WatchPosition`**
+   (`DISPLAY_NAVIGATION`, `unix:/run/f250-nav/nav.sock` from the unit;
+   empty: none). It never talks to gpsd (CLAUDE.md rule 5's spirit: one
+   owner per device). AF_UNIX, so its sandbox is unchanged; a missing
+   navigation is logged and the display runs on what it had.
+2. **Location, in order:** this run's latest GPS fix, *current or not*
+   (the sun needs roughly where the truck is: 0.1° of longitude moves
+   sunset by 24 s, and a truck is never far from its last fix); the last
+   GPS position saved in `/var/lib/f250-power/location`; the configured
+   `DISPLAY_LATITUDE/LONGITUDE`; nothing. The position is saved rounded to
+   0.1° (about 11 km), only once the truck is 0.1° from the saved one, so
+   a parked truck's jitter never writes the SD card, written whole
+   (temporary file, synced, renamed). A damaged file is ignored and
+   rewritten at the next fix. Delete it to forget it.
+3. **Clock, in order:** the system clock while the system reports it
+   synchronized; GPS time; the system clock trusted by
+   `DISPLAY_TRUST_CLOCK=always`; none (the fallback, as before). GPS time is
+   taken only from a **current, real fix with a fix status and a UTC time
+   from 2026 on** (a week-rollover receiver reporting 2019 is refused), as
+   the fix's time plus its age, then carried forward with the monotonic
+   clock for as long as power-manager runs. **The system clock is never
+   changed:** power-manager has no `CAP_SYS_TIME`, and setting it belongs
+   to whatever keeps time (connman today; chrony with gpsd's shared memory
+   would be the way, a separate decision).
+4. **The simulated receiver is never the truck.** Its positions are
+   ignored unless `--gps-accept-simulated` (development only, labelled
+   SIMULATED on screen, never saved), and its time is never used.
+5. **The API says where both came from:** `Display.location_source` (none,
+   GPS, saved GPS, configured, simulated GPS), `location_age_s` (GPS only:
+   how old the fix was when the sun was last worked out) and
+   `clock_source` (none, system, GPS, trusted). Settings → Display shows
+   them under the mode ("Location: GPS (last fix 10 min old) · Clock: GPS
+   time"); an older power-manager that doesn't say gets no line. A first
+   fix or GPS time decides at once, not at the next 30 s tick.
+
+Tested `[SIM]`: the order of locations and clocks, saving (jitter, a drive,
+a saved position from an earlier run), the time rules (not current, no fix
+status, 2019, no time, carried forward, kept after the fix is lost), the
+simulated receiver both ways, nonsense fixes, the file round trip and damage;
+the display task deciding at once on a fix and saving it; and the real binary
+against a fake navigation on a unix socket (a real fix: GPS location and
+time, saved; restarted without navigation: the saved position; a simulated
+fix: ignored, or labelled with the flag). The dashboard's line and its
+mapping, at 800×480 in both themes. **Not on the Pi; no receiver is chosen
+yet (H11).**
+
+To verify on the Pi with a receiver: the line reads GPS and GPS time after
+a cold start with Wi-Fi off; `/var/lib/f250-power/location` appears after
+the first fix and isn't rewritten while parked.

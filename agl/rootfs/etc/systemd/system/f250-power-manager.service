@@ -16,7 +16,11 @@
 # (group f250, mode 0770 from UMask; agl-driver is in group f250). The
 # driver's choice and levels are kept in /var/lib/f250-power/display. Write
 # access to `brightness` comes from udev (rules.d/60-f250-backlight.rules).
-# [SIM] only so far.
+# GPS (ADR-0028 amendment): navigation's positions on DISPLAY_NAVIGATION
+# (/run/f250-nav/nav.sock, group f250) replace the configured location, the
+# last one is kept to 0.1° in /var/lib/f250-power/location, and a current
+# fix's time stands in for an unsynchronized clock (the system clock is
+# never changed). Without navigation it runs as before. [SIM] only so far.
 #
 # The service has no privileges. To power off it exits with status 42, and
 # ExecStopPost (`+`: as root, outside the sandbox) runs `systemctl poweroff`.
@@ -42,6 +46,7 @@ Group=f250
 SupplementaryGroups=input
 Environment=BOOT_KEY_IGNORE_S=30
 Environment=CAMERA_MANAGER=unix:/run/f250-camera/camera.sock
+Environment=DISPLAY_NAVIGATION=unix:/run/f250-nav/nav.sock
 EnvironmentFile=-/etc/default/f250
 ExecStart=/opt/f250/libexec/power-start
 ExecStopPost=+/opt/f250/libexec/power-manager-stopped
@@ -61,7 +66,7 @@ StateDirectoryMode=0750
 # - no ProtectKernelTunables: it would make all of /sys read-only, and the
 #   backlight's `brightness` is written there (ADR-0028 decision 6). File
 #   permissions still confine it: udev gives group f250 that one file
-# AF_UNIX is enough for camera-manager's socket. Connecting needs no write
+# AF_UNIX is enough for camera-manager's and navigation's sockets. Connecting needs no write
 # access under ProtectSystem=strict: the recorder reaches the gateway's
 # socket the same way.
 NoNewPrivileges=yes

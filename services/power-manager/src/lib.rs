@@ -27,7 +27,8 @@
 //! missing camera-manager never holds up the power key.
 //!
 //! Day/night and the backlight ([`display`], ADR-0028): the sun's elevation
-//! from the wall clock and a configured location, the driver's Auto/Day/Night
+//! from the wall clock and a configured location, or navigation's GPS
+//! position and time ([`gps`], ADR-0028 amendment), the driver's Auto/Day/Night
 //! and per-mode brightness, the backlight ramped from a thread of its own
 //! ([`backlight`]), and the state served as `f250.power.v1` for the
 //! dashboard ([`display_server`]).
@@ -47,6 +48,7 @@ pub mod camera_link;
 pub mod camera_switch;
 pub mod display;
 pub mod display_server;
+pub mod gps;
 /// Moved to `crates/evdev` (shared with audio-manager's volume knob).
 pub use f250_evdev as evdev;
 pub mod policy;

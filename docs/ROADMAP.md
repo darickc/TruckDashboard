@@ -328,7 +328,14 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       against a fake gpsd, and it ran against the real gpsd on the Mac. Packaged: `f250-navigation.service`
       (sandboxed, localhost TCP only), `navigation-start` with `NAV_*` in `/etc/default/f250`, gpsd in the images,
       `make deploy`; checked by `make agl-test`. Not on the Pi yet; no receiver chosen (H11).
-      Follow-up: power-manager's location and clock from GPS (ADR-0028)
+      power-manager's location and clock from GPS `[SIM]` ([ADR-0028 amendment](architecture/adr/0028-day-night-and-backlight.md#amendment-2026-11-14-the-location-and-the-clock-from-gps),
+      2026-11-14): it follows navigation's `WatchPosition` (`DISPLAY_NAVIGATION`); the sun's location is the latest
+      fix, else the last one saved to 0.1° (`/var/lib/f250-power/location`, rewritten only after moving 0.1°), else
+      `DISPLAY_LATITUDE/LONGITUDE`; its clock is the synchronized system clock, else a current real fix's UTC time
+      carried on the monotonic clock (the system clock never changed), else `DISPLAY_TRUST_CLOCK=always`. The simulated
+      receiver is never the truck (`--gps-accept-simulated` for development, labelled). `Display` says where both came
+      from; Settings → Display shows it. Tests: the logic, the display task, the real binary against a fake navigation,
+      the dashboard at 800×480. Not on the Pi; no receiver (H11)
 - [~] 6.5 Offline map, then routing, then the update workflow
       6.5.1 `[SIM]`: the Navigation tab shows a raster PMTiles map (`/var/lib/f250/maps/map.pmtiles`) with the truck's
       position: follows until dragged, north up (heading up since 2026-11-12, ADR-0032), 60 px zoom and locate buttons, "LAST KNOWN · n S AGO" and a grey marker
@@ -490,7 +497,8 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       choice and levels in `/var/lib/f250-power/display`, and serves `f250.power.v1` on `/run/f250-power/power.sock`;
       `power-start` wrapper, udev rule for `brightness`, `ProtectKernelTunables` dropped for it. Tests: the logic, the
       writer against a fake sysfs, the real binary end to end; the dashboard's theme follows it (Settings → Display since ADR-0029:
-      Auto/Day/Night, brightness, why Auto can't run; 22 Flutter tests). Not on the Pi yet: the udev rule, the sandbox
+      Auto/Day/Night, brightness, why Auto can't run; 22 Flutter tests). The location and the clock from GPS since
+      2026-11-14 (6.4 above). Not on the Pi yet: the udev rule, the sandbox
       write, the ramp on the panel ([agl.md](setup/agl.md) check 15). Still to do: the hardware
       watchdog, and the dashboard's Power button becoming Restart once the DCDC-USB is installed
 

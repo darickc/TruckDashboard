@@ -42,6 +42,9 @@ DisplayReport report({
   double? elevation = -8.4,
   String? backlight = '10-0045',
   String problem = '',
+  LocationSource location = LocationSource.unknown,
+  int ageS = 0,
+  ClockSource clock = ClockSource.unknown,
 }) =>
     DisplayReport(
       mode: mode,
@@ -55,6 +58,9 @@ DisplayReport report({
       backlight: backlight,
       brightnessPct: mode == DayNight.day ? 100 : 40,
       backlightProblem: problem,
+      locationSource: location,
+      locationAgeS: ageS,
+      clockSource: clock,
     );
 
 DisplayStatus connected(DisplayReport r) => DisplayStatus(
@@ -141,12 +147,12 @@ void main() {
     final h = await Harness.start(tester, display: fake);
     await openDisplay(tester, h);
     expect(h.textOf('display-detail'),
-        'Auto unavailable: clock not synchronized. Showing Day.');
+        'Auto unavailable: clock not synchronized and no GPS time. Showing Day.');
 
     fake.value = connected(report(
         mode: DayNight.day, basis: ModeBasis.fallback, sun: SunStatus.noLocation));
     await tester.pump();
-    expect(h.textOf('display-detail'), contains('no location configured'));
+    expect(h.textOf('display-detail'), contains('no GPS position and no location configured'));
 
     fake.value = connected(report(problem: "can't write brightness: permission denied"));
     await tester.pump();
@@ -156,6 +162,52 @@ void main() {
     fake.value = connected(report(backlight: null, problem: 'no backlight device'));
     await tester.pump();
     expect(h.textOf('display-backlight'), 'No backlight: no backlight device.');
+  });
+
+  testWidgets('connected: where the location and the clock come from', (tester) async {
+    // An older power-manager says nothing: no line, nothing claimed.
+    final fake = FakeDisplaySource(connected(report()));
+    final h = await Harness.start(tester, display: fake);
+    await openDisplay(tester, h);
+    expect(find.byKey(const ValueKey('display-sources')), findsNothing);
+
+    fake.value = connected(report(
+        location: LocationSource.gps, ageS: 30, clock: ClockSource.system));
+    await tester.pump();
+    expect(h.textOf('display-sources'), 'Location: GPS · Clock: synchronized');
+
+    fake.value = connected(report(
+        location: LocationSource.gps, ageS: 600, clock: ClockSource.gps));
+    await tester.pump();
+    expect(h.textOf('display-sources'), 'Location: GPS (last fix 10 min old) · Clock: GPS time');
+
+    fake.value = connected(report(
+        location: LocationSource.gpsSaved, clock: ClockSource.trusted));
+    await tester.pump();
+    expect(h.textOf('display-sources'),
+        'Location: last saved GPS position · Clock: trusted by configuration');
+
+    fake.value = connected(report(
+        mode: DayNight.day,
+        basis: ModeBasis.fallback,
+        sun: SunStatus.noLocation,
+        location: LocationSource.none,
+        clock: ClockSource.none));
+    await tester.pump();
+    expect(h.textOf('display-sources'), 'Location: none · Clock: not trusted');
+
+    fake.value = connected(report(
+        location: LocationSource.gpsSimulated, ageS: 3 * 3600, clock: ClockSource.system));
+    await tester.pump();
+    expect(h.textOf('display-sources'),
+        'Location: SIMULATED GPS (last fix 3 h old): not the truck · Clock: synchronized');
+    final style = tester.widget<Text>(find.byKey(const ValueKey('display-sources'))).style!;
+    expect(style.color, Palette.night.advisory);
+
+    // Not connected: no line.
+    fake.value = lost;
+    await tester.pump();
+    expect(find.byKey(const ValueKey('display-sources')), findsNothing);
   });
 
   testWidgets('lost: the theme stays, nothing claims control, Auto is not offered',
@@ -177,6 +229,14 @@ void main() {
     'sun': connected(report()),
     'fallback': connected(report(basis: ModeBasis.fallback, sun: SunStatus.clockNotSet)),
     'backlight problem': connected(report(problem: 'x' * 120)),
+    // The longest sources line, with the longest fallback and a problem.
+    'every line': connected(report(
+        basis: ModeBasis.fallback,
+        sun: SunStatus.noLocation,
+        problem: 'x' * 120,
+        location: LocationSource.gpsSimulated,
+        ageS: 99 * 3600,
+        clock: ClockSource.trusted)),
     'lost': lost,
   };
   for (final theme in DayNight.values) {

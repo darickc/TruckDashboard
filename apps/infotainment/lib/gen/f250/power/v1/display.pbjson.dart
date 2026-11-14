@@ -81,6 +81,44 @@ final $typed_data.Uint8List sunStatusDescriptor = $convert.base64Decode(
     '5PV04QARIaChZTVU5fU1RBVFVTX05PX0xPQ0FUSU9OEAISJQohU1VOX1NUQVRVU19DTE9DS19O'
     'T1RfU1lOQ0hST05JWkVEEAMSHAoYU1VOX1NUQVRVU19DTE9DS19OT1RfU0VUEAQ=');
 
+@$core.Deprecated('Use locationSourceDescriptor instead')
+const LocationSource$json = {
+  '1': 'LocationSource',
+  '2': [
+    {'1': 'LOCATION_SOURCE_UNSPECIFIED', '2': 0},
+    {'1': 'LOCATION_SOURCE_NONE', '2': 1},
+    {'1': 'LOCATION_SOURCE_GPS', '2': 2},
+    {'1': 'LOCATION_SOURCE_GPS_SAVED', '2': 3},
+    {'1': 'LOCATION_SOURCE_CONFIGURED', '2': 4},
+    {'1': 'LOCATION_SOURCE_GPS_SIMULATED', '2': 5},
+  ],
+};
+
+/// Descriptor for `LocationSource`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List locationSourceDescriptor = $convert.base64Decode(
+    'Cg5Mb2NhdGlvblNvdXJjZRIfChtMT0NBVElPTl9TT1VSQ0VfVU5TUEVDSUZJRUQQABIYChRMT0'
+    'NBVElPTl9TT1VSQ0VfTk9ORRABEhcKE0xPQ0FUSU9OX1NPVVJDRV9HUFMQAhIdChlMT0NBVElP'
+    'Tl9TT1VSQ0VfR1BTX1NBVkVEEAMSHgoaTE9DQVRJT05fU09VUkNFX0NPTkZJR1VSRUQQBBIhCh'
+    '1MT0NBVElPTl9TT1VSQ0VfR1BTX1NJTVVMQVRFRBAF');
+
+@$core.Deprecated('Use clockSourceDescriptor instead')
+const ClockSource$json = {
+  '1': 'ClockSource',
+  '2': [
+    {'1': 'CLOCK_SOURCE_UNSPECIFIED', '2': 0},
+    {'1': 'CLOCK_SOURCE_NONE', '2': 1},
+    {'1': 'CLOCK_SOURCE_SYSTEM', '2': 2},
+    {'1': 'CLOCK_SOURCE_GPS', '2': 3},
+    {'1': 'CLOCK_SOURCE_TRUSTED', '2': 4},
+  ],
+};
+
+/// Descriptor for `ClockSource`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List clockSourceDescriptor = $convert.base64Decode(
+    'CgtDbG9ja1NvdXJjZRIcChhDTE9DS19TT1VSQ0VfVU5TUEVDSUZJRUQQABIVChFDTE9DS19TT1'
+    'VSQ0VfTk9ORRABEhcKE0NMT0NLX1NPVVJDRV9TWVNURU0QAhIUChBDTE9DS19TT1VSQ0VfR1BT'
+    'EAMSGAoUQ0xPQ0tfU09VUkNFX1RSVVNURUQQBA==');
+
 @$core.Deprecated('Use displayDescriptor instead')
 const Display$json = {
   '1': 'Display',
@@ -155,6 +193,23 @@ const Display$json = {
       '5': 9,
       '10': 'backlightProblem'
     },
+    {
+      '1': 'location_source',
+      '3': 13,
+      '4': 1,
+      '5': 14,
+      '6': '.f250.power.v1.LocationSource',
+      '10': 'locationSource'
+    },
+    {'1': 'location_age_s', '3': 14, '4': 1, '5': 4, '10': 'locationAgeS'},
+    {
+      '1': 'clock_source',
+      '3': 15,
+      '4': 1,
+      '5': 14,
+      '6': '.f250.power.v1.ClockSource',
+      '10': 'clockSource'
+    },
   ],
 };
 
@@ -169,7 +224,11 @@ final $typed_data.Uint8List displayDescriptor = $convert.base64Decode(
     'Z2h0bmVzc1BjdBIsChJtaW5fYnJpZ2h0bmVzc19wY3QYCCABKA1SEG1pbkJyaWdodG5lc3NQY3'
     'QSKwoRYmFja2xpZ2h0X3ByZXNlbnQYCSABKAhSEGJhY2tsaWdodFByZXNlbnQSHAoJYmFja2xp'
     'Z2h0GAogASgJUgliYWNrbGlnaHQSJQoOYnJpZ2h0bmVzc19wY3QYCyABKA1SDWJyaWdodG5lc3'
-    'NQY3QSKwoRYmFja2xpZ2h0X3Byb2JsZW0YDCABKAlSEGJhY2tsaWdodFByb2JsZW0=');
+    'NQY3QSKwoRYmFja2xpZ2h0X3Byb2JsZW0YDCABKAlSEGJhY2tsaWdodFByb2JsZW0SRgoPbG9j'
+    'YXRpb25fc291cmNlGA0gASgOMh0uZjI1MC5wb3dlci52MS5Mb2NhdGlvblNvdXJjZVIObG9jYX'
+    'Rpb25Tb3VyY2USJAoObG9jYXRpb25fYWdlX3MYDiABKARSDGxvY2F0aW9uQWdlUxI9CgxjbG9j'
+    'a19zb3VyY2UYDyABKA4yGi5mMjUwLnBvd2VyLnYxLkNsb2NrU291cmNlUgtjbG9ja1NvdXJjZQ'
+    '==');
 
 @$core.Deprecated('Use watchDisplayRequestDescriptor instead')
 const WatchDisplayRequest$json = {
