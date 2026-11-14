@@ -313,6 +313,11 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       swipes stop at the ends, a page's data only while its frames keep coming. Ran on the Mac against all three
       simulated services into a pseudo-terminal.
       Next: buy the board (no battery), its drivers from Waveshare's demo, bench check 25
+- [ ] 6.3b Phone calls, planned ([ADR-0045](architecture/adr/0045-phone-calls.md), owner 2026-11-14): hands-free through
+      PipeWire 1.6.8's native backend and its Telephony D-Bus service (answer, hang up, caller ID; dialling in phase 2), in
+      audio-manager; WebRTC echo cancellation (AGL's PipeWire leaves it out); the microphone as configuration (a USB mic near
+      the driver, or the knob display's if it can be a USB mic). First, bench spikes: S1 SCO audio on the Pi 5's BCM4345C0,
+      S2 the Telephony service on the system bus, S3 echo cancellation, S4 the knob display's microphone. Nothing built
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
       JSON and tracks the position honestly (status, the last fix with its age, never stale as current); 23 tests,
       with gpsd 3.27.5's own output from synthetic NMEA as the test vectors. `services/navigation` serves
