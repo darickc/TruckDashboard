@@ -2642,3 +2642,20 @@ and the script were removed afterwards (no `f250-doc-test` in
 `/proc/bus/input/devices`). agl.md now has an "Input events" section with
 the command, and checks 24 and 25 point at it.
 
+## 2026-11-14 — Main (1eee171) deployed on the bench Pi [BENCH]
+
+`make deploy` of 1eee171 onto image cb62346 (the truck settings in
+`/etc/default/f250`, kept): it installed the new power-manager unit and
+`power-start` (GPS location and clock, ADR-0028 amendment) and the dashboard
+bundle; no `config.txt`, logind or connman change, so no reboot. All 13 f250
+units running from 22:05, none failed; `stage1-setup.sh --check`: all
+checks passed. power-manager logs "display: following navigation's
+positions" (NAV_SIMULATE=1 here: a simulated position, which it ignores).
+audio-manager came up with calls off (no `--call-mic`).
+
+`camera-ctl move back`: the rear webcam live within 3 s, then closed. The
+status bar's camera chip (fix 1eee171) wasn't on screen: "Not polling the
+truck" takes the bar's place in camera mode, as designed, since the bench
+has no truck bus with `CAN_AUTO_ACTIVE=1`. To see the chip on the panel:
+the bench settings, or the truck.
+
