@@ -2711,3 +2711,15 @@ bundle changed; no reboot. All f250 units running, none failed;
 
 Only the Phone screen's Contacts (failure state), Keypad and Home were
 screenshotted; no contact or call was shown. The panel left on Home.
+
+Later the same evening: the owner allowed contact sharing on the Z Fold8.
+audio-manager then read **202 contacts and 100 recent calls** (100 is
+`MAX_RECENT`, the most asked for) at 23:36:55, about a minute after the
+second deploy and with no "read again" request logged: most likely when
+the phone came back after sharing was allowed (the lists are read when
+the phone becomes the one in use). The list file was removed after
+reading (`/run/f250-obex` held only `cover-art`). The Contacts view
+listed them, sorted by name, with the Call buttons dimmed and "Calls
+stay on the phone: no call microphone is configured." under them.
+Still UNVERIFIED: which vCard version the phone sent (not inspected), and
+whether the phone asks again after a reboot of either side.

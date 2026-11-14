@@ -255,7 +255,8 @@ recent calls** (not favourites).
 | `void Dial(string number)` on `AudioGateway1`, number `[0-9+*#,ABCD]{1,80}`; an active call is put on hold if dialling succeeds; the new call is announced through the signals | PipeWire 1.6.8 `spa/plugins/bluez5/README-Telephony.md` (tag 1.6.8, read in the build VM) | Verified from source |
 | obexd's PBAP client: `Client1.CreateSession(address, {Target: "pbap"})`; `PhonebookAccess1.Select(location, phonebook)` with `"int"` and `"pb"`, `"cch"` (and ich, och, mch, spd, fav); `PullAll(targetfile, filters)` returns a `Transfer1`; filters `Format` (`vcard21`, `vcard30`), `Order`, `Offset`, `MaxCount` (uint16), `Fields`; errors include `Forbidden` | BlueZ 5.86 `doc/org.bluez.obex.PhonebookAccess.rst`, `obexd/client/pbap.c`, `obexd/client/manager.c` (`pbap` is built into obexd's client) | Verified from source |
 | The filter's field names, among them `VERSION`, `FN`, `N`, `TEL`, `X-IRMC-CALL-DATETIME` | BlueZ 5.86 `obexd/client/pbap.c` | Verified from source |
-| Which vCard version the owner's phones answer with, whether they ask before sharing, the call history's order, and the owner's own card (handle 0) in the list | — | **UNVERIFIED**: the bench, with the owner's phone |
+| The owner's Z Fold8 didn't answer the PBAP connect (obexd's 10 s `connect_cb` timeout) until its user allowed contact sharing; then it gave its contacts and call history (202 contacts, 100 calls: the most asked for) | the bench Pi, 2026-11-14 (bench-log) | [BENCH] |
+| Which vCard version the owner's phones answer with, the call history's order, the owner's own card (handle 0) in the list, the iPhone | — | **UNVERIFIED** |
 
 1. **Dialling.** `Dial(number)` on audio-manager calls `AudioGateway1.Dial`
    on the phone in use's gateway (its path is now kept with the gateway).
@@ -326,8 +327,9 @@ wrapper's `--phonebook-file`.
 
 Not done:
 
-- **PBAP with a real phone** on the bench: whether the owner's phone shares
-  its contacts and history, asks first, and in which vCard version.
+- **PBAP with a real phone**: the Z Fold8 shares its contacts and history
+  once allowed ([BENCH] 2026-11-14); its vCard version and the iPhone are
+  still to see.
 - **Dialling on the Pi** waits for the hands-free packaging above (S2, then
   the role and its D-Bus policy), like answering.
 
