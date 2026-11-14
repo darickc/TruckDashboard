@@ -2682,3 +2682,32 @@ Driven over SSH with a uinput virtual touchscreen and `agl-screenshooter`:
   running, `--check` passed.
 
 The panel left on Home.
+
+## 2026-11-14 — The Phone screen (6ba02d5, 0ed0b58) on the bench Pi [BENCH]
+
+`make deploy` of 6ba02d5 onto image cb62346 (the truck settings in
+`/etc/default/f250`, kept; `AUDIO_PHONEBOOK` isn't set there, so the
+default 1 applies): only the binaries, `audio-start` and the dashboard
+bundle changed; no reboot. All f250 units running, none failed;
+`stage1-setup.sh --check`: all checks passed. audio-manager runs with
+`--phonebook-file /run/f250-obex/phonebook.vcf`.
+
+- **PBAP with the owner's Z Fold8** (connected): the read failed twice,
+  at start after each deploy. obexd logged `connect_cb: Timed out waiting
+  for response`: the phone didn't answer the OBEX connect within obexd's
+  10 s. Probably the phone asking its user to allow contact sharing, or
+  sharing off for this head unit: **UNVERIFIED**, the owner to look at the
+  phone. Nothing was read; no list file was left in `/run/f250-obex`.
+- The Phone screen said so with Try again; 0ed0b58 replaced obexd's raw
+  "Failed: Timed out waiting for response" with what to do (allow sharing
+  on the phone, then Try again).
+- The keypad stays locked on the bench (no current vehicle speed: the
+  bus isn't heard), as designed. Its note ran to a third line under the
+  alert banner and was cut off on the panel's font; 0ed0b58 shortened it
+  to one line ("Stop the truck to use the keypad.") and was deployed: it
+  fits.
+- Calls stay on the phone (no call microphone), so the Call buttons are
+  dimmed; dialling wasn't tried.
+
+Only the Phone screen's Contacts (failure state), Keypad and Home were
+screenshotted; no contact or call was shown. The panel left on Home.
