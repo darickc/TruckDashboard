@@ -1285,6 +1285,41 @@ impl Manager {
             })
     }
 
+    /// The knob's push (ADR-0045 decision 6, the same key as play/pause,
+    /// ADR-0043): answers a ringing call, hangs up the call in progress, and
+    /// without a call plays or pauses. A waiting call (another one during a
+    /// call) isn't touched: answering it ends or holds the first, so it is
+    /// answered or declined on the screen or the phone. Ok: what it did.
+    pub async fn knob_push(&self, source: &str) -> Result<String, String> {
+        let shown = {
+            let s = self.bt.snapshot().borrow().clone();
+            let t = self.tel.calls().borrow().clone();
+            let inner = self.lock();
+            let mine = Self::phone_calls(&inner, &s, &t);
+            let address = Self::current(&inner, &s)
+                .map(|p| p.address)
+                .unwrap_or_default();
+            calls::pick(&mine, &address)
+                .0
+                .and_then(|c| Some((inner.calls.get(&c.path)?.id, c.state)))
+        };
+        match shown {
+            None => self
+                .play_pause(source)
+                .await
+                .map(|c| c.method().to_string()),
+            Some((id, CallState::Incoming)) => self.answer_call(id, source).await,
+            Some((_, CallState::Waiting)) => {
+                eprintln!("[audio] {source}: push ignored: another call is waiting");
+                Err(
+                    "Another call is waiting: answer or decline it on the screen or the phone."
+                        .into(),
+                )
+            }
+            Some((id, _)) => self.hang_up(id, source).await,
+        }
+    }
+
     /// Mutes or unmutes the call microphone, during a call only.
     pub async fn set_mic_muted(&self, muted: bool, source: &str) -> Result<(), String> {
         if !self.lock().in_call {

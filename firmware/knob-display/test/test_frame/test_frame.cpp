@@ -213,6 +213,31 @@ void test_long_or_odd_text_is_cut_safely()
 }
 
 // The exact nav and media lines knob-link's pages.rs tests produce.
+void test_call_frames()
+{
+    TEST_ASSERT_EQUAL(Parsed::Call, parseAll(withChecksum("P1 ring 0 Test Caller\t+15550100")));
+    TEST_ASSERT_EQUAL(CallState::Ringing, all.call.state);
+    TEST_ASSERT_EQUAL_UINT32(0, all.call.activeS);
+    TEST_ASSERT_EQUAL_STRING("Test Caller", all.call.caller);
+    TEST_ASSERT_EQUAL_STRING("+15550100", all.call.number);
+    const struct {
+        const char* token;
+        CallState state;
+    } states[] = {{"wait", CallState::Waiting}, {"dial", CallState::Dialing}, {"call", CallState::Active},
+                  {"hold", CallState::Held}};
+    for (const auto& s : states) {
+        TEST_ASSERT_EQUAL(Parsed::Call, parseAll(withChecksum(std::string("P1 ") + s.token + " 9 +15550100\t")));
+        TEST_ASSERT_EQUAL(s.state, all.call.state);
+        TEST_ASSERT_EQUAL_UINT32(9, all.call.activeS);
+        TEST_ASSERT_EQUAL_STRING("+15550100", all.call.caller);
+        TEST_ASSERT_EQUAL_STRING("", all.call.number);
+    }
+    TEST_ASSERT_EQUAL(Parsed::Call, parseAll(withChecksum("P1 none")));
+    TEST_ASSERT_EQUAL(CallState::None, all.call.state);
+    const char* bad[] = {"P1 jam 0 x\t", "P1 ring - x\t", "P1 ring 0 \t+1555", "P1 ring 0", "P1 none extra", "P1"};
+    for (const char* b : bad) TEST_ASSERT_EQUAL_MESSAGE(Parsed::Malformed, parseAll(withChecksum(b)), b);
+}
+
 void test_golden_page_lines_from_knob_link()
 {
     TEST_ASSERT_EQUAL(Parsed::Nav, parseAll("N1 go right 0.4 mi 12 mi 18 Main Street*1D"));
@@ -221,6 +246,10 @@ void test_golden_page_lines_from_knob_link()
     TEST_ASSERT_EQUAL(Parsed::Media, parseAll("M1 play 18/30 94 242 Second Simulated Song\tThe Test Tones\tPixel 8*67"));
     TEST_ASSERT_EQUAL_STRING("Pixel 8", all.media.source);
     TEST_ASSERT_EQUAL_INT32(94, all.media.posS);
+    TEST_ASSERT_EQUAL(Parsed::Call, parseAll("P1 call 65 Test Caller\t+15550100*44"));
+    TEST_ASSERT_EQUAL(CallState::Active, all.call.state);
+    TEST_ASSERT_EQUAL_UINT32(65, all.call.activeS);
+    TEST_ASSERT_EQUAL_STRING("Test Caller", all.call.caller);
 }
 
 void test_media_frames()
@@ -272,6 +301,7 @@ int main()
     RUN_TEST(test_every_turn_name_round_trips);
     RUN_TEST(test_long_or_odd_text_is_cut_safely);
     RUN_TEST(test_media_frames);
+    RUN_TEST(test_call_frames);
     RUN_TEST(test_golden_page_lines_from_knob_link);
     return UNITY_END();
 }

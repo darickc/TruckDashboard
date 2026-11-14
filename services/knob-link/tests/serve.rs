@@ -207,6 +207,14 @@ async fn nav_and_media_frames_only_while_they_are_fresh() {
         first.iter().any(|l| l.starts_with("M1 none -*")),
         "{first:?}"
     );
+    let call = lines.next_line().await.unwrap().unwrap();
+    assert!(
+        first
+            .iter()
+            .chain([&call])
+            .any(|l| l.starts_with("P1 none*")),
+        "{first:?} {call}"
+    );
     assert!(first.iter().all(|l| ok_checksum(l)));
     assert!(!first.iter().any(|l| l.starts_with("D1 ")));
     // Both go quiet: after page_max_age, neither is sent.
@@ -222,8 +230,8 @@ async fn nav_and_media_frames_only_while_they_are_fresh() {
     }
     let after: Vec<_> = late
         .iter()
-        .skip_while(|l| l.starts_with("N1") || l.starts_with("M1"))
-        .filter(|l| l.starts_with("N1") || l.starts_with("M1"))
+        .skip_while(|l| l.starts_with("N1") || l.starts_with("M1") || l.starts_with("P1"))
+        .filter(|l| l.starts_with("N1") || l.starts_with("M1") || l.starts_with("P1"))
         .collect();
     assert!(after.is_empty(), "nothing old: {late:?}");
     drop(tx);

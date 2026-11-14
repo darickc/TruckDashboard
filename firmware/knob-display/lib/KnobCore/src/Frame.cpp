@@ -253,6 +253,37 @@ bool parseMedia(std::string_view rest, MediaFrame& out)
     return true;
 }
 
+bool parseCall(std::string_view rest, CallFrame& out)
+{
+    CallFrame f;
+    std::string_view st = next(rest, ' ');
+    if (st == "none") {
+        if (!rest.empty()) return false;
+        out = f;
+        return true;
+    }
+    if (st == "ring") {
+        f.state = CallState::Ringing;
+    } else if (st == "wait") {
+        f.state = CallState::Waiting;
+    } else if (st == "dial") {
+        f.state = CallState::Dialing;
+    } else if (st == "call") {
+        f.state = CallState::Active;
+    } else if (st == "hold") {
+        f.state = CallState::Held;
+    } else {
+        return false;
+    }
+    if (!toU32(next(rest, ' '), f.activeS)) return false;
+    std::string_view caller = next(rest, '\t');
+    if (caller.empty()) return false;
+    copyText(caller, f.caller, sizeof(f.caller));
+    copyText(rest, f.number, sizeof(f.number));
+    out = f;
+    return true;
+}
+
 }  // namespace
 
 const char* turnName(Turn t)
@@ -316,6 +347,7 @@ Parsed parseLine(std::string_view line, Frames& out)
     if (kind == "D1") return parseData(body, out.data) ? Parsed::Data : Parsed::Malformed;
     if (kind == "N1") return parseNav(body, out.nav) ? Parsed::Nav : Parsed::Malformed;
     if (kind == "M1") return parseMedia(body, out.media) ? Parsed::Media : Parsed::Malformed;
+    if (kind == "P1") return parseCall(body, out.call) ? Parsed::Call : Parsed::Malformed;
     if (kind == "H1") return Parsed::Hello;
     return Parsed::Unknown;
 }

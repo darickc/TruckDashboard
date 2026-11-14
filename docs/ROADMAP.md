@@ -325,10 +325,12 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       it; without a microphone calls stay on the phone), publishes the call in `f250.audio.v1` with `AnswerCall`,
       `HangUp` and `SetMicMuted`, pauses the music for a call and resumes it after, and skips prompts during one; the
       dashboard shows the call over every screen under the alert banner (Answer/Decline, then the time, Mute, Hang up),
-      and in camera mode in the left column, the cameras as a 2×2 grid of arrows, never over the picture.
+      and in camera mode in the left column, the cameras as a 2×2 grid of arrows, never over the picture. The knob's
+      push answers a ringing call and hangs up one in progress; the knob display gets the call as a `P1` frame and it
+      takes over the dial, touches ignored (frame and model host-tested; nothing drawn without the board).
       Simulated calls on both sides (`SIM_CALL=<s>`). Not on the Pi: the D-Bus client has only run against the
       simulation, and the hands-free role, its D-Bus policy and the call audio path aren't shipped.
-      Next: S2 with audio-manager on the bench, then the packaging; S3/S4 and the knob display after
+      Next: S2 with audio-manager on the bench, then the packaging; S3/S4 after
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
       JSON and tracks the position honestly (status, the last fix with its age, never stale as current); 23 tests,
       with gpsd 3.27.5's own output from synthetic NMEA as the test vectors. `services/navigation` serves

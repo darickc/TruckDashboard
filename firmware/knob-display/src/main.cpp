@@ -34,7 +34,8 @@ size_t lineLen = 0;
 bool lineTooLong = false;
 
 struct Counts {
-    uint32_t config = 0, data = 0, nav = 0, media = 0, badChecksum = 0, malformed = 0, unknown = 0, tooLong = 0;
+    uint32_t config = 0, data = 0, nav = 0, media = 0, call = 0, badChecksum = 0, malformed = 0, unknown = 0,
+             tooLong = 0;
 } counts;
 
 uint32_t lastHelloMs = 0;
@@ -54,9 +55,10 @@ void report(uint32_t now)
 {
     static const char* const kState = "cakns";
     static const char* const kPage[] = {"gauges", "navigation", "media"};
-    Serial.printf("# frames: %u config, %u data, %u nav, %u media, %u bad checksum, %u malformed, %u unknown, "
-                  "%u too long; %s%s; page %s\n",
-                  counts.config, counts.data, counts.nav, counts.media, counts.badChecksum, counts.malformed,
+    Serial.printf("# frames: %u config, %u data, %u nav, %u media, %u call, %u bad checksum, %u malformed, "
+                  "%u unknown, %u too long; %s%s; page %s\n",
+                  counts.config, counts.data, counts.nav, counts.media, counts.call, counts.badChecksum,
+                  counts.malformed,
                   counts.unknown, counts.tooLong, dial.linkLost(now) ? "no data" : "link up",
                   dial.simulated() ? ", SIMULATED" : "", kPage[pages.index()]);
     const knob::Slot slots[] = {knob::Slot::Speed, knob::Slot::Fuel, knob::Slot::Eot, knob::Slot::Ect,
@@ -89,6 +91,12 @@ void report(uint32_t now)
     } else {
         Serial.printf("#   media: no data\n");
     }
+    // A call takes over the dial (ADR-0045).
+    if (const knob::CallFrame* c = pages.call(now)) {
+        static const char* const kCall[] = {"", "ringing", "waiting", "dialling", "call", "on hold"};
+        Serial.printf("#   CALL %s: %s %s %lu s; %s\n", kCall[static_cast<int>(c->state)], c->caller, c->number,
+                      static_cast<unsigned long>(c->activeS), knob::callHint(c->state));
+    }
 }
 
 void onLine(uint32_t now)
@@ -99,6 +107,7 @@ void onLine(uint32_t now)
         case knob::Parsed::Data: dial.onData(f.data, now); counts.data++; break;
         case knob::Parsed::Nav: pages.onNav(f.nav, now); counts.nav++; break;
         case knob::Parsed::Media: pages.onMedia(f.media, now); counts.media++; break;
+        case knob::Parsed::Call: pages.onCall(f.call, now); counts.call++; break;
         case knob::Parsed::BadChecksum: counts.badChecksum++; break;
         case knob::Parsed::Malformed: counts.malformed++; break;
         case knob::Parsed::Unknown: counts.unknown++; break;
@@ -124,6 +133,8 @@ void onKnobDetents(int steps)
     }
 }
 
+// The Pi decides what the push does: during a call it answers or hangs up
+// (audio-manager, ADR-0045), otherwise it plays or pauses.
 void onKnobPush() { press(CONSUMER_CONTROL_PLAY_PAUSE); }
 
 // down: a finger touched; move: it moved; neither: it lifted.
@@ -135,11 +146,9 @@ void onTouch(bool down, bool move, int x, int y)
     } else if (move) {
         tap.onMove(x, y, now);
     } else {
-        const knob::Gesture g = tap.onUp(now);
-        if (g == knob::Gesture::Tap) {
+        // During a call touches do nothing (ADR-0045 decision 6).
+        if (pages.onTouch(tap.onUp(now), now) == knob::TouchAction::PlayPause) {
             press(CONSUMER_CONTROL_PLAY_PAUSE);
-        } else {
-            pages.onGesture(g);
         }
     }
 }

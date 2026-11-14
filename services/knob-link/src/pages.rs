@@ -1,5 +1,6 @@
 //! The dial's navigation and media pages (ADR-0044 decision 9): `N1` from
-//! navigation's guidance and route, `M1` from audio-manager. The dial parses
+//! navigation's guidance and route, `M1` from audio-manager; and `P1`, a
+//! phone call, which takes over the dial (ADR-0045 decision 6). The dial parses
 //! them in `firmware/knob-display/lib/KnobCore/src/Frame.cpp`; the golden
 //! lines below are parsed there too (`test_frame`).
 //!
@@ -7,6 +8,8 @@
 //!   N1 none | N1 route | N1 wait | N1 arr [<destination>]
 //!   M1 <play|pause|stop> <vol> <pos_s|-> <dur_s|-> <title>\t<artist>\t<source>
 //!   M1 none <vol>
+//!   P1 <ring|wait|dial|call|hold> <active_s> <caller>\t<number>
+//!   P1 none
 
 use f250_proto::audio::v1 as audio;
 use f250_proto::nav::v1 as nav;
@@ -165,6 +168,46 @@ pub fn media_line(a: &audio::WatchAudioResponse) -> String {
             )
         }
         _ => format!("M1 none {vol}"),
+    };
+    with_checksum(&body)
+}
+
+/// The phone call, from audio-manager's update (ADR-0045): `P1 none`
+/// without one, or from an audio-manager without calls.
+pub fn call_line(a: &audio::WatchAudioResponse) -> String {
+    let call = a
+        .calls
+        .as_ref()
+        .and_then(|c| c.call.as_ref())
+        .filter(|_| a.phone.is_some());
+    let state = call.and_then(|c| match audio::CallState::try_from(c.state) {
+        Ok(audio::CallState::Incoming) => Some("ring"),
+        Ok(audio::CallState::Waiting) => Some("wait"),
+        Ok(audio::CallState::Dialing | audio::CallState::Alerting) => Some("dial"),
+        Ok(audio::CallState::Active) => Some("call"),
+        Ok(audio::CallState::Held) => Some("hold"),
+        _ => None,
+    });
+    let body = match (call, state) {
+        (Some(c), Some(state)) => {
+            // The same words as the dashboard's call bar.
+            let caller = if !c.name.is_empty() {
+                clean(&c.name, 44)
+            } else if !c.number.is_empty() {
+                clean(&c.number, 44)
+            } else if c.withheld {
+                "Number withheld".to_string()
+            } else {
+                "Unknown caller".to_string()
+            };
+            let number = if c.name.is_empty() {
+                String::new()
+            } else {
+                clean(&c.number, 24)
+            };
+            format!("P1 {state} {} {caller}\t{number}", c.active_s)
+        }
+        _ => "P1 none".to_string(),
     };
     with_checksum(&body)
 }
@@ -378,6 +421,81 @@ mod tests {
         a.phone = None;
         a.volume = None;
         assert!(media_line(&a).starts_with("M1 none -*"));
+    }
+
+    fn with_call(state: audio::CallState) -> audio::WatchAudioResponse {
+        let mut a = playing();
+        a.calls = Some(audio::Calls {
+            available: true,
+            call: Some(audio::Call {
+                id: 3,
+                state: state.into(),
+                number: "+15550100".into(),
+                name: "Test Caller".into(),
+                active_s: 65,
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+        a
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn a_call() {
+        // Golden: firmware test_frame parses this exact line.
+        assert_eq!(
+            call_line(&with_call(audio::CallState::Active)),
+            "P1 call 65 Test Caller\t+15550100*44"
+        );
+        for (st, token) in [
+            (audio::CallState::Incoming, "ring"),
+            (audio::CallState::Waiting, "wait"),
+            (audio::CallState::Dialing, "dial"),
+            (audio::CallState::Alerting, "dial"),
+            (audio::CallState::Held, "hold"),
+        ] {
+            let line = call_line(&with_call(st));
+            assert!(
+                line.starts_with(&format!("P1 {token} 65 Test Caller\t")),
+                "{line}"
+            );
+        }
+        // Less from the phone: the number alone, then the reason.
+        let mut a = with_call(audio::CallState::Incoming);
+        let c = a.calls.as_mut().and_then(|c| c.call.as_mut()).unwrap();
+        c.name.clear();
+        c.active_s = 0;
+        assert!(
+            call_line(&a).starts_with("P1 ring 0 +15550100\t*"),
+            "{}",
+            call_line(&a)
+        );
+        let c = a.calls.as_mut().and_then(|c| c.call.as_mut()).unwrap();
+        c.number.clear();
+        c.withheld = true;
+        assert!(call_line(&a).starts_with("P1 ring 0 Number withheld\t*"));
+        let c = a.calls.as_mut().and_then(|c| c.call.as_mut()).unwrap();
+        c.withheld = false;
+        c.name = "Tab\there *star*".into();
+        assert!(
+            call_line(&a).starts_with("P1 ring 0 Tab here  star\t*"),
+            "{}",
+            call_line(&a)
+        );
+    }
+
+    #[test]
+    fn no_call() {
+        assert!(
+            call_line(&playing()).starts_with("P1 none*"),
+            "no calls at all"
+        );
+        let mut a = with_call(audio::CallState::Active);
+        a.phone = None;
+        assert!(call_line(&a).starts_with("P1 none*"), "a gone phone's call");
+        let a = with_call(audio::CallState::Unspecified);
+        assert!(call_line(&a).starts_with("P1 none*"));
     }
 
     #[test]

@@ -320,9 +320,10 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
                     knob::Action::Volume(c) => {
                         m.set_volume(c, "knob");
                     }
+                    // During a call the push answers or hangs up (ADR-0045).
                     knob::Action::PlayPause => {
-                        if let Err(e) = m.play_pause("knob").await {
-                            eprintln!("[audio] knob: play/pause: {e}");
+                        if let Err(e) = m.knob_push("knob").await {
+                            eprintln!("[audio] knob: push: {e}");
                         }
                     }
                 }

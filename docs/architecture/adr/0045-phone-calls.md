@@ -189,6 +189,21 @@ still a 60 px button that switches, with and without an alert and Save clip,
 in both themes. It ran in the browser preview with a simulated call, on a
 screen and in camera mode.
 
+**The knob** (decision 6, also 2026-11-14): the push, the same HID
+play/pause key on the knob display and on any volume knob (ADR-0043), is
+handled in audio-manager: it answers a ringing call, hangs up the call in
+progress (also one being dialled or held), leaves a waiting call alone
+(answering it would end or hold the first: that is the screen's or the
+phone's), and plays or pauses without a call. knob-link sends the call to
+the dial as `P1` with each media frame (ADR-0044 decision 9); the firmware
+parses it, lets it take over every page while its frames keep coming, and
+ignores touches during it. Tests `[SIM]`: the push end to end over the
+simulated phone; `P1` written in knob-link and the same golden line parsed
+in the firmware's host tests; the takeover, its timeout and the hints;
+knob-link ran on the Mac against the simulated audio-manager into a
+pseudo-terminal and sent `P1 none`, then `P1 ring` when a simulated call
+rang. The S3 firmware builds; no board, so nothing is drawn.
+
 Not done, in order:
 
 - **S2 with audio-manager itself** on the bench: the D-Bus client above has
@@ -200,5 +215,6 @@ Not done, in order:
 - **The call audio** (S3, then S4): the phone's voice through the
   filter-chain, the microphone through WebRTC echo cancellation, and the
   ring tone when the phone sends none (decision 7).
-- **The knob display** (decision 6): the call on the dial, push to answer
-  and hang up.
+- **The knob display's drawing** of the call: the frame, the model and the
+  push are done (below); the dial draws nothing until its drivers exist
+  (ADR-0044, no board yet).

@@ -18,6 +18,40 @@ bool Pages::onGesture(Gesture g)
     return false;
 }
 
+TouchAction Pages::onTouch(Gesture g, uint32_t nowMs)
+{
+    if (call(nowMs) != nullptr) return TouchAction::None;
+    if (g == Gesture::Tap) return TouchAction::PlayPause;
+    return onGesture(g) ? TouchAction::PageChanged : TouchAction::None;
+}
+
+void Pages::onCall(const CallFrame& c, uint32_t nowMs)
+{
+    call_ = c;
+    callAt_ = nowMs;
+    hasCall_ = true;
+}
+
+const CallFrame* Pages::call(uint32_t nowMs) const
+{
+    return hasCall_ && call_.state != CallState::None && static_cast<uint32_t>(nowMs - callAt_) < timeoutMs_
+               ? &call_
+               : nullptr;
+}
+
+const char* callHint(CallState s)
+{
+    switch (s) {
+        case CallState::Ringing: return "Push to answer";
+        case CallState::Waiting: return "Answer on the phone";
+        case CallState::Dialing:
+        case CallState::Active:
+        case CallState::Held: return "Push to hang up";
+        case CallState::None: break;
+    }
+    return "";
+}
+
 void Pages::onNav(const NavFrame& n, uint32_t nowMs)
 {
     nav_ = n;

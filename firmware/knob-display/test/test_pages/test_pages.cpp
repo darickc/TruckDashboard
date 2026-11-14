@@ -48,6 +48,45 @@ void test_nav_and_media_only_while_they_keep_coming()
     TEST_ASSERT_NOT_NULL(p.nav(0x00000200u));
 }
 
+void test_a_call_takes_over_and_touches_do_nothing()
+{
+    Pages p(3000);
+    TEST_ASSERT_NULL(p.call(0));
+    TEST_ASSERT_EQUAL(TouchAction::PlayPause, p.onTouch(Gesture::Tap, 0));
+    TEST_ASSERT_EQUAL(TouchAction::PageChanged, p.onTouch(Gesture::SwipeLeft, 0));
+    TEST_ASSERT_EQUAL(Page::Navigation, p.page());
+
+    CallFrame c;
+    c.state = CallState::Ringing;
+    p.onCall(c, 1000);
+    TEST_ASSERT_NOT_NULL(p.call(1000));
+    TEST_ASSERT_EQUAL(TouchAction::None, p.onTouch(Gesture::Tap, 1500));
+    TEST_ASSERT_EQUAL(TouchAction::None, p.onTouch(Gesture::SwipeLeft, 1500));
+    TEST_ASSERT_EQUAL(Page::Navigation, p.page());
+    TEST_ASSERT_EQUAL_STRING("Push to answer", callHint(p.call(1500)->state));
+
+    // Frames stop: no call is shown as current, touches work again.
+    TEST_ASSERT_NULL(p.call(4000));
+    TEST_ASSERT_EQUAL(TouchAction::PlayPause, p.onTouch(Gesture::Tap, 4000));
+
+    // The call ends: "none" clears it at once.
+    c.state = CallState::Active;
+    p.onCall(c, 5000);
+    TEST_ASSERT_EQUAL_STRING("Push to hang up", callHint(p.call(5000)->state));
+    p.onCall(CallFrame(), 5100);
+    TEST_ASSERT_NULL(p.call(5100));
+    TEST_ASSERT_EQUAL(TouchAction::PageChanged, p.onTouch(Gesture::SwipeRight, 5100));
+}
+
+void test_call_hints()
+{
+    TEST_ASSERT_EQUAL_STRING("Push to answer", callHint(CallState::Ringing));
+    TEST_ASSERT_EQUAL_STRING("Answer on the phone", callHint(CallState::Waiting));
+    TEST_ASSERT_EQUAL_STRING("Push to hang up", callHint(CallState::Dialing));
+    TEST_ASSERT_EQUAL_STRING("Push to hang up", callHint(CallState::Held));
+    TEST_ASSERT_EQUAL_STRING("", callHint(CallState::None));
+}
+
 void test_track_times()
 {
     char b[24];
@@ -66,6 +105,8 @@ int main()
     UNITY_BEGIN();
     RUN_TEST(test_swipes_move_through_the_pages_and_stop_at_the_ends);
     RUN_TEST(test_nav_and_media_only_while_they_keep_coming);
+    RUN_TEST(test_a_call_takes_over_and_touches_do_nothing);
+    RUN_TEST(test_call_hints);
     RUN_TEST(test_track_times);
     return UNITY_END();
 }

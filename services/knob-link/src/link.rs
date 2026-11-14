@@ -102,6 +102,8 @@ where
                     {
                         out.push_str(&pages::media_line(a));
                         out.push('\n');
+                        out.push_str(&pages::call_line(a));
+                        out.push('\n');
                     }
                 }
                 if !out.is_empty()

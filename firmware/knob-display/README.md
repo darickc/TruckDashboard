@@ -22,9 +22,9 @@ frames, draws nothing, and prints what it would show on its serial port as
 | `lib/KnobCore/src/Dial.*` | What each slot shows: current, alert, stale with its age, nothing; everything stale after 2 s without a frame |
 | `lib/KnobCore/src/Layout.*` | Where the arcs and the text go on the 360 × 360 screen |
 | `lib/KnobCore/src/Tap.*` | Gestures: a tap plays/pauses only if short, still, and not just after a turn; a swipe changes the page |
-| `lib/KnobCore/src/Pages.*` | Gauges, navigation, media: the page shown, and the nav and media frames while they keep coming |
+| `lib/KnobCore/src/Pages.*` | Gauges, navigation, media: the page shown, and the nav and media frames while they keep coming; a phone call (`P1`) over every page, touches ignored during it (ADR-0045) |
 | `src/main.cpp` | USB (TinyUSB composite: CDC + HID Consumer Control), the frame reader, the log |
-| `test/` | Host tests (Unity); `test_frame` parses the exact lines knob-link's tests produce (gauges, nav, media) |
+| `test/` | Host tests (Unity); `test_frame` parses the exact lines knob-link's tests produce (gauges, nav, media, call) |
 
 ```bash
 make knob-test

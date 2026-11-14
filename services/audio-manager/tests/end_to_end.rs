@@ -1513,3 +1513,49 @@ async fn without_a_microphone_calls_stay_on_the_phone() {
     assert!(calls(&m).call.is_none());
     assert!(speak(&mut r.client, "Turn left.").await.accepted);
 }
+
+#[tokio::test]
+async fn the_knobs_push_answers_and_hangs_up() {
+    let mut r = start("call-knob", no_pairing()).await;
+    let mut s = watch(&mut r.client).await;
+    until(&mut s, "playing, calls ready", |m| {
+        play_state_of(m) == pb::PlayState::Playing && calls(m).available
+    })
+    .await;
+    r.calls.ring(SIM_NUMBER, SIM_CALLER);
+    until(&mut s, "ringing", |m| {
+        call_state(m) == pb::CallState::Incoming
+    })
+    .await;
+    assert_eq!(r.manager.knob_push("test").await.unwrap(), "Answered.");
+    until(&mut s, "answered", |m| {
+        call_state(m) == pb::CallState::Active
+    })
+    .await;
+
+    // A waiting call: the push leaves both alone.
+    let w = r.calls.ring("+15550199", "");
+    until(&mut s, "waiting", |m| {
+        call_state(m) == pb::CallState::Waiting
+    })
+    .await;
+    assert!(r.manager.knob_push("test").await.is_err());
+    r.calls.end(&w);
+    until(&mut s, "the first again", |m| {
+        call_state(m) == pb::CallState::Active
+    })
+    .await;
+
+    assert_eq!(r.manager.knob_push("test").await.unwrap(), "Hung up.");
+    until(&mut s, "no call", |m| calls(m).call.is_none()).await;
+    until(&mut s, "music back", |m| {
+        play_state_of(m) == pb::PlayState::Playing
+    })
+    .await;
+    // No call: play/pause again.
+    assert_eq!(r.manager.knob_push("test").await.unwrap(), "Pause");
+    until(&mut s, "paused", |m| {
+        play_state_of(m) == pb::PlayState::Paused
+    })
+    .await;
+}

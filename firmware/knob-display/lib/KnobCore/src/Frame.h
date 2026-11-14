@@ -8,6 +8,8 @@
 //   N1 <none|route|wait>*CS | N1 arr [<destination>]*CS   the next turn
 //   M1 <play|pause|stop> <vol> <pos_s|-> <dur_s|-> <title>\t<artist>\t<source>*CS
 //   M1 none <vol>*CS                                      what's playing
+//   P1 <ring|wait|dial|call|hold> <active_s> <caller>\t<number>*CS
+//   P1 none*CS                                            a phone call
 //   H1 <name> <version>*CS                               from the dial
 //
 // <vol> is <level>/<steps>, m<level>/<steps> when muted, or "-".
@@ -109,11 +111,33 @@ struct MediaFrame {
     char source[32] = {};
 };
 
+// A phone call on the connected phone (ADR-0045 decision 6): it takes over
+// the dial.
+enum class CallState : uint8_t {
+    None,
+    Ringing,  // incoming: push to answer
+    Waiting,  // another call during this one: answered on the phone
+    Dialing,  // an outgoing call being set up
+    Active,
+    Held,
+};
+
+struct CallFrame {
+    CallState state = CallState::None;
+    // Seconds since it became active (0 before).
+    uint32_t activeS = 0;
+    // As the dashboard says it: the name, the number, or why neither.
+    char caller[48] = {};
+    // The number under a name; empty otherwise.
+    char number[28] = {};
+};
+
 struct Frames {
     ConfigFrame config;
     DataFrame data;
     NavFrame nav;
     MediaFrame media;
+    CallFrame call;
 };
 
 enum class Parsed {
@@ -121,6 +145,7 @@ enum class Parsed {
     Data,
     Nav,
     Media,
+    Call,
     Hello,
     Comment,      // "# ..." (the dial's log)
     BadChecksum,  // no '*', or it doesn't match
@@ -134,11 +159,11 @@ uint8_t checksum(std::string_view body);
 std::string withChecksum(std::string_view body);
 
 // One line, without its line ending. Fills only the frame it returns
-// (Config, Data, Nav or Media); a Malformed line changes nothing.
+// (Config, Data, Nav, Media or Call); a Malformed line changes nothing.
 Parsed parseLine(std::string_view line, Frames& out);
 
-// The same, for the gauge frames only (Nav and Media lines are parsed and
-// dropped).
+// The same, for the gauge frames only (Nav, Media and Call lines are parsed
+// and dropped).
 Parsed parseLine(std::string_view line, ConfigFrame& config, DataFrame& data);
 
 }  // namespace knob

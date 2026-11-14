@@ -113,6 +113,16 @@ valid only while both are.
    - knob-link sends each once per data period while its source answered in
      the last 3 s; the dial shows a page's data only while its frames keep
      coming (3 s), otherwise "no data", never an old turn or track.
+   - `P1` (audio-manager, a phone call; ADR-0045 decision 6): `<ring|wait|
+     dial|call|hold> <active_s> <caller>\t<number>` or `none`. The caller is
+     the dashboard's words (the name, the number, "Number withheld", "Unknown
+     caller"); the number only under a name. A call takes over the dial on
+     any page while its frames keep coming (3 s, as above): the caller and
+     "Push to answer", "Push to hang up" or "Answer on the phone". During a
+     call touches do nothing (a tap is too easy by accident; the page stays
+     put); the push is still the HID play/pause key, and audio-manager makes
+     it answer a ringing call or hang up the one in progress. The turn stays
+     the volume.
    - Not decided: jumping to the navigation page by itself near a turn; cover
      art on the dial (too heavy for the line protocol).
 
