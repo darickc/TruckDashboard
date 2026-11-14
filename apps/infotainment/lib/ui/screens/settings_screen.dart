@@ -20,6 +20,9 @@ import '../widgets/tap_target.dart';
 /// than Home). Restart and Power, when the launcher offers them, at the right.
 enum SettingsSection { display, cameras, speakers, units }
 
+/// The Diagnostics button's width in the section row.
+const kDiagnosticsButtonWidth = 150.0;
+
 const _labels = {
   SettingsSection.display: 'Display',
   SettingsSection.cameras: 'Cameras',
@@ -60,8 +63,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
           const SizedBox(width: kGap),
           // Not a section: it opens Diagnostics, whose Back returns here.
-          // Scales down rather than clip beside Restart and Power.
-          Expanded(
+          // Wide enough for its icon and word at full size in the panel's
+          // font (DejaVu Sans Bold on AGL); scales down rather than clip.
+          SizedBox(
+            width: kDiagnosticsButtonWidth,
             child: TapTarget(
               key: const ValueKey('settings-diagnostics'),
               label: 'Open Diagnostics',

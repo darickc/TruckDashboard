@@ -11,10 +11,13 @@ const kPowerConfirmTimeout = Duration(seconds: 8);
 
 enum PowerAction { restart, powerOff }
 
+/// Restart's and Power's width beside the Settings sections.
+const kPowerButtonWidth = 72.0;
+
 enum _State { idle, confirming, working }
 
-/// A row of [leading] (the Settings sections), then Restart and Power when
-/// the launcher can do them (PowerControl.canPowerOff). Each asks first:
+/// A row of [leading] (the Settings sections), then Restart and Power, as
+/// icons, when the launcher can do them (PowerControl.canPowerOff). Each asks first:
 /// the question takes the row's place for [kPowerConfirmTimeout], with
 /// Cancel and the action. In place, not a dialog, which would cover the
 /// alert banner.
@@ -88,31 +91,26 @@ class _PowerRowState extends State<PowerRow> {
   Widget _idle(Palette p) {
     final s = AppScope.of(context);
     if (!s.power.canPowerOff) return widget.leading;
-    Widget button(PowerAction a, String key, String semantics, IconData icon, String text) =>
-        SizedBox(
-          width: 140,
+    // Icons only, so the sections and Diagnostics keep full-size words on
+    // the panel's font (ADR-0034 amendment, 2026-11-14). Each asks first in
+    // words, so the icon alone never acts.
+    Widget button(PowerAction a, String key, String semantics, IconData icon) => SizedBox(
+          width: kPowerButtonWidth,
           child: TapTarget(
             key: ValueKey(key),
             label: semantics,
+            padding: EdgeInsets.zero,
             onTap: () => _ask(a),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(icon, size: 24, color: p.text),
-                const SizedBox(width: 6),
-                Text(text, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.text)),
-              ]),
-            ),
+            child: Icon(icon, size: 30, color: p.text),
           ),
         );
     return Row(children: [
       Expanded(child: widget.leading),
       const SizedBox(width: 16),
-      button(PowerAction.restart, 'settings-restart', 'Restart the head unit',
-          Icons.restart_alt_rounded, 'Restart'),
+      button(PowerAction.restart, 'settings-restart', 'Restart the head unit', Icons.restart_alt_rounded),
       const SizedBox(width: kGap),
       button(PowerAction.powerOff, 'settings-power', 'Shut down the head unit',
-          Icons.power_settings_new_rounded, 'Power'),
+          Icons.power_settings_new_rounded),
     ]);
   }
 

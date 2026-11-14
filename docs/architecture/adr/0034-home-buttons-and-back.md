@@ -101,9 +101,14 @@ Decision 2 changes:
   (Display, Cameras, Speakers, Units), left of Restart and Power. It opens
   the Diagnostics screen rather than being a fifth section, so Diagnostics
   keeps its full height and its own section row. Back returns to Settings,
-  with Home beside it (decision 3). Beside Restart and Power the row is
-  tight, so its label scales down rather than clip; it stays at least
-  60 px wide.
+  with Home beside it (decision 3). It is 150 px wide, enough for its icon
+  and word at full size.
+- **Restart and Power are icons** (72 × 60 each; decision 4 otherwise
+  unchanged: each still asks first, in words). With their words, on the
+  bench Pi's font (DejaVu Sans Bold) the row had no room for a fifth
+  button: Diagnostics' word was scaled down until it was unreadable, and
+  Cameras and Speakers touched their edges. Words for all seven do not fit
+  in 800 px.
 
-[SIM]: widget tests at 800×480 (`navigation_test.dart`). Not yet seen on the
-Pi's panel.
+[SIM]: widget tests at 800×480 (`navigation_test.dart`). [BENCH]: on the
+bench Pi's panel, see the bench log (2026-11-14).

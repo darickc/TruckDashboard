@@ -162,7 +162,18 @@ void main() {
     expect(r.right, lessThan(restart.left), reason: 'left of Restart');
     expect(r.width, greaterThanOrEqualTo(kMinTouch));
     expect(r.height, greaterThanOrEqualTo(kMinTouch));
-    expect(find.descendant(of: diag, matching: find.text('Diagnostics')), findsOneWidget);
+    final label = find.descendant(of: diag, matching: find.text('Diagnostics'));
+    expect(label, findsOneWidget);
+    // The test font draws every glyph as a square, so widths are checked
+    // against the panel's font instead: on the bench Pi (DejaVu Sans Bold,
+    // 16 px) "Diagnostics" is about 110 px and "Speakers", the widest
+    // section, about 85 px. Beside worded Restart and Power both were scaled
+    // down until Diagnostics was unreadable (bench Pi, 2026-11-14).
+    expect(r.width, greaterThanOrEqualTo(145), reason: 'icon and word at full size');
+    for (final section in ['display', 'cameras', 'speakers', 'units']) {
+      expect(tester.getSize(find.byKey(ValueKey('settings-$section'))).width, greaterThanOrEqualTo(100),
+          reason: '$section\'s word at full size');
+    }
     expect(tester.takeException(), isNull);
     await tester.tap(diag);
     await tester.pump();
