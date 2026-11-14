@@ -14,6 +14,8 @@ fn defaults_parse_and_the_dsp_config_prints() {
         &[][..],
         &["--simulate"][..],
         &["--voice-command", "say"][..],
+        &["--call-mic", "usb-mic"][..],
+        &["--simulate", "--sim-call-every-s", "30"][..],
     ] {
         let out = Command::new(BIN)
             .args(extra)

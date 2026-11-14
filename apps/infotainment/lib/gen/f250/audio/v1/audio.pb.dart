@@ -702,6 +702,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     Prompts? prompts,
     ConnectAttempt? connect,
     Volume? volume,
+    Calls? calls,
   }) {
     final result = WatchAudioResponse._();
     if (bluetooth != null) result.bluetooth = bluetooth;
@@ -717,6 +718,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     if (prompts != null) result.prompts = prompts;
     if (connect != null) result.connect = connect;
     if (volume != null) result.volume = volume;
+    if (calls != null) result.calls = calls;
     return result;
   }
 
@@ -754,6 +756,8 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
         subBuilder: ConnectAttempt.$_createMessage)
     ..aOM<Volume>(13, _omitFieldNames ? '' : 'volume',
         subBuilder: Volume.$_createMessage)
+    ..aOM<Calls>(14, _omitFieldNames ? '' : 'calls',
+        subBuilder: Calls.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -906,6 +910,283 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
   void clearVolume() => $_clearField(13);
   @$pb.TagNumber(13)
   Volume ensureVolume() => $_ensure(12);
+
+  /// Phone calls (ADR-0045). Absent from an audio-manager without calls.
+  @$pb.TagNumber(14)
+  Calls get calls => $_getN(13);
+  @$pb.TagNumber(14)
+  set calls(Calls value) => $_setField(14, value);
+  @$pb.TagNumber(14)
+  $core.bool hasCalls() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearCalls() => $_clearField(14);
+  @$pb.TagNumber(14)
+  Calls ensureCalls() => $_ensure(13);
+}
+
+/// One call on the connected phone. Never a call of a phone that isn't
+/// connected.
+class Call extends $pb.GeneratedMessage {
+  factory Call({
+    $fixnum.Int64? id,
+    CallState? state,
+    $core.String? number,
+    $core.String? name,
+    $core.bool? withheld,
+    $core.int? activeS,
+    $core.bool? multiparty,
+  }) {
+    final result = Call._();
+    if (id != null) result.id = id;
+    if (state != null) result.state = state;
+    if (number != null) result.number = number;
+    if (name != null) result.name = name;
+    if (withheld != null) result.withheld = withheld;
+    if (activeS != null) result.activeS = activeS;
+    if (multiparty != null) result.multiparty = multiparty;
+    return result;
+  }
+
+  Call._();
+
+  factory Call.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Call()..mergeFromBuffer(data, registry);
+  factory Call.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Call()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Call',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: Call.$_createMessage)
+    ..a<$fixnum.Int64>(1, _omitFieldNames ? '' : 'id', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aE<CallState>(2, _omitFieldNames ? '' : 'state',
+        enumValues: CallState.values)
+    ..aOS(3, _omitFieldNames ? '' : 'number')
+    ..aOS(4, _omitFieldNames ? '' : 'name')
+    ..aOB(5, _omitFieldNames ? '' : 'withheld')
+    ..aI(6, _omitFieldNames ? '' : 'activeS', fieldType: $pb.PbFieldType.OU3)
+    ..aOB(7, _omitFieldNames ? '' : 'multiparty')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Call clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Call copyWith(void Function(Call) updates) =>
+      super.copyWith((message) => updates(message as Call)) as Call;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Call() / Call.new instead')
+  static Call create() => Call._();
+  static $pb.GeneratedMessage $_createMessage() => Call._();
+  @$core.override
+  Call createEmptyInstance() => Call._();
+  @$core.pragma('dart2js:noInline')
+  static Call getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Call>(Call.$_createMessage);
+  static Call? _defaultInstance;
+
+  /// Names this call in AnswerCall and HangUp; a new call gets a new id.
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get id => $_getI64(0);
+  @$pb.TagNumber(1)
+  set id($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  CallState get state => $_getN(1);
+  @$pb.TagNumber(2)
+  set state(CallState value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasState() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearState() => $_clearField(2);
+
+  /// The number as the phone gives it (caller ID); empty: none given.
+  @$pb.TagNumber(3)
+  $core.String get number => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set number($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasNumber() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearNumber() => $_clearField(3);
+
+  /// The name as the phone gives it (its contacts, or the network's); empty:
+  /// none given.
+  @$pb.TagNumber(4)
+  $core.String get name => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set name($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearName() => $_clearField(4);
+
+  /// The caller withheld their number.
+  @$pb.TagNumber(5)
+  $core.bool get withheld => $_getBF(4);
+  @$pb.TagNumber(5)
+  set withheld($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasWithheld() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearWithheld() => $_clearField(5);
+
+  /// Seconds since it became active, as of this message; 0 before.
+  @$pb.TagNumber(6)
+  $core.int get activeS => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set activeS($core.int value) => $_setUnsignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasActiveS() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearActiveS() => $_clearField(6);
+
+  /// Part of a conference call.
+  @$pb.TagNumber(7)
+  $core.bool get multiparty => $_getBF(6);
+  @$pb.TagNumber(7)
+  set multiparty($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasMultiparty() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearMultiparty() => $_clearField(7);
+}
+
+class Calls extends $pb.GeneratedMessage {
+  factory Calls({
+    $core.bool? available,
+    $core.String? detail,
+    Call? call,
+    $core.int? otherCalls,
+    $core.bool? micMuted,
+    $core.String? phoneName,
+  }) {
+    final result = Calls._();
+    if (available != null) result.available = available;
+    if (detail != null) result.detail = detail;
+    if (call != null) result.call = call;
+    if (otherCalls != null) result.otherCalls = otherCalls;
+    if (micMuted != null) result.micMuted = micMuted;
+    if (phoneName != null) result.phoneName = phoneName;
+    return result;
+  }
+
+  Calls._();
+
+  factory Calls.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Calls()..mergeFromBuffer(data, registry);
+  factory Calls.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Calls()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Calls',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: Calls.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'available')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..aOM<Call>(3, _omitFieldNames ? '' : 'call',
+        subBuilder: Call.$_createMessage)
+    ..aI(4, _omitFieldNames ? '' : 'otherCalls', fieldType: $pb.PbFieldType.OU3)
+    ..aOB(5, _omitFieldNames ? '' : 'micMuted')
+    ..aOS(6, _omitFieldNames ? '' : 'phoneName')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Calls clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Calls copyWith(void Function(Calls) updates) =>
+      super.copyWith((message) => updates(message as Calls)) as Calls;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Calls() / Calls.new instead')
+  static Calls create() => Calls._();
+  static $pb.GeneratedMessage $_createMessage() => Calls._();
+  @$core.override
+  Calls createEmptyInstance() => Calls._();
+  @$core.pragma('dart2js:noInline')
+  static Calls getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Calls>(Calls.$_createMessage);
+  static Calls? _defaultInstance;
+
+  /// Calls come to the head unit: a microphone is configured and the phone's
+  /// hands-free gateway answers. False: `detail` says why (calls stay on the
+  /// phone).
+  @$pb.TagNumber(1)
+  $core.bool get available => $_getBF(0);
+  @$pb.TagNumber(1)
+  set available($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAvailable() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAvailable() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
+
+  /// The call to show: one ringing (incoming or waiting) first, then the
+  /// active one, then one being dialled, then a held one.
+  @$pb.TagNumber(3)
+  Call get call => $_getN(2);
+  @$pb.TagNumber(3)
+  set call(Call value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCall() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCall() => $_clearField(3);
+  @$pb.TagNumber(3)
+  Call ensureCall() => $_ensure(2);
+
+  /// Other calls on the phone (held ones, or the active one behind a waiting
+  /// call).
+  @$pb.TagNumber(4)
+  $core.int get otherCalls => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set otherCalls($core.int value) => $_setUnsignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasOtherCalls() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearOtherCalls() => $_clearField(4);
+
+  /// The call microphone is muted (only during a call).
+  @$pb.TagNumber(5)
+  $core.bool get micMuted => $_getBF(4);
+  @$pb.TagNumber(5)
+  set micMuted($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasMicMuted() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearMicMuted() => $_clearField(5);
+
+  /// The connected phone's name, for "on Pixel 8".
+  @$pb.TagNumber(6)
+  $core.String get phoneName => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set phoneName($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasPhoneName() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearPhoneName() => $_clearField(6);
 }
 
 /// Spoken prompts (Speak).
@@ -3170,6 +3451,427 @@ class SetVolumeRequest extends $pb.GeneratedMessage {
   $core.bool hasSource() => $_has(3);
   @$pb.TagNumber(4)
   void clearSource() => $_clearField(4);
+}
+
+class AnswerCallRequest extends $pb.GeneratedMessage {
+  factory AnswerCallRequest({
+    $fixnum.Int64? id,
+    $core.String? source,
+  }) {
+    final result = AnswerCallRequest._();
+    if (id != null) result.id = id;
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  AnswerCallRequest._();
+
+  factory AnswerCallRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AnswerCallRequest()..mergeFromBuffer(data, registry);
+  factory AnswerCallRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AnswerCallRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AnswerCallRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: AnswerCallRequest.$_createMessage)
+    ..a<$fixnum.Int64>(1, _omitFieldNames ? '' : 'id', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AnswerCallRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AnswerCallRequest copyWith(void Function(AnswerCallRequest) updates) =>
+      super.copyWith((message) => updates(message as AnswerCallRequest))
+          as AnswerCallRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use AnswerCallRequest() / AnswerCallRequest.new instead')
+  static AnswerCallRequest create() => AnswerCallRequest._();
+  static $pb.GeneratedMessage $_createMessage() => AnswerCallRequest._();
+  @$core.override
+  AnswerCallRequest createEmptyInstance() => AnswerCallRequest._();
+  @$core.pragma('dart2js:noInline')
+  static AnswerCallRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AnswerCallRequest>(
+          AnswerCallRequest.$_createMessage);
+  static AnswerCallRequest? _defaultInstance;
+
+  /// Call.id.
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get id => $_getI64(0);
+  @$pb.TagNumber(1)
+  set id($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  /// Who asked ("dashboard", "knob"), for the log.
+  @$pb.TagNumber(2)
+  $core.String get source => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set source($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSource() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSource() => $_clearField(2);
+}
+
+class AnswerCallResponse extends $pb.GeneratedMessage {
+  factory AnswerCallResponse({
+    $core.bool? accepted,
+    $core.String? detail,
+  }) {
+    final result = AnswerCallResponse._();
+    if (accepted != null) result.accepted = accepted;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  AnswerCallResponse._();
+
+  factory AnswerCallResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AnswerCallResponse()..mergeFromBuffer(data, registry);
+  factory AnswerCallResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AnswerCallResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AnswerCallResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: AnswerCallResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'accepted')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AnswerCallResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AnswerCallResponse copyWith(void Function(AnswerCallResponse) updates) =>
+      super.copyWith((message) => updates(message as AnswerCallResponse))
+          as AnswerCallResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use AnswerCallResponse() / AnswerCallResponse.new instead')
+  static AnswerCallResponse create() => AnswerCallResponse._();
+  static $pb.GeneratedMessage $_createMessage() => AnswerCallResponse._();
+  @$core.override
+  AnswerCallResponse createEmptyInstance() => AnswerCallResponse._();
+  @$core.pragma('dart2js:noInline')
+  static AnswerCallResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AnswerCallResponse>(
+          AnswerCallResponse.$_createMessage);
+  static AnswerCallResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get accepted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set accepted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAccepted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccepted() => $_clearField(1);
+
+  /// Why not, in words for the screen.
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
+}
+
+class HangUpRequest extends $pb.GeneratedMessage {
+  factory HangUpRequest({
+    $fixnum.Int64? id,
+    $core.String? source,
+  }) {
+    final result = HangUpRequest._();
+    if (id != null) result.id = id;
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  HangUpRequest._();
+
+  factory HangUpRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      HangUpRequest()..mergeFromBuffer(data, registry);
+  factory HangUpRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      HangUpRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'HangUpRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: HangUpRequest.$_createMessage)
+    ..a<$fixnum.Int64>(1, _omitFieldNames ? '' : 'id', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOS(2, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  HangUpRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  HangUpRequest copyWith(void Function(HangUpRequest) updates) =>
+      super.copyWith((message) => updates(message as HangUpRequest))
+          as HangUpRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use HangUpRequest() / HangUpRequest.new instead')
+  static HangUpRequest create() => HangUpRequest._();
+  static $pb.GeneratedMessage $_createMessage() => HangUpRequest._();
+  @$core.override
+  HangUpRequest createEmptyInstance() => HangUpRequest._();
+  @$core.pragma('dart2js:noInline')
+  static HangUpRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<HangUpRequest>(
+          HangUpRequest.$_createMessage);
+  static HangUpRequest? _defaultInstance;
+
+  /// Call.id.
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get id => $_getI64(0);
+  @$pb.TagNumber(1)
+  set id($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get source => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set source($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSource() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSource() => $_clearField(2);
+}
+
+class HangUpResponse extends $pb.GeneratedMessage {
+  factory HangUpResponse({
+    $core.bool? accepted,
+    $core.String? detail,
+  }) {
+    final result = HangUpResponse._();
+    if (accepted != null) result.accepted = accepted;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  HangUpResponse._();
+
+  factory HangUpResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      HangUpResponse()..mergeFromBuffer(data, registry);
+  factory HangUpResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      HangUpResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'HangUpResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: HangUpResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'accepted')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  HangUpResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  HangUpResponse copyWith(void Function(HangUpResponse) updates) =>
+      super.copyWith((message) => updates(message as HangUpResponse))
+          as HangUpResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use HangUpResponse() / HangUpResponse.new instead')
+  static HangUpResponse create() => HangUpResponse._();
+  static $pb.GeneratedMessage $_createMessage() => HangUpResponse._();
+  @$core.override
+  HangUpResponse createEmptyInstance() => HangUpResponse._();
+  @$core.pragma('dart2js:noInline')
+  static HangUpResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<HangUpResponse>(
+          HangUpResponse.$_createMessage);
+  static HangUpResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get accepted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set accepted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAccepted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccepted() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
+}
+
+class SetMicMutedRequest extends $pb.GeneratedMessage {
+  factory SetMicMutedRequest({
+    $core.bool? muted,
+    $core.String? source,
+  }) {
+    final result = SetMicMutedRequest._();
+    if (muted != null) result.muted = muted;
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  SetMicMutedRequest._();
+
+  factory SetMicMutedRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetMicMutedRequest()..mergeFromBuffer(data, registry);
+  factory SetMicMutedRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetMicMutedRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetMicMutedRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: SetMicMutedRequest.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'muted')
+    ..aOS(2, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetMicMutedRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetMicMutedRequest copyWith(void Function(SetMicMutedRequest) updates) =>
+      super.copyWith((message) => updates(message as SetMicMutedRequest))
+          as SetMicMutedRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SetMicMutedRequest() / SetMicMutedRequest.new instead')
+  static SetMicMutedRequest create() => SetMicMutedRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SetMicMutedRequest._();
+  @$core.override
+  SetMicMutedRequest createEmptyInstance() => SetMicMutedRequest._();
+  @$core.pragma('dart2js:noInline')
+  static SetMicMutedRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetMicMutedRequest>(
+          SetMicMutedRequest.$_createMessage);
+  static SetMicMutedRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get muted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set muted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMuted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMuted() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get source => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set source($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSource() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSource() => $_clearField(2);
+}
+
+class SetMicMutedResponse extends $pb.GeneratedMessage {
+  factory SetMicMutedResponse({
+    $core.bool? applied,
+    $core.String? detail,
+  }) {
+    final result = SetMicMutedResponse._();
+    if (applied != null) result.applied = applied;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  SetMicMutedResponse._();
+
+  factory SetMicMutedResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetMicMutedResponse()..mergeFromBuffer(data, registry);
+  factory SetMicMutedResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetMicMutedResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetMicMutedResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: SetMicMutedResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'applied')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetMicMutedResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetMicMutedResponse copyWith(void Function(SetMicMutedResponse) updates) =>
+      super.copyWith((message) => updates(message as SetMicMutedResponse))
+          as SetMicMutedResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use SetMicMutedResponse() / SetMicMutedResponse.new instead')
+  static SetMicMutedResponse create() => SetMicMutedResponse._();
+  static $pb.GeneratedMessage $_createMessage() => SetMicMutedResponse._();
+  @$core.override
+  SetMicMutedResponse createEmptyInstance() => SetMicMutedResponse._();
+  @$core.pragma('dart2js:noInline')
+  static SetMicMutedResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetMicMutedResponse>(
+          SetMicMutedResponse.$_createMessage);
+  static SetMicMutedResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get applied => $_getBF(0);
+  @$pb.TagNumber(1)
+  set applied($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasApplied() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearApplied() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
 }
 
 class SetVolumeResponse extends $pb.GeneratedMessage {

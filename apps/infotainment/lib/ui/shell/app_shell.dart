@@ -18,6 +18,7 @@ import '../theme.dart';
 import 'alert_banner.dart';
 import 'camera_mode.dart';
 import 'status_bar.dart';
+import '../widgets/call_bar.dart';
 import '../widgets/volume.dart';
 
 /// Status bar, alert banner, then the screen showing: Home's buttons, or
@@ -26,7 +27,10 @@ import '../widgets/volume.dart';
 ///
 /// The alert banner sits *above* the screen area, outside any screen, so no
 /// screen can hide it. The volume's level shows over the bottom of the
-/// screen area for a moment after each change (ADR-0043), below the banner. While camera-manager shows a camera, the shell
+/// screen area for a moment after each change (ADR-0043), below the banner.
+/// A phone call shows over the top of the screen area (CallBar, ADR-0045),
+/// also below the banner: vehicle alerts stay above it. While camera-manager
+/// shows a camera, the shell
 /// switches to camera mode (camera_mode.dart) on every screen: the camera's
 /// window covers x 220–800, y 44–480 whatever the dashboard shows, and an
 /// alert takes the status bar's place above it.
@@ -134,6 +138,7 @@ class _AppShellState extends State<AppShell> {
                   VolumeOverlay(audio: s.audio, hidden: s.screens.value == AppScreen.media),
             ),
           ),
+          Positioned(top: 0, left: 0, right: 0, child: CallBar(audio: s.audio)),
         ]),
       ),
     ]);

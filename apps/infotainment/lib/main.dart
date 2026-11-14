@@ -75,6 +75,10 @@ const _export = String.fromEnvironment('EXPORT', defaultValue: 'sim');
 /// (`unix:/run/f250-audio/audio.sock` on the Pi). Default: `sim`.
 const _audio = String.fromEnvironment('AUDIO', defaultValue: 'sim');
 
+/// The simulated phone (AUDIO=sim) rings with a made-up call every this many
+/// seconds (`make ui-web SIM_CALL=30`); 0: never (ADR-0045).
+const _simCallSeconds = int.fromEnvironment('SIM_CALL_S');
+
 /// In-app simulator start point (`make ui-web SCENARIO=eot_ect_freeze START=110`).
 const _scenario = String.fromEnvironment('SCENARIO', defaultValue: 'drive_cycle');
 const _startSeconds = int.fromEnvironment('SIM_START_S');
@@ -154,7 +158,9 @@ Future<AppServices> createServices(
       export == 'sim' ? SimulatedExportSource() : connectUsbExport(GatewayEndpoint.parse(export));
   exports.start();
   final AudioSource audioSource =
-      audio == 'sim' ? SimulatedAudioSource() : connectAudioManager(GatewayEndpoint.parse(audio));
+      audio == 'sim'
+          ? SimulatedAudioSource(ringEveryTicks: _simCallSeconds > 0 ? _simCallSeconds : null)
+          : connectAudioManager(GatewayEndpoint.parse(audio));
   audioSource.start();
   final map = OfflineMap(mapFile, statusPath: mapStatus);
   unawaited(map.load().then((_) => map.watch()));

@@ -150,6 +150,50 @@ class DspState extends $pb.ProtobufEnum {
   const DspState._(super.value, super.name);
 }
 
+/// Where a call is, as the phone's hands-free gateway reports it (PipeWire's
+/// org.pipewire.Telephony.Call1 State).
+class CallState extends $pb.ProtobufEnum {
+  static const CallState CALL_STATE_UNSPECIFIED =
+      CallState._(0, _omitEnumNames ? '' : 'CALL_STATE_UNSPECIFIED');
+
+  /// Ringing: Answer or decline.
+  static const CallState CALL_STATE_INCOMING =
+      CallState._(1, _omitEnumNames ? '' : 'CALL_STATE_INCOMING');
+
+  /// Another call rings during this one: decline here, answer on the phone.
+  static const CallState CALL_STATE_WAITING =
+      CallState._(2, _omitEnumNames ? '' : 'CALL_STATE_WAITING');
+
+  /// An outgoing call (made on the phone) being set up.
+  static const CallState CALL_STATE_DIALING =
+      CallState._(3, _omitEnumNames ? '' : 'CALL_STATE_DIALING');
+
+  /// An outgoing call, the other phone ringing.
+  static const CallState CALL_STATE_ALERTING =
+      CallState._(4, _omitEnumNames ? '' : 'CALL_STATE_ALERTING');
+  static const CallState CALL_STATE_ACTIVE =
+      CallState._(5, _omitEnumNames ? '' : 'CALL_STATE_ACTIVE');
+  static const CallState CALL_STATE_HELD =
+      CallState._(6, _omitEnumNames ? '' : 'CALL_STATE_HELD');
+
+  static const $core.List<CallState> values = <CallState>[
+    CALL_STATE_UNSPECIFIED,
+    CALL_STATE_INCOMING,
+    CALL_STATE_WAITING,
+    CALL_STATE_DIALING,
+    CALL_STATE_ALERTING,
+    CALL_STATE_ACTIVE,
+    CALL_STATE_HELD,
+  ];
+
+  static final $core.List<CallState?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 6);
+  static CallState? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const CallState._(super.value, super.name);
+}
+
 class Command extends $pb.ProtobufEnum {
   static const Command COMMAND_UNSPECIFIED =
       Command._(0, _omitEnumNames ? '' : 'COMMAND_UNSPECIFIED');

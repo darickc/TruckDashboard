@@ -18,6 +18,8 @@ use audio_manager::pairing;
 use audio_manager::runner::{Dsp, NoDsp, PipewireConfig, PipewireDsp};
 use audio_manager::server::Api;
 use audio_manager::sim::{SimConfig, SimPhone};
+use audio_manager::sim_calls::{SimCalls, SimCallsConfig};
+use audio_manager::telephony::{Mic, NoCalls, PwTelephony, Telephony};
 use audio_manager::voice::{CommandVoice, NoVoice, SimVoice, Voice};
 use audio_manager::volume::{self, VolumeLimits};
 use clap::Parser;
@@ -147,6 +149,16 @@ struct Args {
     /// sysfs, where input devices are found (for the tests).
     #[arg(long, default_value = "/sys")]
     sysfs: PathBuf,
+    /// Phone calls (ADR-0045): the PipeWire source node (`node.name`) of the
+    /// call microphone. Empty: calls aren't taken here and stay on the
+    /// phone. The phone sees a hands-free unit only when WirePlumber's
+    /// bluez5 roles include hfp_hf (configured with it, not by this flag).
+    #[arg(long, default_value = "")]
+    call_mic: String,
+    /// With --simulate: a made-up call rings this often (after start and
+    /// after each call ends), seconds; 0: never.
+    #[arg(long, default_value_t = 0)]
+    sim_call_every_s: u64,
 }
 
 #[tokio::main]
@@ -266,7 +278,26 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             "no voice is configured (--voice-command): prompts aren't spoken".into(),
         ))
     };
-    let manager = Manager::new(config, bt, dsp, voice);
+    let calls: Arc<dyn Telephony> = if args.simulate {
+        let sim = SimCalls::new(SimCallsConfig {
+            every: (args.sim_call_every_s > 0).then(|| Duration::from_secs(args.sim_call_every_s)),
+            ..SimCallsConfig::default()
+        });
+        tokio::spawn(sim.clone().run());
+        Arc::new(sim)
+    } else if args.call_mic.trim().is_empty() {
+        Arc::new(NoCalls::new("no call microphone is configured"))
+    } else {
+        eprintln!(
+            "[audio] calls: following org.pipewire.Telephony; microphone {}",
+            args.call_mic.trim()
+        );
+        Arc::new(PwTelephony::start(Mic {
+            node: args.call_mic.trim().to_string(),
+            pw_cli: args.pw_cli.clone(),
+        }))
+    };
+    let manager = Manager::new(config, bt, dsp, voice, calls);
     tokio::spawn(run_watchdog(
         notifier.clone(),
         manager.heartbeat.clone(),

@@ -87,6 +87,27 @@ final $typed_data.Uint8List dspStateDescriptor = $convert.base64Decode(
     'CghEc3BTdGF0ZRIZChVEU1BfU1RBVEVfVU5TUEVDSUZJRUQQABIVChFEU1BfU1RBVEVfQVBQTE'
     'lFRBABEhYKEkRTUF9TVEFURV9TVEFSVElORxACEhkKFURTUF9TVEFURV9OT1RfUlVOTklORxAD');
 
+@$core.Deprecated('Use callStateDescriptor instead')
+const CallState$json = {
+  '1': 'CallState',
+  '2': [
+    {'1': 'CALL_STATE_UNSPECIFIED', '2': 0},
+    {'1': 'CALL_STATE_INCOMING', '2': 1},
+    {'1': 'CALL_STATE_WAITING', '2': 2},
+    {'1': 'CALL_STATE_DIALING', '2': 3},
+    {'1': 'CALL_STATE_ALERTING', '2': 4},
+    {'1': 'CALL_STATE_ACTIVE', '2': 5},
+    {'1': 'CALL_STATE_HELD', '2': 6},
+  ],
+};
+
+/// Descriptor for `CallState`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List callStateDescriptor = $convert.base64Decode(
+    'CglDYWxsU3RhdGUSGgoWQ0FMTF9TVEFURV9VTlNQRUNJRklFRBAAEhcKE0NBTExfU1RBVEVfSU'
+    '5DT01JTkcQARIWChJDQUxMX1NUQVRFX1dBSVRJTkcQAhIWChJDQUxMX1NUQVRFX0RJQUxJTkcQ'
+    'AxIXChNDQUxMX1NUQVRFX0FMRVJUSU5HEAQSFQoRQ0FMTF9TVEFURV9BQ1RJVkUQBRITCg9DQU'
+    'xMX1NUQVRFX0hFTEQQBg==');
+
 @$core.Deprecated('Use commandDescriptor instead')
 const Command$json = {
   '1': 'Command',
@@ -331,6 +352,14 @@ const WatchAudioResponse$json = {
       '6': '.f250.audio.v1.Volume',
       '10': 'volume'
     },
+    {
+      '1': 'calls',
+      '3': 14,
+      '4': 1,
+      '5': 11,
+      '6': '.f250.audio.v1.Calls',
+      '10': 'calls'
+    },
   ],
 };
 
@@ -346,8 +375,63 @@ final $typed_data.Uint8List watchAudioResponseDescriptor = $convert.base64Decode
     'RlUgNkc3ASHQoKZHNwX2RldGFpbBgJIAEoCVIJZHNwRGV0YWlsEhwKCXNpbXVsYXRlZBgKIAEo'
     'CFIJc2ltdWxhdGVkEjAKB3Byb21wdHMYCyABKAsyFi5mMjUwLmF1ZGlvLnYxLlByb21wdHNSB3'
     'Byb21wdHMSNwoHY29ubmVjdBgMIAEoCzIdLmYyNTAuYXVkaW8udjEuQ29ubmVjdEF0dGVtcHRS'
-    'B2Nvbm5lY3QSLQoGdm9sdW1lGA0gASgLMhUuZjI1MC5hdWRpby52MS5Wb2x1bWVSBnZvbHVtZQ'
-    '==');
+    'B2Nvbm5lY3QSLQoGdm9sdW1lGA0gASgLMhUuZjI1MC5hdWRpby52MS5Wb2x1bWVSBnZvbHVtZR'
+    'IqCgVjYWxscxgOIAEoCzIULmYyNTAuYXVkaW8udjEuQ2FsbHNSBWNhbGxz');
+
+@$core.Deprecated('Use callDescriptor instead')
+const Call$json = {
+  '1': 'Call',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 4, '10': 'id'},
+    {
+      '1': 'state',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.f250.audio.v1.CallState',
+      '10': 'state'
+    },
+    {'1': 'number', '3': 3, '4': 1, '5': 9, '10': 'number'},
+    {'1': 'name', '3': 4, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'withheld', '3': 5, '4': 1, '5': 8, '10': 'withheld'},
+    {'1': 'active_s', '3': 6, '4': 1, '5': 13, '10': 'activeS'},
+    {'1': 'multiparty', '3': 7, '4': 1, '5': 8, '10': 'multiparty'},
+  ],
+};
+
+/// Descriptor for `Call`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List callDescriptor = $convert.base64Decode(
+    'CgRDYWxsEg4KAmlkGAEgASgEUgJpZBIuCgVzdGF0ZRgCIAEoDjIYLmYyNTAuYXVkaW8udjEuQ2'
+    'FsbFN0YXRlUgVzdGF0ZRIWCgZudW1iZXIYAyABKAlSBm51bWJlchISCgRuYW1lGAQgASgJUgRu'
+    'YW1lEhoKCHdpdGhoZWxkGAUgASgIUgh3aXRoaGVsZBIZCghhY3RpdmVfcxgGIAEoDVIHYWN0aX'
+    'ZlUxIeCgptdWx0aXBhcnR5GAcgASgIUgptdWx0aXBhcnR5');
+
+@$core.Deprecated('Use callsDescriptor instead')
+const Calls$json = {
+  '1': 'Calls',
+  '2': [
+    {'1': 'available', '3': 1, '4': 1, '5': 8, '10': 'available'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+    {
+      '1': 'call',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.f250.audio.v1.Call',
+      '10': 'call'
+    },
+    {'1': 'other_calls', '3': 4, '4': 1, '5': 13, '10': 'otherCalls'},
+    {'1': 'mic_muted', '3': 5, '4': 1, '5': 8, '10': 'micMuted'},
+    {'1': 'phone_name', '3': 6, '4': 1, '5': 9, '10': 'phoneName'},
+  ],
+};
+
+/// Descriptor for `Calls`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List callsDescriptor = $convert.base64Decode(
+    'CgVDYWxscxIcCglhdmFpbGFibGUYASABKAhSCWF2YWlsYWJsZRIWCgZkZXRhaWwYAiABKAlSBm'
+    'RldGFpbBInCgRjYWxsGAMgASgLMhMuZjI1MC5hdWRpby52MS5DYWxsUgRjYWxsEh8KC290aGVy'
+    'X2NhbGxzGAQgASgNUgpvdGhlckNhbGxzEhsKCW1pY19tdXRlZBgFIAEoCFIIbWljTXV0ZWQSHQ'
+    'oKcGhvbmVfbmFtZRgGIAEoCVIJcGhvbmVOYW1l');
 
 @$core.Deprecated('Use promptsDescriptor instead')
 const Prompts$json = {
@@ -835,6 +919,90 @@ final $typed_data.Uint8List setVolumeRequestDescriptor = $convert.base64Decode(
     'ChBTZXRWb2x1bWVSZXF1ZXN0EhYKBWxldmVsGAEgASgNSABSBWxldmVsEhYKBXN0ZXBzGAIgAS'
     'gFSABSBXN0ZXBzEi8KBG11dGUYAyABKA4yGS5mMjUwLmF1ZGlvLnYxLk11dGVDaGFuZ2VIAFIE'
     'bXV0ZRIWCgZzb3VyY2UYBCABKAlSBnNvdXJjZUIICgZjaGFuZ2U=');
+
+@$core.Deprecated('Use answerCallRequestDescriptor instead')
+const AnswerCallRequest$json = {
+  '1': 'AnswerCallRequest',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 4, '10': 'id'},
+    {'1': 'source', '3': 2, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `AnswerCallRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List answerCallRequestDescriptor = $convert.base64Decode(
+    'ChFBbnN3ZXJDYWxsUmVxdWVzdBIOCgJpZBgBIAEoBFICaWQSFgoGc291cmNlGAIgASgJUgZzb3'
+    'VyY2U=');
+
+@$core.Deprecated('Use answerCallResponseDescriptor instead')
+const AnswerCallResponse$json = {
+  '1': 'AnswerCallResponse',
+  '2': [
+    {'1': 'accepted', '3': 1, '4': 1, '5': 8, '10': 'accepted'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `AnswerCallResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List answerCallResponseDescriptor = $convert.base64Decode(
+    'ChJBbnN3ZXJDYWxsUmVzcG9uc2USGgoIYWNjZXB0ZWQYASABKAhSCGFjY2VwdGVkEhYKBmRldG'
+    'FpbBgCIAEoCVIGZGV0YWls');
+
+@$core.Deprecated('Use hangUpRequestDescriptor instead')
+const HangUpRequest$json = {
+  '1': 'HangUpRequest',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 4, '10': 'id'},
+    {'1': 'source', '3': 2, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `HangUpRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List hangUpRequestDescriptor = $convert.base64Decode(
+    'Cg1IYW5nVXBSZXF1ZXN0Eg4KAmlkGAEgASgEUgJpZBIWCgZzb3VyY2UYAiABKAlSBnNvdXJjZQ'
+    '==');
+
+@$core.Deprecated('Use hangUpResponseDescriptor instead')
+const HangUpResponse$json = {
+  '1': 'HangUpResponse',
+  '2': [
+    {'1': 'accepted', '3': 1, '4': 1, '5': 8, '10': 'accepted'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `HangUpResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List hangUpResponseDescriptor = $convert.base64Decode(
+    'Cg5IYW5nVXBSZXNwb25zZRIaCghhY2NlcHRlZBgBIAEoCFIIYWNjZXB0ZWQSFgoGZGV0YWlsGA'
+    'IgASgJUgZkZXRhaWw=');
+
+@$core.Deprecated('Use setMicMutedRequestDescriptor instead')
+const SetMicMutedRequest$json = {
+  '1': 'SetMicMutedRequest',
+  '2': [
+    {'1': 'muted', '3': 1, '4': 1, '5': 8, '10': 'muted'},
+    {'1': 'source', '3': 2, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `SetMicMutedRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setMicMutedRequestDescriptor = $convert.base64Decode(
+    'ChJTZXRNaWNNdXRlZFJlcXVlc3QSFAoFbXV0ZWQYASABKAhSBW11dGVkEhYKBnNvdXJjZRgCIA'
+    'EoCVIGc291cmNl');
+
+@$core.Deprecated('Use setMicMutedResponseDescriptor instead')
+const SetMicMutedResponse$json = {
+  '1': 'SetMicMutedResponse',
+  '2': [
+    {'1': 'applied', '3': 1, '4': 1, '5': 8, '10': 'applied'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `SetMicMutedResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setMicMutedResponseDescriptor = $convert.base64Decode(
+    'ChNTZXRNaWNNdXRlZFJlc3BvbnNlEhgKB2FwcGxpZWQYASABKAhSB2FwcGxpZWQSFgoGZGV0YW'
+    'lsGAIgASgJUgZkZXRhaWw=');
 
 @$core.Deprecated('Use setVolumeResponseDescriptor instead')
 const SetVolumeResponse$json = {

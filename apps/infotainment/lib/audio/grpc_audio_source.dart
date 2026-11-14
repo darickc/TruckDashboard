@@ -219,6 +219,60 @@ class GrpcAudioSource implements AudioSource {
     // is only what wasn't as asked.
     return CommandResult(ok: true, detail: r.detail);
   }
+
+  @override
+  Future<CommandResult> answerCall(int id) async {
+    final r = await _need().answerCall(pb.AnswerCallRequest(id: Int64(id), source: 'dashboard'), options: _opts);
+    return CommandResult(ok: r.accepted, detail: r.detail);
+  }
+
+  @override
+  Future<CommandResult> hangUp(int id) async {
+    final r = await _need().hangUp(pb.HangUpRequest(id: Int64(id), source: 'dashboard'), options: _opts);
+    return CommandResult(ok: r.accepted, detail: r.detail);
+  }
+
+  @override
+  Future<CommandResult> setMicMuted(bool muted) async {
+    final r = await _need().setMicMuted(pb.SetMicMutedRequest(muted: muted, source: 'dashboard'), options: _opts);
+    return CommandResult(ok: r.applied, detail: r.detail);
+  }
+}
+
+CallPhase callPhaseFromPb(pb.CallState s) => switch (s) {
+  pb.CallState.CALL_STATE_INCOMING => CallPhase.incoming,
+  pb.CallState.CALL_STATE_WAITING => CallPhase.waiting,
+  pb.CallState.CALL_STATE_DIALING => CallPhase.dialing,
+  pb.CallState.CALL_STATE_ALERTING => CallPhase.alerting,
+  pb.CallState.CALL_STATE_ACTIVE => CallPhase.active,
+  pb.CallState.CALL_STATE_HELD => CallPhase.held,
+  _ => CallPhase.unknown,
+};
+
+/// A call only while its phone is connected (rule 4: a gone phone's call is
+/// never shown).
+CallsStatus? callsFromPb(pb.WatchAudioResponse r, Phone? phone) {
+  if (!r.hasCalls()) return null;
+  final c = r.calls;
+  final call = phone != null && c.hasCall() && callPhaseFromPb(c.call.state) != CallPhase.unknown
+      ? PhoneCall(
+          id: c.call.id.toInt(),
+          phase: callPhaseFromPb(c.call.state),
+          number: c.call.number,
+          name: c.call.name,
+          withheld: c.call.withheld,
+          active: Duration(seconds: c.call.activeS),
+          multiparty: c.call.multiparty,
+        )
+      : null;
+  return CallsStatus(
+    available: c.available,
+    detail: c.detail,
+    call: call,
+    otherCalls: call == null ? 0 : c.otherCalls,
+    micMuted: call != null && c.micMuted,
+    phoneName: c.phoneName,
+  );
 }
 
 SpeakerSettings speakersFromPb(pb.SpeakerSettings s) => SpeakerSettings(
@@ -322,5 +376,6 @@ AudioReport reportFromPb(pb.WatchAudioResponse r) {
             detail: r.volume.detail,
           )
         : null,
+    calls: callsFromPb(r, phone),
   );
 }

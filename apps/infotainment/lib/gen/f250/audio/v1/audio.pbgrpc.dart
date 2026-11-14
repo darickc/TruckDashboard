@@ -168,6 +168,33 @@ class AudioServiceClient extends $grpc.Client {
     return $createUnaryCall(_$setVolume, request, options: options);
   }
 
+  /// Answers an incoming call (Call.state INCOMING). Refused, with a reason,
+  /// for a call that isn't incoming, has gone, or when calls are off. A
+  /// waiting call (during another) is answered on the phone.
+  $grpc.ResponseFuture<$0.AnswerCallResponse> answerCall(
+    $0.AnswerCallRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$answerCall, request, options: options);
+  }
+
+  /// Ends a call: declines an incoming or waiting call, hangs up any other.
+  $grpc.ResponseFuture<$0.HangUpResponse> hangUp(
+    $0.HangUpRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$hangUp, request, options: options);
+  }
+
+  /// Mutes or unmutes the call microphone. Only during a call; every call
+  /// starts unmuted.
+  $grpc.ResponseFuture<$0.SetMicMutedResponse> setMicMuted(
+    $0.SetMicMutedRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$setMicMuted, request, options: options);
+  }
+
   // method descriptors
 
   static final _$watchAudio =
@@ -239,6 +266,21 @@ class AudioServiceClient extends $grpc.Client {
           '/f250.audio.v1.AudioService/SetVolume',
           ($0.SetVolumeRequest value) => value.writeToBuffer(),
           $0.SetVolumeResponse.fromBuffer);
+  static final _$answerCall =
+      $grpc.ClientMethod<$0.AnswerCallRequest, $0.AnswerCallResponse>(
+          '/f250.audio.v1.AudioService/AnswerCall',
+          ($0.AnswerCallRequest value) => value.writeToBuffer(),
+          $0.AnswerCallResponse.fromBuffer);
+  static final _$hangUp =
+      $grpc.ClientMethod<$0.HangUpRequest, $0.HangUpResponse>(
+          '/f250.audio.v1.AudioService/HangUp',
+          ($0.HangUpRequest value) => value.writeToBuffer(),
+          $0.HangUpResponse.fromBuffer);
+  static final _$setMicMuted =
+      $grpc.ClientMethod<$0.SetMicMutedRequest, $0.SetMicMutedResponse>(
+          '/f250.audio.v1.AudioService/SetMicMuted',
+          ($0.SetMicMutedRequest value) => value.writeToBuffer(),
+          $0.SetMicMutedResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('f250.audio.v1.AudioService')
@@ -364,6 +406,29 @@ abstract class AudioServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.SetVolumeRequest.fromBuffer(value),
         ($0.SetVolumeResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.AnswerCallRequest, $0.AnswerCallResponse>(
+        'AnswerCall',
+        answerCall_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.AnswerCallRequest.fromBuffer(value),
+        ($0.AnswerCallResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.HangUpRequest, $0.HangUpResponse>(
+        'HangUp',
+        hangUp_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.HangUpRequest.fromBuffer(value),
+        ($0.HangUpResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.SetMicMutedRequest, $0.SetMicMutedResponse>(
+            'SetMicMuted',
+            setMicMuted_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.SetMicMutedRequest.fromBuffer(value),
+            ($0.SetMicMutedResponse value) => value.writeToBuffer()));
   }
 
   $async.Stream<$0.WatchAudioResponse> watchAudio_Pre($grpc.ServiceCall $call,
@@ -484,4 +549,28 @@ abstract class AudioServiceBase extends $grpc.Service {
 
   $async.Future<$0.SetVolumeResponse> setVolume(
       $grpc.ServiceCall call, $0.SetVolumeRequest request);
+
+  $async.Future<$0.AnswerCallResponse> answerCall_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.AnswerCallRequest> $request) async {
+    return answerCall($call, await $request);
+  }
+
+  $async.Future<$0.AnswerCallResponse> answerCall(
+      $grpc.ServiceCall call, $0.AnswerCallRequest request);
+
+  $async.Future<$0.HangUpResponse> hangUp_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.HangUpRequest> $request) async {
+    return hangUp($call, await $request);
+  }
+
+  $async.Future<$0.HangUpResponse> hangUp(
+      $grpc.ServiceCall call, $0.HangUpRequest request);
+
+  $async.Future<$0.SetMicMutedResponse> setMicMuted_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.SetMicMutedRequest> $request) async {
+    return setMicMuted($call, await $request);
+  }
+
+  $async.Future<$0.SetMicMutedResponse> setMicMuted(
+      $grpc.ServiceCall call, $0.SetMicMutedRequest request);
 }

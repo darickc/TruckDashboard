@@ -123,4 +123,58 @@ void main() {
     expect(formatTrackTime(const Duration(minutes: 3, seconds: 5)), '3:05');
     expect(formatTrackTime(const Duration(hours: 1, minutes: 2, seconds: 3)), '1:02:03');
   });
+
+  group('calls (ADR-0045)', () {
+    pb.WatchAudioResponse withCall(pbe.CallState state) => full()
+      ..calls = pb.Calls(
+        available: true,
+        phoneName: 'Pixel 8',
+        otherCalls: 1,
+        micMuted: true,
+        call: pb.Call(
+            id: Int64(7), state: state, number: '+15550100', name: 'Test Caller', activeS: 65, multiparty: true),
+      );
+
+    test('a call maps', () {
+      final c = reportFromPb(withCall(pbe.CallState.CALL_STATE_ACTIVE)).calls!;
+      expect(c.available, isTrue);
+      expect(c.phoneName, 'Pixel 8');
+      expect((c.otherCalls, c.micMuted), (1, true));
+      final call = c.call!;
+      expect((call.id, call.phase, call.number, call.name), (7, CallPhase.active, '+15550100', 'Test Caller'));
+      expect(call.active, const Duration(seconds: 65));
+      expect(call.multiparty, isTrue);
+      expect((call.caller, call.secondLine), ('Test Caller', '+15550100'));
+      for (final (st, phase) in [
+        (pbe.CallState.CALL_STATE_INCOMING, CallPhase.incoming),
+        (pbe.CallState.CALL_STATE_WAITING, CallPhase.waiting),
+        (pbe.CallState.CALL_STATE_DIALING, CallPhase.dialing),
+        (pbe.CallState.CALL_STATE_ALERTING, CallPhase.alerting),
+        (pbe.CallState.CALL_STATE_HELD, CallPhase.held),
+      ]) {
+        expect(reportFromPb(withCall(st)).call!.phase, phase);
+      }
+    });
+
+    test('who is calling, when the phone gives less', () {
+      expect(const PhoneCall(id: 1, phase: CallPhase.incoming, number: '+1555').caller, '+1555');
+      expect(const PhoneCall(id: 1, phase: CallPhase.incoming, number: '+1555').secondLine, '');
+      expect(const PhoneCall(id: 1, phase: CallPhase.incoming, withheld: true).caller, 'Number withheld');
+      expect(const PhoneCall(id: 1, phase: CallPhase.incoming).caller, 'Unknown caller');
+    });
+
+    test('no call without a connected phone, an unknown state, or calls at all', () {
+      final gone = withCall(pbe.CallState.CALL_STATE_INCOMING)..phone.connected = false;
+      final r = reportFromPb(gone);
+      expect(r.calls, isNotNull);
+      expect(r.call, isNull, reason: 'a gone phone\'s call is never shown');
+      expect(r.calls!.micMuted, isFalse);
+      expect(reportFromPb(withCall(pbe.CallState.CALL_STATE_UNSPECIFIED)).call, isNull);
+      expect(reportFromPb(full()).calls, isNull, reason: 'an audio-manager without calls');
+      final off = full()..calls = pb.Calls(detail: 'Calls stay on the phone: no call microphone is configured.');
+      final c = reportFromPb(off).calls!;
+      expect((c.available, c.call), (false, null));
+      expect(c.detail, startsWith('Calls stay on the phone'));
+    });
+  });
 }

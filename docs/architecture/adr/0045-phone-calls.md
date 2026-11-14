@@ -1,11 +1,13 @@
 # ADR 0045 — Phone calls over Bluetooth hands-free (plan)
 
-- **Status:** Proposed (owner asked for a plan, 2026-11-14). Nothing is built.
-  The facts below were read on the bench Pi (image f3bf43b, AGL 22.0.1) and
-  from PipeWire 1.6.8's source on 2026-11-14; the open questions are bench
-  spikes S1–S4, in order, before any code. **S1 done [BENCH] 2026-11-14:**
-  call audio crosses into the Pi (mSBC, both ways), and a call was answered
-  over D-Bus (bench-log); S2 is partly done with it.
+- **Status:** Accepted for phase 1's software (owner asked to build calls in
+  audio-manager, 2026-11-14); built `[SIM]` only, see the amendment. Nothing is
+  enabled on the Pi: the hands-free role, its D-Bus policy and the call
+  audio path wait for the bench (S2–S4). The facts below were read on the
+  bench Pi (image f3bf43b, AGL 22.0.1) and from PipeWire 1.6.8's source on
+  2026-11-14. **S1 done [BENCH] 2026-11-14:** call audio crosses into the Pi
+  (mSBC, both ways), and a call was answered over D-Bus (bench-log); S2 is
+  partly done with it.
 - **Date:** 2026-11-14
 - **Refines:** [ADR-0039](0039-audio-manager.md) (audio-manager; A2DP sink
   only, "HFP: not part of release 1"), [ADR-0043](0043-master-volume-and-the-volume-knob.md)
@@ -120,3 +122,74 @@ display's microphone. Today audio-manager offers phones only an A2DP sink:
 - Echo cancellation adds CPU on the Pi 5 (to measure in S3).
 - Calls hold spoken directions; a prompt during a call is skipped, not
   queued (ADR-0039 decision 9's rule).
+
+## Amendment, 2026-11-14: phase 1 in software `[SIM]`
+
+The owner chose to build calls in audio-manager before the remaining spikes.
+What is built, and the decisions it made:
+
+1. **Following the calls.** `services/audio-manager/src/telephony.rs` reads
+   the Telephony tree whole: `GetManagedObjects` on
+   `/org/pipewire/Telephony` (one `AudioGateway1` per phone, its `Address`),
+   then on each gateway (its `Call1` objects), at start, on any signal under
+   `/org/pipewire/Telephony` (debounced 100 ms), when the service's owner
+   changes, and every 3 s. Never `Properties.Get` (the 1.6.8 bug). Property
+   names and states are from 1.6.8's `telephony.c` and README; the parsing
+   is pure (`calls.rs`) and tested on hand-built trees.
+2. **Enabled by the microphone** (decision 4): `--call-mic <node.name>`.
+   Without one, audio-manager doesn't look for calls and says "Calls stay on
+   the phone: no call microphone is configured". The flag doesn't make the
+   phone see a hands-free unit; WirePlumber's `hfp_hf` role does, and it is
+   not shipped yet (below).
+3. **Which call.** Only the phone in use (one phone at a time, ADR-0039);
+   a gone phone's call is never shown. Shown first: ringing (incoming, then
+   waiting), then active, then dialling or alerting, then held, with a count
+   of the others. Ids are audio-manager's own (a new call, a new id), not
+   object paths.
+4. **Actions.** `AnswerCall` only for an incoming call (`Call1.Answer`). A
+   waiting call is answered on the phone: hold-and-answer is phase 2.
+   `HangUp` is `Call1.Hangup` for any call, which declines a ringing one (the
+   README: a waiting call gets "busy"). `SetMicMuted` runs `pw-cli set-param
+   <mic> Props '{ mute = true }'` (UNVERIFIED: no call microphone yet); every
+   call starts unmuted (audio-manager unmutes after the last call).
+5. **The music and prompts.** When the first call starts, a playing phone is
+   paused (AVRCP) and resumed `prompt_hold` after the last call ends, only if
+   audio-manager paused it and it is still paused — the same rule as spoken
+   directions (ADR-0039 decision 9). A prompt being said stops; `Speak`
+   during a call is refused ("skipped, not queued"). Nothing resumes the
+   music during a call.
+6. **On screen.** A call bar over the top 84 px of the screen area, on every
+   screen, below the status bar and the alert banner: the caller (name, else
+   number, else "Number withheld"), Answer and Decline (incoming), Decline
+   and "answer it on the phone" (waiting), the time, Mute and Hang up
+   (active), Hang up (otherwise); a refusal is said on the bar for 5 s. It
+   covers the screen's top instead of shrinking it, so no screen's layout
+   changes during a call. Not in camera mode yet (the camera keeps its
+   window; the phone still rings). The Phones screen says where calls go.
+7. **Simulation.** audio-manager's simulated phone and the dashboard's both
+   have calls (`SIM_CALL=<s>` with `make sim`, `make audio` or `make ui-web`
+   rings a made-up caller every so often).
+
+Tests `[SIM]`: the tree parsing and the order of calls; `pw-cli` muting
+against a fake `pw-cli`; the simulated phone's calls (paused time); end to
+end over gRPC: ringing, answered, muted, hung up with the music paused and
+resumed and a prompt refused; declined, a withheld number, a waiting call;
+a prompt cut off by a call; calls going and coming back with the phone;
+calls off without a microphone. The dashboard: the gRPC mapping, the call
+bar on every screen and under the alert banner, a refusal shown, nothing
+from a lost link, and 800×480 in both themes with the longest texts. It ran
+in the browser preview with a simulated call.
+
+Not done, in order:
+
+- **S2 with audio-manager itself** on the bench: the D-Bus client above has
+  only run against the simulation.
+- **Packaging**, after S2: the `hfp_hf` role and the Telephony service on the
+  system bus in WirePlumber's Bluetooth config, `f250-telephony.conf`, and
+  `AUDIO_CALL_MIC` in `/etc/default/f250` passed as `--call-mic`; all off
+  unless a microphone is configured.
+- **The call audio** (S3, then S4): the phone's voice through the
+  filter-chain, the microphone through WebRTC echo cancellation, and the
+  ring tone when the phone sends none (decision 7).
+- **The knob display** (decision 6): the call on the dial, push to answer
+  and hang up.

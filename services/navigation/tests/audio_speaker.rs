@@ -83,6 +83,27 @@ impl AudioService for Fake {
         Err(Status::unimplemented("fake"))
     }
 
+    async fn answer_call(
+        &self,
+        _: Request<pb::AnswerCallRequest>,
+    ) -> Result<Response<pb::AnswerCallResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
+    async fn hang_up(
+        &self,
+        _: Request<pb::HangUpRequest>,
+    ) -> Result<Response<pb::HangUpResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
+    async fn set_mic_muted(
+        &self,
+        _: Request<pb::SetMicMutedRequest>,
+    ) -> Result<Response<pb::SetMicMutedResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
     async fn control(
         &self,
         _: Request<pb::ControlRequest>,

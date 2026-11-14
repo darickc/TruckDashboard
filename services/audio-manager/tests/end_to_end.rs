@@ -2,7 +2,9 @@
 //! gRPC client over a unix socket. Now playing and controls, link loss (the
 //! track goes with the phone), Bluetooth going away, the pairing window with
 //! a passkey question accepted and refused, the speaker settings, and the
-//! once-a-second heartbeat.
+//! once-a-second heartbeat. Phone calls (ADR-0045) on the simulated phone:
+//! ringing, answered, declined, a waiting call, mute, the music paused and
+//! resumed, prompts skipped, and calls off without a microphone.
 
 #![allow(clippy::unwrap_used)]
 
@@ -16,6 +18,8 @@ use audio_manager::pairing;
 use audio_manager::runner::NoDsp;
 use audio_manager::server::Api;
 use audio_manager::sim::{self, SimConfig, SimPhone};
+use audio_manager::sim_calls::{SIM_CALLER, SIM_NUMBER, SimCalls, SimCallsConfig};
+use audio_manager::telephony::{NoCalls, Telephony};
 use audio_manager::voice::SimVoice;
 use audio_manager::volume::VolumeLimits;
 use f250_proto::audio::v1 as pb;
@@ -59,6 +63,7 @@ struct Running {
     manager: Arc<Manager>,
     client: Client,
     sim: SimPhone,
+    calls: SimCalls,
     dir: std::path::PathBuf,
 }
 
@@ -73,10 +78,21 @@ async fn start_with(
     sim_cfg: SimConfig,
     change: impl FnOnce(&mut Config, &std::path::Path),
 ) -> Running {
+    start_full(test, sim_cfg, change, None).await
+}
+
+/// `start_with`, with another telephony backend than the simulated calls.
+async fn start_full(
+    test: &str,
+    sim_cfg: SimConfig,
+    change: impl FnOnce(&mut Config, &std::path::Path),
+    tel: Option<Arc<dyn Telephony>>,
+) -> Running {
     let dir = dir(test);
     let (agent_tx, agent_rx) = mpsc::channel(8);
     let sim = SimPhone::new(sim_cfg, agent_tx);
     let bt: Arc<dyn Bluetooth> = Arc::new(sim.clone());
+    let calls = SimCalls::new(SimCallsConfig::default());
     let mut cfg = Config {
         pairing: pairing::Config::default(),
         name: "F-250".into(),
@@ -102,6 +118,7 @@ async fn start_with(
             per_char: Duration::from_millis(2),
             min: Duration::from_millis(300),
         }),
+        tel.unwrap_or_else(|| Arc::new(calls.clone())),
     );
     tokio::spawn(Arc::clone(&manager).run(agent_rx));
     let api = Api::new(Arc::clone(&manager));
@@ -117,6 +134,7 @@ async fn start_with(
         manager,
         client: client(sock).await,
         sim,
+        calls,
         dir,
     }
 }
@@ -1271,4 +1289,227 @@ async fn the_knobs_play_pause_toggles() {
         r.manager.play_pause("knob").await,
         Err("No phone is connected.".to_string())
     );
+}
+
+// ---- phone calls (ADR-0045) ---------------------------------------------------
+
+fn calls(m: &pb::WatchAudioResponse) -> pb::Calls {
+    m.calls.clone().unwrap_or_default()
+}
+
+fn call_state(m: &pb::WatchAudioResponse) -> pb::CallState {
+    m.calls
+        .as_ref()
+        .and_then(|c| c.call.as_ref())
+        .map_or(pb::CallState::Unspecified, |c| c.state())
+}
+
+async fn answer(c: &mut Client, id: u64) -> pb::AnswerCallResponse {
+    c.answer_call(pb::AnswerCallRequest {
+        id,
+        source: "test".into(),
+    })
+    .await
+    .unwrap()
+    .into_inner()
+}
+
+async fn hang_up(c: &mut Client, id: u64) -> pb::HangUpResponse {
+    c.hang_up(pb::HangUpRequest {
+        id,
+        source: "test".into(),
+    })
+    .await
+    .unwrap()
+    .into_inner()
+}
+
+async fn mute(c: &mut Client, muted: bool) -> pb::SetMicMutedResponse {
+    c.set_mic_muted(pb::SetMicMutedRequest {
+        muted,
+        source: "test".into(),
+    })
+    .await
+    .unwrap()
+    .into_inner()
+}
+
+fn no_pairing() -> SimConfig {
+    SimConfig {
+        pair_after: None,
+        ..SimConfig::default()
+    }
+}
+
+#[tokio::test]
+async fn a_call_rings_is_answered_muted_and_hung_up_and_the_music_resumes() {
+    let mut r = start("call", no_pairing()).await;
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "playing, calls ready", |m| {
+        play_state_of(m) == pb::PlayState::Playing && calls(m).available
+    })
+    .await;
+    assert!(calls(&m).call.is_none());
+    assert_eq!(calls(&m).phone_name, "Simulated phone");
+    assert!(
+        !mute(&mut r.client, true).await.applied,
+        "nothing to mute without a call"
+    );
+
+    r.calls.ring(SIM_NUMBER, SIM_CALLER);
+    let m = until(&mut s, "ringing, music paused", |m| {
+        call_state(m) == pb::CallState::Incoming && play_state_of(m) == pb::PlayState::Paused
+    })
+    .await;
+    let call = calls(&m).call.unwrap();
+    assert_eq!(
+        (call.name.as_str(), call.number.as_str()),
+        (SIM_CALLER, SIM_NUMBER)
+    );
+    assert_eq!(call.active_s, 0);
+    assert_eq!(calls(&m).other_calls, 0);
+
+    // Directions are skipped during a call, not queued.
+    let said = speak(&mut r.client, "Turn right.").await;
+    assert!(!said.accepted && said.detail.contains("call"), "{said:?}");
+
+    let a = answer(&mut r.client, call.id).await;
+    assert!(a.accepted, "{a:?}");
+    until(&mut s, "active", |m| call_state(m) == pb::CallState::Active).await;
+    let m = until(&mut s, "a second into the call", |m| {
+        calls(m).call.is_some_and(|c| c.active_s >= 1)
+    })
+    .await;
+    assert_eq!(calls(&m).call.unwrap().id, call.id, "the same call");
+    assert!(
+        !answer(&mut r.client, call.id).await.accepted,
+        "not ringing any more"
+    );
+
+    assert!(mute(&mut r.client, true).await.applied);
+    until(&mut s, "muted", |m| calls(m).mic_muted).await;
+    assert_eq!(r.calls.mutes(), vec![true]);
+
+    let h = hang_up(&mut r.client, call.id).await;
+    assert_eq!((h.accepted, h.detail.as_str()), (true, "Hung up."));
+    let m = until(&mut s, "no call", |m| calls(m).call.is_none()).await;
+    assert!(!calls(&m).mic_muted, "the next call starts unmuted");
+    until(&mut s, "music back", |m| {
+        play_state_of(m) == pb::PlayState::Playing
+    })
+    .await;
+    assert_eq!(r.calls.mutes(), vec![true, false]);
+    let gone = hang_up(&mut r.client, call.id).await;
+    assert!(!gone.accepted && gone.detail.contains("ended"), "{gone:?}");
+}
+
+#[tokio::test]
+async fn declining_and_a_waiting_call() {
+    let mut r = start("call-wait", no_pairing()).await;
+    let mut s = watch(&mut r.client).await;
+    until(&mut s, "ready", |m| calls(m).available).await;
+
+    // Declined: gone, and a new call gets a new id.
+    r.calls.ring(SIM_NUMBER, SIM_CALLER);
+    let m = until(&mut s, "ringing", |m| {
+        call_state(m) == pb::CallState::Incoming
+    })
+    .await;
+    let first = calls(&m).call.unwrap().id;
+    let h = hang_up(&mut r.client, first).await;
+    assert_eq!(h.detail, "Declined.");
+    until(&mut s, "declined", |m| calls(m).call.is_none()).await;
+
+    let a = r.calls.ring("", "");
+    let m = until(&mut s, "a withheld call", |m| {
+        call_state(m) == pb::CallState::Incoming
+    })
+    .await;
+    let c = calls(&m).call.unwrap();
+    assert!(c.withheld && c.number.is_empty());
+    assert_ne!(c.id, first);
+    r.calls.answer_on_phone(&a);
+    until(&mut s, "answered on the phone", |m| {
+        call_state(m) == pb::CallState::Active
+    })
+    .await;
+
+    // Another call during it: shown first, declined here, answered only on
+    // the phone.
+    r.calls.ring("+15550199", "");
+    let m = until(&mut s, "waiting", |m| {
+        call_state(m) == pb::CallState::Waiting
+    })
+    .await;
+    let w = calls(&m).call.unwrap();
+    assert_eq!(calls(&m).other_calls, 1);
+    let refused = answer(&mut r.client, w.id).await;
+    assert!(
+        !refused.accepted && refused.detail.contains("on the phone"),
+        "{refused:?}"
+    );
+    assert!(hang_up(&mut r.client, w.id).await.accepted);
+    let m = until(&mut s, "back to the first", |m| {
+        call_state(m) == pb::CallState::Active
+    })
+    .await;
+    assert_eq!(calls(&m).other_calls, 0);
+    assert_eq!(calls(&m).call.unwrap().id, c.id);
+    r.calls.end(&a);
+    until(&mut s, "ended by the far end", |m| calls(m).call.is_none()).await;
+}
+
+#[tokio::test]
+async fn a_prompt_stops_for_a_call_and_calls_go_with_the_phone() {
+    let mut r = start("call-phone", no_pairing()).await;
+    let mut s = watch(&mut r.client).await;
+    until(&mut s, "ready", |m| calls(m).available).await;
+    let long = "In two miles, keep left to stay on the interstate, then take exit forty two.";
+    assert!(speak(&mut r.client, long).await.accepted);
+    until(&mut s, "speaking", |m| prompts(m).speaking).await;
+    r.calls.ring(SIM_NUMBER, SIM_CALLER);
+    let m = until(&mut s, "ringing", |m| {
+        call_state(m) == pb::CallState::Incoming
+    })
+    .await;
+    assert!(!prompts(&m).speaking, "cut off for the call");
+
+    // The phone goes: so do its calls; it comes back with the call.
+    r.sim.disconnect();
+    let m = until(&mut s, "no phone", |m| m.phone.is_none()).await;
+    assert!(calls(&m).call.is_none());
+    assert!(!calls(&m).available);
+    assert_eq!(calls(&m).detail, "No phone is connected.");
+    r.sim.connect();
+    until(&mut s, "ringing again", |m| {
+        call_state(m) == pb::CallState::Incoming
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn without_a_microphone_calls_stay_on_the_phone() {
+    let mut r = start_full(
+        "call-off",
+        no_pairing(),
+        |_, _| {},
+        Some(Arc::new(NoCalls::new("no call microphone is configured"))),
+    )
+    .await;
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "a phone", |m| m.phone.is_some()).await;
+    let c = calls(&m);
+    assert!(!c.available && c.call.is_none());
+    assert_eq!(
+        c.detail,
+        "Calls stay on the phone: no call microphone is configured."
+    );
+    let a = answer(&mut r.client, 1).await;
+    assert!(!a.accepted && a.detail.starts_with("Calls stay on the phone"));
+    // The simulated calls exist but aren't this manager's.
+    r.calls.ring(SIM_NUMBER, SIM_CALLER);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let m = until(&mut s, "a later report", |_| true).await;
+    assert!(calls(&m).call.is_none());
+    assert!(speak(&mut r.client, "Turn left.").await.accepted);
 }

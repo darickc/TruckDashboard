@@ -298,4 +298,49 @@ impl AudioService for Api {
             volume,
         }))
     }
+
+    async fn answer_call(
+        &self,
+        req: Request<pb::AnswerCallRequest>,
+    ) -> Result<Response<pb::AnswerCallResponse>, Status> {
+        let r = req.into_inner();
+        let (accepted, detail) = match self.manager.answer_call(r.id, &source_of(&r.source)).await {
+            Ok(d) => (true, d),
+            Err(d) => (false, d),
+        };
+        Ok(Response::new(pb::AnswerCallResponse { accepted, detail }))
+    }
+
+    async fn hang_up(
+        &self,
+        req: Request<pb::HangUpRequest>,
+    ) -> Result<Response<pb::HangUpResponse>, Status> {
+        let r = req.into_inner();
+        let (accepted, detail) = match self.manager.hang_up(r.id, &source_of(&r.source)).await {
+            Ok(d) => (true, d),
+            Err(d) => (false, d),
+        };
+        Ok(Response::new(pb::HangUpResponse { accepted, detail }))
+    }
+
+    async fn set_mic_muted(
+        &self,
+        req: Request<pb::SetMicMutedRequest>,
+    ) -> Result<Response<pb::SetMicMutedResponse>, Status> {
+        let r = req.into_inner();
+        let r = self
+            .manager
+            .set_mic_muted(r.muted, &source_of(&r.source))
+            .await;
+        Ok(Response::new(match r {
+            Ok(()) => pb::SetMicMutedResponse {
+                applied: true,
+                detail: String::new(),
+            },
+            Err(detail) => pb::SetMicMutedResponse {
+                applied: false,
+                detail,
+            },
+        }))
+    }
 }

@@ -1,7 +1,8 @@
 //! audio-manager's core: follows the Bluetooth backend, runs the pairing
 //! window and the pairing agent's questions, connects paired phones (the
 //! driver's choice, or the last phone again by itself), keeps the speaker
-//! settings and the master volume (ADR-0043), and publishes what the dashboard shows
+//! settings and the master volume (ADR-0043), follows the connected phone's
+//! calls (ADR-0045), and publishes what the dashboard shows
 //! (`f250.audio.v1.WatchAudioResponse`) on each change and once a second.
 //!
 //! Honesty rules (CLAUDE.md rule 4): the track is published only while its
@@ -17,11 +18,13 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::Instant;
 
 use crate::backend::Bluetooth;
+use crate::calls::{self, Availability, Call, CallSnapshot, CallState};
 use crate::dsp::{self, Limits, Mix, Settings};
 use crate::model::{Adapter, AgentAsk, AgentRequest, Command, Picture, PlayState, Snapshot};
 use crate::pairing::{self, Action, Outcome, State, Window};
 use crate::prompts::{Act, PromptPause};
 use crate::runner::{Dsp, DspState};
+use crate::telephony::Telephony;
 use crate::voice::{Voice, clean_prompt};
 use crate::volume::{self, Change, Volume, VolumeLimits};
 
@@ -147,6 +150,22 @@ struct Inner {
     volume: Volume,
     /// A volume change not saved yet: (the level, who changed it last).
     volume_unsaved: Option<String>,
+    /// Calls seen, by object path: the id the dashboard names them by, and
+    /// since when each is active.
+    calls: HashMap<String, CallMemo>,
+    next_call_id: u64,
+    /// The phone in use has a call (any state but ended).
+    in_call: bool,
+    mic_muted: bool,
+    /// The music paused for a call, resumed after it (as for prompts).
+    call_pause: PromptPause,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct CallMemo {
+    id: u64,
+    state: CallState,
+    active_since: Option<Instant>,
 }
 
 pub struct Manager {
@@ -154,6 +173,7 @@ pub struct Manager {
     bt: Arc<dyn Bluetooth>,
     dsp: Arc<dyn Dsp>,
     voice: Arc<dyn Voice>,
+    tel: Arc<dyn Telephony>,
     inner: Mutex<Inner>,
     out: watch::Sender<pb::WatchAudioResponse>,
     /// Bumped by the main loop (systemd watchdog).
@@ -241,6 +261,7 @@ impl Manager {
         bt: Arc<dyn Bluetooth>,
         dsp: Arc<dyn Dsp>,
         voice: Arc<dyn Voice>,
+        tel: Arc<dyn Telephony>,
     ) -> Arc<Manager> {
         let (settings, problem) = load_settings(&cfg);
         if let Some(p) = problem {
@@ -286,11 +307,17 @@ impl Manager {
                 held: BTreeSet::new(),
                 volume,
                 volume_unsaved: None,
+                calls: HashMap::new(),
+                next_call_id: 1,
+                in_call: false,
+                mic_muted: false,
+                call_pause: PromptPause::new(cfg.prompt_hold),
             }),
             cfg,
             bt,
             dsp,
             voice,
+            tel,
             out: watch::Sender::new(pb::WatchAudioResponse::default()),
             heartbeat: f250_sd_notify::Heartbeat::new(),
             stopping: std::sync::atomic::AtomicBool::new(false),
@@ -436,6 +463,7 @@ impl Manager {
         let mut snap = self.bt.snapshot();
         let mut art = self.bt.cover_art();
         let mut dsp_state = self.dsp.state();
+        let mut calls = self.tel.calls();
         self.dsp.start(self.mix()).await;
         tokio::spawn(Arc::clone(&self).volume_task());
         self.on_snapshot();
@@ -454,6 +482,10 @@ impl Manager {
                 r = art.changed() => {
                     if r.is_err() { return; }
                     self.publish();
+                }
+                r = calls.changed() => {
+                    if r.is_err() { return; }
+                    self.on_calls();
                 }
                 req = agent.recv() => match req {
                     Some(req) => self.on_agent(req),
@@ -547,7 +579,10 @@ impl Manager {
             // A phone gone (or another one) isn't resumed by us later.
             if s.player.is_none() {
                 inner.prompts.forget();
+                inner.call_pause.forget();
             }
+            let t = self.tel.calls().borrow().clone();
+            self.follow_calls(inner, &s, &t, now);
         }
         self.publish();
     }
@@ -607,8 +642,14 @@ impl Manager {
                 .player
                 .as_ref()
                 .is_some_and(|p| p.state == PlayState::Paused);
-            if let Some(act) = inner.prompts.tick(now, paused) {
-                self.send_act(act);
+            // Nothing resumes the music during a call.
+            if !inner.in_call {
+                if let Some(act) = inner.prompts.tick(now, paused) {
+                    self.send_act(act);
+                }
+                if let Some(act) = inner.call_pause.tick(now, paused) {
+                    self.send_act(act);
+                }
             }
         }
         self.publish();
@@ -621,10 +662,10 @@ impl Manager {
             Act::Pause => Command::Pause,
             Act::Play => Command::Play,
         };
-        eprintln!("[audio] prompts: {} the phone", cmd.method());
+        eprintln!("[audio] {} the phone's music", cmd.method());
         tokio::spawn(async move {
             if let Err(e) = me.bt.control(cmd).await {
-                eprintln!("[audio] prompts: {}: {e}", cmd.method());
+                eprintln!("[audio] {} the phone's music: {e}", cmd.method());
             }
         });
     }
@@ -1006,6 +1047,10 @@ impl Manager {
             return Err("Nothing to say.".into());
         }
         self.voice.available()?;
+        if self.lock().in_call {
+            eprintln!("[audio] {source}: prompt skipped during a call: {text:?}");
+            return Err("A call is in progress: the prompt is skipped.".into());
+        }
         let playing = self
             .bt
             .snapshot()
@@ -1074,6 +1119,251 @@ impl Manager {
         was
     }
 
+    // ---- phone calls (ADR-0045) ---------------------------------------------
+
+    fn on_calls(self: &Arc<Self>) {
+        {
+            let s = self.bt.snapshot().borrow().clone();
+            let t = self.tel.calls().borrow().clone();
+            let mut inner = self.lock();
+            self.follow_calls(&mut inner, &s, &t, Instant::now());
+        }
+        self.publish();
+    }
+
+    /// The calls on the phone in use.
+    fn phone_calls(inner: &Inner, s: &Snapshot, t: &CallSnapshot) -> Vec<Call> {
+        let Some(phone) = Self::current(inner, s) else {
+            return Vec::new();
+        };
+        t.calls
+            .iter()
+            .filter(|c| c.address == phone.address && c.state != CallState::Disconnected)
+            .cloned()
+            .collect()
+    }
+
+    /// Keeps the calls' ids and times, logs their changes, and pauses the
+    /// music when the first call starts and resumes it after the last.
+    fn follow_calls(
+        self: &Arc<Self>,
+        inner: &mut Inner,
+        s: &Snapshot,
+        t: &CallSnapshot,
+        now: Instant,
+    ) {
+        let mine = Self::phone_calls(inner, s, t);
+        inner.calls.retain(|path, _| {
+            t.calls
+                .iter()
+                .any(|c| &c.path == path && c.state != CallState::Disconnected)
+        });
+        for c in &t.calls {
+            if c.state == CallState::Disconnected {
+                continue;
+            }
+            let next_id = inner.next_call_id;
+            let memo = inner
+                .calls
+                .entry(c.path.clone())
+                .or_insert_with(|| CallMemo {
+                    id: next_id,
+                    state: CallState::Unknown,
+                    active_since: None,
+                });
+            if memo.id == next_id {
+                inner.next_call_id += 1;
+            }
+            if memo.state != c.state {
+                if mine.iter().any(|m| m.path == c.path) {
+                    eprintln!(
+                        "[audio] call {} ({}): {:?}",
+                        memo.id,
+                        calls::caller(c),
+                        c.state
+                    );
+                }
+                memo.state = c.state;
+            }
+            if c.state == CallState::Active && memo.active_since.is_none() {
+                memo.active_since = Some(now);
+            }
+        }
+        let in_call = !mine.is_empty();
+        if in_call && !inner.in_call {
+            // Spoken directions stop for the call (ADR-0039 decision 9's
+            // rule: skipped, not queued).
+            if let Some(task) = inner.saying.take() {
+                task.abort();
+                inner.prompt_gen += 1;
+                inner.prompts.finished(now);
+                eprintln!("[audio] prompt stopped for a call");
+            }
+            let playing = s
+                .player
+                .as_ref()
+                .is_some_and(|p| p.state == PlayState::Playing);
+            if let Some(act) = inner.call_pause.start(playing) {
+                self.send_act(act);
+            }
+        } else if !in_call && inner.in_call {
+            eprintln!("[audio] no call any more");
+            inner.call_pause.finished(now);
+            if inner.mic_muted {
+                // Every call starts unmuted.
+                inner.mic_muted = false;
+                let me = Arc::clone(self);
+                tokio::spawn(async move {
+                    if let Err(e) = me.tel.set_mic_muted(false).await {
+                        eprintln!("[audio] call microphone: unmuting after the call: {e}");
+                    }
+                });
+            }
+        }
+        inner.in_call = in_call;
+    }
+
+    /// The call named `id` on the phone in use, if it is still there.
+    fn call_by_id(&self, id: u64) -> Result<Call, String> {
+        let s = self.bt.snapshot().borrow().clone();
+        let t = self.tel.calls().borrow().clone();
+        match &t.availability {
+            Availability::Off(why) => return Err(format!("Calls stay on the phone: {why}.")),
+            Availability::Unavailable(why) => return Err(format!("Calls unavailable: {why}.")),
+            Availability::Ready => {}
+        }
+        let inner = self.lock();
+        Self::phone_calls(&inner, &s, &t)
+            .into_iter()
+            .find(|c| inner.calls.get(&c.path).is_some_and(|m| m.id == id))
+            .ok_or_else(|| "That call has ended.".to_string())
+    }
+
+    /// Answers an incoming call. Ok: what is happening, for the screen.
+    pub async fn answer_call(&self, id: u64, source: &str) -> Result<String, String> {
+        let c = self.call_by_id(id)?;
+        match c.state {
+            CallState::Incoming => {}
+            CallState::Waiting => {
+                return Err("Another call is in progress: answer this one on the phone.".into());
+            }
+            _ => return Err("That call isn't ringing.".into()),
+        }
+        eprintln!("[audio] {source}: answer call {id} ({})", calls::caller(&c));
+        self.tel
+            .answer(&c.path)
+            .await
+            .map(|()| "Answered.".to_string())
+            .map_err(|e| {
+                eprintln!("[audio] answering call {id}: {e}");
+                format!("The phone didn't answer the call: {e}.")
+            })
+    }
+
+    /// Declines a ringing call or hangs up any other.
+    pub async fn hang_up(&self, id: u64, source: &str) -> Result<String, String> {
+        let c = self.call_by_id(id)?;
+        let what = if c.state.rings() {
+            "decline"
+        } else {
+            "hang up"
+        };
+        eprintln!("[audio] {source}: {what} call {id} ({})", calls::caller(&c));
+        self.tel
+            .hang_up(&c.path)
+            .await
+            .map(|()| {
+                if c.state.rings() {
+                    "Declined.".to_string()
+                } else {
+                    "Hung up.".to_string()
+                }
+            })
+            .map_err(|e| {
+                eprintln!("[audio] {what} call {id}: {e}");
+                format!("The phone didn't end the call: {e}.")
+            })
+    }
+
+    /// Mutes or unmutes the call microphone, during a call only.
+    pub async fn set_mic_muted(&self, muted: bool, source: &str) -> Result<(), String> {
+        if !self.lock().in_call {
+            return Err("There is no call.".into());
+        }
+        self.tel.set_mic_muted(muted).await.map_err(|e| {
+            eprintln!("[audio] call microphone: {e}");
+            format!(
+                "The microphone couldn't be {}: {e}.",
+                if muted { "muted" } else { "unmuted" }
+            )
+        })?;
+        let changed = {
+            let mut inner = self.lock();
+            let changed = inner.mic_muted != muted;
+            inner.mic_muted = muted;
+            changed
+        };
+        if changed {
+            eprintln!(
+                "[audio] {source}: call microphone {}",
+                if muted { "muted" } else { "unmuted" }
+            );
+        }
+        self.publish();
+        Ok(())
+    }
+
+    fn calls_pb(&self, inner: &Inner, s: &Snapshot, now: Instant) -> pb::Calls {
+        let t = self.tel.calls().borrow().clone();
+        let phone = Self::current(inner, s);
+        let (available, detail) = match (&t.availability, &phone) {
+            (Availability::Off(why), _) => (false, format!("Calls stay on the phone: {why}.")),
+            (Availability::Unavailable(why), _) => (false, format!("Calls unavailable: {why}.")),
+            (Availability::Ready, None) => (false, "No phone is connected.".to_string()),
+            (Availability::Ready, Some(p)) if !t.gateways.contains(&p.address) => (
+                false,
+                format!(
+                    "{} hasn't connected for calls: they stay on the phone.",
+                    p.name
+                ),
+            ),
+            (Availability::Ready, Some(_)) => (true, String::new()),
+        };
+        let mine = Self::phone_calls(inner, s, &t);
+        let (shown, others) = calls::pick(&mine, phone.as_ref().map_or("", |p| p.address.as_str()));
+        let call = shown.and_then(|c| {
+            let memo = inner.calls.get(&c.path)?;
+            let state = match c.state {
+                CallState::Incoming => pb::CallState::Incoming,
+                CallState::Waiting => pb::CallState::Waiting,
+                CallState::Dialing => pb::CallState::Dialing,
+                CallState::Alerting => pb::CallState::Alerting,
+                CallState::Active => pb::CallState::Active,
+                CallState::Held => pb::CallState::Held,
+                CallState::Disconnected | CallState::Unknown => pb::CallState::Unspecified,
+            };
+            Some(pb::Call {
+                id: memo.id,
+                state: state.into(),
+                number: c.number.clone(),
+                name: c.name.clone(),
+                withheld: c.withheld,
+                active_s: memo.active_since.map_or(0, |at| {
+                    u32::try_from(now.saturating_duration_since(at).as_secs()).unwrap_or(u32::MAX)
+                }),
+                multiparty: c.multiparty,
+            })
+        });
+        pb::Calls {
+            available,
+            detail,
+            call,
+            other_calls: others,
+            mic_muted: inner.mic_muted && inner.in_call,
+            phone_name: phone.map(|p| p.name).unwrap_or_default(),
+        }
+    }
+
     // ---- requests from the dashboard ----------------------------------------
 
     pub async fn control(&self, cmd: Command, source: &str) -> Result<(), String> {
@@ -1085,8 +1375,13 @@ impl Manager {
             return Err("The phone doesn't offer playback control (no AVRCP player).".into());
         }
         eprintln!("[audio] {source}: {}", cmd.method());
-        // The driver's own choice: audio-manager won't resume it after prompts.
-        self.lock().prompts.forget();
+        // The driver's own choice: audio-manager won't resume it after
+        // prompts or a call.
+        {
+            let mut inner = self.lock();
+            inner.prompts.forget();
+            inner.call_pause.forget();
+        }
         self.bt.control(cmd).await
     }
 
@@ -1312,6 +1607,7 @@ impl Manager {
             dsp_detail,
             simulated: self.cfg.simulated,
             volume: Some(volume),
+            calls: Some(self.calls_pb(&inner, &s, now)),
             connect: Some(pb::ConnectAttempt {
                 address: inner
                     .attempt

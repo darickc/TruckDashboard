@@ -12,6 +12,12 @@
       "runtimeExecutable": "make",
       "runtimeArgs": ["ui-web", "SCENARIO=eot_ect_freeze", "START=110", "WEB_PORT=8251"],
       "port": 8251
+    },
+    {
+      "name": "infotainment-web-call",
+      "runtimeExecutable": "make",
+      "runtimeArgs": ["ui-web", "SIM_CALL=8", "WEB_PORT=8251"],
+      "port": 8251
     }
   ]
 }

@@ -111,6 +111,19 @@ class _PhonesScreenState extends State<PhonesScreen> {
               style: TextStyle(
                   fontSize: 14, color: _message != null || (!c.busy && c.detail.isNotEmpty) ? p.advisory : p.text)),
         ],
+        // Where calls go (ADR-0045): only from an audio-manager that has
+        // calls, and only with a phone connected.
+        if (r.calls != null && r.phone != null) ...[
+          const SizedBox(height: 6),
+          Text(
+              r.calls!.available
+                  ? 'Calls on ${r.phone!.name} come to the truck.'
+                  : (r.calls!.detail.isEmpty ? 'Calls stay on the phone.' : r.calls!.detail),
+              key: const ValueKey('phones-calls'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 14, color: p.textDim)),
+        ],
       ]),
     );
   }

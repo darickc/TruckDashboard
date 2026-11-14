@@ -7,6 +7,12 @@ syntax = "proto3";
 // level; ADR-0014). The dashboard shows and asks; it never talks to BlueZ or
 // PipeWire itself (CLAUDE.md rule 5).
 //
+// Phone calls (ADR-0045): audio-manager follows the phone's hands-free
+// gateway through PipeWire's Telephony service and publishes the call in
+// WatchAudioResponse.calls; AnswerCall, HangUp and SetMicMuted act on it.
+// Calls are enabled only with a call microphone configured: without one
+// they stay on the phone.
+//
 // Spoken navigation prompts go through Speak: audio-manager pauses the
 // phone's music, says the prompt and resumes the music (owner, 2026-11-12;
 // ADR-0039 decision 9).
@@ -63,6 +69,15 @@ service AudioService {
   // The master volume (ADR-0043): a level, a number of steps, or mute. The
   // knob (Linux input on the Pi) goes through the same change.
   rpc SetVolume(SetVolumeRequest) returns (SetVolumeResponse);
+  // Answers an incoming call (Call.state INCOMING). Refused, with a reason,
+  // for a call that isn't incoming, has gone, or when calls are off. A
+  // waiting call (during another) is answered on the phone.
+  rpc AnswerCall(AnswerCallRequest) returns (AnswerCallResponse);
+  // Ends a call: declines an incoming or waiting call, hangs up any other.
+  rpc HangUp(HangUpRequest) returns (HangUpResponse);
+  // Mutes or unmutes the call microphone. Only during a call; every call
+  // starts unmuted.
+  rpc SetMicMuted(SetMicMutedRequest) returns (SetMicMutedResponse);
 }
 
 message WatchAudioRequest {}
@@ -215,6 +230,61 @@ message WatchAudioResponse {
   ConnectAttempt connect = 12;
   // The master volume (ADR-0043).
   Volume volume = 13;
+  // Phone calls (ADR-0045). Absent from an audio-manager without calls.
+  Calls calls = 14;
+}
+
+// Where a call is, as the phone's hands-free gateway reports it (PipeWire's
+// org.pipewire.Telephony.Call1 State).
+enum CallState {
+  CALL_STATE_UNSPECIFIED = 0;
+  // Ringing: Answer or decline.
+  CALL_STATE_INCOMING = 1;
+  // Another call rings during this one: decline here, answer on the phone.
+  CALL_STATE_WAITING = 2;
+  // An outgoing call (made on the phone) being set up.
+  CALL_STATE_DIALING = 3;
+  // An outgoing call, the other phone ringing.
+  CALL_STATE_ALERTING = 4;
+  CALL_STATE_ACTIVE = 5;
+  CALL_STATE_HELD = 6;
+}
+
+// One call on the connected phone. Never a call of a phone that isn't
+// connected.
+message Call {
+  // Names this call in AnswerCall and HangUp; a new call gets a new id.
+  uint64 id = 1;
+  CallState state = 2;
+  // The number as the phone gives it (caller ID); empty: none given.
+  string number = 3;
+  // The name as the phone gives it (its contacts, or the network's); empty:
+  // none given.
+  string name = 4;
+  // The caller withheld their number.
+  bool withheld = 5;
+  // Seconds since it became active, as of this message; 0 before.
+  uint32 active_s = 6;
+  // Part of a conference call.
+  bool multiparty = 7;
+}
+
+message Calls {
+  // Calls come to the head unit: a microphone is configured and the phone's
+  // hands-free gateway answers. False: `detail` says why (calls stay on the
+  // phone).
+  bool available = 1;
+  string detail = 2;
+  // The call to show: one ringing (incoming or waiting) first, then the
+  // active one, then one being dialled, then a held one.
+  Call call = 3;
+  // Other calls on the phone (held ones, or the active one behind a waiting
+  // call).
+  uint32 other_calls = 4;
+  // The call microphone is muted (only during a call).
+  bool mic_muted = 5;
+  // The connected phone's name, for "on Pixel 8".
+  string phone_name = 6;
 }
 
 // Spoken prompts (Speak).
@@ -437,6 +507,40 @@ message SetVolumeRequest {
   }
   // Who asked ("dashboard", "knob"), for the log.
   string source = 4;
+}
+
+message AnswerCallRequest {
+  // Call.id.
+  uint64 id = 1;
+  // Who asked ("dashboard", "knob"), for the log.
+  string source = 2;
+}
+
+message AnswerCallResponse {
+  bool accepted = 1;
+  // Why not, in words for the screen.
+  string detail = 2;
+}
+
+message HangUpRequest {
+  // Call.id.
+  uint64 id = 1;
+  string source = 2;
+}
+
+message HangUpResponse {
+  bool accepted = 1;
+  string detail = 2;
+}
+
+message SetMicMutedRequest {
+  bool muted = 1;
+  string source = 2;
+}
+
+message SetMicMutedResponse {
+  bool applied = 1;
+  string detail = 2;
 }
 
 message SetVolumeResponse {

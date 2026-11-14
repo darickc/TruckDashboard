@@ -36,6 +36,24 @@ void expectTouchTargets(WidgetTester tester, String where) {
 /// An audio-manager whose status the test sets, recording the calls.
 class FakeAudio implements AudioSource {
   final calls = <String>[];
+
+  @override
+  Future<CommandResult> answerCall(int id) async {
+    calls.add('answer $id');
+    return const CommandResult(ok: true, detail: 'Answered.');
+  }
+
+  @override
+  Future<CommandResult> hangUp(int id) async {
+    calls.add('hang up $id');
+    return const CommandResult(ok: false, detail: 'The phone didn\'t end the call: InvalidState.');
+  }
+
+  @override
+  Future<CommandResult> setMicMuted(bool muted) async {
+    calls.add('mute $muted');
+    return const CommandResult(ok: true);
+  }
   final _status = ValueNotifier(const AudioStatus(link: AudioLink.connecting));
 
   set value(AudioStatus s) => _status.value = s;

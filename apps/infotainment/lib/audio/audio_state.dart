@@ -200,6 +200,77 @@ class VolumeChange {
   final MuteAction? mute;
 }
 
+/// Where a call is (ADR-0045), as the phone reports it.
+enum CallPhase { incoming, waiting, dialing, alerting, active, held, unknown }
+
+/// One call on the connected phone.
+@immutable
+class PhoneCall {
+  const PhoneCall({
+    required this.id,
+    required this.phase,
+    this.number = '',
+    this.name = '',
+    this.withheld = false,
+    this.active = Duration.zero,
+    this.multiparty = false,
+  });
+
+  /// Names this call in [AudioSource.answerCall] and [AudioSource.hangUp].
+  final int id;
+  final CallPhase phase;
+
+  /// As the phone gives them; empty: not given.
+  final String number, name;
+
+  /// The caller hid their number.
+  final bool withheld;
+
+  /// How long it has been active, as of the report.
+  final Duration active;
+  final bool multiparty;
+
+  /// Ringing here: Answer (incoming only) or decline.
+  bool get rings => phase == CallPhase.incoming || phase == CallPhase.waiting;
+
+  /// Who it is, for the screen: the name, else the number, else why not.
+  String get caller => name.isNotEmpty
+      ? name
+      : number.isNotEmpty
+          ? number
+          : withheld
+              ? 'Number withheld'
+              : 'Unknown caller';
+
+  /// The number under a name; empty when the name is the number.
+  String get secondLine => name.isNotEmpty && number.isNotEmpty ? number : '';
+}
+
+/// Calls on the connected phone, or why they stay on it.
+@immutable
+class CallsStatus {
+  const CallsStatus({
+    this.available = false,
+    this.detail = '',
+    this.call,
+    this.otherCalls = 0,
+    this.micMuted = false,
+    this.phoneName = '',
+  });
+
+  /// Calls come to the head unit. False: [detail] says why not.
+  final bool available;
+  final String detail;
+
+  /// The call to show (a ringing one first); null: none.
+  final PhoneCall? call;
+
+  /// Other calls on the phone (held, or the one behind a waiting call).
+  final int otherCalls;
+  final bool micMuted;
+  final String phoneName;
+}
+
 /// What audio-manager reported last.
 @immutable
 class AudioReport {
@@ -218,6 +289,7 @@ class AudioReport {
     this.pausedForPrompt = false,
     this.connect = const ConnectStatus(),
     this.volume,
+    this.calls,
   });
 
   final bool bluetoothReady;
@@ -250,6 +322,12 @@ class AudioReport {
 
   /// The master volume; null from an audio-manager without one.
   final VolumeStatus? volume;
+
+  /// Phone calls (ADR-0045); null from an audio-manager without them.
+  final CallsStatus? calls;
+
+  /// The call to show, if any.
+  PhoneCall? get call => calls?.call;
 
   /// Every paired phone, the connected one first, then the last one, then
   /// by name.
@@ -391,6 +469,15 @@ abstract class AudioSource {
   /// Changes the master volume (ADR-0043). [CommandResult.detail] says what
   /// wasn't as asked (above the cap); [AudioReport.volume] follows.
   Future<CommandResult> setVolume(VolumeChange c);
+
+  /// Answers an incoming call (ADR-0045).
+  Future<CommandResult> answerCall(int id);
+
+  /// Declines a ringing call, or hangs up any other.
+  Future<CommandResult> hangUp(int id);
+
+  /// Mutes or unmutes the call microphone (during a call).
+  Future<CommandResult> setMicMuted(bool muted);
 }
 
 /// A phone, a playlist and a pairing window that don't exist, for the
@@ -398,9 +485,21 @@ abstract class AudioSource {
 /// Time moves in [tick]s of one second (a timer when [autoRun]; tests call
 /// [tick] themselves).
 class SimulatedAudioSource implements AudioSource {
-  SimulatedAudioSource({this.autoRun = true, this.pairAfterTicks = 5, this.connectTicks = 2}) {
+  SimulatedAudioSource({
+    this.autoRun = true,
+    this.pairAfterTicks = 5,
+    this.connectTicks = 2,
+    this.ringEveryTicks,
+  }) {
     _publish();
   }
+
+  /// A made-up call rings this many ticks after start and after each call
+  /// ends; null: only when [ring] is called.
+  final int? ringEveryTicks;
+
+  static const simCaller = 'Simulated Caller';
+  static const simNumber = '+15550100';
 
   /// A connection asked for takes this many ticks.
   final int connectTicks;
@@ -447,6 +546,10 @@ class SimulatedAudioSource implements AudioSource {
   static const volumeSteps = 30;
   int _volume = 15;
   bool _muted = false;
+
+  final _calls = <PhoneCall>[];
+  int _nextCallId = 1, _sinceCall = 0;
+  bool _micMuted = false, _pausedForCall = false;
 
   final _status = ValueNotifier(const AudioStatus(link: AudioLink.connecting));
 
@@ -513,8 +616,105 @@ class SimulatedAudioSource implements AudioSource {
           applied: false,
           detail: 'Not applied: simulated: no PipeWire.',
         ),
+        calls: _callsStatus(phone),
       ),
     );
+  }
+
+  CallsStatus _callsStatus(Phone? phone) {
+    if (phone == null) return const CallsStatus(detail: 'No phone is connected.');
+    final shown = [..._calls]..sort((a, b) => _rank(a.phase).compareTo(_rank(b.phase)));
+    return CallsStatus(
+      available: true,
+      call: shown.firstOrNull,
+      otherCalls: shown.isEmpty ? 0 : shown.length - 1,
+      micMuted: _micMuted && _calls.isNotEmpty,
+      phoneName: phone.name,
+    );
+  }
+
+  static int _rank(CallPhase p) => switch (p) {
+        CallPhase.incoming => 0,
+        CallPhase.waiting => 1,
+        CallPhase.active => 2,
+        CallPhase.dialing || CallPhase.alerting => 3,
+        CallPhase.held => 4,
+        CallPhase.unknown => 5,
+      };
+
+  PhoneCall _with(PhoneCall c, {CallPhase? phase, Duration? active}) => PhoneCall(
+      id: c.id,
+      phase: phase ?? c.phase,
+      number: c.number,
+      name: c.name,
+      withheld: c.withheld,
+      active: active ?? c.active,
+      multiparty: c.multiparty);
+
+  /// A call rings on the simulated phone: incoming, or waiting during
+  /// another. Returns its id.
+  int ring({String number = simNumber, String name = simCaller}) {
+    final busy = _calls.any((c) => !c.rings);
+    if (_calls.isEmpty && _play == PlayState.playing) {
+      _play = PlayState.paused;
+      _pausedForCall = true;
+    }
+    final c = PhoneCall(
+        id: _nextCallId++,
+        phase: busy ? CallPhase.waiting : CallPhase.incoming,
+        number: number,
+        name: name,
+        withheld: number.isEmpty);
+    _calls.add(c);
+    _publish();
+    return c.id;
+  }
+
+  /// The far end hangs up.
+  void endCall(int id) {
+    _calls.removeWhere((c) => c.id == id);
+    if (_calls.isNotEmpty && !_calls.any((c) => c.phase == CallPhase.active)) {
+      final i = _calls.indexWhere((c) => c.phase == CallPhase.held);
+      if (i >= 0) _calls[i] = _with(_calls[i], phase: CallPhase.active);
+    }
+    if (_calls.isEmpty) {
+      _micMuted = false;
+      _sinceCall = 0;
+      if (_pausedForCall && _play == PlayState.paused) _play = PlayState.playing;
+      _pausedForCall = false;
+    }
+    _publish();
+  }
+
+  @override
+  Future<CommandResult> answerCall(int id) async {
+    final i = _calls.indexWhere((c) => c.id == id);
+    if (i < 0) return const CommandResult(ok: false, detail: 'That call has ended.');
+    if (_calls[i].phase == CallPhase.waiting) {
+      return const CommandResult(ok: false, detail: 'Another call is in progress: answer this one on the phone.');
+    }
+    if (_calls[i].phase != CallPhase.incoming) {
+      return const CommandResult(ok: false, detail: 'That call isn\'t ringing.');
+    }
+    _calls[i] = _with(_calls[i], phase: CallPhase.active);
+    _publish();
+    return const CommandResult(ok: true, detail: 'Answered.');
+  }
+
+  @override
+  Future<CommandResult> hangUp(int id) async {
+    final c = _calls.where((c) => c.id == id).firstOrNull;
+    if (c == null) return const CommandResult(ok: false, detail: 'That call has ended.');
+    endCall(id);
+    return CommandResult(ok: true, detail: c.rings ? 'Declined.' : 'Hung up.');
+  }
+
+  @override
+  Future<CommandResult> setMicMuted(bool muted) async {
+    if (_calls.isEmpty) return const CommandResult(ok: false, detail: 'There is no call.');
+    _micMuted = muted;
+    _publish();
+    return const CommandResult(ok: true);
   }
 
   @override
@@ -553,6 +753,16 @@ class SimulatedAudioSource implements AudioSource {
 
   /// One second passes.
   void tick() {
+    for (var i = 0; i < _calls.length; i++) {
+      if (_calls[i].phase == CallPhase.active) {
+        _calls[i] = _with(_calls[i], active: _calls[i].active + const Duration(seconds: 1));
+      }
+    }
+    final every = ringEveryTicks;
+    if (every != null && _calls.isEmpty && _connected != null && ++_sinceCall >= every) {
+      _sinceCall = 0;
+      ring();
+    }
     if (_play == PlayState.playing && _connected != null) {
       _positionS++;
       if (_positionS >= tracks[_index].duration!.inSeconds) {
@@ -651,6 +861,8 @@ class SimulatedAudioSource implements AudioSource {
     if (!_bluetooth || _connected == null) {
       return const CommandResult(ok: false, detail: 'No phone is connected.');
     }
+    // The driver's own choice: not resumed after a call.
+    _pausedForCall = false;
     switch (c) {
       case MediaCommand.play:
         _play = PlayState.playing;

@@ -46,6 +46,9 @@ NAV_LISTEN ?= tcp:127.0.0.1:50253
 # simulated phone on AUDIO_LISTEN.
 AUDIO    ?= sim
 AUDIO_LISTEN ?= tcp:127.0.0.1:50254
+# A made-up phone call rings every SIM_CALL seconds on the simulated phone
+# (the app's, or audio-manager's with `make sim`/`make audio`); empty: never.
+SIM_CALL ?=
 # The offline map (PMTiles, vector or raster; ADR-0030, ADR-0032);
 # `make map-test-pattern` writes a raster one there. The macOS app's sandbox
 # may read /tmp/f250/maps/ only.
@@ -79,7 +82,8 @@ NAV_ROUTING = --valhalla tools/dev/valhalla-docker.sh \
 SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(START) \
               --dart-define=VEHICLE_SOURCE=$(SOURCE) --dart-define=GATEWAY=$(GATEWAY) \
               --dart-define=NAV=$(NAV) --dart-define=MAP_FILE=$(MAP_FILE) \
-              --dart-define=MAP_STATUS=$(MAP_STATUS) --dart-define=AUDIO=$(AUDIO)
+              --dart-define=MAP_STATUS=$(MAP_STATUS) --dart-define=AUDIO=$(AUDIO) \
+              --dart-define=SIM_CALL_S=$(SIM_CALL)
 
 .PHONY: help setup doctor test lint \
         fw-test fw-build knob-test knob-build \
@@ -255,13 +259,13 @@ gateway: ## Run the vehicle gateway with the simulator (SCENARIO=, START=) on $(
 	cargo run -q -p vehicle-gateway -- --listen $(GATEWAY) --scenario $(SCENARIO) --sim-start-s $(START)
 
 sim: ## Gateway, navigation and audio-manager (simulated) + the macOS app reading from them over gRPC
-	NAV_ROUTING="$(NAV_ROUTING)" VOICE="$(VOICE)" tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)" "$(AUDIO_LISTEN)"
+	NAV_ROUTING="$(NAV_ROUTING)" VOICE="$(VOICE)" SIM_CALL="$(SIM_CALL)" tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)" "$(AUDIO_LISTEN)"
 
 navigation: ## Run services/navigation with a simulated receiver on $(NAV_LISTEN), routing with Valhalla in Docker (VOICE=say speaks)
 	cargo run -q -p navigation -- --listen $(NAV_LISTEN) --simulate $(NAV_ROUTING) $(if $(VOICE),--voice-command $(VOICE))
 
 audio: ## Run services/audio-manager with a simulated phone (no Bluetooth, no PipeWire) on $(AUDIO_LISTEN)
-	mkdir -p /tmp/f250/audio && cargo run -q -p audio-manager -- --listen $(AUDIO_LISTEN) --simulate --settings-file /tmp/f250/audio/speakers.json $(if $(VOICE),--voice-command $(VOICE))
+	mkdir -p /tmp/f250/audio && cargo run -q -p audio-manager -- --listen $(AUDIO_LISTEN) --simulate --settings-file /tmp/f250/audio/speakers.json $(if $(VOICE),--voice-command $(VOICE)) $(if $(SIM_CALL),--sim-call-every-s $(SIM_CALL))
 
 route-region: ## Build Valhalla routing data for REGION= (Geofabrik path(s), e.g. north-america/us/kansas) into $(ROUTING_TILES) (ROUTE_ARGS= passes build-routing.py options); needs Docker
 	@test -n "$(REGION)" || { echo "usage: make route-region REGION=north-america/us/kansas [REGION='a b']"; exit 2; }

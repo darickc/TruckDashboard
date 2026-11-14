@@ -171,7 +171,7 @@ impl Agent {
     }
 }
 
-fn conv(v: &Z<'_>) -> Value {
+pub(crate) fn conv(v: &Z<'_>) -> Value {
     match v {
         Z::Str(s) => Value::Str(s.as_str().to_string()),
         Z::U32(n) => Value::U32(*n),
@@ -203,7 +203,7 @@ fn conv(v: &Z<'_>) -> Value {
     }
 }
 
-fn convert(m: fdo::ManagedObjects) -> Objects {
+pub(crate) fn convert(m: fdo::ManagedObjects) -> Objects {
     m.into_iter()
         .map(|(path, ifaces)| {
             (
