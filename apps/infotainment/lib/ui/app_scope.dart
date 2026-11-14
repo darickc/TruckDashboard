@@ -24,7 +24,7 @@ import 'banner_alerts.dart';
 /// other screen has Back at its top left (shell/nav_buttons.dart).
 ///
 /// `recordings` (copying recordings to a USB stick, ADR-0037) is opened from
-/// Cameras, not Home.
+/// Cameras and `diagnostics` from Settings, not Home.
 enum AppScreen { home, gauges, media, navigation, cameras, settings, diagnostics, recordings, phones }
 
 /// Which screen is showing, and the way back to Home: a stack whose bottom is

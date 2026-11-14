@@ -4,6 +4,7 @@ import '../../cameras/camera_settings.dart';
 import '../../cameras/camera_state.dart';
 import '../../model/units.dart';
 import '../app_scope.dart';
+import '../shell/nav_buttons.dart';
 import '../theme.dart';
 import '../widgets/display_settings.dart';
 import '../widgets/panel.dart';
@@ -14,8 +15,9 @@ import '../widgets/tap_target.dart';
 /// The driver's settings (ADR-0029): Display (power-manager, ADR-0028),
 /// Cameras (camera-manager: which USB port is which camera, and which
 /// record), Speakers (audio-manager: fader, balance, sub level, crossover;
-/// ADR-0039), Units (the dashboard's own, kept in its settings file). Restart
-/// and Power, when the launcher offers them, at the right of the sections.
+/// ADR-0039), Units (the dashboard's own, kept in its settings file). After
+/// the sections, Diagnostics (a screen of its own, opened from here rather
+/// than Home). Restart and Power, when the launcher offers them, at the right.
 enum SettingsSection { display, cameras, speakers, units }
 
 const _labels = {
@@ -56,6 +58,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ],
+          const SizedBox(width: kGap),
+          // Not a section: it opens Diagnostics, whose Back returns here.
+          // Scales down rather than clip beside Restart and Power.
+          Expanded(
+            child: TapTarget(
+              key: const ValueKey('settings-diagnostics'),
+              label: 'Open Diagnostics',
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              onTap: () => AppScope.of(context).screens.open(AppScreen.diagnostics),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(screenIcons[AppScreen.diagnostics], size: 20, color: Palette.of(context).text),
+                  const SizedBox(width: 4),
+                  const Text('Diagnostics', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            ),
+          ),
         ]),
       ),
       const SizedBox(height: kGap),

@@ -13,7 +13,7 @@ const screenIcons = {
   AppScreen.settings: Icons.settings_rounded,
   AppScreen.diagnostics: Icons.monitor_heart_rounded,
   AppScreen.recordings: Icons.usb_rounded,
-  AppScreen.phones: Icons.bluetooth_rounded,
+  AppScreen.phones: Icons.smartphone_rounded,
 };
 
 const screenLabels = {
@@ -25,7 +25,7 @@ const screenLabels = {
   AppScreen.settings: 'Settings',
   AppScreen.diagnostics: 'Diagnostics',
   AppScreen.recordings: 'Recordings',
-  AppScreen.phones: 'Phones',
+  AppScreen.phones: 'Phone',
 };
 
 /// Back, at the top left of the status bar on every screen but Home, and

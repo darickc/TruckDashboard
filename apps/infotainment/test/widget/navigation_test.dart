@@ -1,3 +1,4 @@
+import 'package:f250_infotainment/core/power.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/screens/home_screen.dart';
 import 'package:f250_infotainment/ui/theme.dart';
@@ -22,10 +23,11 @@ void main() {
     expect(find.byKey(const ValueKey('screen-home')), findsOneWidget);
     expect(back, findsNothing);
     expect(home, findsNothing);
-    // Recordings is opened from Cameras (ADR-0037), Phones from Media.
+    // Recordings is opened from Cameras (ADR-0037), Diagnostics from Settings.
     expect(homeButtons.toSet(),
-        AppScreen.values.toSet()..remove(AppScreen.home)..remove(AppScreen.recordings)..remove(AppScreen.phones),
-        reason: 'Home reaches every screen but Recordings and Phones');
+        AppScreen.values.toSet()..remove(AppScreen.home)..remove(AppScreen.recordings)..remove(AppScreen.diagnostics),
+        reason: 'Home reaches every screen but Recordings and Diagnostics');
+    expect(homeButtons, contains(AppScreen.phones), reason: 'Phones has its own Home button');
     for (final screen in homeButtons) {
       final button = find.byKey(ValueKey('home-${screen.name}'));
       expect(button, findsOneWidget, reason: screen.name);
@@ -139,6 +141,34 @@ void main() {
     expect(h.services.screens.stack, [AppScreen.home]);
   });
 
+  testWidgets('Diagnostics opens from Settings, whose Back returns there', (tester) async {
+    final h = await Harness.start(tester);
+    await tapKey(tester, 'home-settings');
+    await tapKey(tester, 'settings-diagnostics');
+    expect(find.byKey(const ValueKey('screen-diagnostics')), findsOneWidget);
+    expect(h.services.screens.stack, [AppScreen.home, AppScreen.settings, AppScreen.diagnostics]);
+    expect(home, findsOneWidget, reason: 'Back goes to Settings, so Home shows beside it');
+    await tester.tap(back);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('screen-settings')), findsOneWidget);
+  });
+
+  testWidgets('Diagnostics in Settings fits beside Restart and Power', (tester) async {
+    final h = await Harness.start(tester, power: _AllowPowerOff());
+    await h.goTo(AppScreen.settings);
+    final diag = find.byKey(const ValueKey('settings-diagnostics'));
+    final restart = tester.getRect(find.byKey(const ValueKey('settings-restart')));
+    final r = tester.getRect(diag);
+    expect(r.right, lessThan(restart.left), reason: 'left of Restart');
+    expect(r.width, greaterThanOrEqualTo(kMinTouch));
+    expect(r.height, greaterThanOrEqualTo(kMinTouch));
+    expect(find.descendant(of: diag, matching: find.text('Diagnostics')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(diag);
+    await tester.pump();
+    expect(h.services.screens.value, AppScreen.diagnostics);
+  });
+
   test('the history never cycles and always starts at Home', () {
     final s = ScreenHistory();
     expect(s.previous, isNull);
@@ -197,4 +227,15 @@ void main() {
     final h = await Harness.start(tester);
     expect(h.textOf('status-clock'), matches(RegExp(r'^(1[0-2]|[1-9]):[0-5]\d (AM|PM)$')));
   });
+}
+
+class _AllowPowerOff implements PowerControl {
+  @override
+  bool get canPowerOff => true;
+
+  @override
+  void powerOff() {}
+
+  @override
+  void restart() {}
 }

@@ -527,7 +527,8 @@ bar is gone; Home is a 3 × 2 grid of buttons to Gauges, Media, Nav, Cameras, Se
 screen has Back at its top left (and Home beside it when Back wouldn't go Home). Power moved to Settings beside a new
 Restart (exit status 43: `dashboard-stopped` and `run.sh` reboot). The status bar clock is flush right again (a loose
 `Flexible` beside a `Spacer` had left blank space after it, worst with no scenario name, as on the truck). Widget
-tests for each; `make agl-test` checks the exit codes agree. Not yet on the Pi's panel.
+tests for each; `make agl-test` checks the exit codes agree. Not yet on the Pi's panel. Amended 2026-11-14 `[SIM]`:
+a Phone button replaces Diagnostics on Home (before Settings), and Diagnostics opens from a button in Settings' section row.
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 

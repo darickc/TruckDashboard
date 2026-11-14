@@ -87,3 +87,23 @@ are 256 × 198 (256 × 172 under an alert; 256 × 167 since the banner grew
 for Clear, [ADR-0036](0036-clear-advisories.md)). [SIM]: widget tests at 800×480.
 Checked on the bench Pi's panel: see the bench log.
 
+
+## Amendment: Phones on Home, Diagnostics in Settings (2026-11-14)
+
+The owner wants a phone button on Home and Diagnostics moved to Settings.
+Decision 2 changes:
+
+- **Home has a Phone button** (the Phones screen: pairing, connecting and
+  calls, [ADR-0039](0039-audio-manager.md); a smartphone icon, as on Media's
+  Phones button, which stays). Home is still 3 × 2: Gauges, Media, Nav,
+  Cameras, Phone, Settings.
+- **Diagnostics opens from Settings**: a button after the four sections
+  (Display, Cameras, Speakers, Units), left of Restart and Power. It opens
+  the Diagnostics screen rather than being a fifth section, so Diagnostics
+  keeps its full height and its own section row. Back returns to Settings,
+  with Home beside it (decision 3). Beside Restart and Power the row is
+  tight, so its label scales down rather than clip; it stays at least
+  60 px wide.
+
+[SIM]: widget tests at 800×480 (`navigation_test.dart`). Not yet seen on the
+Pi's panel.

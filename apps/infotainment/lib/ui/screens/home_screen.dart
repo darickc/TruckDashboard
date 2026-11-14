@@ -11,11 +11,13 @@ const homeButtons = [
   AppScreen.media,
   AppScreen.navigation,
   AppScreen.cameras,
+  AppScreen.phones,
   AppScreen.settings,
-  AppScreen.diagnostics,
 ];
 
-/// Home: one large button per screen, three across and two down. Every
+/// Home: one large button per screen, three across and two down
+/// (ADR-0034). Diagnostics is opened from Settings, Recordings from Cameras.
+/// Every
 /// other screen has Back at its top left (shell/nav_buttons.dart). Alerts
 /// show above it in the banner, as on every screen.
 class HomeScreen extends StatelessWidget {

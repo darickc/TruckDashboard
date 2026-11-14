@@ -7,7 +7,7 @@ import '../widgets/audio_button.dart';
 import '../widgets/panel.dart';
 import '../widgets/tap_target.dart';
 
-/// Phones (ADR-0039), opened from Media: on the left every paired phone,
+/// Phones (ADR-0039), opened from Home or Media: on the left every paired phone,
 /// with Connect for the ones not connected (one phone at a time: connecting
 /// one disconnects the other), Disconnect for the connected one, and Delete
 /// (asked again in the row: the phone must then be paired again); on the

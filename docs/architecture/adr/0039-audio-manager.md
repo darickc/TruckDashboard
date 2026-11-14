@@ -91,7 +91,8 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
 
 3. **The pairing window.** Not discoverable and not pairable except while
    the driver has asked, from the **Phones** screen (opened from Media's
-   Phones button; amended 2026-11-12, it was a column of the Media screen):
+   Phones button, and from Home since 2026-11-14; amended 2026-11-12, it
+   was a column of the Media screen):
    - **Pair a phone** opens it for the configured length (**120 s, an
      example**; at most 300 s). audio-manager sets `DiscoverableTimeout` and
      `PairableTimeout` to the same length, then `Pairable` and
