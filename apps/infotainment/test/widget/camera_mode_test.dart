@@ -5,6 +5,7 @@ import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/theme.dart';
 import 'package:f250_infotainment/ui/widgets/tap_target.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../fake_cameras.dart';
@@ -70,6 +71,36 @@ void main() {
     expect(find.byKey(const ValueKey('camera-area')), findsNothing);
     expect(find.byKey(const ValueKey('screen-gauges')), findsOneWidget);
     expect(find.byKey(const ValueKey('nav-back')), findsOneWidget);
+  });
+
+  // Camera mode's camera chip is read whole (the camera on screen, or
+  // REVERSE), with recording on and a scenario name: it was cut to "REA…"
+  // beside the recording chip in the browser preview on 2026-11-14. The test
+  // font draws every glyph as a square, far wider than the panel's, so this
+  // holds even then; the recording chip beside the clock is checked with
+  // real fonts in the preview.
+  bool cut(WidgetTester tester, String key) {
+    final f = find.descendant(of: find.byKey(ValueKey(key)), matching: find.byType(RichText));
+    return tester.renderObject<RenderParagraph>(f).didExceedMaxLines;
+  }
+
+  testWidgets('camera mode: the status bar\'s camera chip is never cut', (tester) async {
+    final cams = FakeCameras(up(rearLive, recording: SimulatedCameraSource.simulatedRecording));
+    final h = await Harness.start(tester, cameras: cams);
+    expect(h.services.store.source.scenario, isNotEmpty);
+    for (final camera in CameraId.values) {
+      for (final reason in [CameraReason.cameraSwitch, CameraReason.reverse]) {
+        if (reason == CameraReason.reverse && camera != CameraId.rear) continue;
+        cams.status = up(CameraView(camera: camera, reason: reason, feed: FeedState.live),
+            recording: SimulatedCameraSource.simulatedRecording);
+        await tester.pump();
+        expect(cut(tester, 'camera-chip'), isFalse, reason: '$camera $reason');
+        expect(find.byKey(const ValueKey('rec-chip')), findsOneWidget, reason: 'still shown');
+        expect(tester.takeException(), isNull);
+      }
+    }
+    // The link status stays on the panel's centre line.
+    expect(tester.getCenter(find.byKey(const ValueKey('status-link'))).dx, closeTo(400, 1));
   });
 
   testWidgets('camera buttons are switch moves, and the current camera is marked', (tester) async {

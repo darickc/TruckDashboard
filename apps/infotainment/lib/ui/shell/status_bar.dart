@@ -83,7 +83,9 @@ Widget? _recordingChip(CameraStatus c, Palette p) {
 }
 
 /// Always-visible strip. Left: Back (and Home) outside camera mode, then
-/// the scenario name. Centre, on the panel's centre line: the data source and
+/// the scenario name; in camera mode the camera's chip first, where it has
+/// the room Back and Home leave (the right side once cut it to "REA…" beside
+/// the recording chip). Centre, on the panel's centre line: the data source and
 /// link health. Right: chips, and the clock at the right edge. Only Back and
 /// Home are tappable; the rest is for glancing.
 ///
@@ -116,6 +118,7 @@ class StatusBar extends StatelessWidget {
         // it sat half the free width left of the edge.)
         List<Widget> flexible(List<Widget> chip) =>
             [for (final w in chip) w is SizedBox ? w : Flexible(child: w)];
+        final camera = _cameraChip(s.cameras.status.value, p);
         return Container(
           height: navigation ? kMinTouch : kStatusBarHeight,
           color: p.surface,
@@ -124,6 +127,9 @@ class StatusBar extends StatelessWidget {
             Expanded(
               child: Row(children: [
                 if (navigation) const NavButtons(),
+                // Camera mode: the camera's name keeps its width; the
+                // scenario gives way.
+                if (!navigation) ...camera.whereType<Pill>(),
                 Flexible(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -160,7 +166,7 @@ class StatusBar extends StatelessWidget {
                 if (rec != null)
                   Flexible(flex: 3, child: Padding(padding: const EdgeInsets.only(right: 10), child: rec)),
                 ...flexible(_mapUpdateChip(s.map.update.value, now, p)),
-                ...flexible(_cameraChip(s.cameras.status.value, p)),
+                if (navigation) ...flexible(camera),
                 Text(clock,
                     key: const ValueKey('status-clock'),
                     style: TextStyle(
