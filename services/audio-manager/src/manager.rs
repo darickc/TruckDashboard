@@ -18,6 +18,7 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::Instant;
 
 use crate::backend::Bluetooth;
+use crate::call_audio::CallAudio;
 use crate::calls::{self, Availability, Call, CallSnapshot, CallState};
 use crate::dsp::{self, Limits, Mix, Settings};
 use crate::model::{Adapter, AgentAsk, AgentRequest, Command, Picture, PlayState, Snapshot};
@@ -188,6 +189,7 @@ pub struct Manager {
     tel: Arc<dyn Telephony>,
     ringer: Arc<dyn Ringer>,
     book: Arc<dyn Phonebook>,
+    call_audio: Arc<dyn CallAudio>,
     inner: Mutex<Inner>,
     out: watch::Sender<pb::WatchAudioResponse>,
     /// Bumped by the main loop (systemd watchdog).
@@ -270,6 +272,9 @@ pub fn load_settings(cfg: &Config) -> (Settings, Option<String>) {
 }
 
 impl Manager {
+    // One argument per backend: main picks each (real, simulated or off)
+    // and the tests swap them one at a time.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         cfg: Config,
         bt: Arc<dyn Bluetooth>,
@@ -278,6 +283,7 @@ impl Manager {
         tel: Arc<dyn Telephony>,
         ringer: Arc<dyn Ringer>,
         book: Arc<dyn Phonebook>,
+        call_audio: Arc<dyn CallAudio>,
     ) -> Arc<Manager> {
         let (settings, problem) = load_settings(&cfg);
         if let Some(p) = problem {
@@ -339,6 +345,7 @@ impl Manager {
             tel,
             ringer,
             book,
+            call_audio,
             out: watch::Sender::new(pb::WatchAudioResponse::default()),
             heartbeat: f250_sd_notify::Heartbeat::new(),
             stopping: std::sync::atomic::AtomicBool::new(false),
@@ -1236,9 +1243,14 @@ impl Manager {
             if let Some(act) = inner.call_pause.start(playing) {
                 self.send_act(act);
             }
+            // The microphone to the phone, the phone's voice to the speakers.
+            if let Some(phone) = Self::current(inner, s) {
+                self.call_audio.start(&phone.address);
+            }
         } else if !in_call && inner.in_call {
             eprintln!("[audio] no call any more");
             inner.call_pause.finished(now);
+            self.call_audio.stop();
             // The call is in the phone's history now.
             if let Some(phone) = Self::current(inner, s) {
                 self.book.load(Some(phone.address));

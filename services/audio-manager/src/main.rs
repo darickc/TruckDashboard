@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use audio_manager::backend::Bluetooth;
 use audio_manager::bluez::Bluez;
+use audio_manager::call_audio::{CallAudio, NoCallAudio, PwCallAudio};
 use audio_manager::dsp::{ChannelMap, Limits, Settings, Target, render};
 use audio_manager::knob::{self, KnobConfig};
 use audio_manager::manager::{Config, Manager, Reconnect, load_settings};
@@ -180,6 +181,16 @@ struct Args {
     /// Empty: not read. Needs obexd on the system bus (f250-obexd.service).
     #[arg(long, default_value = "")]
     phonebook_file: String,
+    /// With --call-mic: where the phone's voice goes during a call, a
+    /// PipeWire sink's node.name. Empty: the default sink.
+    #[arg(long, default_value = "")]
+    call_speaker: String,
+    /// pw-dump, to find the phone's hands-free nodes during a call.
+    #[arg(long, default_value = "pw-dump")]
+    pw_dump: PathBuf,
+    /// pw-loopback, for the call's audio path.
+    #[arg(long, default_value = "pw-loopback")]
+    pw_loopback: PathBuf,
 }
 
 #[tokio::main]
@@ -345,7 +356,17 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         }
         Lists::start(ObexReader { file })
     };
-    let manager = Manager::new(config, bt, dsp, voice, calls, ringer, book);
+    let call_audio: Arc<dyn CallAudio> = if args.simulate || args.call_mic.trim().is_empty() {
+        Arc::new(NoCallAudio)
+    } else {
+        Arc::new(PwCallAudio::new(
+            args.call_mic.trim().to_string(),
+            (!args.call_speaker.trim().is_empty()).then(|| args.call_speaker.trim().to_string()),
+            args.pw_dump.clone(),
+            args.pw_loopback.clone(),
+        ))
+    };
+    let manager = Manager::new(config, bt, dsp, voice, calls, ringer, book, call_audio);
     tokio::spawn(run_watchdog(
         notifier.clone(),
         manager.heartbeat.clone(),

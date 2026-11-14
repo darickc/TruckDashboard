@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use audio_manager::backend::Bluetooth;
+use audio_manager::call_audio::NoCallAudio;
 use audio_manager::dsp::{Limits, Settings};
 use audio_manager::manager::{Config, Manager, Reconnect};
 use audio_manager::pairing;
@@ -128,6 +129,7 @@ async fn start_full(
         Lists::start(SimReader {
             delay: Duration::from_millis(50),
         }),
+        Arc::new(NoCallAudio),
     );
     tokio::spawn(Arc::clone(&manager).run(agent_rx));
     let api = Api::new(Arc::clone(&manager));

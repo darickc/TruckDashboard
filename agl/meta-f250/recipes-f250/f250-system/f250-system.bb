@@ -64,6 +64,8 @@ do_install() {
     f250_wants multi-user.target f250-audio-manager.service
     f250_wants multi-user.target f250-knob-link.service
     f250_wants multi-user.target f250-can-auto.service
+    # Hands-free on or off from AUDIO_CALL_MIC, before WirePlumber (ADR-0045).
+    f250_wants multi-user.target f250-calls-config.service
     f250_wants graphical.target f250-camera-manager.service
     f250_wants graphical.target f250-dashboard.service
     f250_wants agl-compositor.service f250-dashboard.service

@@ -1,0 +1,21 @@
+# Hands-free calling on or off (ADR-0045): installs or removes WirePlumber's
+# hands-free drop-in from AUDIO_CALL_MIC in /etc/default/f250, before
+# WirePlumber's Bluetooth instance starts (/opt/f250/libexec/calls-config).
+# Root: it writes /etc/wireplumber and may restart WirePlumber.
+#
+# Status: [BENCH] once checked on the bench Pi (bench-log).
+[Unit]
+Description=F-250 hands-free: offered to phones only with a call microphone
+Before=wireplumber@bluetooth.service f250-audio-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=-/etc/default/f250
+ExecStart=/opt/f250/libexec/calls-config
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

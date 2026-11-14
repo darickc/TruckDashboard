@@ -14,6 +14,7 @@
 
 pub mod backend;
 pub mod bluez;
+pub mod call_audio;
 pub mod calls;
 pub mod cover_art;
 pub mod dsp;

@@ -249,6 +249,20 @@ AUDIO_COVER_ART=
 #            obexd when it connects; kept in memory only (ADR-0045 phase
 #            2). The phone may ask to allow it. 0: not read.
 AUDIO_PHONEBOOK=
+# Phone calls through the truck (ADR-0045). Off unless AUDIO_CALL_MIC is
+# set: then phones see a hands-free unit (f250-calls-config) and route calls
+# to the head unit while connected. After changing it:
+#   systemctl restart f250-calls-config f250-audio-manager
+# AUDIO_CALL_MIC  the call microphone, a PipeWire source's node.name
+#            (`wpctl status`, then `pw-cli info <id>`). Empty: calls stay on
+#            the phone. No echo cancellation yet (ADR-0045 spike S3).
+# AUDIO_CALL_SPEAKER  where the caller's voice goes, a PipeWire sink's
+#            node.name (empty: the default sink).
+# AUDIO_RING_COMMAND  plays the ring tone for a phone that doesn't ring
+#            in-band (empty: /usr/bin/pw-play; none: no tone).
+AUDIO_CALL_MIC=
+AUDIO_CALL_SPEAKER=
+AUDIO_RING_COMMAND=
 # Spoken directions (ADR-0039 decision 9; navigation, ADR-0040). The music
 # is paused while a prompt is said (owner, 2026-11-12) and resumed after.
 # AUDIO_VOICE  a program that says its argument (empty:

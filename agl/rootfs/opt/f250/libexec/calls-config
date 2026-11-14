@@ -1,0 +1,40 @@
+#!/bin/bash
+# Hands-free calling on or off (ADR-0045), from /etc/default/f250: with
+# AUDIO_CALL_MIC set, installs WirePlumber's hands-free drop-in
+# (61-f250-calls.conf) so phones see a hands-free unit; without it, removes
+# the drop-in, and calls stay on the phone. Restarts WirePlumber's Bluetooth
+# instance when that changed while it runs. Run by f250-calls-config.service
+# before WirePlumber at boot; after changing AUDIO_CALL_MIC:
+#   systemctl restart f250-calls-config f250-audio-manager
+#
+# F250_CALLS_SRC, F250_CALLS_DST and F250_SYSTEMCTL are for the tests.
+set -euo pipefail
+
+src="${F250_CALLS_SRC:-/opt/f250/share/wireplumber/61-f250-calls.conf}"
+dst="${F250_CALLS_DST:-/etc/wireplumber/wireplumber.conf.d/61-f250-calls.conf}"
+systemctl="${F250_SYSTEMCTL:-systemctl}"
+mic="${AUDIO_CALL_MIC:-}"
+mic="${mic//[[:space:]]/}"
+
+changed=0
+if [[ -n "$mic" ]]; then
+  [[ -f "$src" ]] || { echo "calls-config: $src missing (make deploy)" >&2; exit 1; }
+  if ! cmp -s "$src" "$dst"; then
+    mkdir -p "$(dirname "$dst")"
+    cp "$src" "$dst"
+    chmod 0644 "$dst"
+    changed=1
+  fi
+  echo "calls-config: hands-free on (microphone $mic)"
+else
+  if [[ -e "$dst" ]]; then
+    rm -f "$dst"
+    changed=1
+  fi
+  echo "calls-config: hands-free off (no AUDIO_CALL_MIC): calls stay on the phone"
+fi
+
+if [[ "$changed" == 1 ]] && "$systemctl" -q is-active wireplumber@bluetooth.service; then
+  "$systemctl" restart wireplumber@bluetooth.service
+  echo "calls-config: restarted wireplumber@bluetooth for the change"
+fi

@@ -58,7 +58,7 @@ APP_ID=f250_infotainment
 CAN_IF="${CAN_IF:-can0}"
 DEMO_HOMESCREEN=flutter-ics-homescreen.service
 CAN_UNITS=(kuksa-can-provider.service can-dev-helper.service)
-F250_UNITS=(f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service f250-navigation.service f250-usb-export.service f250-audio-manager.service f250-knob-link.service f250-dashboard.service f250-can-auto.service)
+F250_UNITS=(f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service f250-navigation.service f250-usb-export.service f250-audio-manager.service f250-knob-link.service f250-dashboard.service f250-can-auto.service f250-calls-config.service)
 COMPOSITOR=agl-compositor.service
 COMPOSITOR_DROPIN=etc/systemd/system/agl-compositor.service.d/50-f250.conf
 CONNMAN_DROPIN=etc/systemd/system/connman.service.d/50-f250.conf
@@ -525,6 +525,8 @@ apply() {
     sys systemctl disable "$DEMO_HOMESCREEN"; echo "  disabled $DEMO_HOMESCREEN"
   fi
   sys systemctl enable "${F250_UNITS[@]}"
+  # Hands-free on or off (AUDIO_CALL_MIC) before audio-manager starts again.
+  sys systemctl restart f250-calls-config.service
   sys systemctl restart f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service f250-navigation.service f250-usb-export.service f250-audio-manager.service f250-knob-link.service
   # agl-compositor 0.0.24 takes one homescreen client per run: a second one
   # (a restarted dashboard, or ours after the demo's) makes it abort. Stop

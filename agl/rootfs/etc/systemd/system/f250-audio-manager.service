@@ -39,8 +39,8 @@
 # the filter-chain keeps up without xruns.
 [Unit]
 Description=F-250 audio manager (Bluetooth audio, speaker DSP)
-Wants=bluetooth.service pipewire.socket f250-obexd.service
-After=bluetooth.service pipewire.socket dbus.service f250-obexd.service
+Wants=bluetooth.service pipewire.socket f250-obexd.service f250-calls-config.service
+After=bluetooth.service pipewire.socket dbus.service f250-obexd.service f250-calls-config.service
 
 [Service]
 Type=notify
