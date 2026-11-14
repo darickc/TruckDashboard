@@ -2659,3 +2659,26 @@ truck" takes the bar's place in camera mode, as designed, since the bench
 has no truck bus with `CAN_AUTO_ACTIVE=1`. To see the chip on the panel:
 the bench settings, or the truck.
 
+
+## 2026-11-14 — Home's Phone button and Settings' Diagnostics (2b2ac15, 7f1f93d) on the bench Pi [BENCH]
+
+`make deploy` of 2b2ac15 onto image cb62346 (the truck settings in
+`/etc/default/f250`, kept): only the binaries and the dashboard bundle
+changed; no `config.txt`, logind or connman change, so no reboot. All f250
+units running, none failed; `stage1-setup.sh --check`: all checks passed.
+Driven over SSH with a uinput virtual touchscreen and `agl-screenshooter`:
+
+- Home reads Gauges, Media, Nav, Cameras, Phone, Settings. Phone opens the
+  Phones screen (the owner's phone connected; calls off, no call
+  microphone).
+- Settings → Diagnostics opened Diagnostics with Back and Home; Back
+  returned to Settings.
+- But beside worded Restart and Power, the panel's font (DejaVu Sans Bold)
+  left Diagnostics' word scaled down until unreadable, and Cameras and
+  Speakers touched their edges. Fixed in 7f1f93d (Restart and Power as
+  icons, Diagnostics 150 px wide) and deployed again: every word in the row
+  full size; Restart's icon asks "Restart the head unit? Data is saved
+  first." and the question closed by itself (nothing confirmed); all units
+  running, `--check` passed.
+
+The panel left on Home.
