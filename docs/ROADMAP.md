@@ -535,4 +535,7 @@ tests for each; `make agl-test` checks the exit codes agree. Not yet on the Pi's
 - [ ] 7.2 Electrical validation
 - [ ] 7.3 Thermal validation
 - [ ] 7.4 Communication stress tests
-- [ ] 7.5 Acceptance checklist and troubleshooting guide
+- [~] 7.5 Acceptance checklist and troubleshooting guide: written 2026-11-14 ([acceptance.md](setup/acceptance.md),
+      [troubleshooting.md](setup/troubleshooting.md)), each item with what has been shown so far and where; the tools
+      and services they name checked on the bench Pi (image cb62346). The checklist itself hasn't been run in the
+      truck: it needs the installation (7.1, 7.2) first
