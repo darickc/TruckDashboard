@@ -2627,3 +2627,18 @@ Notes:
 Next: the truck. Shift into R (the rear camera within about a second), out
 of R (gone 2 s later), through R into P (no flash), a cold start already in
 R, and the adapter unplugged (unknown).
+
+## 2026-11-14 — Reading input events on the AGL image without evtest [BENCH]
+
+Image cb62346, read-only apart from a throwaway device. Bench checks 24 and
+25 said to use `evtest`; the image doesn't have it (nor `libinput`'s front
+command, `evemu-record` or `gpspipe`). It does have libinput 1.30.2's tools in
+`/usr/libexec/libinput/`. A virtual keyboard made through `/dev/uinput`
+(`f250-doc-test`, KEY_F20 only, which audio-manager's knob detection ignores)
+pressed F20 three times while `libinput-record /dev/input/event13` ran: it
+listed the device's `Event code 190 (KEY_F20)`, then six lines,
+`# EV_KEY / KEY_F20 1` and `… 0`, one press and release a second. The device
+and the script were removed afterwards (no `f250-doc-test` in
+`/proc/bus/input/devices`). agl.md now has an "Input events" section with
+the command, and checks 24 and 25 point at it.
+

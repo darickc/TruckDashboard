@@ -67,7 +67,8 @@ on them.
   `DeviceAllow=char-input r` already covers it.
 - Pull-ups are set at boot, before any service runs, so an unconnected or
   idle line can't float.
-- The switch can be checked with `evtest` and without power-manager.
+- The switch can be checked with libinput's recorder and without power-manager
+  ([agl.md, input events](../../setup/agl.md#input-events); the image has no `evtest`).
 
 **Costs and risks:**
 

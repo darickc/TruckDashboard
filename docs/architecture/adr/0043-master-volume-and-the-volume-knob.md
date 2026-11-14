@@ -129,8 +129,9 @@ The knob's hardware isn't chosen. PROJECT_PLAN 6.3 says "on the ESP32
    f250-audio-manager` shows no `pw-cli` failures.
 2. `systemctl restart f250-audio-manager` at a level above the start cap: it
    comes back at the start cap. `cat /var/lib/f250-audio/volume.json`.
-3. With the chosen knob: `evtest` shows its events (`KEY_VOLUMEUP`… or
-   `REL_DIAL`); audio-manager's log names the device ("volume knob: …"); a
+3. With the chosen knob: its events show `KEY_VOLUMEUP`… or `REL_DIAL`
+   ([agl.md, input events](../../setup/agl.md#input-events): the image has no
+   `evtest`); audio-manager's log names the device ("volume knob: …"); a
    turn moves the level by one step a detent; clockwise is up (else
    `AUDIO_KNOB_INVERT=1`). Its play/pause (`KEY_PLAYPAUSE`) pauses a playing
    phone and plays a paused one.

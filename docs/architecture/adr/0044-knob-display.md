@@ -148,7 +148,8 @@ valid only while both are.
 ## To verify (bench check 25)
 
 1. The board: which way the USB-C plug connects the S3 (`lsusb` shows
-   "F-250 knob" with a CDC and a HID interface); `evtest` on its HID device
+   "F-250 knob" with a CDC and a HID interface); its HID device's events
+   ([agl.md, input events](../../setup/agl.md#input-events))
    shows `KEY_VOLUMEUP`/`KEY_VOLUMEDOWN` a detent and `KEY_PLAYPAUSE`.
 2. The second ESP32 reflashed: no `TAIJI_*` in a phone's Bluetooth list.
 3. `journalctl -u f250-knob-link`: "dial: knob-display …" hello lines.
