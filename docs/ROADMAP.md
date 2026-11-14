@@ -411,13 +411,15 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       Next: 6.5.4's docs; bench check 18 with a stick and the NVMe; bench check 20 (search on the Pi); bench check 22 (places
       and the voice on the Pi, after audio-manager's check 21)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
-      Policy done `[SIM]`: `crates/camera-policy`, 26 unit tests (reverse priority and debounce, the hold, stale and
+      Policy done `[SIM]`: `crates/camera-policy`, 29 unit tests (reverse priority and debounce, the hold, stale and
       invalid reverse, the latched choice, moves during reverse, the optional speed limit, missing cameras).
       Automatic reverse `[SIM]` ([ADR-0046](architecture/adr/0046-automatic-reverse.md), 2026-11-14): the gateway
       reads `230` receive-only and serves `WatchReverse` (unknown when stale, never "not engaged"; 11 unit tests
       and 2 API tests), camera-manager follows it with `--auto-reverse` (3 end-to-end tests against a fake
       gateway), on with `TRANSPORT=can` (`CAMERA_AUTO_REVERSE`). `[BENCH]` on the Pi with the truck's values replayed on
-      vcan0 (bench-log 2026-11-14). Not yet seen in the truck. Rendering decided (ADR-0009,
+      vcan0 (bench-log 2026-11-14). `[TRUCK]` 2026-11-14 (VERIFICATION_LOG): the rear camera live 0.89–0.97 s
+      after every real shift into R, gone about 2.3 s after; the 0.160 s pass through R into P flashed it, so
+      the debounce is now 300 ms (not driven yet). Rendering decided (ADR-0009,
       owner 2026-11-09): camera-manager's own `waylandsink` window, kept below the alert banner by an
       agl-compositor activation area; about 90 ms glass to glass and 5 % of one core with a USB webcam
       `[BENCH]`; the images carry the GStreamer camera plugins (`6114c52`).

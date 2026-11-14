@@ -62,11 +62,13 @@ numeric gauges the dashboard mirrors.
    is `ReverseInvalid`; no connection or a stream that ends is unknown and
    retried every 2 s. The policy's own `rev_stale` (500 ms) covers a stream
    that stops without ending. The rules stay camera-policy's: reverse for
-   `--reverse-debounce-ms` (150) brings up the rear camera, it stays
+   `--reverse-debounce-ms` (300) brings up the rear camera, it stays
    `--reverse-hold-ms` (2000) after, unknown mid-reverse keeps the rear view
    with "unknown" shown until a switch move, unknown never starts it.
-   Examples to tune on the truck; the 150 ms debounce keeps the 0.1 s pass
-   through R into P (2026-11-10) from flashing the rear camera.
+   Examples to tune on the truck. The debounce keeps the pass through R into
+   P from flashing the rear camera: 0.1 s on 2026-11-10, so it started at
+   150 ms; 0.160 s twice on 2026-11-14, which flashed it, so it is 300 ms
+   (VERIFICATION_LOG.md, 2026-11-14). Real reverses lasted 15 s or more.
 5. **On the Pi:** `CAMERA_AUTO_REVERSE` in `/etc/default/f250`: `1` on, `0`
    off, empty (the default) on with `TRANSPORT=can` and off otherwise.
    `CAMERA_REVERSE_DEBOUNCE_MS` and `CAMERA_REVERSE_HOLD_MS` pass the times.
@@ -91,7 +93,9 @@ numeric gauges the dashboard mirrors.
   the switch's Back or the dashboard's Rear shows the rear camera.
 - One more socket on `can0`, receive-only. It sees only `230` (about 31
   frames a second).
-- To check on the truck (next drive): the rear camera comes up shifting
-  into R and goes 2 s after leaving it; passing through R into P doesn't
-  flash it; a cold start already in R; unplugging the adapter shows
-  unknown.
+- Checked on the truck 2026-11-14 [TRUCK] (VERIFICATION_LOG.md): the rear
+  camera came up 0.89–0.97 s after shifting into R, five times, and went
+  about 2.3 s after leaving it. Passing through R into P flashed it twice
+  (R for 0.160 s); the debounce is now 300 ms, not yet driven.
+- Still to check on the truck: no flash through R into P at 300 ms; a cold
+  start already in R; unplugging the adapter shows unknown.

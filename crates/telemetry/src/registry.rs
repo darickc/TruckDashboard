@@ -176,6 +176,10 @@ pub struct SignalDef {
     pub response: Option<ResponseSpec>,
     pub decode: Option<Decode>,
     pub range: Range,
+    /// Fastest plausible change, in canonical units per second, against the
+    /// last good reading (a physical bound, not a Ford fact). A faster jump
+    /// is rejected like a reading outside `range`. `None`: no limit.
+    pub max_rate_per_s: Option<f64>,
     pub poll: Option<Poll>,
     /// `None` only for computed signals, which follow their inputs.
     pub stale_after: Option<Duration>,
@@ -283,6 +287,8 @@ pub enum Problem {
     },
     #[error("range must be finite with min < max")]
     BadRange,
+    #[error("max_rate_per_s must be finite and greater than 0")]
+    BadMaxRate,
     #[error("source {signal_source:?} does not match provenance {provenance}")]
     SourceProvenanceMismatch {
         signal_source: Source,
@@ -411,6 +417,7 @@ struct RawSignal {
     response: Option<RawResponse>,
     decode: Option<RawDecode>,
     range: Range,
+    max_rate_per_s: Option<f64>,
     poll: Option<Poll>,
     stale_after_ms: Option<u64>,
     provenance: Provenance,
@@ -594,6 +601,7 @@ fn from_raw(raw: RawSignal) -> Result<SignalDef, Vec<Problem>> {
         response,
         decode,
         range: raw.range,
+        max_rate_per_s: raw.max_rate_per_s,
         poll: raw.poll,
         stale_after,
         provenance: raw.provenance,
@@ -634,6 +642,12 @@ fn check_def(
     }
     if !(def.range.min.is_finite() && def.range.max.is_finite() && def.range.min < def.range.max) {
         p.push(Problem::BadRange);
+    }
+    if def
+        .max_rate_per_s
+        .is_some_and(|r| !(r.is_finite() && r > 0.0))
+    {
+        p.push(Problem::BadMaxRate);
     }
 
     let provenance_ok = match def.source {
@@ -702,6 +716,7 @@ fn check_def(
     if def.source == Source::Computed {
         forbid(def.stale_after.is_some(), "stale_after_ms");
         forbid(def.calibration.is_some(), "calibration");
+        forbid(def.max_rate_per_s.is_some(), "max_rate_per_s");
     } else {
         forbid(!def.inputs.is_empty(), "inputs");
         forbid(def.compute.is_some(), "compute");
@@ -1399,6 +1414,23 @@ mod tests {
         let p =
             problems(&base().replace("range: {min: -20, max: 300}", "range: {min: 300, max: -20}"));
         assert_eq!(p, [Problem::BadRange]);
+        for bad in ["0", "-5", ".nan", ".inf"] {
+            let p = problems(&base().replace(
+                "  range: {min: 50, max: 110}",
+                &format!("  range: {{min: 50, max: 110}}\n  max_rate_per_s: {bad}"),
+            ));
+            assert_eq!(p, [Problem::BadMaxRate], "{bad}");
+        }
+        let loaded = load(&base().replace(
+            "  range: {min: 50, max: 110}",
+            "  range: {min: 50, max: 110}\n  max_rate_per_s: 5",
+        ));
+        assert!(loaded.is_ok(), "a diagnostic signal may have one");
+        let p = problems(&base().replace(
+            "  range: {min: -20, max: 300}",
+            "  range: {min: -20, max: 300}\n  max_rate_per_s: 5",
+        ));
+        assert_eq!(p, [Problem::UnexpectedField("max_rate_per_s")]);
         let e = yaml_error(&base().replace("unit: psi}", "unit: furlongs}"));
         assert!(e.contains("furlongs"), "{e}");
     }

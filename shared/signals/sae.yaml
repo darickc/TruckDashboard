@@ -34,6 +34,11 @@
   response: {expect: "41 0D", length: 1}
   decode: {formula: "A", unit: km/h}
   range: {min: 0, max: 255}
+  # 40 km/h per second is about 1.1 g: more than this truck can brake or
+  # accelerate. A physical bound, not a Ford fact. On 2026-11-14 the PCM
+  # answered 0xCC (204 km/h) once while the engine started, the TCM saying 0
+  # (VERIFICATION_LOG.md, 2026-11-14).
+  max_rate_per_s: 40
   poll: {priority: 1, interval_ms: 1000, timeout_ms: 500}
   stale_after_ms: 2000
   provenance: SAE

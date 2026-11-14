@@ -107,7 +107,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             auto_reverse: false,
-            rev_debounce: Duration::from_millis(150),
+            rev_debounce: Duration::from_millis(300),
             rev_hold: Duration::from_millis(2000),
             rev_stale: Duration::from_millis(500),
             manual_max_speed_kph: None,
@@ -424,7 +424,7 @@ mod tests {
     /// In reverse long enough for the rear view.
     fn reversing() -> Policy {
         let mut p = auto();
-        let v = reverse(&mut p, true, 1000, 1200);
+        let v = reverse(&mut p, true, 1000, 1400);
         assert_eq!(v.camera, Some(Camera::Rear));
         p
     }
@@ -461,7 +461,7 @@ mod tests {
     fn default_examples_are_as_documented() {
         let c = Config::default();
         assert!(!c.auto_reverse);
-        assert_eq!(c.rev_debounce, ms(150));
+        assert_eq!(c.rev_debounce, ms(300));
         assert_eq!(c.rev_hold, ms(2000));
         assert_eq!(c.rev_stale, ms(500));
         assert_eq!(c.manual_max_speed_kph, None);
@@ -475,10 +475,10 @@ mod tests {
         let v = p.handle(Input::Reverse(true), ms(1000));
         assert_eq!(v.camera, None);
         assert_eq!(v.reverse, ReverseStatus::Engaged);
-        assert_eq!(p.deadline(), Some(ms(1150)));
-        let v = p.handle(Input::Reverse(true), ms(1149));
+        assert_eq!(p.deadline(), Some(ms(1300)));
+        let v = p.handle(Input::Reverse(true), ms(1299));
         assert_eq!(v.camera, None);
-        let v = p.handle(Input::Tick, ms(1150));
+        let v = p.handle(Input::Tick, ms(1300));
         assert_eq!(v.camera, Some(Camera::Rear));
         assert_eq!(v.why, Some(Why::Reverse));
     }
@@ -493,11 +493,22 @@ mod tests {
     }
 
     #[test]
+    fn the_160_ms_pass_through_r_into_p_shows_nothing() {
+        // 2026-11-14, twice: D → N → R → P with 230 byte 0 at 10 for 0.160 s
+        // (five frames); the 150 ms debounce then flashed the rear camera.
+        let mut p = auto();
+        reverse(&mut p, true, 1000, 1128);
+        let v = reverse(&mut p, false, 1160, 4000);
+        assert_eq!(v.camera, None);
+        assert_eq!(v.reverse, ReverseStatus::NotEngaged);
+    }
+
+    #[test]
     fn reverse_beats_the_latched_choice() {
         let mut p = auto();
         p.handle(Input::Switch(Move::Left), ms(500));
         assert_eq!(p.view().camera, Some(Camera::Left));
-        let v = reverse(&mut p, true, 1000, 1200);
+        let v = reverse(&mut p, true, 1000, 1400);
         assert_eq!(v.camera, Some(Camera::Rear));
         assert_eq!(v.why, Some(Why::Reverse));
     }
@@ -540,7 +551,7 @@ mod tests {
     fn press_during_reverse_returns_to_the_previous_screen_after_it() {
         let mut p = auto();
         p.handle(Input::Switch(Move::Left), ms(0));
-        reverse(&mut p, true, 1000, 1200);
+        reverse(&mut p, true, 1000, 1400);
         p.handle(Input::Switch(Move::Press), ms(1300));
         reverse(&mut p, false, 1400, 3500);
         assert_eq!(p.view().camera, None);
@@ -688,7 +699,7 @@ mod tests {
     fn reverse_overrides_the_front_camera_and_it_comes_back_after() {
         let mut p = auto();
         p.handle(Input::Switch(Move::Forward), ms(0));
-        let v = reverse(&mut p, true, 1000, 1200);
+        let v = reverse(&mut p, true, 1000, 1400);
         assert_eq!(v.camera, Some(Camera::Rear));
         reverse(&mut p, false, 1300, 3500);
         assert_eq!(p.view().camera, Some(Camera::Front));
@@ -755,7 +766,7 @@ mod tests {
             manual_max_speed_kph: Some(15.0),
             ..Config::default()
         });
-        let v = reverse(&mut p, true, 0, 200);
+        let v = reverse(&mut p, true, 0, 400);
         assert_eq!(v.camera, Some(Camera::Rear));
         assert!(!v.blocked_by_speed);
     }
@@ -784,7 +795,7 @@ mod tests {
     fn reverse_with_the_rear_camera_down_shows_unavailable() {
         let mut p = auto();
         p.handle(Input::CameraDown(Camera::Rear), ms(0));
-        let v = reverse(&mut p, true, 1000, 1200);
+        let v = reverse(&mut p, true, 1000, 1400);
         assert_eq!(v.camera, Some(Camera::Rear));
         assert!(v.camera_unavailable);
     }

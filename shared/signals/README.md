@@ -52,6 +52,8 @@ Unknown fields are errors.
     unit: degF                    # the formula's native unit, converted to `unit`: degC degF kPa psi V km/h mph rpm "%"
     signed: false                 # optional; only false is supported, use signed(x) in the formula
   range: {min: -40, max: 150}     # plausibility limits, canonical unit; outside → OUT_OF_RANGE
+  max_rate_per_s: 40              # optional: fastest plausible change from the last good reading,
+                                  # canonical units per second; faster → OUT_OF_RANGE. Not for computed signals
   poll: {priority: 3, interval_ms: 500, timeout_ms: 500}   # priority 0 is highest; interval is a target
   stale_after_ms: 4000            # default 3 × poll.interval_ms
   provenance: VERIFIED_ON_TRUCK   # SAE | VERIFIED_ON_TRUCK | IMPORTED_UNVERIFIED | COMPUTED | AUX_SENSOR

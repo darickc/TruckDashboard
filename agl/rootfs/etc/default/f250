@@ -113,7 +113,7 @@ CAMERA_REAR=
 #            the switch's back or the dashboard's Rear only. Empty: on with
 #            TRANSPORT=can, off otherwise (no broadcast to hear).
 # CAMERA_REVERSE_DEBOUNCE_MS, CAMERA_REVERSE_HOLD_MS  examples: reverse must
-#            last this long before the rear view comes up (empty: 150), and
+#            last this long before the rear view comes up (empty: 300), and
 #            the view stays this long after (empty: 2000).
 #            After editing: systemctl restart f250-camera-manager
 CAMERA_AUTO_REVERSE=

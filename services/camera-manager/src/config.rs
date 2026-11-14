@@ -129,8 +129,9 @@ pub struct Config {
 
     /// Reverse must be reported this long before the rear view comes up, ms
     /// (an example: it keeps the brief pass through R into P from flashing
-    /// the rear camera; 2026-11-10 saw R for 0.1 s there).
-    #[arg(long, default_value_t = 150)]
+    /// the rear camera; R lasted 0.1 s there on 2026-11-10, 0.160 s on
+    /// 2026-11-14).
+    #[arg(long, default_value_t = 300)]
     pub reverse_debounce_ms: u64,
 
     /// The rear view stays this long after reverse ends, ms (an example).

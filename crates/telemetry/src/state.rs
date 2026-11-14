@@ -127,8 +127,9 @@ pub struct SignalState {
     pub last_nrc: Option<u8>,
     pub last_responder: Option<u32>,
     pub last_latency_ms: Option<u32>,
-    /// The latest response, when it was outside the plausible range
-    /// (calibrated). Cleared by the next good one.
+    /// The latest response, when it was implausible: outside `range`, or a
+    /// faster change than `max_rate_per_s` (calibrated). Cleared by the next
+    /// good one.
     pub last_rejected_value: Option<f64>,
     pub successes: u64,
     pub failures: u64,
@@ -522,7 +523,9 @@ impl TelemetryStore {
             Outcome::Response(raw) => {
                 let v = calibration.apply(raw);
                 self.last_any_response = Some(r.at);
-                if s.def.range.contains(v) {
+                if s.def.range.contains(v)
+                    && plausible_change(&s.def, s.last_good_value, s.last_good_at, v, r.at)
+                {
                     s.last_good_value = Some(v);
                     s.last_good_raw = Some(raw);
                     s.last_good_at = Some(r.at);
@@ -806,6 +809,25 @@ impl TelemetryStore {
 }
 
 /// The worst of several non-valid validities, in the Flutter app's order.
+/// Whether `v` at `at` is a change the signal can physically make from its
+/// last good reading (`max_rate_per_s`). The allowance grows with the time
+/// since that reading, so a wrong baseline cannot lock good readings out:
+/// they pass once enough time has gone by. No limit or no baseline: plausible.
+fn plausible_change(
+    def: &SignalDef,
+    last_good_value: Option<f64>,
+    last_good_at: Option<Duration>,
+    v: f64,
+    at: Duration,
+) -> bool {
+    match (def.max_rate_per_s, last_good_value, last_good_at) {
+        (Some(rate), Some(prev), Some(prev_at)) => {
+            (v - prev).abs() <= rate * at.saturating_sub(prev_at).as_secs_f64()
+        }
+        _ => true,
+    }
+}
+
 fn worst(validities: impl Iterator<Item = Validity> + Clone) -> Validity {
     const RANK: [Validity; 6] = [
         Validity::Disabled,

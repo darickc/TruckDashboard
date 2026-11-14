@@ -182,6 +182,65 @@ mod validity {
     }
 
     #[test]
+    fn an_impossible_jump_is_rejected_like_an_out_of_range_value() {
+        // 2026-11-14, engine starting: speed 0, then the PCM's 0xCC (204
+        // km/h) one second later, then 0 again.
+        let mut h = Harness::new();
+        h.respond("speed", 0.0);
+        h.advance(Duration::from_secs(1));
+        h.respond("speed", 204.0);
+        h.refresh();
+        let s = h.s("speed");
+        assert_eq!(s.validity, Validity::OutOfRange);
+        assert_eq!(s.value, None);
+        assert_eq!(s.last_good_value, Some(0.0));
+        assert_eq!(s.last_rejected_value, Some(204.0));
+        h.advance(Duration::from_secs(1));
+        h.respond("speed", 0.0);
+        h.refresh();
+        assert_eq!(h.s("speed").validity, Validity::Valid);
+        assert_eq!(h.s("speed").value, Some(0.0));
+    }
+
+    #[test]
+    fn a_hard_but_possible_change_is_accepted() {
+        let mut h = Harness::new();
+        h.respond("speed", 100.0);
+        h.advance(Duration::from_secs(1));
+        h.respond("speed", 70.0); // hard braking, under 1 g
+        h.refresh();
+        assert_eq!(h.s("speed").validity, Validity::Valid);
+        assert_eq!(h.s("speed").value, Some(70.0));
+    }
+
+    #[test]
+    fn the_rate_allowance_grows_with_time_so_a_bad_baseline_cannot_lock_out() {
+        // The first reading has nothing to compare with, so even a wrong one
+        // is accepted; the true values pass once the allowance covers them.
+        let mut h = Harness::new();
+        h.respond("speed", 204.0);
+        h.advance(Duration::from_secs(1));
+        h.respond("speed", 0.0);
+        h.refresh();
+        assert_eq!(h.s("speed").validity, Validity::OutOfRange);
+        h.advance(Duration::from_secs(5)); // 6 s since 204: 240 km/h allowed
+        h.respond("speed", 0.0);
+        h.refresh();
+        assert_eq!(h.s("speed").validity, Validity::Valid);
+        assert_eq!(h.s("speed").value, Some(0.0));
+    }
+
+    #[test]
+    fn signals_without_a_rate_limit_may_jump() {
+        let mut h = Harness::new();
+        h.respond("rpm", 0.0);
+        h.advance(Duration::from_secs(1));
+        h.respond("rpm", 2500.0);
+        h.refresh();
+        assert_eq!(h.s("rpm").validity, Validity::Valid);
+    }
+
+    #[test]
     fn latest_implausible_answer_is_out_of_range_regardless_of_age() {
         let mut h = Harness::new();
         h.respond("trans_temp", 55.0);

@@ -713,6 +713,90 @@ Verdict:
 - Not done this drive (no polling): the cold-soak EOT, the load readings
   for the enable list, fuel level at a second point, `7ED`.
 
+## 2026-11-14 — Two drives with polling at power-on; automatic reverse camera [TRUCK]
+
+Card `cb62346` with `CAN_AUTO_ACTIVE=1`, `CAN_AUTO_CAPTURE=1`, `TRANSMIT=1`,
+`ENABLE=eot,map,icp,ipr_duty,ficm_main,battery,fuel_level`, no laptop. The
+Pi had power twice (one ~16 min, one ~17 min). Both times f250-can-auto
+heard a clean bus (2138 and 2143 frames in 3 s, ERROR-ACTIVE, no errors;
+the second boot needed three 3 s windows because the bus wasn't up yet),
+went active and restarted the gateway polling, 10 s and 16 s after boot. No
+clock source: frames are stamped 2026-10-27, only relative times hold.
+Data on the Pi: `/var/lib/f250/captures/20261027-150245-auto` and
+`…-150251-auto` (every frame, 703 066 and 761 207, no bus errors),
+recorder sessions 37 and 39 in `/var/lib/f250/storage/telemetry.sqlite`,
+journal boots −2 and −1 as of 2026-11-14.
+
+**Polling held for both drives.** Every enabled signal stayed `ACTIVE`;
+the only `NoResponse` run was at key-off at the end of the second drive,
+where the recorder shows every signal going `STALE` (not current) within
+about 2 s. Ranges over both drives (VALID samples): MAP 81.2–224.7 kPa,
+boost up to 141.7 kPa, ICP 0–24 126 kPa, IPR 14.7–75.8 %, FICM 46–48 V,
+load 0–99.6 %, speed to 120 km/h. These show the enable list reads under
+load; their scaling stays as it is in the registry (Torque-imported rows
+remain `IMPORTED_UNVERIFIED`).
+
+**EOT at key-on (open item: cold soak).** First drive, key on about 16 s
+before the start: EOT (`22 1310`) 10.9–11.0 °C, ECT 10 °C, IAT 7 °C, trans
+temp 9 °C, steady until the engine ran. EOT and ECT within 1 °C is what a
+cold soak should give; how long the truck had sat is not known. One
+point: it checks EOT's offset near 10 °C, not its slope.
+
+**Speed: one impossible answer at engine start.** Second drive, +4.548 s
+in the capture, while the engine started (RPM 181 → 774): the PCM answered
+`7E8#03410DCC00000000` (204 km/h) while the TCM's answer in the same
+window was `7E9#03410D0000000000`. The gateway took the PCM's and the
+recorder stored 204 km/h as `VALID` for one sample; the first start had no
+such answer (1772 `0D` answers by either module, none over 130 km/h). Fix
+(this commit): registry field `max_rate_per_s`, set to 40 km/h per second
+for `speed` (about 1.1 g, a physical bound); a faster change from the last
+good reading is `OUT_OF_RANGE` like a reading outside `range`. [SIM] in
+`crates/telemetry/tests/store.rs`; not driven yet. Speed came from the TCM
+in 1394 samples and the PCM in 386: whoever answers first.
+
+**`215` bytes 0–1 against PID `0D` (open item 6).** Pairing each PCM `0D`
+answer at ≥ 10 km/h with the latest `215`: (`215` − 10106) ÷ `0D` has
+median 99.6 counts per km/h in both drives (p10 97.4, p90 100.5; 98 below
+40 km/h, 100 above 80, the low-speed figure pulled down by `215` lagging
+the answer). The 2026-11-10 estimate from gear ratios was 97.5. PID `0D`
+itself has no GPS calibration yet, so this ties `215` to `0D`, not to true
+speed.
+
+**Automatic reverse (ADR-0046), first drives.** `230` byte 0 from the
+capture and camera-manager's journal, matched by time (one fixed offset
+per boot lines up every change):
+
+| Drive | `230` byte 0 | R for | Rear camera |
+|---|---|---|---|
+| 1, +58 s | `F0` → `10` | 15.1 s | live 0.95 s after the change; gone 2.3 s after leaving R |
+| 1, +882 s | `01` → `F1` → `10` → `F0` (into P) | 0.160 s | **flashed**: shown, gone ~2.3 s later |
+| 2, +35 s | `F0` → `10` | 15.1 s | live 0.97 s after |
+| 2, +928 s | `01` → `F1` → `10` | 21.0 s | live 0.89 s after |
+| 2, +952 s | `01` → `F1` → `10` → `F0` (into P) | 0.160 s | **flashed** |
+| 2, +961 s | `F0` → `10` | 43.4 s | live 0.89 s after |
+
+Every real reverse brought the rear camera up within 1 s (first frame
+626–814 ms after camera-manager started it) and it went about 2.3 s after
+R ended. The pass through R into P lasted 0.160 s both times (five
+frames), not the 0.1 s seen on 2026-11-10, so the 150 ms debounce let it
+through. Fix (this commit): the debounce is 300 ms, in camera-policy and
+camera-manager's default, and `CAMERA_REVERSE_DEBOUNCE_MS=300` on the
+card. Not driven yet. The lever order D → N → R → P shows as `01` →
+`F1` (64 ms) → `10` → `F0`, matching the 2026-11-08 lever test. At key-off
+camera-manager reported "reverse unknown (no 230 frame for 0.5 s)" with no
+camera, as designed.
+
+Verdict:
+- Polling from power-on with `CAN_AUTO_ACTIVE=1` works on the truck: two
+  drives, every signal answering throughout.
+- Automatic reverse works within 1 s and clears after the hold. Still to
+  check: no flash through R into P at 300 ms, a cold start already in R,
+  unplugging the adapter.
+- Battery read 10.06 V while cranking and raised the example `battery_low`
+  advisory; the battery DID stays unverified as battery voltage.
+- Fuel level stayed 60.9–67.9 % (no second point yet); `7ED` and gear
+  labels not addressed.
+
 ## Open questions for the next session
 
 1. ~~**Who is 7E9?**~~ **ANSWERED: the TCM.** It owns `22 1674` (transmission
