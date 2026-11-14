@@ -311,6 +311,40 @@ impl AudioService for Api {
         Ok(Response::new(pb::AnswerCallResponse { accepted, detail }))
     }
 
+    async fn dial(
+        &self,
+        req: Request<pb::DialRequest>,
+    ) -> Result<Response<pb::DialResponse>, Status> {
+        let r = req.into_inner();
+        let (accepted, detail) = match self.manager.dial(&r.number, &source_of(&r.source)).await {
+            Ok(d) => (true, d),
+            Err(d) => (false, d),
+        };
+        Ok(Response::new(pb::DialResponse { accepted, detail }))
+    }
+
+    async fn get_phonebook(
+        &self,
+        _: Request<pb::GetPhonebookRequest>,
+    ) -> Result<Response<pb::GetPhonebookResponse>, Status> {
+        Ok(Response::new(self.manager.phonebook()))
+    }
+
+    async fn refresh_phonebook(
+        &self,
+        req: Request<pb::RefreshPhonebookRequest>,
+    ) -> Result<Response<pb::RefreshPhonebookResponse>, Status> {
+        let r = req.into_inner();
+        let (accepted, detail) = match self.manager.refresh_phonebook(&source_of(&r.source)) {
+            Ok(d) => (true, d),
+            Err(d) => (false, d),
+        };
+        Ok(Response::new(pb::RefreshPhonebookResponse {
+            accepted,
+            detail,
+        }))
+    }
+
     async fn hang_up(
         &self,
         req: Request<pb::HangUpRequest>,

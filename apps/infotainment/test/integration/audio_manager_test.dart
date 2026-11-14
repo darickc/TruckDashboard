@@ -94,4 +94,43 @@ void main() {
     await _until(() => src.status.value.link == AudioLink.down);
     expect(src.status.value.report, isNull, reason: 'nothing current without audio-manager');
   }, skip: skip, timeout: const Timeout(Duration(seconds: 60)));
+
+  test('the phone\'s lists and a dialled call (ADR-0045 phase 2)', () async {
+    final dir = Directory.systemTemp.createTempSync('f250-audioit');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final sock = '${dir.path}/a.sock';
+    final am = await Process.start(_bin.path, [
+      '--listen', 'unix:$sock',
+      '--simulate',
+      '--settings-file', '${dir.path}/speakers.json',
+    ]);
+    addTearDown(() => am.kill());
+    am.stdout.listen((_) {});
+    am.stderr.listen((_) {});
+    await _until(() => File(sock).existsSync());
+
+    final src = GrpcAudioSource(endpoint: UnixEndpoint(sock), retryDelay: const Duration(milliseconds: 200))
+      ..start();
+    addTearDown(src.stop);
+    AudioReport? r() => src.status.value.report;
+
+    await _until(() => r()?.phonebook?.phase == PhonebookPhase.ready);
+    expect((r()!.phonebook!.contacts, r()!.phonebook!.recentCalls), (15, 4));
+    final book = await src.phonebook();
+    expect(book.version, r()!.phonebook!.version);
+    expect(book.contacts.first.name, 'Alex Rivera');
+    expect(book.contacts.first.numbers.map((n) => n.label), ['Mobile', 'Work']);
+    expect(book.recent.first.kind, RecentKind.missed);
+    expect(book.recent.first.time, DateTime(2026, 11, 14, 8, 15));
+
+    expect((await src.dial('555-CALL')).ok, isFalse);
+    final d = await src.dial('555 010 1002');
+    expect((d.ok, d.detail), (true, 'Calling…'));
+    await _until(() => r()?.call?.phase == CallPhase.dialing);
+    expect(r()!.call!.number, '5550101002');
+    expect(r()!.call!.name, 'Blake Chen', reason: 'named from the phone\'s contacts');
+    await _until(() => r()?.call?.phase == CallPhase.active);
+    expect((await src.hangUp(r()!.call!.id)).ok, isTrue);
+    await _until(() => r()?.call == null);
+  }, skip: skip, timeout: const Timeout(Duration(seconds: 60)));
 }

@@ -15,6 +15,10 @@ use crate::telephony::Telephony;
 
 pub const SIM_NUMBER: &str = "+15550100";
 pub const SIM_CALLER: &str = "Simulated Caller";
+/// A dialled call rings at the other end after this ...
+pub const DIAL_ALERTING: Duration = Duration::from_secs(1);
+/// ... and is answered this long after that.
+pub const DIAL_ANSWERED: Duration = Duration::from_secs(3);
 
 #[derive(Debug, Clone, Copy)]
 pub struct SimCallsConfig {
@@ -86,6 +90,7 @@ impl SimCalls {
         self.snap.send_replace(CallSnapshot {
             availability: Availability::Ready,
             gateways: vec![Gateway {
+                path: "/sim/telephony/ag0".into(),
                 address: FIRST.into(),
                 audio,
             }],
@@ -207,6 +212,33 @@ impl SimCalls {
         self.end_after(path, self.cfg.talk, false);
     }
 
+    /// Moves `path` to `state` after `after`, unless something happened to
+    /// the calls in between.
+    fn become_after(&self, path: &str, after: Duration, state: CallState) {
+        let me = self.clone();
+        let path = path.to_string();
+        let generation = self.lock().generation;
+        tokio::spawn(async move {
+            tokio::time::sleep(after).await;
+            let mut st = me.lock();
+            if st.generation != generation {
+                return;
+            }
+            let Some(c) = st.calls.iter_mut().find(|c| c.path == path) else {
+                return;
+            };
+            c.state = state;
+            st.generation += 1;
+            me.publish(&st);
+            drop(st);
+            match state {
+                CallState::Alerting => me.become_after(&path, DIAL_ANSWERED, CallState::Active),
+                CallState::Active => me.end_after(&path, me.cfg.talk, false),
+                _ => {}
+            }
+        });
+    }
+
     /// Every mute asked for, in order (tests).
     pub fn mutes(&self) -> Vec<bool> {
         self.lock().muted.clone()
@@ -248,12 +280,74 @@ impl Telephony for SimCalls {
         self.lock().muted.push(muted);
         Ok(())
     }
+
+    /// A call out: dialling, the other phone ringing after
+    /// [`DIAL_ALERTING`], answered [`DIAL_ANSWERED`] later, and hung up by
+    /// the far end after `talk`. An active call is held, as the README says
+    /// the gateway does.
+    async fn dial(&self, address: &str, number: &str) -> Result<(), String> {
+        if address != FIRST {
+            return Err("simulated: no such phone".into());
+        }
+        let path = {
+            let mut st = self.lock();
+            let path = format!("/sim/telephony/ag0/call{}", st.next);
+            st.next += 1;
+            for c in &mut st.calls {
+                if c.state == CallState::Active {
+                    c.state = CallState::Held;
+                }
+            }
+            st.calls.push(Call {
+                path: path.clone(),
+                address: FIRST.into(),
+                state: CallState::Dialing,
+                number: number.into(),
+                name: String::new(),
+                withheld: false,
+                multiparty: false,
+            });
+            st.generation += 1;
+            self.publish(&st);
+            path
+        };
+        self.become_after(&path, DIAL_ALERTING, CallState::Alerting);
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    #[tokio::test(start_paused = true)]
+    async fn a_dialled_call_rings_then_is_answered_then_ends() {
+        let s = SimCalls::new(SimCallsConfig::default());
+        let rx = s.calls();
+        s.dial(FIRST, "5550100").await.unwrap();
+        let state = || rx.borrow().calls.first().map(|c| c.state);
+        assert_eq!(state(), Some(CallState::Dialing));
+        assert_eq!(rx.borrow().calls[0].number, "5550100");
+        tokio::time::sleep(DIAL_ALERTING + Duration::from_millis(10)).await;
+        assert_eq!(state(), Some(CallState::Alerting));
+        tokio::time::sleep(DIAL_ANSWERED).await;
+        assert_eq!(state(), Some(CallState::Active));
+        tokio::time::sleep(SimCallsConfig::default().talk).await;
+        assert_eq!(state(), None, "the far end hung up");
+        assert!(s.dial("11:22", "1").await.is_err());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn hanging_up_while_dialling_ends_it() {
+        let s = SimCalls::new(SimCallsConfig::default());
+        let rx = s.calls();
+        s.dial(FIRST, "5550100").await.unwrap();
+        let path = rx.borrow().calls[0].path.clone();
+        s.hang_up(&path).await.unwrap();
+        tokio::time::sleep(Duration::from_secs(10)).await;
+        assert!(rx.borrow().calls.is_empty(), "no timer brings it back");
+    }
 
     #[tokio::test(start_paused = true)]
     async fn ring_answer_wait_and_hang_up() {

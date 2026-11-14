@@ -141,6 +141,43 @@ final $typed_data.Uint8List muteChangeDescriptor = $convert.base64Decode(
     'CgpNdXRlQ2hhbmdlEhsKF01VVEVfQ0hBTkdFX1VOU1BFQ0lGSUVEEAASFAoQTVVURV9DSEFOR0'
     'VfTVVURRABEhYKEk1VVEVfQ0hBTkdFX1VOTVVURRACEhYKEk1VVEVfQ0hBTkdFX1RPR0dMRRAD');
 
+@$core.Deprecated('Use phonebookStateDescriptor instead')
+const PhonebookState$json = {
+  '1': 'PhonebookState',
+  '2': [
+    {'1': 'PHONEBOOK_STATE_UNSPECIFIED', '2': 0},
+    {'1': 'PHONEBOOK_STATE_NONE', '2': 1},
+    {'1': 'PHONEBOOK_STATE_LOADING', '2': 2},
+    {'1': 'PHONEBOOK_STATE_READY', '2': 3},
+    {'1': 'PHONEBOOK_STATE_FAILED', '2': 4},
+    {'1': 'PHONEBOOK_STATE_OFF', '2': 5},
+  ],
+};
+
+/// Descriptor for `PhonebookState`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List phonebookStateDescriptor = $convert.base64Decode(
+    'Cg5QaG9uZWJvb2tTdGF0ZRIfChtQSE9ORUJPT0tfU1RBVEVfVU5TUEVDSUZJRUQQABIYChRQSE'
+    '9ORUJPT0tfU1RBVEVfTk9ORRABEhsKF1BIT05FQk9PS19TVEFURV9MT0FESU5HEAISGQoVUEhP'
+    'TkVCT09LX1NUQVRFX1JFQURZEAMSGgoWUEhPTkVCT09LX1NUQVRFX0ZBSUxFRBAEEhcKE1BIT0'
+    '5FQk9PS19TVEFURV9PRkYQBQ==');
+
+@$core.Deprecated('Use recentKindDescriptor instead')
+const RecentKind$json = {
+  '1': 'RecentKind',
+  '2': [
+    {'1': 'RECENT_KIND_UNSPECIFIED', '2': 0},
+    {'1': 'RECENT_KIND_RECEIVED', '2': 1},
+    {'1': 'RECENT_KIND_DIALED', '2': 2},
+    {'1': 'RECENT_KIND_MISSED', '2': 3},
+  ],
+};
+
+/// Descriptor for `RecentKind`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List recentKindDescriptor = $convert.base64Decode(
+    'CgpSZWNlbnRLaW5kEhsKF1JFQ0VOVF9LSU5EX1VOU1BFQ0lGSUVEEAASGAoUUkVDRU5UX0tJTk'
+    'RfUkVDRUlWRUQQARIWChJSRUNFTlRfS0lORF9ESUFMRUQQAhIWChJSRUNFTlRfS0lORF9NSVNT'
+    'RUQQAw==');
+
 @$core.Deprecated('Use watchAudioRequestDescriptor instead')
 const WatchAudioRequest$json = {
   '1': 'WatchAudioRequest',
@@ -360,6 +397,14 @@ const WatchAudioResponse$json = {
       '6': '.f250.audio.v1.Calls',
       '10': 'calls'
     },
+    {
+      '1': 'phonebook',
+      '3': 15,
+      '4': 1,
+      '5': 11,
+      '6': '.f250.audio.v1.Phonebook',
+      '10': 'phonebook'
+    },
   ],
 };
 
@@ -376,7 +421,8 @@ final $typed_data.Uint8List watchAudioResponseDescriptor = $convert.base64Decode
     'CFIJc2ltdWxhdGVkEjAKB3Byb21wdHMYCyABKAsyFi5mMjUwLmF1ZGlvLnYxLlByb21wdHNSB3'
     'Byb21wdHMSNwoHY29ubmVjdBgMIAEoCzIdLmYyNTAuYXVkaW8udjEuQ29ubmVjdEF0dGVtcHRS'
     'B2Nvbm5lY3QSLQoGdm9sdW1lGA0gASgLMhUuZjI1MC5hdWRpby52MS5Wb2x1bWVSBnZvbHVtZR'
-    'IqCgVjYWxscxgOIAEoCzIULmYyNTAuYXVkaW8udjEuQ2FsbHNSBWNhbGxz');
+    'IqCgVjYWxscxgOIAEoCzIULmYyNTAuYXVkaW8udjEuQ2FsbHNSBWNhbGxzEjYKCXBob25lYm9v'
+    'axgPIAEoCzIYLmYyNTAuYXVkaW8udjEuUGhvbmVib29rUglwaG9uZWJvb2s=');
 
 @$core.Deprecated('Use callDescriptor instead')
 const Call$json = {
@@ -1028,3 +1074,183 @@ final $typed_data.Uint8List setVolumeResponseDescriptor = $convert.base64Decode(
     'ChFTZXRWb2x1bWVSZXNwb25zZRIYCgdhcHBsaWVkGAEgASgIUgdhcHBsaWVkEhYKBmRldGFpbB'
     'gCIAEoCVIGZGV0YWlsEi0KBnZvbHVtZRgDIAEoCzIVLmYyNTAuYXVkaW8udjEuVm9sdW1lUgZ2'
     'b2x1bWU=');
+
+@$core.Deprecated('Use dialRequestDescriptor instead')
+const DialRequest$json = {
+  '1': 'DialRequest',
+  '2': [
+    {'1': 'number', '3': 1, '4': 1, '5': 9, '10': 'number'},
+    {'1': 'source', '3': 2, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `DialRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List dialRequestDescriptor = $convert.base64Decode(
+    'CgtEaWFsUmVxdWVzdBIWCgZudW1iZXIYASABKAlSBm51bWJlchIWCgZzb3VyY2UYAiABKAlSBn'
+    'NvdXJjZQ==');
+
+@$core.Deprecated('Use dialResponseDescriptor instead')
+const DialResponse$json = {
+  '1': 'DialResponse',
+  '2': [
+    {'1': 'accepted', '3': 1, '4': 1, '5': 8, '10': 'accepted'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `DialResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List dialResponseDescriptor = $convert.base64Decode(
+    'CgxEaWFsUmVzcG9uc2USGgoIYWNjZXB0ZWQYASABKAhSCGFjY2VwdGVkEhYKBmRldGFpbBgCIA'
+    'EoCVIGZGV0YWls');
+
+@$core.Deprecated('Use phonebookDescriptor instead')
+const Phonebook$json = {
+  '1': 'Phonebook',
+  '2': [
+    {
+      '1': 'state',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.f250.audio.v1.PhonebookState',
+      '10': 'state'
+    },
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+    {'1': 'version', '3': 3, '4': 1, '5': 4, '10': 'version'},
+    {'1': 'contacts', '3': 4, '4': 1, '5': 13, '10': 'contacts'},
+    {'1': 'recent_calls', '3': 5, '4': 1, '5': 13, '10': 'recentCalls'},
+  ],
+};
+
+/// Descriptor for `Phonebook`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List phonebookDescriptor = $convert.base64Decode(
+    'CglQaG9uZWJvb2sSMwoFc3RhdGUYASABKA4yHS5mMjUwLmF1ZGlvLnYxLlBob25lYm9va1N0YX'
+    'RlUgVzdGF0ZRIWCgZkZXRhaWwYAiABKAlSBmRldGFpbBIYCgd2ZXJzaW9uGAMgASgEUgd2ZXJz'
+    'aW9uEhoKCGNvbnRhY3RzGAQgASgNUghjb250YWN0cxIhCgxyZWNlbnRfY2FsbHMYBSABKA1SC3'
+    'JlY2VudENhbGxz');
+
+@$core.Deprecated('Use contactNumberDescriptor instead')
+const ContactNumber$json = {
+  '1': 'ContactNumber',
+  '2': [
+    {'1': 'number', '3': 1, '4': 1, '5': 9, '10': 'number'},
+    {'1': 'label', '3': 2, '4': 1, '5': 9, '10': 'label'},
+  ],
+};
+
+/// Descriptor for `ContactNumber`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List contactNumberDescriptor = $convert.base64Decode(
+    'Cg1Db250YWN0TnVtYmVyEhYKBm51bWJlchgBIAEoCVIGbnVtYmVyEhQKBWxhYmVsGAIgASgJUg'
+    'VsYWJlbA==');
+
+@$core.Deprecated('Use contactDescriptor instead')
+const Contact$json = {
+  '1': 'Contact',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'numbers',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.f250.audio.v1.ContactNumber',
+      '10': 'numbers'
+    },
+  ],
+};
+
+/// Descriptor for `Contact`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List contactDescriptor = $convert.base64Decode(
+    'CgdDb250YWN0EhIKBG5hbWUYASABKAlSBG5hbWUSNgoHbnVtYmVycxgCIAMoCzIcLmYyNTAuYX'
+    'VkaW8udjEuQ29udGFjdE51bWJlclIHbnVtYmVycw==');
+
+@$core.Deprecated('Use recentCallDescriptor instead')
+const RecentCall$json = {
+  '1': 'RecentCall',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'number', '3': 2, '4': 1, '5': 9, '10': 'number'},
+    {
+      '1': 'kind',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.f250.audio.v1.RecentKind',
+      '10': 'kind'
+    },
+    {'1': 'time', '3': 4, '4': 1, '5': 9, '10': 'time'},
+  ],
+};
+
+/// Descriptor for `RecentCall`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List recentCallDescriptor = $convert.base64Decode(
+    'CgpSZWNlbnRDYWxsEhIKBG5hbWUYASABKAlSBG5hbWUSFgoGbnVtYmVyGAIgASgJUgZudW1iZX'
+    'ISLQoEa2luZBgDIAEoDjIZLmYyNTAuYXVkaW8udjEuUmVjZW50S2luZFIEa2luZBISCgR0aW1l'
+    'GAQgASgJUgR0aW1l');
+
+@$core.Deprecated('Use getPhonebookRequestDescriptor instead')
+const GetPhonebookRequest$json = {
+  '1': 'GetPhonebookRequest',
+};
+
+/// Descriptor for `GetPhonebookRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getPhonebookRequestDescriptor =
+    $convert.base64Decode('ChNHZXRQaG9uZWJvb2tSZXF1ZXN0');
+
+@$core.Deprecated('Use getPhonebookResponseDescriptor instead')
+const GetPhonebookResponse$json = {
+  '1': 'GetPhonebookResponse',
+  '2': [
+    {'1': 'version', '3': 1, '4': 1, '5': 4, '10': 'version'},
+    {
+      '1': 'contacts',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.f250.audio.v1.Contact',
+      '10': 'contacts'
+    },
+    {
+      '1': 'recent_calls',
+      '3': 3,
+      '4': 3,
+      '5': 11,
+      '6': '.f250.audio.v1.RecentCall',
+      '10': 'recentCalls'
+    },
+  ],
+};
+
+/// Descriptor for `GetPhonebookResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getPhonebookResponseDescriptor = $convert.base64Decode(
+    'ChRHZXRQaG9uZWJvb2tSZXNwb25zZRIYCgd2ZXJzaW9uGAEgASgEUgd2ZXJzaW9uEjIKCGNvbn'
+    'RhY3RzGAIgAygLMhYuZjI1MC5hdWRpby52MS5Db250YWN0Ughjb250YWN0cxI8CgxyZWNlbnRf'
+    'Y2FsbHMYAyADKAsyGS5mMjUwLmF1ZGlvLnYxLlJlY2VudENhbGxSC3JlY2VudENhbGxz');
+
+@$core.Deprecated('Use refreshPhonebookRequestDescriptor instead')
+const RefreshPhonebookRequest$json = {
+  '1': 'RefreshPhonebookRequest',
+  '2': [
+    {'1': 'source', '3': 1, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `RefreshPhonebookRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List refreshPhonebookRequestDescriptor =
+    $convert.base64Decode(
+        'ChdSZWZyZXNoUGhvbmVib29rUmVxdWVzdBIWCgZzb3VyY2UYASABKAlSBnNvdXJjZQ==');
+
+@$core.Deprecated('Use refreshPhonebookResponseDescriptor instead')
+const RefreshPhonebookResponse$json = {
+  '1': 'RefreshPhonebookResponse',
+  '2': [
+    {'1': 'accepted', '3': 1, '4': 1, '5': 8, '10': 'accepted'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `RefreshPhonebookResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List refreshPhonebookResponseDescriptor =
+    $convert.base64Decode(
+        'ChhSZWZyZXNoUGhvbmVib29rUmVzcG9uc2USGgoIYWNjZXB0ZWQYASABKAhSCGFjY2VwdGVkEh'
+        'YKBmRldGFpbBgCIAEoCVIGZGV0YWls');

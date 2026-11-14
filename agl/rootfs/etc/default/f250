@@ -244,6 +244,11 @@ AUDIO_CROSSOVER_HZ=
 # AUDIO_COVER_ART  1 (or empty): the playing track's picture on the Media
 #            screen, fetched from the phone through obexd (ADR-0042). 0: none.
 AUDIO_COVER_ART=
+# AUDIO_PHONEBOOK  1 (or empty): the connected phone's contacts and recent
+#            calls on the Phone screen, read over Bluetooth (PBAP) through
+#            obexd when it connects; kept in memory only (ADR-0045 phase
+#            2). The phone may ask to allow it. 0: not read.
+AUDIO_PHONEBOOK=
 # Spoken directions (ADR-0039 decision 9; navigation, ADR-0040). The music
 # is paused while a prompt is said (owner, 2026-11-12) and resumed after.
 # AUDIO_VOICE  a program that says its argument (empty:

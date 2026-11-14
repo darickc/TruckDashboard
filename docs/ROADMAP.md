@@ -332,7 +332,12 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       generated tone (`--ring-command`; `RING=afplay` on the Mac); a waiting call isn't.
       Simulated calls on both sides (`SIM_CALL=<s>`). Not on the Pi: the D-Bus client has only run against the
       simulation, and the hands-free role, its D-Bus policy and the call audio path aren't shipped.
-      Next: S2 with audio-manager on the bench, then the packaging; S3/S4 after
+      Phase 2 in software `[SIM]` (ADR-0045 amendment, owner 2026-11-14): `Dial` (`AudioGateway1.Dial`), the phone's
+      contacts and recent calls over PBAP through obexd (`GetPhonebook`; read on connect and after each call, in memory
+      only), and the Phone screen from Home: Contacts and Recent (usable while driving), a Keypad only when stopped
+      (a current speed below 1 km/h, an example), the paired phones, and the call shown large while it is set up and
+      talked on. Not on the Pi: dialling needs the hands-free packaging above; the PBAP read hasn't met a phone.
+      Next: S2 with audio-manager on the bench (and PBAP with the owner's phone), then the packaging; S3/S4 after
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
       JSON and tracks the position honestly (status, the last fix with its age, never stale as current); 23 tests,
       with gpsd 3.27.5's own output from synthetic NMEA as the test vectors. `services/navigation` serves

@@ -138,7 +138,17 @@ class _AppShellState extends State<AppShell> {
                   VolumeOverlay(audio: s.audio, hidden: s.screens.value == AppScreen.media),
             ),
           ),
-          Positioned(top: 0, left: 0, right: 0, child: CallBar(audio: s.audio)),
+          // The Phone screen shows the call itself, larger.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ListenableBuilder(
+              listenable: s.screens,
+              builder: (context, _) =>
+                  s.screens.value == AppScreen.phones ? const SizedBox.shrink() : CallBar(audio: s.audio),
+            ),
+          ),
         ]),
       ),
     ]);

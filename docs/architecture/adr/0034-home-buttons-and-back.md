@@ -93,9 +93,10 @@ Checked on the bench Pi's panel: see the bench log.
 The owner wants a phone button on Home and Diagnostics moved to Settings.
 Decision 2 changes:
 
-- **Home has a Phone button** (the Phones screen: pairing, connecting and
-  calls, [ADR-0039](0039-audio-manager.md); a smartphone icon, as on Media's
-  Phones button, which stays). Home is still 3 × 2: Gauges, Media, Nav,
+- **Home has a Phone button** (the Phone screen: contacts, recent calls, a
+  keypad and the paired phones, [ADR-0045](0045-phone-calls.md)'s second
+  amendment; a smartphone icon, as on Media's Phones button, which stays and
+  opens the paired phones). Home is still 3 × 2: Gauges, Media, Nav,
   Cameras, Phone, Settings.
 - **Diagnostics opens from Settings**: a button after the four sections
   (Display, Cameras, Speakers, Units), left of Restart and Power. It opens

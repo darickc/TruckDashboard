@@ -54,6 +54,17 @@ class FakeAudio implements AudioSource {
     calls.add('mute $muted');
     return const CommandResult(ok: true);
   }
+  @override
+  Future<CommandResult> dial(String number) async {
+    calls.add('dial $number');
+    return const CommandResult(ok: true);
+  }
+
+  @override
+  Future<PhonebookData> phonebook() async => const PhonebookData();
+
+  @override
+  Future<CommandResult> refreshPhonebook() async => const CommandResult(ok: true);
   final _status = ValueNotifier(const AudioStatus(link: AudioLink.connecting));
 
   set value(AudioStatus s) => _status.value = s;
@@ -280,6 +291,7 @@ void main() {
     expect(text(tester, 'media-headline'), 'Bluetooth unavailable');
     expect(text(tester, 'media-explain'), 'simulated: Bluetooth is off');
     expect(key('media-title'), findsNothing);
+    h.services.phoneTab.value = PhoneTab.phones;
     await h.goTo(AppScreen.phones);
     expect(text(tester, 'phones-empty'), 'simulated: Bluetooth is off');
     await tester.tap(key('phones-pair'));
@@ -303,6 +315,7 @@ void main() {
     expect(text(tester, 'media-link'), 'audio-manager not connected');
     expect(text(tester, 'media-link-detail'), startsWith('audio-manager stopped answering.'));
     expect(key('media-phones'), findsNothing);
+    h.services.phoneTab.value = PhoneTab.phones;
     await h.goTo(AppScreen.phones);
     expect(text(tester, 'phones-link'), contains('audio-manager not connected'));
     expect(key('phones-pair'), findsNothing);
@@ -357,6 +370,7 @@ void main() {
   testWidgets('pairing window: Pair, countdown, the code, accepted, closed', (tester) async {
     final audio = SimulatedAudioSource(autoRun: false, pairAfterTicks: 3);
     final h = await Harness.start(tester, audio: audio);
+    h.services.phoneTab.value = PhoneTab.phones;
     await h.goTo(AppScreen.phones);
     expect(find.textContaining('Pair a phone'), findsOneWidget);
     expect(text(tester, 'phones-pairing'), contains('Not visible to new phones'));
@@ -394,6 +408,7 @@ void main() {
   testWidgets('pairing window: refused, stopped by hand, and closing by itself', (tester) async {
     final audio = SimulatedAudioSource(autoRun: false, pairAfterTicks: 1);
     final h = await Harness.start(tester, audio: audio);
+    h.services.phoneTab.value = PhoneTab.phones;
     await h.goTo(AppScreen.phones);
     await tester.tap(key('phones-pair'));
     await tester.pump();
@@ -431,6 +446,7 @@ void main() {
               name: 'F-250',
               question: PasskeyQuestion(id: 7, phoneName: 'Unknown', address: 'CC', secondsLeft: 20))));
     final h = await Harness.start(tester, audio: audio);
+    h.services.phoneTab.value = PhoneTab.phones;
     await h.goTo(AppScreen.phones);
     expect(key('phones-passkey'), findsNothing);
     expect(find.textContaining('Accept only if it is the phone in your hand'), findsOneWidget);
@@ -476,6 +492,7 @@ void main() {
             ],
             connect: ConnectStatus(detail: 'Couldn\'t reach ${'Other ' * 20}: a long reason ' * 3)));
       final h = await Harness.start(tester, audio: audio, theme: theme);
+      h.services.phoneTab.value = PhoneTab.phones;
       await h.goTo(AppScreen.phones);
       expect(tester.takeException(), isNull);
       expect(key('phones-row-B0'), findsOneWidget);
@@ -648,6 +665,7 @@ void main() {
   testWidgets('Disconnect, and Delete asked again in the row', (tester) async {
     final audio = SimulatedAudioSource(autoRun: false);
     final h = await Harness.start(tester, audio: audio);
+    h.services.phoneTab.value = PhoneTab.phones;
     await h.goTo(AppScreen.phones);
     expect(key('phones-connect-02:00:00:00:00:01'), findsNothing);
     expect(key('phones-disconnect-02:00:00:00:00:03'), findsNothing);
@@ -687,6 +705,7 @@ void main() {
           phone: Phone(address: 'AA:01', name: 'Pixel 8', connected: true, paired: true, last: true),
           known: [Phone(address: 'AA:02', name: 'Old iPhone', paired: true)]));
     final h = await Harness.start(tester, audio: audio);
+    h.services.phoneTab.value = PhoneTab.phones;
     await h.goTo(AppScreen.phones);
     await tester.tap(key('phones-disconnect-AA:01'));
     await tester.pump();
@@ -700,6 +719,7 @@ void main() {
   testWidgets('a connection that fails says why', (tester) async {
     final audio = SimulatedAudioSource(autoRun: false)..reachable = false;
     final h = await Harness.start(tester, audio: audio);
+    h.services.phoneTab.value = PhoneTab.phones;
     await h.goTo(AppScreen.phones);
     await tester.tap(key('phones-connect-02:00:00:00:00:03'));
     await tester.pump();
@@ -725,6 +745,7 @@ void main() {
     expect(text(tester, 'media-headline'), 'Connecting to Pixel 8…');
     expect(text(tester, 'media-explain'), contains('trying it again by itself'));
     expect(find.text('Phones · connecting…'), findsOneWidget);
+    h.services.phoneTab.value = PhoneTab.phones;
     await h.goTo(AppScreen.phones);
     expect(text(tester, 'phones-status-AA:01'), 'Reconnecting by itself…');
     expect(text(tester, 'phones-detail'), 'Trying Pixel 8 again by itself…');

@@ -22,6 +22,7 @@ use crate::calls::{self, Availability, Call, CallSnapshot, CallState};
 use crate::dsp::{self, Limits, Mix, Settings};
 use crate::model::{Adapter, AgentAsk, AgentRequest, Command, Picture, PlayState, Snapshot};
 use crate::pairing::{self, Action, Outcome, State, Window};
+use crate::phonebook::{self, BookState, Phonebook, RecentKind};
 use crate::prompts::{Act, PromptPause};
 use crate::ring::Ringer;
 use crate::runner::{Dsp, DspState};
@@ -168,6 +169,8 @@ struct Inner {
     ring: Option<tokio::task::AbortHandle>,
     /// The call ringing on the phone in use, and since when.
     incoming: Option<(u64, Instant)>,
+    /// The phone whose lists were asked for last (ADR-0045 phase 2).
+    book_for: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -184,6 +187,7 @@ pub struct Manager {
     voice: Arc<dyn Voice>,
     tel: Arc<dyn Telephony>,
     ringer: Arc<dyn Ringer>,
+    book: Arc<dyn Phonebook>,
     inner: Mutex<Inner>,
     out: watch::Sender<pb::WatchAudioResponse>,
     /// Bumped by the main loop (systemd watchdog).
@@ -273,6 +277,7 @@ impl Manager {
         voice: Arc<dyn Voice>,
         tel: Arc<dyn Telephony>,
         ringer: Arc<dyn Ringer>,
+        book: Arc<dyn Phonebook>,
     ) -> Arc<Manager> {
         let (settings, problem) = load_settings(&cfg);
         if let Some(p) = problem {
@@ -325,6 +330,7 @@ impl Manager {
                 call_pause: PromptPause::new(cfg.prompt_hold),
                 ring: None,
                 incoming: None,
+                book_for: None,
             }),
             cfg,
             bt,
@@ -332,6 +338,7 @@ impl Manager {
             voice,
             tel,
             ringer,
+            book,
             out: watch::Sender::new(pb::WatchAudioResponse::default()),
             heartbeat: f250_sd_notify::Heartbeat::new(),
             stopping: std::sync::atomic::AtomicBool::new(false),
@@ -478,9 +485,11 @@ impl Manager {
         let mut art = self.bt.cover_art();
         let mut dsp_state = self.dsp.state();
         let mut calls = self.tel.calls();
+        let mut book = self.book.book();
         self.dsp.start(self.mix()).await;
         tokio::spawn(Arc::clone(&self).volume_task());
         self.on_snapshot();
+        self.follow_book();
         let mut tick = tokio::time::interval(Duration::from_secs(1));
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
@@ -488,6 +497,11 @@ impl Manager {
                 r = snap.changed() => {
                     if r.is_err() { return; }
                     self.on_snapshot();
+                    self.follow_book();
+                }
+                r = book.changed() => {
+                    if r.is_err() { return; }
+                    self.publish();
                 }
                 r = dsp_state.changed() => {
                     if r.is_err() { return; }
@@ -1225,6 +1239,10 @@ impl Manager {
         } else if !in_call && inner.in_call {
             eprintln!("[audio] no call any more");
             inner.call_pause.finished(now);
+            // The call is in the phone's history now.
+            if let Some(phone) = Self::current(inner, s) {
+                self.book.load(Some(phone.address));
+            }
             if inner.mic_muted {
                 // Every call starts unmuted.
                 inner.mic_muted = false;
@@ -1425,6 +1443,123 @@ impl Manager {
         Ok(())
     }
 
+    /// Asks for the lists of the phone in use when it changes (none: they
+    /// are cleared).
+    fn follow_book(&self) {
+        let s = self.bt.snapshot().borrow().clone();
+        let mut inner = self.lock();
+        let address = Self::current(&inner, &s).map(|p| p.address);
+        if address != inner.book_for {
+            inner.book_for.clone_from(&address);
+            drop(inner);
+            self.book.load(address);
+        }
+    }
+
+    /// Calls `number` from the phone in use (ADR-0045 phase 2). Ok: what is
+    /// happening, for the screen. Not during another call: hold and swap
+    /// are the phone's.
+    pub async fn dial(&self, number: &str, source: &str) -> Result<String, String> {
+        let number = phonebook::dial_number(number)?;
+        let s = self.bt.snapshot().borrow().clone();
+        let t = self.tel.calls().borrow().clone();
+        match &t.availability {
+            Availability::Off(why) => return Err(format!("Calls stay on the phone: {why}.")),
+            Availability::Unavailable(why) => return Err(format!("Calls unavailable: {why}.")),
+            Availability::Ready => {}
+        }
+        let address = {
+            let inner = self.lock();
+            let phone = Self::current(&inner, &s).ok_or("No phone is connected.")?;
+            if !Self::phone_calls(&inner, &s, &t).is_empty() {
+                return Err("A call is in progress: hang it up first.".into());
+            }
+            phone.address
+        };
+        // The number itself isn't logged: it is the driver's business.
+        eprintln!(
+            "[audio] {source}: dial a number ({} characters)",
+            number.len()
+        );
+        self.tel
+            .dial(&address, &number)
+            .await
+            .map(|()| "Calling…".to_string())
+            .map_err(|e| {
+                eprintln!("[audio] dialling: {e}");
+                format!("The phone didn't place the call: {e}.")
+            })
+    }
+
+    /// The phone's lists as last read.
+    pub fn phonebook(&self) -> pb::GetPhonebookResponse {
+        let b = self.book.book().borrow().clone();
+        pb::GetPhonebookResponse {
+            version: b.version,
+            contacts: b
+                .contacts
+                .iter()
+                .map(|c| pb::Contact {
+                    name: c.name.clone(),
+                    numbers: c
+                        .numbers
+                        .iter()
+                        .map(|n| pb::ContactNumber {
+                            number: n.number.clone(),
+                            label: n.label.clone(),
+                        })
+                        .collect(),
+                })
+                .collect(),
+            recent_calls: b
+                .recent
+                .iter()
+                .map(|r| pb::RecentCall {
+                    name: r.name.clone(),
+                    number: r.number.clone(),
+                    kind: match r.kind {
+                        RecentKind::Received => pb::RecentKind::Received,
+                        RecentKind::Dialed => pb::RecentKind::Dialed,
+                        RecentKind::Missed => pb::RecentKind::Missed,
+                        RecentKind::Unknown => pb::RecentKind::Unspecified,
+                    }
+                    .into(),
+                    time: r.time.clone(),
+                })
+                .collect(),
+        }
+    }
+
+    /// Reads the phone's lists again. Ok: what is happening.
+    pub fn refresh_phonebook(&self, source: &str) -> Result<String, String> {
+        if let BookState::Off(why) = &self.book.book().borrow().state {
+            return Err(format!("The phone's contacts aren't read here: {why}."));
+        }
+        let s = self.bt.snapshot().borrow().clone();
+        let phone = Self::current(&self.lock(), &s).ok_or("No phone is connected.")?;
+        eprintln!("[audio] {source}: read the phone's contacts again");
+        self.book.load(Some(phone.address));
+        Ok("Reading the phone's contacts…".into())
+    }
+
+    fn phonebook_pb(&self) -> pb::Phonebook {
+        let b = self.book.book().borrow().clone();
+        let (state, detail) = match &b.state {
+            BookState::None => (pb::PhonebookState::None, String::new()),
+            BookState::Loading => (pb::PhonebookState::Loading, String::new()),
+            BookState::Ready => (pb::PhonebookState::Ready, String::new()),
+            BookState::Failed(why) => (pb::PhonebookState::Failed, why.clone()),
+            BookState::Off(why) => (pb::PhonebookState::Off, why.clone()),
+        };
+        pb::Phonebook {
+            state: state.into(),
+            detail,
+            version: b.version,
+            contacts: u32::try_from(b.contacts.len()).unwrap_or(u32::MAX),
+            recent_calls: u32::try_from(b.recent.len()).unwrap_or(u32::MAX),
+        }
+    }
+
     fn calls_pb(&self, inner: &Inner, s: &Snapshot, now: Instant) -> pb::Calls {
         let t = self.tel.calls().borrow().clone();
         let phone = Self::current(inner, s);
@@ -1462,7 +1597,14 @@ impl Manager {
                 id: memo.id,
                 state: state.into(),
                 number: c.number.clone(),
-                name: c.name.clone(),
+                // The phone's name for the caller, else the contact the
+                // number belongs to (many phones give none for a call out).
+                name: if c.name.is_empty() {
+                    phonebook::name_for(&self.book.book().borrow().contacts, &c.number)
+                        .unwrap_or_default()
+                } else {
+                    c.name.clone()
+                },
                 withheld: c.withheld,
                 active_s: memo.active_since.map_or(0, |at| {
                     u32::try_from(now.saturating_duration_since(at).as_secs()).unwrap_or(u32::MAX)
@@ -1725,6 +1867,7 @@ impl Manager {
             simulated: self.cfg.simulated,
             volume: Some(volume),
             calls: Some(self.calls_pb(&inner, &s, now)),
+            phonebook: Some(self.phonebook_pb()),
             connect: Some(pb::ConnectAttempt {
                 address: inner
                     .attempt

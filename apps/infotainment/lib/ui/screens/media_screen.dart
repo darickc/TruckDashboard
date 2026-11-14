@@ -100,7 +100,10 @@ class _MediaScreenState extends State<MediaScreen> {
         key: const ValueKey('media-phones'),
         text: label,
         icon: Icons.smartphone_rounded,
-        onTap: () => screens.open(AppScreen.phones),
+        onTap: () {
+          AppScope.of(context).phoneTab.value = PhoneTab.phones;
+          screens.open(AppScreen.phones);
+        },
         emphasis: r.pairing.question != null,
       ),
     );

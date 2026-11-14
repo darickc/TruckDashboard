@@ -27,6 +27,10 @@ import 'banner_alerts.dart';
 /// Cameras and `diagnostics` from Settings, not Home.
 enum AppScreen { home, gauges, media, navigation, cameras, settings, diagnostics, recordings, phones }
 
+/// The Phone screen's views (ADR-0045 phase 2): the phone's contacts, its
+/// recent calls, a keypad (only when stopped), and the paired phones.
+enum PhoneTab { contacts, recent, keypad, phones }
+
 /// Which screen is showing, and the way back to Home: a stack whose bottom is
 /// always Home. Back pops one screen; Home clears the stack.
 class ScreenHistory extends ChangeNotifier implements ValueListenable<AppScreen> {
@@ -163,6 +167,10 @@ class AppServices {
 
   /// The screen showing and the way back to Home.
   final screens = ScreenHistory();
+
+  /// The Phone screen's view: kept between visits; Media's Phones button
+  /// sets it to the paired phones.
+  final phoneTab = ValueNotifier(PhoneTab.contacts);
 
   /// "Not polling the truck" shows only once it has lasted this long
   /// (banner_alerts.dart).

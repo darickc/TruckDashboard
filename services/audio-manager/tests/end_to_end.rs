@@ -15,6 +15,7 @@ use audio_manager::backend::Bluetooth;
 use audio_manager::dsp::{Limits, Settings};
 use audio_manager::manager::{Config, Manager, Reconnect};
 use audio_manager::pairing;
+use audio_manager::phonebook::{Lists, SimReader};
 use audio_manager::ring::SimRinger;
 use audio_manager::runner::NoDsp;
 use audio_manager::server::Api;
@@ -124,6 +125,9 @@ async fn start_full(
         }),
         tel.unwrap_or_else(|| Arc::new(calls.clone())),
         ringer.clone(),
+        Lists::start(SimReader {
+            delay: Duration::from_millis(50),
+        }),
     );
     tokio::spawn(Arc::clone(&manager).run(agent_rx));
     let api = Api::new(Arc::clone(&manager));
@@ -1494,6 +1498,133 @@ async fn a_prompt_stops_for_a_call_and_calls_go_with_the_phone() {
     .await;
 }
 
+async fn dial(c: &mut Client, number: &str) -> pb::DialResponse {
+    c.dial(pb::DialRequest {
+        number: number.into(),
+        source: "test".into(),
+    })
+    .await
+    .unwrap()
+    .into_inner()
+}
+
+fn book(m: &pb::WatchAudioResponse) -> pb::Phonebook {
+    m.phonebook.clone().unwrap_or_default()
+}
+
+#[tokio::test]
+async fn a_dialled_call_rings_is_answered_and_hung_up() {
+    let mut r = start("dial", no_pairing()).await;
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "a phone, calls ready, its lists read", |m| {
+        m.phone.is_some() && calls(m).available && book(m).state() == pb::PhonebookState::Ready
+    })
+    .await;
+    let read_before = book(&m).version;
+
+    let bad = dial(&mut r.client, "555-CALL").await;
+    assert!(
+        !bad.accepted && bad.detail.contains("can't be dialled"),
+        "{bad:?}"
+    );
+    let d = dial(&mut r.client, "+1 (555) 010-1002").await;
+    assert_eq!((d.accepted, d.detail.as_str()), (true, "Calling…"));
+    let m = until(&mut s, "dialling", |m| {
+        call_state(m) == pb::CallState::Dialing
+    })
+    .await;
+    let call = calls(&m).call.unwrap();
+    assert_eq!(call.number, "+15550101002", "as dialled, cleaned");
+    assert_eq!(call.name, "Blake Chen", "named from the phone's contacts");
+    until(&mut s, "ringing at the other end", |m| {
+        call_state(m) == pb::CallState::Alerting
+    })
+    .await;
+    until(&mut s, "answered", |m| {
+        call_state(m) == pb::CallState::Active
+    })
+    .await;
+    let again = dial(&mut r.client, "5550100").await;
+    assert!(
+        !again.accepted && again.detail.contains("in progress"),
+        "{again:?}"
+    );
+
+    let h = hang_up(&mut r.client, call.id).await;
+    assert_eq!((h.accepted, h.detail.as_str()), (true, "Hung up."));
+    until(&mut s, "no call", |m| calls(m).call.is_none()).await;
+    // The call is in the phone's history now: its lists are read again.
+    until(&mut s, "the lists read again", |m| {
+        book(m).state() == pb::PhonebookState::Ready && book(m).version > read_before
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn the_phones_lists_follow_the_phone() {
+    let mut r = start("phonebook", no_pairing()).await;
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "lists read", |m| {
+        book(m).state() == pb::PhonebookState::Ready
+    })
+    .await;
+    assert_eq!((book(&m).contacts, book(&m).recent_calls), (15, 4));
+    let pbk = r
+        .client
+        .get_phonebook(pb::GetPhonebookRequest {})
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(pbk.version, book(&m).version);
+    assert_eq!(pbk.contacts[0].name, "Alex Rivera");
+    assert_eq!(pbk.contacts[0].numbers[0].label, "Mobile");
+    assert_eq!(pbk.recent_calls[0].kind(), pb::RecentKind::Missed);
+    assert_eq!(pbk.recent_calls[0].time, "2026-11-14T08:15:00");
+
+    let again = r
+        .client
+        .refresh_phonebook(pb::RefreshPhonebookRequest {
+            source: "test".into(),
+        })
+        .await
+        .unwrap()
+        .into_inner();
+    assert!(again.accepted, "{again:?}");
+    until(&mut s, "reading", |m| {
+        book(m).state() == pb::PhonebookState::Loading
+    })
+    .await;
+    until(&mut s, "read", |m| {
+        book(m).state() == pb::PhonebookState::Ready
+    })
+    .await;
+
+    // The phone goes: so do its lists.
+    r.sim.disconnect();
+    until(&mut s, "no lists", |m| {
+        m.phone.is_none() && book(m).state() == pb::PhonebookState::None
+    })
+    .await;
+    let pbk = r
+        .client
+        .get_phonebook(pb::GetPhonebookRequest {})
+        .await
+        .unwrap()
+        .into_inner();
+    assert!(pbk.contacts.is_empty() && pbk.recent_calls.is_empty());
+    let no = dial(&mut r.client, "5550100").await;
+    assert!(!no.accepted && no.detail.contains("No phone"), "{no:?}");
+    let refresh = r
+        .client
+        .refresh_phonebook(pb::RefreshPhonebookRequest {
+            source: "test".into(),
+        })
+        .await
+        .unwrap()
+        .into_inner();
+    assert!(!refresh.accepted);
+}
+
 #[tokio::test]
 async fn without_a_microphone_calls_stay_on_the_phone() {
     let mut r = start_full(
@@ -1513,6 +1644,11 @@ async fn without_a_microphone_calls_stay_on_the_phone() {
     );
     let a = answer(&mut r.client, 1).await;
     assert!(!a.accepted && a.detail.starts_with("Calls stay on the phone"));
+    let d = dial(&mut r.client, "5550100").await;
+    assert!(
+        !d.accepted && d.detail.starts_with("Calls stay on the phone"),
+        "{d:?}"
+    );
     // The simulated calls exist but aren't this manager's.
     r.calls.ring(SIM_NUMBER, SIM_CALLER);
     tokio::time::sleep(Duration::from_millis(300)).await;

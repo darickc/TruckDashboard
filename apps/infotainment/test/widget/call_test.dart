@@ -99,7 +99,10 @@ void main() {
     sim.ring();
     for (final screen in AppScreen.values) {
       await h.goTo(screen);
-      expect(key('call-bar'), findsOneWidget, reason: screen.name);
+      // The Phone screen shows the call itself, large, and no bar.
+      final phone = screen == AppScreen.phones;
+      expect(key('call-bar'), phone ? findsNothing : findsOneWidget, reason: screen.name);
+      expect(key('call-view'), phone ? findsOneWidget : findsNothing, reason: screen.name);
       expect(key('call-answer'), findsOneWidget, reason: screen.name);
     }
     await h.goTo(AppScreen.home);
@@ -150,6 +153,7 @@ void main() {
         ),
       );
     final h = await Harness.start(tester, audio: fake);
+    h.services.phoneTab.value = PhoneTab.phones;
     await h.goTo(AppScreen.phones);
     expect(h.textOf('phones-calls'), 'Calls stay on the phone: no call microphone is configured.');
     fake.value = const AudioStatus(

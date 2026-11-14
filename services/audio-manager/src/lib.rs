@@ -9,6 +9,8 @@
 //! dashboard, with the music paused and prompts skipped during a call
 //! (`calls.rs`, `telephony.rs`, `sim_calls.rs`). Only with a call
 //! microphone configured; the call audio path itself is the bench's (S3).
+//! Phase 2: dialling, and the phone's contacts and recent calls over PBAP
+//! (`phonebook.rs`).
 
 pub mod backend;
 pub mod bluez;
@@ -20,6 +22,7 @@ pub mod manager;
 pub mod model;
 pub mod objects;
 pub mod pairing;
+pub mod phonebook;
 pub mod prompts;
 pub mod ring;
 pub mod runner;

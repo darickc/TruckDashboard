@@ -13,6 +13,12 @@ syntax = "proto3";
 // Calls are enabled only with a call microphone configured: without one
 // they stay on the phone.
 //
+// Dialling and the phone's lists (ADR-0045 phase 2, 2026-11-14): Dial
+// places a call on the connected phone (it then appears in calls like any
+// other); the phone's contacts and recent calls are read over PBAP (obexd)
+// when it connects, kept in audio-manager's memory only, summarised in
+// WatchAudioResponse.phonebook and fetched whole with GetPhonebook.
+//
 // Spoken navigation prompts go through Speak: audio-manager pauses the
 // phone's music, says the prompt and resumes the music (owner, 2026-11-12;
 // ADR-0039 decision 9).
@@ -78,6 +84,18 @@ service AudioService {
   // Mutes or unmutes the call microphone. Only during a call; every call
   // starts unmuted.
   rpc SetMicMuted(SetMicMutedRequest) returns (SetMicMutedResponse);
+  // Calls a number from the connected phone (PipeWire's
+  // AudioGateway1.Dial). Returns once the phone has taken it; the call then
+  // appears in WatchAudioResponse.calls (dialling, alerting, active).
+  // Refused, with a reason, when calls are off, without a phone, during
+  // another call, or for a number that isn't one.
+  rpc Dial(DialRequest) returns (DialResponse);
+  // The connected phone's contacts and recent calls, as last read
+  // (Phonebook.version says which). Empty without a phone.
+  rpc GetPhonebook(GetPhonebookRequest) returns (GetPhonebookResponse);
+  // Reads the connected phone's lists again. Returns at once; progress is in
+  // WatchAudioResponse.phonebook.
+  rpc RefreshPhonebook(RefreshPhonebookRequest) returns (RefreshPhonebookResponse);
 }
 
 message WatchAudioRequest {}
@@ -232,6 +250,9 @@ message WatchAudioResponse {
   Volume volume = 13;
   // Phone calls (ADR-0045). Absent from an audio-manager without calls.
   Calls calls = 14;
+  // The connected phone's contacts and recent calls (ADR-0045 phase 2).
+  // Absent from an audio-manager without them.
+  Phonebook phonebook = 15;
 }
 
 // Where a call is, as the phone's hands-free gateway reports it (PipeWire's
@@ -552,4 +573,90 @@ message SetVolumeResponse {
   // otherwise. Why it isn't applied is in volume.detail.
   string detail = 2;
   Volume volume = 3;
+}
+
+message DialRequest {
+  // Digits, with an optional leading +, * and #; spaces, dashes, dots and
+  // brackets are ignored.
+  string number = 1;
+  // Who asked ("dashboard"), for the log.
+  string source = 2;
+}
+
+message DialResponse {
+  bool accepted = 1;
+  // Why not, in words for the screen.
+  string detail = 2;
+}
+
+enum PhonebookState {
+  PHONEBOOK_STATE_UNSPECIFIED = 0;
+  // No phone connected: nothing to read.
+  PHONEBOOK_STATE_NONE = 1;
+  // Being read from the phone.
+  PHONEBOOK_STATE_LOADING = 2;
+  PHONEBOOK_STATE_READY = 3;
+  // The phone didn't share them: `detail` says why.
+  PHONEBOOK_STATE_FAILED = 4;
+  // Not configured on this head unit: `detail` says why.
+  PHONEBOOK_STATE_OFF = 5;
+}
+
+message Phonebook {
+  PhonebookState state = 1;
+  string detail = 2;
+  // Changes whenever the lists do: fetch them again with GetPhonebook.
+  uint64 version = 3;
+  uint32 contacts = 4;
+  uint32 recent_calls = 5;
+}
+
+message ContactNumber {
+  // As the phone gives it.
+  string number = 1;
+  // "Mobile", "Home", "Work", "Other"; empty: not given.
+  string label = 2;
+}
+
+message Contact {
+  string name = 1;
+  repeated ContactNumber numbers = 2;
+}
+
+enum RecentKind {
+  RECENT_KIND_UNSPECIFIED = 0;
+  RECENT_KIND_RECEIVED = 1;
+  RECENT_KIND_DIALED = 2;
+  RECENT_KIND_MISSED = 3;
+}
+
+message RecentCall {
+  // Empty: the phone has no name for the number.
+  string name = 1;
+  // Empty: withheld or not given.
+  string number = 2;
+  RecentKind kind = 3;
+  // "YYYY-MM-DDTHH:MM:SS" in the phone's own local time, as the phone gives
+  // it; empty: not given.
+  string time = 4;
+}
+
+message GetPhonebookRequest {}
+
+message GetPhonebookResponse {
+  // Phonebook.version of these lists.
+  uint64 version = 1;
+  // By name.
+  repeated Contact contacts = 2;
+  // Newest first.
+  repeated RecentCall recent_calls = 3;
+}
+
+message RefreshPhonebookRequest {
+  string source = 1;
+}
+
+message RefreshPhonebookResponse {
+  bool accepted = 1;
+  string detail = 2;
 }

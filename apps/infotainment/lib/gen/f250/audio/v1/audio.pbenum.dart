@@ -247,5 +247,69 @@ class MuteChange extends $pb.ProtobufEnum {
   const MuteChange._(super.value, super.name);
 }
 
+class PhonebookState extends $pb.ProtobufEnum {
+  static const PhonebookState PHONEBOOK_STATE_UNSPECIFIED =
+      PhonebookState._(0, _omitEnumNames ? '' : 'PHONEBOOK_STATE_UNSPECIFIED');
+
+  /// No phone connected: nothing to read.
+  static const PhonebookState PHONEBOOK_STATE_NONE =
+      PhonebookState._(1, _omitEnumNames ? '' : 'PHONEBOOK_STATE_NONE');
+
+  /// Being read from the phone.
+  static const PhonebookState PHONEBOOK_STATE_LOADING =
+      PhonebookState._(2, _omitEnumNames ? '' : 'PHONEBOOK_STATE_LOADING');
+  static const PhonebookState PHONEBOOK_STATE_READY =
+      PhonebookState._(3, _omitEnumNames ? '' : 'PHONEBOOK_STATE_READY');
+
+  /// The phone didn't share them: `detail` says why.
+  static const PhonebookState PHONEBOOK_STATE_FAILED =
+      PhonebookState._(4, _omitEnumNames ? '' : 'PHONEBOOK_STATE_FAILED');
+
+  /// Not configured on this head unit: `detail` says why.
+  static const PhonebookState PHONEBOOK_STATE_OFF =
+      PhonebookState._(5, _omitEnumNames ? '' : 'PHONEBOOK_STATE_OFF');
+
+  static const $core.List<PhonebookState> values = <PhonebookState>[
+    PHONEBOOK_STATE_UNSPECIFIED,
+    PHONEBOOK_STATE_NONE,
+    PHONEBOOK_STATE_LOADING,
+    PHONEBOOK_STATE_READY,
+    PHONEBOOK_STATE_FAILED,
+    PHONEBOOK_STATE_OFF,
+  ];
+
+  static final $core.List<PhonebookState?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 5);
+  static PhonebookState? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const PhonebookState._(super.value, super.name);
+}
+
+class RecentKind extends $pb.ProtobufEnum {
+  static const RecentKind RECENT_KIND_UNSPECIFIED =
+      RecentKind._(0, _omitEnumNames ? '' : 'RECENT_KIND_UNSPECIFIED');
+  static const RecentKind RECENT_KIND_RECEIVED =
+      RecentKind._(1, _omitEnumNames ? '' : 'RECENT_KIND_RECEIVED');
+  static const RecentKind RECENT_KIND_DIALED =
+      RecentKind._(2, _omitEnumNames ? '' : 'RECENT_KIND_DIALED');
+  static const RecentKind RECENT_KIND_MISSED =
+      RecentKind._(3, _omitEnumNames ? '' : 'RECENT_KIND_MISSED');
+
+  static const $core.List<RecentKind> values = <RecentKind>[
+    RECENT_KIND_UNSPECIFIED,
+    RECENT_KIND_RECEIVED,
+    RECENT_KIND_DIALED,
+    RECENT_KIND_MISSED,
+  ];
+
+  static final $core.List<RecentKind?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static RecentKind? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const RecentKind._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');

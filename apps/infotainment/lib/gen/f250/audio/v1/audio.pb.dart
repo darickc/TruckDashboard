@@ -703,6 +703,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     ConnectAttempt? connect,
     Volume? volume,
     Calls? calls,
+    Phonebook? phonebook,
   }) {
     final result = WatchAudioResponse._();
     if (bluetooth != null) result.bluetooth = bluetooth;
@@ -719,6 +720,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     if (connect != null) result.connect = connect;
     if (volume != null) result.volume = volume;
     if (calls != null) result.calls = calls;
+    if (phonebook != null) result.phonebook = phonebook;
     return result;
   }
 
@@ -758,6 +760,8 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
         subBuilder: Volume.$_createMessage)
     ..aOM<Calls>(14, _omitFieldNames ? '' : 'calls',
         subBuilder: Calls.$_createMessage)
+    ..aOM<Phonebook>(15, _omitFieldNames ? '' : 'phonebook',
+        subBuilder: Phonebook.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -922,6 +926,19 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
   void clearCalls() => $_clearField(14);
   @$pb.TagNumber(14)
   Calls ensureCalls() => $_ensure(13);
+
+  /// The connected phone's contacts and recent calls (ADR-0045 phase 2).
+  /// Absent from an audio-manager without them.
+  @$pb.TagNumber(15)
+  Phonebook get phonebook => $_getN(14);
+  @$pb.TagNumber(15)
+  set phonebook(Phonebook value) => $_setField(15, value);
+  @$pb.TagNumber(15)
+  $core.bool hasPhonebook() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearPhonebook() => $_clearField(15);
+  @$pb.TagNumber(15)
+  Phonebook ensurePhonebook() => $_ensure(14);
 }
 
 /// One call on the connected phone. Never a call of a phone that isn't
@@ -3972,6 +3989,733 @@ class SetVolumeResponse extends $pb.GeneratedMessage {
   void clearVolume() => $_clearField(3);
   @$pb.TagNumber(3)
   Volume ensureVolume() => $_ensure(2);
+}
+
+class DialRequest extends $pb.GeneratedMessage {
+  factory DialRequest({
+    $core.String? number,
+    $core.String? source,
+  }) {
+    final result = DialRequest._();
+    if (number != null) result.number = number;
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  DialRequest._();
+
+  factory DialRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      DialRequest()..mergeFromBuffer(data, registry);
+  factory DialRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      DialRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DialRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: DialRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'number')
+    ..aOS(2, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DialRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DialRequest copyWith(void Function(DialRequest) updates) =>
+      super.copyWith((message) => updates(message as DialRequest))
+          as DialRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use DialRequest() / DialRequest.new instead')
+  static DialRequest create() => DialRequest._();
+  static $pb.GeneratedMessage $_createMessage() => DialRequest._();
+  @$core.override
+  DialRequest createEmptyInstance() => DialRequest._();
+  @$core.pragma('dart2js:noInline')
+  static DialRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<DialRequest>(
+          DialRequest.$_createMessage);
+  static DialRequest? _defaultInstance;
+
+  /// Digits, with an optional leading +, * and #; spaces, dashes, dots and
+  /// brackets are ignored.
+  @$pb.TagNumber(1)
+  $core.String get number => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set number($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNumber() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNumber() => $_clearField(1);
+
+  /// Who asked ("dashboard"), for the log.
+  @$pb.TagNumber(2)
+  $core.String get source => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set source($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSource() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSource() => $_clearField(2);
+}
+
+class DialResponse extends $pb.GeneratedMessage {
+  factory DialResponse({
+    $core.bool? accepted,
+    $core.String? detail,
+  }) {
+    final result = DialResponse._();
+    if (accepted != null) result.accepted = accepted;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  DialResponse._();
+
+  factory DialResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      DialResponse()..mergeFromBuffer(data, registry);
+  factory DialResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      DialResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'DialResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: DialResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'accepted')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DialResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  DialResponse copyWith(void Function(DialResponse) updates) =>
+      super.copyWith((message) => updates(message as DialResponse))
+          as DialResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use DialResponse() / DialResponse.new instead')
+  static DialResponse create() => DialResponse._();
+  static $pb.GeneratedMessage $_createMessage() => DialResponse._();
+  @$core.override
+  DialResponse createEmptyInstance() => DialResponse._();
+  @$core.pragma('dart2js:noInline')
+  static DialResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<DialResponse>(
+          DialResponse.$_createMessage);
+  static DialResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get accepted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set accepted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAccepted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccepted() => $_clearField(1);
+
+  /// Why not, in words for the screen.
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
+}
+
+class Phonebook extends $pb.GeneratedMessage {
+  factory Phonebook({
+    PhonebookState? state,
+    $core.String? detail,
+    $fixnum.Int64? version,
+    $core.int? contacts,
+    $core.int? recentCalls,
+  }) {
+    final result = Phonebook._();
+    if (state != null) result.state = state;
+    if (detail != null) result.detail = detail;
+    if (version != null) result.version = version;
+    if (contacts != null) result.contacts = contacts;
+    if (recentCalls != null) result.recentCalls = recentCalls;
+    return result;
+  }
+
+  Phonebook._();
+
+  factory Phonebook.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Phonebook()..mergeFromBuffer(data, registry);
+  factory Phonebook.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Phonebook()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Phonebook',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: Phonebook.$_createMessage)
+    ..aE<PhonebookState>(1, _omitFieldNames ? '' : 'state',
+        enumValues: PhonebookState.values)
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..a<$fixnum.Int64>(3, _omitFieldNames ? '' : 'version', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aI(4, _omitFieldNames ? '' : 'contacts', fieldType: $pb.PbFieldType.OU3)
+    ..aI(5, _omitFieldNames ? '' : 'recentCalls',
+        fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Phonebook clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Phonebook copyWith(void Function(Phonebook) updates) =>
+      super.copyWith((message) => updates(message as Phonebook)) as Phonebook;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Phonebook() / Phonebook.new instead')
+  static Phonebook create() => Phonebook._();
+  static $pb.GeneratedMessage $_createMessage() => Phonebook._();
+  @$core.override
+  Phonebook createEmptyInstance() => Phonebook._();
+  @$core.pragma('dart2js:noInline')
+  static Phonebook getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Phonebook>(Phonebook.$_createMessage);
+  static Phonebook? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PhonebookState get state => $_getN(0);
+  @$pb.TagNumber(1)
+  set state(PhonebookState value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasState() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearState() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
+
+  /// Changes whenever the lists do: fetch them again with GetPhonebook.
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get version => $_getI64(2);
+  @$pb.TagNumber(3)
+  set version($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasVersion() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearVersion() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get contacts => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set contacts($core.int value) => $_setUnsignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasContacts() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearContacts() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get recentCalls => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set recentCalls($core.int value) => $_setUnsignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasRecentCalls() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearRecentCalls() => $_clearField(5);
+}
+
+class ContactNumber extends $pb.GeneratedMessage {
+  factory ContactNumber({
+    $core.String? number,
+    $core.String? label,
+  }) {
+    final result = ContactNumber._();
+    if (number != null) result.number = number;
+    if (label != null) result.label = label;
+    return result;
+  }
+
+  ContactNumber._();
+
+  factory ContactNumber.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ContactNumber()..mergeFromBuffer(data, registry);
+  factory ContactNumber.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ContactNumber()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ContactNumber',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: ContactNumber.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'number')
+    ..aOS(2, _omitFieldNames ? '' : 'label')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ContactNumber clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ContactNumber copyWith(void Function(ContactNumber) updates) =>
+      super.copyWith((message) => updates(message as ContactNumber))
+          as ContactNumber;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ContactNumber() / ContactNumber.new instead')
+  static ContactNumber create() => ContactNumber._();
+  static $pb.GeneratedMessage $_createMessage() => ContactNumber._();
+  @$core.override
+  ContactNumber createEmptyInstance() => ContactNumber._();
+  @$core.pragma('dart2js:noInline')
+  static ContactNumber getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ContactNumber>(
+          ContactNumber.$_createMessage);
+  static ContactNumber? _defaultInstance;
+
+  /// As the phone gives it.
+  @$pb.TagNumber(1)
+  $core.String get number => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set number($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNumber() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNumber() => $_clearField(1);
+
+  /// "Mobile", "Home", "Work", "Other"; empty: not given.
+  @$pb.TagNumber(2)
+  $core.String get label => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set label($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLabel() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLabel() => $_clearField(2);
+}
+
+class Contact extends $pb.GeneratedMessage {
+  factory Contact({
+    $core.String? name,
+    $core.Iterable<ContactNumber>? numbers,
+  }) {
+    final result = Contact._();
+    if (name != null) result.name = name;
+    if (numbers != null) result.numbers.addAll(numbers);
+    return result;
+  }
+
+  Contact._();
+
+  factory Contact.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Contact()..mergeFromBuffer(data, registry);
+  factory Contact.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Contact()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Contact',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: Contact.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..pPM<ContactNumber>(2, _omitFieldNames ? '' : 'numbers',
+        subBuilder: ContactNumber.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Contact clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Contact copyWith(void Function(Contact) updates) =>
+      super.copyWith((message) => updates(message as Contact)) as Contact;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Contact() / Contact.new instead')
+  static Contact create() => Contact._();
+  static $pb.GeneratedMessage $_createMessage() => Contact._();
+  @$core.override
+  Contact createEmptyInstance() => Contact._();
+  @$core.pragma('dart2js:noInline')
+  static Contact getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Contact>(Contact.$_createMessage);
+  static Contact? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<ContactNumber> get numbers => $_getList(1);
+}
+
+class RecentCall extends $pb.GeneratedMessage {
+  factory RecentCall({
+    $core.String? name,
+    $core.String? number,
+    RecentKind? kind,
+    $core.String? time,
+  }) {
+    final result = RecentCall._();
+    if (name != null) result.name = name;
+    if (number != null) result.number = number;
+    if (kind != null) result.kind = kind;
+    if (time != null) result.time = time;
+    return result;
+  }
+
+  RecentCall._();
+
+  factory RecentCall.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RecentCall()..mergeFromBuffer(data, registry);
+  factory RecentCall.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RecentCall()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RecentCall',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: RecentCall.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'number')
+    ..aE<RecentKind>(3, _omitFieldNames ? '' : 'kind',
+        enumValues: RecentKind.values)
+    ..aOS(4, _omitFieldNames ? '' : 'time')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RecentCall clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RecentCall copyWith(void Function(RecentCall) updates) =>
+      super.copyWith((message) => updates(message as RecentCall)) as RecentCall;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RecentCall() / RecentCall.new instead')
+  static RecentCall create() => RecentCall._();
+  static $pb.GeneratedMessage $_createMessage() => RecentCall._();
+  @$core.override
+  RecentCall createEmptyInstance() => RecentCall._();
+  @$core.pragma('dart2js:noInline')
+  static RecentCall getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RecentCall>(RecentCall.$_createMessage);
+  static RecentCall? _defaultInstance;
+
+  /// Empty: the phone has no name for the number.
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  /// Empty: withheld or not given.
+  @$pb.TagNumber(2)
+  $core.String get number => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set number($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasNumber() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearNumber() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  RecentKind get kind => $_getN(2);
+  @$pb.TagNumber(3)
+  set kind(RecentKind value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasKind() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearKind() => $_clearField(3);
+
+  /// "YYYY-MM-DDTHH:MM:SS" in the phone's own local time, as the phone gives
+  /// it; empty: not given.
+  @$pb.TagNumber(4)
+  $core.String get time => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set time($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTime() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTime() => $_clearField(4);
+}
+
+class GetPhonebookRequest extends $pb.GeneratedMessage {
+  factory GetPhonebookRequest() => GetPhonebookRequest._();
+
+  GetPhonebookRequest._();
+
+  factory GetPhonebookRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetPhonebookRequest()..mergeFromBuffer(data, registry);
+  factory GetPhonebookRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetPhonebookRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetPhonebookRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: GetPhonebookRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPhonebookRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPhonebookRequest copyWith(void Function(GetPhonebookRequest) updates) =>
+      super.copyWith((message) => updates(message as GetPhonebookRequest))
+          as GetPhonebookRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use GetPhonebookRequest() / GetPhonebookRequest.new instead')
+  static GetPhonebookRequest create() => GetPhonebookRequest._();
+  static $pb.GeneratedMessage $_createMessage() => GetPhonebookRequest._();
+  @$core.override
+  GetPhonebookRequest createEmptyInstance() => GetPhonebookRequest._();
+  @$core.pragma('dart2js:noInline')
+  static GetPhonebookRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetPhonebookRequest>(
+          GetPhonebookRequest.$_createMessage);
+  static GetPhonebookRequest? _defaultInstance;
+}
+
+class GetPhonebookResponse extends $pb.GeneratedMessage {
+  factory GetPhonebookResponse({
+    $fixnum.Int64? version,
+    $core.Iterable<Contact>? contacts,
+    $core.Iterable<RecentCall>? recentCalls,
+  }) {
+    final result = GetPhonebookResponse._();
+    if (version != null) result.version = version;
+    if (contacts != null) result.contacts.addAll(contacts);
+    if (recentCalls != null) result.recentCalls.addAll(recentCalls);
+    return result;
+  }
+
+  GetPhonebookResponse._();
+
+  factory GetPhonebookResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetPhonebookResponse()..mergeFromBuffer(data, registry);
+  factory GetPhonebookResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetPhonebookResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetPhonebookResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: GetPhonebookResponse.$_createMessage)
+    ..a<$fixnum.Int64>(1, _omitFieldNames ? '' : 'version', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..pPM<Contact>(2, _omitFieldNames ? '' : 'contacts',
+        subBuilder: Contact.$_createMessage)
+    ..pPM<RecentCall>(3, _omitFieldNames ? '' : 'recentCalls',
+        subBuilder: RecentCall.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPhonebookResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPhonebookResponse copyWith(void Function(GetPhonebookResponse) updates) =>
+      super.copyWith((message) => updates(message as GetPhonebookResponse))
+          as GetPhonebookResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetPhonebookResponse() / GetPhonebookResponse.new instead')
+  static GetPhonebookResponse create() => GetPhonebookResponse._();
+  static $pb.GeneratedMessage $_createMessage() => GetPhonebookResponse._();
+  @$core.override
+  GetPhonebookResponse createEmptyInstance() => GetPhonebookResponse._();
+  @$core.pragma('dart2js:noInline')
+  static GetPhonebookResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetPhonebookResponse>(
+          GetPhonebookResponse.$_createMessage);
+  static GetPhonebookResponse? _defaultInstance;
+
+  /// Phonebook.version of these lists.
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get version => $_getI64(0);
+  @$pb.TagNumber(1)
+  set version($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasVersion() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearVersion() => $_clearField(1);
+
+  /// By name.
+  @$pb.TagNumber(2)
+  $pb.PbList<Contact> get contacts => $_getList(1);
+
+  /// Newest first.
+  @$pb.TagNumber(3)
+  $pb.PbList<RecentCall> get recentCalls => $_getList(2);
+}
+
+class RefreshPhonebookRequest extends $pb.GeneratedMessage {
+  factory RefreshPhonebookRequest({
+    $core.String? source,
+  }) {
+    final result = RefreshPhonebookRequest._();
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  RefreshPhonebookRequest._();
+
+  factory RefreshPhonebookRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RefreshPhonebookRequest()..mergeFromBuffer(data, registry);
+  factory RefreshPhonebookRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RefreshPhonebookRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RefreshPhonebookRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: RefreshPhonebookRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RefreshPhonebookRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RefreshPhonebookRequest copyWith(
+          void Function(RefreshPhonebookRequest) updates) =>
+      super.copyWith((message) => updates(message as RefreshPhonebookRequest))
+          as RefreshPhonebookRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use RefreshPhonebookRequest() / RefreshPhonebookRequest.new instead')
+  static RefreshPhonebookRequest create() => RefreshPhonebookRequest._();
+  static $pb.GeneratedMessage $_createMessage() => RefreshPhonebookRequest._();
+  @$core.override
+  RefreshPhonebookRequest createEmptyInstance() => RefreshPhonebookRequest._();
+  @$core.pragma('dart2js:noInline')
+  static RefreshPhonebookRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RefreshPhonebookRequest>(
+          RefreshPhonebookRequest.$_createMessage);
+  static RefreshPhonebookRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get source => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set source($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSource() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSource() => $_clearField(1);
+}
+
+class RefreshPhonebookResponse extends $pb.GeneratedMessage {
+  factory RefreshPhonebookResponse({
+    $core.bool? accepted,
+    $core.String? detail,
+  }) {
+    final result = RefreshPhonebookResponse._();
+    if (accepted != null) result.accepted = accepted;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  RefreshPhonebookResponse._();
+
+  factory RefreshPhonebookResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RefreshPhonebookResponse()..mergeFromBuffer(data, registry);
+  factory RefreshPhonebookResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RefreshPhonebookResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RefreshPhonebookResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: RefreshPhonebookResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'accepted')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RefreshPhonebookResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RefreshPhonebookResponse copyWith(
+          void Function(RefreshPhonebookResponse) updates) =>
+      super.copyWith((message) => updates(message as RefreshPhonebookResponse))
+          as RefreshPhonebookResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use RefreshPhonebookResponse() / RefreshPhonebookResponse.new instead')
+  static RefreshPhonebookResponse create() => RefreshPhonebookResponse._();
+  static $pb.GeneratedMessage $_createMessage() => RefreshPhonebookResponse._();
+  @$core.override
+  RefreshPhonebookResponse createEmptyInstance() =>
+      RefreshPhonebookResponse._();
+  @$core.pragma('dart2js:noInline')
+  static RefreshPhonebookResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RefreshPhonebookResponse>(
+          RefreshPhonebookResponse.$_createMessage);
+  static RefreshPhonebookResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get accepted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set accepted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAccepted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccepted() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
 }
 
 const $core.bool _omitFieldNames =

@@ -101,6 +101,8 @@ pub enum Availability {
 /// A phone's hands-free gateway.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Gateway {
+    /// Its object path (`…/ag0`), where `Dial` is called.
+    pub path: String,
     /// The phone's address, upper case.
     pub address: String,
     /// Call audio is flowing from the phone (the transport is "active"):
@@ -158,6 +160,7 @@ pub fn from_objects(objs: &Objects) -> (Vec<Gateway>, Vec<Call>) {
             Some((
                 path.clone(),
                 Gateway {
+                    path: path.clone(),
                     address: a.trim().to_ascii_uppercase(),
                     audio,
                 },
@@ -273,6 +276,7 @@ mod tests {
         assert_eq!(
             gateways,
             vec![Gateway {
+                path: AG.into(),
                 address: "B0:DE:31:1E:55:96".into(),
                 audio: false
             }]

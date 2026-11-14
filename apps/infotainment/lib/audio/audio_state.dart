@@ -271,6 +271,85 @@ class CallsStatus {
   final String phoneName;
 }
 
+/// Where the connected phone's lists are (ADR-0045 phase 2).
+enum PhonebookPhase { none, loading, ready, failed, off }
+
+/// The connected phone's contacts and recent calls, summarised in each
+/// report; fetched whole with [AudioSource.phonebook] when [version]
+/// changes.
+@immutable
+class PhonebookStatus {
+  const PhonebookStatus({
+    this.phase = PhonebookPhase.none,
+    this.detail = '',
+    this.version = 0,
+    this.contacts = 0,
+    this.recentCalls = 0,
+  });
+
+  final PhonebookPhase phase;
+
+  /// Why they failed or are off.
+  final String detail;
+  final int version;
+  final int contacts, recentCalls;
+}
+
+@immutable
+class ContactNumber {
+  const ContactNumber(this.number, [this.label = '']);
+
+  final String number;
+
+  /// "Mobile", "Home", "Work", "Other"; empty: not given.
+  final String label;
+}
+
+@immutable
+class Contact {
+  const Contact(this.name, this.numbers);
+
+  /// Empty: the phone has no name for it.
+  final String name;
+  final List<ContactNumber> numbers;
+
+  /// The name, else the first number.
+  String get title => name.isNotEmpty ? name : (numbers.firstOrNull?.number ?? '');
+}
+
+enum RecentKind { received, dialed, missed, unknown }
+
+@immutable
+class RecentCall {
+  const RecentCall({this.name = '', this.number = '', this.kind = RecentKind.unknown, this.time});
+
+  final String name, number;
+  final RecentKind kind;
+
+  /// The phone's own local time; null: not given.
+  final DateTime? time;
+
+  String get title => name.isNotEmpty
+      ? name
+      : number.isNotEmpty
+          ? number
+          : 'Number withheld';
+}
+
+/// The phone's lists as audio-manager last read them.
+@immutable
+class PhonebookData {
+  const PhonebookData({this.version = 0, this.contacts = const [], this.recent = const []});
+
+  final int version;
+
+  /// By name.
+  final List<Contact> contacts;
+
+  /// Newest first.
+  final List<RecentCall> recent;
+}
+
 /// What audio-manager reported last.
 @immutable
 class AudioReport {
@@ -290,6 +369,7 @@ class AudioReport {
     this.connect = const ConnectStatus(),
     this.volume,
     this.calls,
+    this.phonebook,
   });
 
   final bool bluetoothReady;
@@ -325,6 +405,10 @@ class AudioReport {
 
   /// Phone calls (ADR-0045); null from an audio-manager without them.
   final CallsStatus? calls;
+
+  /// The phone's lists (ADR-0045 phase 2); null from an audio-manager
+  /// without them.
+  final PhonebookStatus? phonebook;
 
   /// The call to show, if any.
   PhoneCall? get call => calls?.call;
@@ -478,6 +562,16 @@ abstract class AudioSource {
 
   /// Mutes or unmutes the call microphone (during a call).
   Future<CommandResult> setMicMuted(bool muted);
+
+  /// Calls [number] from the connected phone (ADR-0045 phase 2); the call
+  /// then shows in [AudioReport.calls].
+  Future<CommandResult> dial(String number);
+
+  /// The connected phone's contacts and recent calls, as last read.
+  Future<PhonebookData> phonebook();
+
+  /// Reads them from the phone again; [AudioReport.phonebook] follows.
+  Future<CommandResult> refreshPhonebook();
 }
 
 /// A phone, a playlist and a pairing window that don't exist, for the
@@ -549,6 +643,43 @@ class SimulatedAudioSource implements AudioSource {
 
   final _calls = <PhoneCall>[];
   int _nextCallId = 1, _sinceCall = 0;
+
+  /// Ticks since each dialled call was placed.
+  final _dialled = <int, int>{};
+
+  /// A dialled call rings at the other end after this many ticks, and is
+  /// answered this many after placing it.
+  static const dialAlertingTicks = 1, dialAnsweredTicks = 4;
+
+  /// The phone's lists: read again ([_bookLoading]) for a tick.
+  int _bookVersion = 1;
+  bool _bookLoading = false;
+  String? _bookFor;
+
+  /// The same made-up lists as audio-manager's simulated phone.
+  static const simContacts = [
+    Contact('Alex Rivera', [ContactNumber('+1 555 010 1001', 'Mobile'), ContactNumber('+1 555 010 2001', 'Work')]),
+    Contact('Blake Chen', [ContactNumber('555-010-1002', 'Mobile')]),
+    Contact('Casey Morgan', [ContactNumber('555-010-1003', 'Home')]),
+    Contact('Dana Brooks', [ContactNumber('555-010-1004', 'Mobile')]),
+    Contact('Ellis Parts & Service', [ContactNumber('555-010-1005', 'Work')]),
+    Contact('Frankie Diaz', [ContactNumber('555-010-1006', 'Mobile')]),
+    Contact("Gray's Towing", [ContactNumber('555-010-1007', 'Work')]),
+    Contact('Harper Lee', [ContactNumber('555-010-1008', 'Mobile')]),
+    Contact('Jordan Kim', [ContactNumber('555-010-1009', 'Mobile'), ContactNumber('555-010-2009', 'Home')]),
+    Contact('Morgan Feed & Supply', [ContactNumber('555-010-1010', 'Work')]),
+    Contact('Quinn Taylor', [ContactNumber('555-010-1011', 'Mobile')]),
+    Contact('Riley Novak', [ContactNumber('555-010-1012', 'Mobile')]),
+    Contact('Sam Ortiz', [ContactNumber('555-010-1013', 'Mobile')]),
+    Contact('Taylor Diesel Repair', [ContactNumber('555-010-1014', 'Work')]),
+    Contact('Whitney Hale', [ContactNumber('555-010-1015', 'Mobile')]),
+  ];
+  static final simRecent = [
+    RecentCall(name: 'Blake Chen', number: '555-010-1002', kind: RecentKind.missed, time: DateTime(2026, 11, 14, 8, 15)),
+    RecentCall(number: '555-010-9999', kind: RecentKind.received, time: DateTime(2026, 11, 13, 17, 10)),
+    RecentCall(name: 'Taylor Diesel Repair', number: '555-010-1014', kind: RecentKind.dialed, time: DateTime(2026, 11, 13, 9, 30)),
+    RecentCall(name: 'Alex Rivera', number: '+15550101001', kind: RecentKind.received, time: DateTime(2026, 11, 12, 18, 45)),
+  ];
   bool _micMuted = false, _pausedForCall = false;
 
   final _status = ValueNotifier(const AudioStatus(link: AudioLink.connecting));
@@ -617,8 +748,92 @@ class SimulatedAudioSource implements AudioSource {
           detail: 'Not applied: simulated: no PipeWire.',
         ),
         calls: _callsStatus(phone),
+        phonebook: _bookStatus(phone),
       ),
     );
+  }
+
+  PhonebookStatus _bookStatus(Phone? phone) {
+    if (phone == null) {
+      _bookFor = null;
+      return const PhonebookStatus();
+    }
+    if (_bookFor != phone.address) {
+      _bookFor = phone.address;
+      _bookVersion++;
+    }
+    return PhonebookStatus(
+      phase: _bookLoading ? PhonebookPhase.loading : PhonebookPhase.ready,
+      version: _bookVersion,
+      contacts: simContacts.length,
+      recentCalls: simRecent.length,
+    );
+  }
+
+  @override
+  Future<PhonebookData> phonebook() async => _connected == null || !_bluetooth
+      ? PhonebookData(version: _bookVersion)
+      : PhonebookData(version: _bookVersion, contacts: simContacts, recent: simRecent);
+
+  @override
+  Future<CommandResult> refreshPhonebook() async {
+    if (_connected == null) return const CommandResult(ok: false, detail: 'No phone is connected.');
+    _bookLoading = true;
+    _publish();
+    return const CommandResult(ok: true, detail: 'Reading the phone\'s contacts…');
+  }
+
+  /// The contact [number] belongs to, as audio-manager names a call the
+  /// phone gives no name for (phonebook::name_for): the same digits, or one
+  /// ending with the other when the shorter has at least 7.
+  static String nameFor(List<Contact> contacts, String number) {
+    String digits(String n) => n.replaceAll(RegExp(r'[^0-9]'), '');
+    final want = digits(number);
+    if (want.isEmpty) return '';
+    bool same(String n) {
+      final have = digits(n);
+      if (have == want) return true;
+      final (short, long) = have.length < want.length ? (have, want) : (want, have);
+      return short.length >= 7 && long.endsWith(short);
+    }
+
+    return contacts.where((c) => c.name.isNotEmpty && c.numbers.any((n) => same(n.number))).firstOrNull?.name ?? '';
+  }
+
+  /// What audio-manager accepts: digits, a leading +, * and #; spaces,
+  /// dashes, dots, slashes and brackets dropped (phonebook::dial_number).
+  static String? cleanNumber(String s) {
+    final out = StringBuffer();
+    final t = s.trim();
+    for (var i = 0; i < t.length; i++) {
+      final c = t[i];
+      if ('0123456789*#'.contains(c) || (c == '+' && i == 0)) {
+        out.write(c);
+      } else if (!' -./()'.contains(c)) {
+        return null;
+      }
+    }
+    final n = out.toString();
+    return n.contains(RegExp(r'[0-9]')) && n.length <= 80 ? n : null;
+  }
+
+  @override
+  Future<CommandResult> dial(String number) async {
+    final n = cleanNumber(number);
+    if (n == null) return const CommandResult(ok: false, detail: 'That isn\'t a number to call.');
+    if (_connected == null) return const CommandResult(ok: false, detail: 'No phone is connected.');
+    if (_calls.isNotEmpty) {
+      return const CommandResult(ok: false, detail: 'A call is in progress: hang it up first.');
+    }
+    if (_play == PlayState.playing) {
+      _play = PlayState.paused;
+      _pausedForCall = true;
+    }
+    final c = PhoneCall(id: _nextCallId++, phase: CallPhase.dialing, number: n, name: nameFor(simContacts, n));
+    _calls.add(c);
+    _dialled[c.id] = 0;
+    _publish();
+    return const CommandResult(ok: true, detail: 'Calling…');
   }
 
   CallsStatus _callsStatus(Phone? phone) {
@@ -673,6 +888,7 @@ class SimulatedAudioSource implements AudioSource {
   /// The far end hangs up.
   void endCall(int id) {
     _calls.removeWhere((c) => c.id == id);
+    _dialled.remove(id);
     if (_calls.isNotEmpty && !_calls.any((c) => c.phase == CallPhase.active)) {
       final i = _calls.indexWhere((c) => c.phase == CallPhase.held);
       if (i >= 0) _calls[i] = _with(_calls[i], phase: CallPhase.active);
@@ -680,6 +896,8 @@ class SimulatedAudioSource implements AudioSource {
     if (_calls.isEmpty) {
       _micMuted = false;
       _sinceCall = 0;
+      // The call is in the phone's history now.
+      _bookVersion++;
       if (_pausedForCall && _play == PlayState.paused) _play = PlayState.playing;
       _pausedForCall = false;
     }
@@ -753,9 +971,20 @@ class SimulatedAudioSource implements AudioSource {
 
   /// One second passes.
   void tick() {
+    _bookLoading = false;
     for (var i = 0; i < _calls.length; i++) {
-      if (_calls[i].phase == CallPhase.active) {
-        _calls[i] = _with(_calls[i], active: _calls[i].active + const Duration(seconds: 1));
+      final c = _calls[i];
+      if (c.phase == CallPhase.active) {
+        _calls[i] = _with(c, active: c.active + const Duration(seconds: 1));
+      }
+      final since = _dialled[c.id];
+      if (since != null) {
+        _dialled[c.id] = since + 1;
+        if (since + 1 == dialAlertingTicks) _calls[i] = _with(_calls[i], phase: CallPhase.alerting);
+        if (since + 1 >= dialAnsweredTicks) {
+          _calls[i] = _with(_calls[i], phase: CallPhase.active);
+          _dialled.remove(c.id);
+        }
       }
     }
     final every = ringEveryTicks;

@@ -7,7 +7,9 @@
   bench Pi (image f3bf43b, AGL 22.0.1) and from PipeWire 1.6.8's source on
   2026-11-14. **S1 done [BENCH] 2026-11-14:** call audio crosses into the Pi
   (mSBC, both ways), and a call was answered over D-Bus (bench-log); S2 is
-  partly done with it.
+  partly done with it. **Phase 2** (dialling, contacts and recent calls, the
+  Phone screen) built `[SIM]` the same day at the owner's request: see the
+  second amendment.
 - **Date:** 2026-11-14
 - **Refines:** [ADR-0039](0039-audio-manager.md) (audio-manager; A2DP sink
   only, "HFP: not part of release 1"), [ADR-0043](0043-master-volume-and-the-volume-knob.md)
@@ -239,3 +241,93 @@ Not done, in order:
 - **The knob display's drawing** of the call: the frame, the model and the
   push are done (below); the dial draws nothing until its drivers exist
   (ADR-0044, no board yet).
+
+## Amendment, 2026-11-14: phase 2 in software `[SIM]`
+
+The owner asked for the Phone screen on Home to dial numbers, call
+contacts and show the call (decision 8, brought forward). The owner chose:
+**contacts and recent calls usable while moving** (a tap on Call, nothing
+to type), **the keypad only when stopped**; the lists: **contacts and
+recent calls** (not favourites).
+
+| Fact | Source | Status |
+|---|---|---|
+| `void Dial(string number)` on `AudioGateway1`, number `[0-9+*#,ABCD]{1,80}`; an active call is put on hold if dialling succeeds; the new call is announced through the signals | PipeWire 1.6.8 `spa/plugins/bluez5/README-Telephony.md` (tag 1.6.8, read in the build VM) | Verified from source |
+| obexd's PBAP client: `Client1.CreateSession(address, {Target: "pbap"})`; `PhonebookAccess1.Select(location, phonebook)` with `"int"` and `"pb"`, `"cch"` (and ich, och, mch, spd, fav); `PullAll(targetfile, filters)` returns a `Transfer1`; filters `Format` (`vcard21`, `vcard30`), `Order`, `Offset`, `MaxCount` (uint16), `Fields`; errors include `Forbidden` | BlueZ 5.86 `doc/org.bluez.obex.PhonebookAccess.rst`, `obexd/client/pbap.c`, `obexd/client/manager.c` (`pbap` is built into obexd's client) | Verified from source |
+| The filter's field names, among them `VERSION`, `FN`, `N`, `TEL`, `X-IRMC-CALL-DATETIME` | BlueZ 5.86 `obexd/client/pbap.c` | Verified from source |
+| Which vCard version the owner's phones answer with, whether they ask before sharing, the call history's order, and the owner's own card (handle 0) in the list | — | **UNVERIFIED**: the bench, with the owner's phone |
+
+1. **Dialling.** `Dial(number)` on audio-manager calls `AudioGateway1.Dial`
+   on the phone in use's gateway (its path is now kept with the gateway).
+   The number is cleaned first (`phonebook::dial_number`: digits, a leading
+   `+`, `*`, `#`; spaces, dashes, dots, slashes and brackets dropped), which
+   is stricter than PipeWire's rule. Refused when calls are off, without a
+   phone, and **during another call** (holding and swapping are the
+   phone's). The number isn't logged, only its length. The call then shows
+   like any other (dialling, alerting, active); the music is paused for it
+   as for any call (amendment 1, decision 5). **A call the phone gives no
+   name for** (many give none for a call out) is named from the phone's
+   contacts: the same digits, or one number ending with the other when the
+   shorter has at least 7 digits (a country code on one side only); the
+   Phone screen, the bar and the knob display all get that name.
+2. **The phone's lists**, `phonebook.rs`: on the phone becoming the one in
+   use, after each call ends (it is in the history now), and on
+   `RefreshPhonebook`, audio-manager opens a PBAP session through obexd and
+   pulls `pb` (fields VERSION, FN, N, TEL; vCard 3.0 asked) and `cch` (the
+   same and X-IRMC-CALL-DATETIME, at most 100), then closes the session. A
+   phone without call history over PBAP still gives its contacts. The
+   newest request wins; a phone's lists stay shown while they are read
+   again; another phone's are never shown. **Kept in memory only**: obexd
+   writes each list into `/run/f250-obex/phonebook.vcf` (tmpfs), which is
+   read and removed at once (`--phonebook-file`; `AUDIO_PHONEBOOK=0` turns
+   it off). The parsing is pure and tested on hand-written cards: vCard 2.1
+   and 3.0, folded lines, quoted-printable, TYPE parameters, `tel:` and
+   group prefixes; contacts without a number and fax numbers are left out,
+   each number once per contact, sorted by name; calls newest first.
+   `WatchAudioResponse.phonebook` says where they are (none, loading,
+   ready, failed with why, off) and a version; the dashboard fetches them
+   whole with `GetPhonebook` when the version changes.
+3. **The Phone screen** (Home's Phone button, ADR-0034 amendment): four
+   views, kept between visits: **Contacts** (one row per number, its label,
+   a Call button; letter groups ABC … WXYZ to jump), **Recent** (missed,
+   incoming, outgoing, the phone's own time, Call back), **Keypad** and
+   **Phones** (the paired phones and the pairing window, as before; Media's
+   Phones button opens this one). Call buttons are dimmed, with the reason
+   said, when calls can't be placed (no call microphone yet on the Pi).
+4. **The keypad only when stopped**: a current vehicle speed below
+   **1 km/h (an example)**; a stale or missing speed counts as moving (rule
+   4), so on the bench without the truck's bus the keypad stays locked. The
+   keys stay on screen, dimmed, and say why. The check is the dashboard's:
+   audio-manager has no speed (rule 5 keeps vehicle data in the gateway).
+5. **The call, large.** While a call is up the Phone screen shows it
+   instead of its views: what is happening ("Calling…", "Ringing…", "In
+   call · 0:42", "On hold"), the caller, and 76 px Answer, Decline, Mute
+   and Hang up. The bar over the top of the screen (amendment 1, decision 6)
+   is hidden there so a call never shows twice; every other screen keeps it.
+   A phone asking to pair likewise takes the Phone screen (its code and Yes
+   and No), whichever view was showing.
+6. **Simulation.** audio-manager's simulated phone dials (dialling, the
+   other phone ringing after 1 s, answered 3 s later) and has made-up
+   contacts and calls; so does the dashboard's.
+
+Tests `[SIM]`: the vCard parsing and number cleaning; the lists' runner
+(the newest request wins, kept while read again, cleared with the phone,
+a refusal said); the file removed after reading; the simulated phone's
+dialling; end to end over gRPC: dialled, ringing, answered, refused during
+a call and for a bad number, hung up, the lists read again after it; the
+lists following the phone; dialling refused without a microphone. The
+dashboard: contacts and recent calls listed and called, the letter jump,
+the keypad locked without a current speed and while moving and working
+when stopped, the call view and the bar hidden on the Phone screen only,
+calls that stay on the phone said, no lists without a phone, every view at
+800×480 under an alert in both themes with 60 px targets, and the real
+audio-manager binary through the Dart client. `make agl-test`: the
+wrapper's `--phonebook-file`.
+
+Not done:
+
+- **PBAP with a real phone** on the bench: whether the owner's phone shares
+  its contacts and history, asks first, and in which vCard version.
+- **Dialling on the Pi** waits for the hands-free packaging above (S2, then
+  the role and its D-Bus policy), like answering.
+

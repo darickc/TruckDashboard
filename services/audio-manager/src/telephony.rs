@@ -6,7 +6,7 @@
 //! [`PwTelephony`] reads the whole Telephony tree (`calls.rs`) at start, on
 //! each signal from the service (debounced), when its owner changes, and
 //! every few seconds; answers and hangs up with `Call1.Answer` and
-//! `Call1.Hangup`. The call microphone is muted with `pw-cli set-param
+//! `Call1.Hangup`, and dials with `AudioGateway1.Dial` (phase 2). The call microphone is muted with `pw-cli set-param
 //! <node> Props '{ mute = true }'`.
 //!
 //! Status: the D-Bus side follows what the bench Pi showed on 2026-11-14
@@ -41,6 +41,10 @@ pub trait Telephony: Send + Sync {
     async fn hang_up(&self, path: &str) -> Result<(), String>;
     /// Mutes or unmutes the call microphone.
     async fn set_mic_muted(&self, muted: bool) -> Result<(), String>;
+    /// Calls `number` (checked: `phonebook::dial_number`) from the phone at
+    /// `address` (`AudioGateway1.Dial`). The call then appears in
+    /// [`Telephony::calls`].
+    async fn dial(&self, address: &str, number: &str) -> Result<(), String>;
 }
 
 /// Calls aren't configured: they stay on the phone, and the screen says why.
@@ -68,6 +72,9 @@ impl Telephony for NoCalls {
         Err("Calls aren't set up on this head unit.".into())
     }
     async fn set_mic_muted(&self, _: bool) -> Result<(), String> {
+        Err("Calls aren't set up on this head unit.".into())
+    }
+    async fn dial(&self, _: &str, _: &str) -> Result<(), String> {
         Err("Calls aren't set up on this head unit.".into())
     }
 }
@@ -242,7 +249,29 @@ impl PwTelephony {
             .await
             .map_err(err)?;
         let r = tokio::time::timeout(CALL_WAIT, p.call_method(method, &())).await;
-        self.refresh(&conn).await;
+        self.finish(&conn, r).await
+    }
+
+    /// `AudioGateway1.Dial(number)` on `gateway`: `void Dial(string number)`
+    /// (README-Telephony.md, 1.6.8).
+    async fn dial_at(&self, gateway: &str, number: &str) -> Result<(), String> {
+        let conn = lock(&self.conn)
+            .clone()
+            .ok_or("the hands-free service isn't connected")?;
+        let p = Proxy::new(&conn, calls::SERVICE, gateway.to_string(), calls::GATEWAY)
+            .await
+            .map_err(err)?;
+        let r = tokio::time::timeout(CALL_WAIT, p.call_method("Dial", &(number,))).await;
+        self.finish(&conn, r).await
+    }
+
+    /// Reads the tree again, and says how the method went.
+    async fn finish(
+        &self,
+        conn: &Connection,
+        r: Result<zbus::Result<zbus::message::Message>, tokio::time::error::Elapsed>,
+    ) -> Result<(), String> {
+        self.refresh(conn).await;
         match r {
             Err(_) => Err(format!(
                 "the phone didn't answer in {} s",
@@ -288,6 +317,18 @@ impl Telephony for Arc<PwTelephony> {
 
     async fn set_mic_muted(&self, muted: bool) -> Result<(), String> {
         self.mic.set_muted(muted).await
+    }
+
+    async fn dial(&self, address: &str, number: &str) -> Result<(), String> {
+        let gateway = self
+            .snap
+            .borrow()
+            .gateways
+            .iter()
+            .find(|g| g.address == address)
+            .map(|g| g.path.clone())
+            .ok_or("the phone's hands-free gateway isn't connected")?;
+        self.dial_at(&gateway, number).await
     }
 }
 

@@ -104,6 +104,27 @@ impl AudioService for Fake {
         Err(Status::unimplemented("fake"))
     }
 
+    async fn dial(
+        &self,
+        _: Request<pb::DialRequest>,
+    ) -> Result<Response<pb::DialResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
+    async fn get_phonebook(
+        &self,
+        _: Request<pb::GetPhonebookRequest>,
+    ) -> Result<Response<pb::GetPhonebookResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
+    async fn refresh_phonebook(
+        &self,
+        _: Request<pb::RefreshPhonebookRequest>,
+    ) -> Result<Response<pb::RefreshPhonebookResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
     async fn control(
         &self,
         _: Request<pb::ControlRequest>,

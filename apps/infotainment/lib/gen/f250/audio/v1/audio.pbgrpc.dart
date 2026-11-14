@@ -195,6 +195,36 @@ class AudioServiceClient extends $grpc.Client {
     return $createUnaryCall(_$setMicMuted, request, options: options);
   }
 
+  /// Calls a number from the connected phone (PipeWire's
+  /// AudioGateway1.Dial). Returns once the phone has taken it; the call then
+  /// appears in WatchAudioResponse.calls (dialling, alerting, active).
+  /// Refused, with a reason, when calls are off, without a phone, during
+  /// another call, or for a number that isn't one.
+  $grpc.ResponseFuture<$0.DialResponse> dial(
+    $0.DialRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$dial, request, options: options);
+  }
+
+  /// The connected phone's contacts and recent calls, as last read
+  /// (Phonebook.version says which). Empty without a phone.
+  $grpc.ResponseFuture<$0.GetPhonebookResponse> getPhonebook(
+    $0.GetPhonebookRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getPhonebook, request, options: options);
+  }
+
+  /// Reads the connected phone's lists again. Returns at once; progress is in
+  /// WatchAudioResponse.phonebook.
+  $grpc.ResponseFuture<$0.RefreshPhonebookResponse> refreshPhonebook(
+    $0.RefreshPhonebookRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$refreshPhonebook, request, options: options);
+  }
+
   // method descriptors
 
   static final _$watchAudio =
@@ -281,6 +311,20 @@ class AudioServiceClient extends $grpc.Client {
           '/f250.audio.v1.AudioService/SetMicMuted',
           ($0.SetMicMutedRequest value) => value.writeToBuffer(),
           $0.SetMicMutedResponse.fromBuffer);
+  static final _$dial = $grpc.ClientMethod<$0.DialRequest, $0.DialResponse>(
+      '/f250.audio.v1.AudioService/Dial',
+      ($0.DialRequest value) => value.writeToBuffer(),
+      $0.DialResponse.fromBuffer);
+  static final _$getPhonebook =
+      $grpc.ClientMethod<$0.GetPhonebookRequest, $0.GetPhonebookResponse>(
+          '/f250.audio.v1.AudioService/GetPhonebook',
+          ($0.GetPhonebookRequest value) => value.writeToBuffer(),
+          $0.GetPhonebookResponse.fromBuffer);
+  static final _$refreshPhonebook = $grpc.ClientMethod<
+          $0.RefreshPhonebookRequest, $0.RefreshPhonebookResponse>(
+      '/f250.audio.v1.AudioService/RefreshPhonebook',
+      ($0.RefreshPhonebookRequest value) => value.writeToBuffer(),
+      $0.RefreshPhonebookResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('f250.audio.v1.AudioService')
@@ -429,6 +473,31 @@ abstract class AudioServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.SetMicMutedRequest.fromBuffer(value),
             ($0.SetMicMutedResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.DialRequest, $0.DialResponse>(
+        'Dial',
+        dial_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.DialRequest.fromBuffer(value),
+        ($0.DialResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.GetPhonebookRequest, $0.GetPhonebookResponse>(
+            'GetPhonebook',
+            getPhonebook_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.GetPhonebookRequest.fromBuffer(value),
+            ($0.GetPhonebookResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.RefreshPhonebookRequest,
+            $0.RefreshPhonebookResponse>(
+        'RefreshPhonebook',
+        refreshPhonebook_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.RefreshPhonebookRequest.fromBuffer(value),
+        ($0.RefreshPhonebookResponse value) => value.writeToBuffer()));
   }
 
   $async.Stream<$0.WatchAudioResponse> watchAudio_Pre($grpc.ServiceCall $call,
@@ -573,4 +642,30 @@ abstract class AudioServiceBase extends $grpc.Service {
 
   $async.Future<$0.SetMicMutedResponse> setMicMuted(
       $grpc.ServiceCall call, $0.SetMicMutedRequest request);
+
+  $async.Future<$0.DialResponse> dial_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.DialRequest> $request) async {
+    return dial($call, await $request);
+  }
+
+  $async.Future<$0.DialResponse> dial(
+      $grpc.ServiceCall call, $0.DialRequest request);
+
+  $async.Future<$0.GetPhonebookResponse> getPhonebook_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.GetPhonebookRequest> $request) async {
+    return getPhonebook($call, await $request);
+  }
+
+  $async.Future<$0.GetPhonebookResponse> getPhonebook(
+      $grpc.ServiceCall call, $0.GetPhonebookRequest request);
+
+  $async.Future<$0.RefreshPhonebookResponse> refreshPhonebook_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.RefreshPhonebookRequest> $request) async {
+    return refreshPhonebook($call, await $request);
+  }
+
+  $async.Future<$0.RefreshPhonebookResponse> refreshPhonebook(
+      $grpc.ServiceCall call, $0.RefreshPhonebookRequest request);
 }

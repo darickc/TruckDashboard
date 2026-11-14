@@ -237,7 +237,66 @@ class GrpcAudioSource implements AudioSource {
     final r = await _need().setMicMuted(pb.SetMicMutedRequest(muted: muted, source: 'dashboard'), options: _opts);
     return CommandResult(ok: r.applied, detail: r.detail);
   }
+
+  @override
+  Future<CommandResult> dial(String number) async {
+    final r = await _need().dial(pb.DialRequest(number: number, source: 'dashboard'), options: _opts);
+    return CommandResult(ok: r.accepted, detail: r.detail);
+  }
+
+  @override
+  Future<PhonebookData> phonebook() async =>
+      phonebookFromPb(await _need().getPhonebook(pb.GetPhonebookRequest(), options: _opts));
+
+  @override
+  Future<CommandResult> refreshPhonebook() async {
+    final r = await _need().refreshPhonebook(pb.RefreshPhonebookRequest(source: 'dashboard'), options: _opts);
+    return CommandResult(ok: r.accepted, detail: r.detail);
+  }
 }
+
+PhonebookStatus? phonebookStatusFromPb(pb.WatchAudioResponse r, Phone? phone) {
+  if (!r.hasPhonebook()) return null;
+  final b = r.phonebook;
+  final phase = switch (b.state) {
+    pb.PhonebookState.PHONEBOOK_STATE_LOADING => PhonebookPhase.loading,
+    pb.PhonebookState.PHONEBOOK_STATE_READY => PhonebookPhase.ready,
+    pb.PhonebookState.PHONEBOOK_STATE_FAILED => PhonebookPhase.failed,
+    pb.PhonebookState.PHONEBOOK_STATE_OFF => PhonebookPhase.off,
+    _ => PhonebookPhase.none,
+  };
+  // A gone phone's lists are never shown.
+  if (phone == null && phase != PhonebookPhase.off) return const PhonebookStatus();
+  return PhonebookStatus(
+    phase: phase,
+    detail: b.detail,
+    version: b.version.toInt(),
+    contacts: b.contacts,
+    recentCalls: b.recentCalls,
+  );
+}
+
+PhonebookData phonebookFromPb(pb.GetPhonebookResponse r) => PhonebookData(
+  version: r.version.toInt(),
+  contacts: [
+    for (final c in r.contacts) Contact(c.name, [for (final n in c.numbers) ContactNumber(n.number, n.label)]),
+  ],
+  recent: [
+    for (final c in r.recentCalls)
+      RecentCall(
+        name: c.name,
+        number: c.number,
+        kind: switch (c.kind) {
+          pb.RecentKind.RECENT_KIND_RECEIVED => RecentKind.received,
+          pb.RecentKind.RECENT_KIND_DIALED => RecentKind.dialed,
+          pb.RecentKind.RECENT_KIND_MISSED => RecentKind.missed,
+          _ => RecentKind.unknown,
+        },
+        // The phone's own local time, without a zone.
+        time: c.time.isEmpty ? null : DateTime.tryParse(c.time),
+      ),
+  ],
+);
 
 CallPhase callPhaseFromPb(pb.CallState s) => switch (s) {
   pb.CallState.CALL_STATE_INCOMING => CallPhase.incoming,
@@ -377,5 +436,6 @@ AudioReport reportFromPb(pb.WatchAudioResponse r) {
           )
         : null,
     calls: callsFromPb(r, phone),
+    phonebook: phonebookStatusFromPb(r, phone),
   );
 }

@@ -15,6 +15,7 @@ use audio_manager::dsp::{ChannelMap, Limits, Settings, Target, render};
 use audio_manager::knob::{self, KnobConfig};
 use audio_manager::manager::{Config, Manager, Reconnect, load_settings};
 use audio_manager::pairing;
+use audio_manager::phonebook::{Lists, NoPhonebook, ObexReader, Phonebook, SimReader};
 use audio_manager::ring::{CommandRinger, NoRinger, Ringer, SimRinger, Tone};
 use audio_manager::runner::{Dsp, NoDsp, PipewireConfig, PipewireDsp};
 use audio_manager::server::Api;
@@ -173,6 +174,12 @@ struct Args {
     /// after each call ends), seconds; 0: never.
     #[arg(long, default_value_t = 0)]
     sim_call_every_s: u64,
+    /// The phone's contacts and recent calls over PBAP (ADR-0045 phase 2):
+    /// the file obexd writes each list into, an absolute path on tmpfs
+    /// (/run) so they are never kept on disk; read and removed at once.
+    /// Empty: not read. Needs obexd on the system bus (f250-obexd.service).
+    #[arg(long, default_value = "")]
+    phonebook_file: String,
 }
 
 #[tokio::main]
@@ -325,7 +332,20 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             "no ring tone is configured (--ring-command)".into(),
         ))
     };
-    let manager = Manager::new(config, bt, dsp, voice, calls, ringer);
+    let book: Arc<dyn Phonebook> = if args.simulate {
+        Lists::start(SimReader {
+            delay: Duration::from_millis(500),
+        })
+    } else if args.phonebook_file.is_empty() {
+        Arc::new(NoPhonebook::new("not configured (--phonebook-file)"))
+    } else {
+        let file = PathBuf::from(&args.phonebook_file);
+        if !file.is_absolute() {
+            return Err("--phonebook-file: an absolute path (obexd is another process)".into());
+        }
+        Lists::start(ObexReader { file })
+    };
+    let manager = Manager::new(config, bt, dsp, voice, calls, ringer, book);
     tokio::spawn(run_watchdog(
         notifier.clone(),
         manager.heartbeat.clone(),
