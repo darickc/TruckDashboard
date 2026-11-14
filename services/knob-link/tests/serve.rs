@@ -21,6 +21,7 @@ fn timing() -> Timing {
         period: Duration::from_millis(20),
         config_every: Duration::from_millis(200),
         snapshot_max_age: Duration::from_millis(100),
+        page_max_age: Duration::from_millis(100),
     }
 }
 
@@ -48,6 +49,7 @@ async fn frames_follow_the_gateway_and_stop_when_it_goes_quiet() {
         defs: HashMap::new(),
         defs_gen: 0,
         snapshot: Some((Instant::now(), snap(100.0))),
+        ..Default::default()
     });
     let logs = Arc::new(Mutex::new(Vec::<String>::new()));
     let l2 = Arc::clone(&logs);
@@ -172,4 +174,58 @@ fn finds_the_dial_by_its_usb_name() {
     assert_eq!(find_port(Some(&dial), &dir), Some(dial.clone()));
     assert_eq!(find_port(Some(&dir.join("nope")), &dir), None);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn nav_and_media_frames_only_while_they_are_fresh() {
+    use f250_proto::audio::v1 as audio;
+    use f250_proto::nav::v1 as nav;
+    let (pi, dial) = tokio::io::duplex(8192);
+    let (tx, rx) = watch::channel(Latest {
+        guidance: Some((
+            Instant::now(),
+            nav::Guidance {
+                state: nav::RouteState::Routing.into(),
+                ..Default::default()
+            },
+        )),
+        audio: Some((Instant::now(), audio::WatchAudioResponse::default())),
+        ..Default::default()
+    });
+    let task = tokio::spawn(serve(pi, rx, Units::Imperial, timing(), |_| {}));
+    let mut lines = BufReader::new(dial).lines();
+    let mut first = Vec::new();
+    for _ in 0..3 {
+        first.push(lines.next_line().await.unwrap().unwrap());
+    }
+    // No snapshot: no D1, but the pages' frames.
+    assert!(
+        first.iter().any(|l| l.starts_with("N1 route*")),
+        "{first:?}"
+    );
+    assert!(
+        first.iter().any(|l| l.starts_with("M1 none -*")),
+        "{first:?}"
+    );
+    assert!(first.iter().all(|l| ok_checksum(l)));
+    assert!(!first.iter().any(|l| l.starts_with("D1 ")));
+    // Both go quiet: after page_max_age, neither is sent.
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    let mut late = Vec::new();
+    let until = Instant::now() + Duration::from_millis(250);
+    while Instant::now() < until {
+        if let Ok(Ok(Some(l))) =
+            tokio::time::timeout(Duration::from_millis(50), lines.next_line()).await
+        {
+            late.push(l);
+        }
+    }
+    let after: Vec<_> = late
+        .iter()
+        .skip_while(|l| l.starts_with("N1") || l.starts_with("M1"))
+        .filter(|l| l.starts_with("N1") || l.starts_with("M1"))
+        .collect();
+    assert!(after.is_empty(), "nothing old: {late:?}");
+    drop(tx);
+    task.abort();
 }

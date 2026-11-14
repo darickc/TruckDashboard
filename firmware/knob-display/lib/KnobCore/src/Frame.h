@@ -4,8 +4,13 @@
 //
 //   C1 <slot>:<unit>:<min>:<max>:<trust> ...*CS          what each slot shows
 //   D1 <seq> <live|sim> <slot>:<state>[:<value>[:<age_s>]] ...*CS
+//   N1 go <turn> <dist> <dunit> <left> <lunit> <min> [<street>]*CS
+//   N1 <none|route|wait>*CS | N1 arr [<destination>]*CS   the next turn
+//   M1 <play|pause|stop> <vol> <pos_s|-> <dur_s|-> <title>\t<artist>\t<source>*CS
+//   M1 none <vol>*CS                                      what's playing
 //   H1 <name> <version>*CS                               from the dial
 //
+// <vol> is <level>/<steps>, m<level>/<steps> when muted, or "-".
 // CS is the XOR of every character before '*', as two hex digits (NMEA).
 
 #pragma once
@@ -59,9 +64,63 @@ struct DataFrame {
     SlotValue slots[kSlots];
 };
 
+// The navigation page (ADR-0044 amendment, swipe pages).
+enum class NavState : uint8_t {
+    None,     // no destination, or routing isn't available
+    Routing,  // asking for a route
+    Waiting,  // a route, but no current position: no distance is shown
+    Active,   // following the route
+    Arrived,
+};
+
+// The next maneuver's arrow, from Valhalla's type (knob-link maps it).
+enum class Turn : uint8_t {
+    Other, Start, Destination, Straight, SlightRight, Right, SharpRight, UTurnRight,
+    UTurnLeft, SharpLeft, Left, SlightLeft, RampRight, RampLeft, ForkRight, ForkLeft,
+    Merge, Roundabout, Ferry,
+};
+const char* turnName(Turn t);
+
+struct NavFrame {
+    NavState state = NavState::None;
+    Turn turn = Turn::Other;
+    // Display-ready text from the Pi: "0.4" "mi", "500" "ft".
+    char dist[8] = {};
+    char distUnit[4] = {};
+    char left[8] = {};
+    char leftUnit[4] = {};
+    uint16_t minutes = 0;
+    // The street of the next turn, or the destination when arrived.
+    char text[96] = {};
+};
+
+enum class PlayState : uint8_t { None, Playing, Paused, Stopped };
+
+struct MediaFrame {
+    PlayState state = PlayState::None;
+    // -1: unknown.
+    int16_t volume = -1;
+    int16_t volumeSteps = -1;
+    bool muted = false;
+    int32_t posS = -1;
+    int32_t durS = -1;
+    char title[64] = {};
+    char artist[48] = {};
+    char source[32] = {};
+};
+
+struct Frames {
+    ConfigFrame config;
+    DataFrame data;
+    NavFrame nav;
+    MediaFrame media;
+};
+
 enum class Parsed {
     Config,
     Data,
+    Nav,
+    Media,
     Hello,
     Comment,      // "# ..." (the dial's log)
     BadChecksum,  // no '*', or it doesn't match
@@ -74,8 +133,12 @@ uint8_t checksum(std::string_view body);
 // `body` followed by "*CS".
 std::string withChecksum(std::string_view body);
 
-// One line, without its line ending. Fills `config` or `data` only when it
-// returns Config or Data; a Malformed line changes neither.
+// One line, without its line ending. Fills only the frame it returns
+// (Config, Data, Nav or Media); a Malformed line changes nothing.
+Parsed parseLine(std::string_view line, Frames& out);
+
+// The same, for the gauge frames only (Nav and Media lines are parsed and
+// dropped).
 Parsed parseLine(std::string_view line, ConfigFrame& config, DataFrame& data);
 
 }  // namespace knob

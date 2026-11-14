@@ -15,6 +15,7 @@
 
 #include "Dial.h"
 #include "Frame.h"
+#include "Pages.h"
 #include "Tap.h"
 
 #ifndef KNOB_VERSION
@@ -26,13 +27,14 @@ namespace {
 USBHIDConsumerControl consumer;
 knob::Dial dial(2000);
 knob::TapDetector tap;
+knob::Pages pages(3000);
 
 char line[knob::kMaxLine + 2];
 size_t lineLen = 0;
 bool lineTooLong = false;
 
 struct Counts {
-    uint32_t config = 0, data = 0, badChecksum = 0, malformed = 0, unknown = 0, tooLong = 0;
+    uint32_t config = 0, data = 0, nav = 0, media = 0, badChecksum = 0, malformed = 0, unknown = 0, tooLong = 0;
 } counts;
 
 uint32_t lastHelloMs = 0;
@@ -51,10 +53,12 @@ void hello()
 void report(uint32_t now)
 {
     static const char* const kState = "cakns";
-    Serial.printf("# frames: %u config, %u data, %u bad checksum, %u malformed, %u unknown, %u too long; %s%s\n",
-                  counts.config, counts.data, counts.badChecksum, counts.malformed, counts.unknown,
-                  counts.tooLong, dial.linkLost(now) ? "no data" : "link up",
-                  dial.simulated() ? ", SIMULATED" : "");
+    static const char* const kPage[] = {"gauges", "navigation", "media"};
+    Serial.printf("# frames: %u config, %u data, %u nav, %u media, %u bad checksum, %u malformed, %u unknown, "
+                  "%u too long; %s%s; page %s\n",
+                  counts.config, counts.data, counts.nav, counts.media, counts.badChecksum, counts.malformed,
+                  counts.unknown, counts.tooLong, dial.linkLost(now) ? "no data" : "link up",
+                  dial.simulated() ? ", SIMULATED" : "", kPage[pages.index()]);
     const knob::Slot slots[] = {knob::Slot::Speed, knob::Slot::Fuel, knob::Slot::Eot, knob::Slot::Ect,
                                 knob::Slot::Delta};
     for (knob::Slot s : slots) {
@@ -65,15 +69,36 @@ void report(uint32_t now)
         Serial.printf("#   %s %s %c %s%s\n", knob::slotName(s), value, kState[static_cast<int>(v.state)], age,
                       v.unverified ? " (unverified)" : "");
     }
+    static const char* const kNav[] = {"no route", "routing", "waiting for a position", "", "arrived"};
+    if (const knob::NavFrame* n = pages.nav(now)) {
+        if (n->state == knob::NavState::Active) {
+            Serial.printf("#   nav: %s in %s %s, %s; %s %s and %u min left\n", knob::turnName(n->turn), n->dist,
+                          n->distUnit, n->text, n->left, n->leftUnit, n->minutes);
+        } else {
+            Serial.printf("#   nav: %s %s\n", kNav[static_cast<int>(n->state)], n->text);
+        }
+    } else {
+        Serial.printf("#   nav: no data\n");
+    }
+    static const char* const kPlay[] = {"no phone", "playing", "paused", "stopped"};
+    if (const knob::MediaFrame* m = pages.media(now)) {
+        char t[24];
+        knob::formatTrackTime(m->posS, m->durS, t, sizeof(t));
+        Serial.printf("#   media: %s %s / %s (%s) %s; volume %d/%d%s\n", kPlay[static_cast<int>(m->state)], m->title,
+                      m->artist, m->source, t, m->volume, m->volumeSteps, m->muted ? " muted" : "");
+    } else {
+        Serial.printf("#   media: no data\n");
+    }
 }
 
 void onLine(uint32_t now)
 {
-    knob::ConfigFrame c;
-    knob::DataFrame d;
-    switch (knob::parseLine(std::string_view(line, lineLen), c, d)) {
-        case knob::Parsed::Config: dial.onConfig(c); counts.config++; break;
-        case knob::Parsed::Data: dial.onData(d, now); counts.data++; break;
+    static knob::Frames f;
+    switch (knob::parseLine(std::string_view(line, lineLen), f)) {
+        case knob::Parsed::Config: dial.onConfig(f.config); counts.config++; break;
+        case knob::Parsed::Data: dial.onData(f.data, now); counts.data++; break;
+        case knob::Parsed::Nav: pages.onNav(f.nav, now); counts.nav++; break;
+        case knob::Parsed::Media: pages.onMedia(f.media, now); counts.media++; break;
         case knob::Parsed::BadChecksum: counts.badChecksum++; break;
         case knob::Parsed::Malformed: counts.malformed++; break;
         case knob::Parsed::Unknown: counts.unknown++; break;
@@ -101,13 +126,21 @@ void onKnobDetents(int steps)
 
 void onKnobPush() { press(CONSUMER_CONTROL_PLAY_PAUSE); }
 
-void onTouch(bool down, int x, int y)
+// down: a finger touched; move: it moved; neither: it lifted.
+void onTouch(bool down, bool move, int x, int y)
 {
     const uint32_t now = millis();
     if (down) {
         tap.onDown(x, y, now);
-    } else if (tap.onUp(now)) {
-        press(CONSUMER_CONTROL_PLAY_PAUSE);
+    } else if (move) {
+        tap.onMove(x, y, now);
+    } else {
+        const knob::Gesture g = tap.onUp(now);
+        if (g == knob::Gesture::Tap) {
+            press(CONSUMER_CONTROL_PLAY_PAUSE);
+        } else {
+            pages.onGesture(g);
+        }
     }
 }
 

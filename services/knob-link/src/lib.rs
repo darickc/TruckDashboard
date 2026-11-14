@@ -5,3 +5,4 @@
 
 pub mod frame;
 pub mod link;
+pub mod pages;

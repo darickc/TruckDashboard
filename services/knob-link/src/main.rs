@@ -5,9 +5,14 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
+use f250_proto::audio::v1::{WatchAudioRequest, audio_service_client::AudioServiceClient};
+use f250_proto::nav::v1::{
+    GetRouteRequest, WatchGuidanceRequest, route_service_client::RouteServiceClient,
+};
 use f250_proto::vehicle::v1::{
     ListSignalsRequest, StreamSnapshotsRequest, vehicle_service_client::VehicleServiceClient,
 };
@@ -27,6 +32,12 @@ struct Args {
     /// vehicle-gateway: unix:<path> or tcp:<host:port>.
     #[arg(long, default_value = "unix:/run/f250/vehicle.sock")]
     gateway: String,
+    /// navigation, for the dial's navigation page; empty: none.
+    #[arg(long, default_value = "unix:/run/f250-nav/nav.sock")]
+    navigation: String,
+    /// audio-manager, for the dial's media page; empty: none.
+    #[arg(long, default_value = "unix:/run/f250-audio/audio.sock")]
+    audio: String,
     /// The dial's serial port; empty: the first /dev/serial/by-id entry with
     /// "F-250_knob" in its name (the firmware's USB product name).
     #[arg(long, default_value = "")]
@@ -129,6 +140,101 @@ async fn follow(gateway: &str, tx: &watch::Sender<Latest>, heartbeat: &Heartbeat
     }
 }
 
+/// Follows navigation's guidance, fetching each new route for its turns.
+async fn follow_nav(endpoint: &str, tx: &watch::Sender<Latest>) -> String {
+    let mut client = match connect(endpoint).await {
+        Ok(c) => RouteServiceClient::new(c),
+        Err(e) => return e,
+    };
+    let mut stream =
+        match tokio::time::timeout(CALL_TIMEOUT, client.watch_guidance(WatchGuidanceRequest {}))
+            .await
+        {
+            Ok(Ok(r)) => r.into_inner(),
+            Ok(Err(e)) => return format!("WatchGuidance: {e}"),
+            Err(_) => return "WatchGuidance: no answer".into(),
+        };
+    eprintln!("[knob-link] following {endpoint}");
+    loop {
+        let g = match tokio::time::timeout(STREAM_SILENCE, stream.message()).await {
+            Err(_) => return format!("no guidance in {} s", STREAM_SILENCE.as_secs()),
+            Ok(Err(e)) => return format!("guidance: {e}"),
+            Ok(Ok(None)) => return "navigation ended the stream".into(),
+            Ok(Ok(Some(m))) => m.guidance.unwrap_or_default(),
+        };
+        let have = tx.borrow().route.as_ref().map(|r| r.id);
+        if g.route_id != 0 && have != Some(g.route_id) {
+            // A new route: its turns. Without them the dial says "wait".
+            match tokio::time::timeout(
+                CALL_TIMEOUT,
+                client.get_route(GetRouteRequest {
+                    route_id: g.route_id,
+                }),
+            )
+            .await
+            {
+                Ok(Ok(r)) => {
+                    let route = r.into_inner().route;
+                    tx.send_modify(|l| l.route = route);
+                }
+                Ok(Err(e)) => eprintln!("[knob-link] navigation: route {}: {e}", g.route_id),
+                Err(_) => eprintln!("[knob-link] navigation: route {}: no answer", g.route_id),
+            }
+        }
+        tx.send_modify(|l| l.guidance = Some((Instant::now(), g)));
+    }
+}
+
+/// Follows audio-manager: what's playing, and the volume.
+async fn follow_audio(endpoint: &str, tx: &watch::Sender<Latest>) -> String {
+    let mut client = match connect(endpoint).await {
+        Ok(c) => AudioServiceClient::new(c),
+        Err(e) => return e,
+    };
+    let mut stream =
+        match tokio::time::timeout(CALL_TIMEOUT, client.watch_audio(WatchAudioRequest {})).await {
+            Ok(Ok(r)) => r.into_inner(),
+            Ok(Err(e)) => return format!("WatchAudio: {e}"),
+            Err(_) => return "WatchAudio: no answer".into(),
+        };
+    eprintln!("[knob-link] following {endpoint}");
+    loop {
+        match tokio::time::timeout(STREAM_SILENCE, stream.message()).await {
+            Err(_) => {
+                return format!(
+                    "nothing from audio-manager in {} s",
+                    STREAM_SILENCE.as_secs()
+                );
+            }
+            Ok(Err(e)) => return format!("audio: {e}"),
+            Ok(Ok(None)) => return "audio-manager ended the stream".into(),
+            Ok(Ok(Some(m))) => tx.send_modify(|l| l.audio = Some((Instant::now(), m))),
+        }
+    }
+}
+
+/// Runs `follow` again every RETRY when it stops, saying why once.
+fn keep_following<F, Fut>(name: &'static str, follow: F)
+where
+    F: Fn() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = String> + Send,
+{
+    tokio::spawn(async move {
+        let mut last = String::new();
+        loop {
+            let why = follow().await;
+            if why != last {
+                eprintln!(
+                    "[knob-link] {name}: {why}; retrying every {} s",
+                    RETRY.as_secs()
+                );
+                last = why;
+            }
+            tokio::time::sleep(RETRY).await;
+        }
+    });
+}
+
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
     let args = Args::parse();
@@ -149,6 +255,21 @@ async fn main() -> std::process::ExitCode {
     let _ = notifier.ready("waiting for the gateway and the dial");
 
     let (tx, rx) = watch::channel(Latest::default());
+    let tx = Arc::new(tx);
+    if !args.navigation.is_empty() {
+        let (tx, endpoint) = (Arc::clone(&tx), args.navigation.clone());
+        keep_following("navigation", move || {
+            let (tx, endpoint) = (Arc::clone(&tx), endpoint.clone());
+            async move { follow_nav(&endpoint, &tx).await }
+        });
+    }
+    if !args.audio.is_empty() {
+        let (tx, endpoint) = (Arc::clone(&tx), args.audio.clone());
+        keep_following("audio-manager", move || {
+            let (tx, endpoint) = (Arc::clone(&tx), endpoint.clone());
+            async move { follow_audio(&endpoint, &tx).await }
+        });
+    }
     let gateway = args.gateway.clone();
     let hb = heartbeat.clone();
     tokio::spawn(async move {

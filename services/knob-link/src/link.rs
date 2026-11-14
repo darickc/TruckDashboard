@@ -4,20 +4,28 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use f250_proto::audio::v1 as audio;
+use f250_proto::nav::v1 as nav;
 use f250_proto::vehicle::v1 as pb;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::watch;
 use tokio::time::Instant;
 
 use crate::frame::{self, FromDial, Units};
+use crate::pages;
 
-/// What the gateway said last, and when it arrived.
+/// What the gateway, navigation and audio-manager said last, and when it
+/// arrived.
 #[derive(Debug, Clone, Default)]
 pub struct Latest {
     pub defs: HashMap<String, pb::SignalDefinition>,
     /// Bumped when `defs` changes: the config frame goes out again at once.
     pub defs_gen: u64,
     pub snapshot: Option<(Instant, pb::Snapshot)>,
+    /// The guidance and, once fetched, its route.
+    pub guidance: Option<(Instant, nav::Guidance)>,
+    pub route: Option<nav::Route>,
+    pub audio: Option<(Instant, audio::WatchAudioResponse)>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -28,6 +36,10 @@ pub struct Timing {
     pub config_every: Duration,
     /// A snapshot older than this isn't sent: the dial goes stale on its own.
     pub snapshot_max_age: Duration,
+    /// Guidance or audio older than this isn't sent: the dial's page then
+    /// says it has no data (navigation and audio-manager answer at least once
+    /// a second).
+    pub page_max_age: Duration,
 }
 
 impl Default for Timing {
@@ -36,6 +48,7 @@ impl Default for Timing {
             period: Duration::from_millis(250),
             config_every: Duration::from_secs(5),
             snapshot_max_age: Duration::from_secs(2),
+            page_max_age: Duration::from_secs(3),
         }
     }
 }
@@ -76,6 +89,18 @@ where
                     {
                         seq = seq.wrapping_add(1);
                         out.push_str(&frame::data_line(seq, snap, units));
+                        out.push('\n');
+                    }
+                    if let Some((at, g)) = &l.guidance
+                        && now.duration_since(*at) <= timing.page_max_age
+                    {
+                        out.push_str(&pages::nav_line(g, l.route.as_ref(), units));
+                        out.push('\n');
+                    }
+                    if let Some((at, a)) = &l.audio
+                        && now.duration_since(*at) <= timing.page_max_age
+                    {
+                        out.push_str(&pages::media_line(a));
                         out.push('\n');
                     }
                 }

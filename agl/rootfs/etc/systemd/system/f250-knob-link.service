@@ -1,5 +1,7 @@
 # The knob display's data (ADR-0044): knob-link reads vehicle-gateway's
-# snapshots (/run/f250/vehicle.sock) and writes frames to the dial's USB
+# snapshots (/run/f250/vehicle.sock), navigation's guidance
+# (/run/f250-nav/nav.sock) and audio-manager's track and volume
+# (/run/f250-audio/audio.sock; both group f250), and writes frames to the dial's USB
 # serial port (/dev/serial/by-id/*F-250_knob*, a ttyACM device). The dial's
 # knob reaches audio-manager as a USB HID device, not through here. A dial
 # that isn't plugged in is normal: knob-link waits for it.

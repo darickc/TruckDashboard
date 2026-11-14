@@ -3,6 +3,8 @@
 
 #include <unity.h>
 
+#include <cstring>
+
 #include "Frame.h"
 
 using namespace knob;
@@ -150,6 +152,110 @@ void test_golden_lines_from_knob_link()
     TEST_ASSERT_EQUAL(State::None, slot(Slot::Delta).state);
 }
 
+Frames all;
+
+Parsed parseAll(const std::string& line)
+{
+    all = Frames();
+    return parseLine(line, all);
+}
+
+void test_nav_frames()
+{
+    TEST_ASSERT_EQUAL(Parsed::Nav, parseAll(withChecksum("N1 go right 0.4 mi 12 mi 18 Main Street")));
+    TEST_ASSERT_EQUAL(NavState::Active, all.nav.state);
+    TEST_ASSERT_EQUAL(Turn::Right, all.nav.turn);
+    TEST_ASSERT_EQUAL_STRING("0.4", all.nav.dist);
+    TEST_ASSERT_EQUAL_STRING("mi", all.nav.distUnit);
+    TEST_ASSERT_EQUAL_STRING("12", all.nav.left);
+    TEST_ASSERT_EQUAL_UINT16(18, all.nav.minutes);
+    TEST_ASSERT_EQUAL_STRING("Main Street", all.nav.text);
+    // No street.
+    TEST_ASSERT_EQUAL(Parsed::Nav, parseAll(withChecksum("N1 go dest 300 ft 300 ft 1")));
+    TEST_ASSERT_EQUAL(Turn::Destination, all.nav.turn);
+    TEST_ASSERT_EQUAL_STRING("", all.nav.text);
+    TEST_ASSERT_EQUAL(Parsed::Nav, parseAll(withChecksum("N1 wait")));
+    TEST_ASSERT_EQUAL(NavState::Waiting, all.nav.state);
+    TEST_ASSERT_EQUAL(Parsed::Nav, parseAll(withChecksum("N1 none")));
+    TEST_ASSERT_EQUAL(Parsed::Nav, parseAll(withChecksum("N1 route")));
+    TEST_ASSERT_EQUAL(NavState::Routing, all.nav.state);
+    TEST_ASSERT_EQUAL(Parsed::Nav, parseAll(withChecksum("N1 arr Home")));
+    TEST_ASSERT_EQUAL(NavState::Arrived, all.nav.state);
+    TEST_ASSERT_EQUAL_STRING("Home", all.nav.text);
+    const char* bad[] = {"N1", "N1 maybe", "N1 wait now", "N1 go hop 1 mi 2 mi 3", "N1 go right 1 mi 2 mi",
+                         "N1 go right 1 mi 2 mi x", "N1 go right 123456789 mi 2 mi 3"};
+    for (const char* b : bad) TEST_ASSERT_EQUAL_MESSAGE(Parsed::Malformed, parseAll(withChecksum(b)), b);
+}
+
+void test_every_turn_name_round_trips()
+{
+    for (int i = 0; i <= static_cast<int>(Turn::Ferry); ++i) {
+        std::string line = std::string("N1 go ") + turnName(static_cast<Turn>(i)) + " 1 mi 2 mi 3";
+        TEST_ASSERT_EQUAL(Parsed::Nav, parseAll(withChecksum(line)));
+        TEST_ASSERT_EQUAL(i, static_cast<int>(all.nav.turn));
+    }
+}
+
+void test_long_or_odd_text_is_cut_safely()
+{
+    // A street longer than the field, ending in a multi-byte character that
+    // would be split: cut before it.
+    std::string street(94, 'a');
+    street += "\xC3\xA9\xC3\xA9";  // "éé"
+    TEST_ASSERT_EQUAL(Parsed::Nav, parseAll(withChecksum("N1 go left 1 mi 2 mi 3 " + street)));
+    // 95 bytes fit; the 95th would be the first half of an "é", so it stops
+    // at 94.
+    TEST_ASSERT_EQUAL_size_t(94, std::strlen(all.nav.text));
+    TEST_ASSERT_EQUAL_CHAR('a', all.nav.text[93]);
+    // Control characters become spaces.
+    TEST_ASSERT_EQUAL(Parsed::Media, parseAll(withChecksum("M1 play - 1 2 A\x01" "B\tC\tD")));
+    TEST_ASSERT_EQUAL_STRING("A B", all.media.title);
+}
+
+// The exact nav and media lines knob-link's pages.rs tests produce.
+void test_golden_page_lines_from_knob_link()
+{
+    TEST_ASSERT_EQUAL(Parsed::Nav, parseAll("N1 go right 0.4 mi 12 mi 18 Main Street*1D"));
+    TEST_ASSERT_EQUAL(Turn::Right, all.nav.turn);
+    TEST_ASSERT_EQUAL_STRING("Main Street", all.nav.text);
+    TEST_ASSERT_EQUAL(Parsed::Media, parseAll("M1 play 18/30 94 242 Second Simulated Song\tThe Test Tones\tPixel 8*67"));
+    TEST_ASSERT_EQUAL_STRING("Pixel 8", all.media.source);
+    TEST_ASSERT_EQUAL_INT32(94, all.media.posS);
+}
+
+void test_media_frames()
+{
+    TEST_ASSERT_EQUAL(Parsed::Media,
+                      parseAll(withChecksum("M1 play 18/30 94 242 Second Simulated Song\tThe Test Tones\tPixel 8")));
+    TEST_ASSERT_EQUAL(PlayState::Playing, all.media.state);
+    TEST_ASSERT_EQUAL_INT16(18, all.media.volume);
+    TEST_ASSERT_EQUAL_INT16(30, all.media.volumeSteps);
+    TEST_ASSERT_FALSE(all.media.muted);
+    TEST_ASSERT_EQUAL_INT32(94, all.media.posS);
+    TEST_ASSERT_EQUAL_INT32(242, all.media.durS);
+    TEST_ASSERT_EQUAL_STRING("Second Simulated Song", all.media.title);
+    TEST_ASSERT_EQUAL_STRING("The Test Tones", all.media.artist);
+    TEST_ASSERT_EQUAL_STRING("Pixel 8", all.media.source);
+    TEST_ASSERT_EQUAL(Parsed::Media, parseAll(withChecksum("M1 pause m12/30 - - Podcast\t\tPixel 8")));
+    TEST_ASSERT_TRUE(all.media.muted);
+    TEST_ASSERT_EQUAL_INT32(-1, all.media.posS);
+    TEST_ASSERT_EQUAL_STRING("", all.media.artist);
+    TEST_ASSERT_EQUAL(Parsed::Media, parseAll(withChecksum("M1 none 15/30")));
+    TEST_ASSERT_EQUAL(PlayState::None, all.media.state);
+    TEST_ASSERT_EQUAL_INT16(15, all.media.volume);
+    TEST_ASSERT_EQUAL(Parsed::Media, parseAll(withChecksum("M1 none -")));
+    TEST_ASSERT_EQUAL_INT16(-1, all.media.volume);
+    const char* bad[] = {"M1 jam 1/30 - - x", "M1 play 31/30 - - x", "M1 play 1/0 - - x", "M1 play 1/30 x - y",
+                         "M1 none", "M1 none 1/30 extra"};
+    for (const char* b : bad) TEST_ASSERT_EQUAL_MESSAGE(Parsed::Malformed, parseAll(withChecksum(b)), b);
+    // The gauge-only parser leaves its frames alone on these.
+    DataFrame d;
+    d.seq = 5;
+    ConfigFrame c;
+    TEST_ASSERT_EQUAL(Parsed::Media, parseLine(withChecksum("M1 none -"), c, d));
+    TEST_ASSERT_EQUAL_UINT32(5, d.seq);
+}
+
 int main()
 {
     UNITY_BEGIN();
@@ -162,5 +268,10 @@ int main()
     RUN_TEST(test_data_frame_refusals);
     RUN_TEST(test_a_slot_left_out_is_unset);
     RUN_TEST(test_golden_lines_from_knob_link);
+    RUN_TEST(test_nav_frames);
+    RUN_TEST(test_every_turn_name_round_trips);
+    RUN_TEST(test_long_or_odd_text_is_cut_safely);
+    RUN_TEST(test_media_frames);
+    RUN_TEST(test_golden_page_lines_from_knob_link);
     return UNITY_END();
 }

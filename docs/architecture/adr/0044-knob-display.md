@@ -57,6 +57,7 @@ valid only while both are.
      5 s and on connect. Slots: `spd fuel eot ect dlt`. `trust` is `v` (SAE,
      verified on the truck, or computed from those) or `u` (imported,
      unverified: the dial marks it).
+   - `N1 …` and `M1 …` — the navigation and media pages (decision 9).
    - `D1 <seq> <mode> <slot>:<state>[:<value>[:<age_s>]] …` — every 250 ms.
      `mode` is `live` or `sim` (shown as SIMULATED). `state`: `c` current,
      `a` current with an advisory alert, `k` with a critical alert, `s` stale
@@ -93,6 +94,27 @@ valid only while both are.
    (ESP32-S3, not the existing firmware's ESP32): `lib/KnobCore` is plain C++
    (frames, the model, the layout, the tap rules), host-tested; the display,
    touch and encoder drivers go in `lib/KnobHw` when the board is here.
+
+9. **Pages** (owner, 2026-11-13): gauges, navigation, media, in that order.
+   A swipe left goes to the next, right to the previous, stopping at the ends
+   (at least 60 px sideways, twice as far sideways as up or down, within
+   800 ms: examples). The knob is the volume and a tap play/pause on every
+   page, so neither changes meaning under the driver's thumb.
+   - `N1` (navigation's guidance and its route): `go <turn> <dist> <dunit>
+     <left> <lunit> <min> [<street>]`, or `none`, `route`, `wait` (a route but
+     no current position: no distance is ever shown from an old one),
+     `arr [<destination>]`. The turn is one of 19 arrows knob-link maps from
+     Valhalla's maneuver type, the dashboard's grouping; distances are text
+     already in the display's units (feet to 0.1 mi, then miles).
+   - `M1` (audio-manager): `<play|pause|stop> <vol> <pos_s|-> <dur_s|->
+     <title>\t<artist>\t<source>` or `none <vol>`; `<vol>` is
+     `level/steps`, `m…` when muted, or `-`. Text has no tabs, stars or
+     control characters and is cut on a character boundary.
+   - knob-link sends each once per data period while its source answered in
+     the last 3 s; the dial shows a page's data only while its frames keep
+     coming (3 s), otherwise "no data", never an old turn or track.
+   - Not decided: jumping to the navigation page by itself near a turn; cover
+     art on the dial (too heavy for the line protocol).
 
 ## Alternatives considered
 
