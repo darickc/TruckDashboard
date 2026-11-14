@@ -1,4 +1,5 @@
 import 'package:f250_infotainment/audio/audio_state.dart';
+import 'package:f250_infotainment/cameras/camera_state.dart';
 import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/theme.dart';
@@ -6,6 +7,7 @@ import 'package:f250_infotainment/ui/widgets/call_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../fake_cameras.dart';
 import '../harness.dart';
 import 'media_test.dart' show FakeAudio;
 
@@ -192,5 +194,95 @@ void main() {
             theme == DayNight.day ? Palette.day.background : Palette.night.background);
       });
     }
+  }
+
+  // Camera mode (ADR-0045 amendment): the camera's window covers x 220–800,
+  // so the call goes in the left column, and the cameras stay reachable.
+  const rearLive = CameraView(camera: CameraId.rear, reason: CameraReason.cameraSwitch, feed: FeedState.live);
+  const cameraWindow = Rect.fromLTWH(220, 44, 580, 436);
+  final recording = RecordingStatus(
+    cameras: const [
+      CameraRecording(camera: CameraId.rear, state: RecordingState.recording, segment: 'b00042-s000317.mkv'),
+    ],
+    driveMounted: true,
+    driveFreeBytes: 412300000000,
+    recordedBytes: 38400000000,
+    protectedBytes: 1200000000,
+    protectedMaxBytes: 25000000000,
+    clockTrusted: true,
+  );
+
+  testWidgets('camera mode: the call in the column, the cameras as arrows, the window untouched', (tester) async {
+    final sim = SimulatedAudioSource(autoRun: false);
+    final cams = FakeCameras(up(rearLive));
+    await Harness.start(tester, audio: sim, cameras: cams);
+    expect(key('camera-area'), findsOneWidget);
+    expect(key('call-bar'), findsNothing);
+    expect(find.descendant(of: key('camera-front'), matching: find.text('Front')), findsOneWidget);
+
+    final id = sim.ring();
+    await tester.pump();
+    final bar = tester.getRect(key('call-bar'));
+    expect(bar.right, lessThanOrEqualTo(220), reason: 'never over the camera\'s window');
+    expect(bar.top, greaterThanOrEqualTo(44));
+    expect(tester.getRect(key('camera-area')), cameraWindow);
+    expect(callText(tester), 'Simulated Caller');
+    for (final k in ['call-answer', 'call-hang-up']) {
+      final r = tester.getRect(key(k));
+      expect(r.height, greaterThanOrEqualTo(kMinTouch), reason: k);
+      expect(r.right, lessThanOrEqualTo(220), reason: k);
+    }
+    // Every camera is still a button, an arrow now, and still switches.
+    for (final c in ['camera-front', 'camera-left', 'camera-rear', 'camera-right', 'camera-close']) {
+      expect(tester.getSize(key(c)).height, greaterThanOrEqualTo(kMinTouch), reason: c);
+    }
+    expect(find.descendant(of: key('camera-front'), matching: find.text('Front')), findsNothing);
+    await tester.tap(key('camera-left'));
+    await tester.pump();
+    expect(cams.moves, [SwitchMove.left]);
+
+    await tester.tap(key('call-answer'));
+    await tester.pump();
+    expect(sim.status.value.report!.call!.phase, CallPhase.active);
+    expect(key('call-mute'), findsOneWidget);
+    await sim.hangUp(id);
+    await tester.pump();
+    expect(key('call-bar'), findsNothing);
+    expect(find.descendant(of: key('camera-front'), matching: find.text('Front')), findsOneWidget,
+        reason: 'the column is back as it was');
+  });
+
+  for (final theme in DayNight.values) {
+    testWidgets('camera mode with a call lays out at 800×480: ${theme.name}', (tester) async {
+      final cams = FakeCameras(up(rearLive));
+      final audio = FakeAudio();
+      final h = await Harness.start(tester, scenario: 'link_loss', theme: theme, cameras: cams, audio: audio);
+      for (final alert in [false, true]) {
+        if (alert) await h.advance(const Duration(seconds: 100));
+        for (final rec in [null, recording]) {
+          cams.status = up(rearLive, recording: rec);
+          for (final call in states.values) {
+            audio.value = AudioStatus(
+              link: AudioLink.up,
+              report: AudioReport(
+                simulated: true,
+                phone: const Phone(address: 'AA', name: long, connected: true, paired: true),
+                calls: CallsStatus(available: true, phoneName: long, call: call, otherCalls: 3, micMuted: true),
+              ),
+            );
+            await tester.pump();
+            final why = '${call.phase} rec=${rec != null} alert=$alert';
+            expect(tester.takeException(), isNull, reason: why);
+            expect(tester.getRect(key('camera-area')), cameraWindow, reason: why);
+            expect(tester.getRect(key('camera-controls')), const Rect.fromLTWH(0, 44, 220, 436), reason: why);
+            expect(tester.getRect(key('call-bar')).right, lessThanOrEqualTo(220), reason: why);
+            for (final c in ['camera-front', 'camera-left', 'camera-rear', 'camera-right', 'camera-close',
+              if (rec != null) 'camera-save-clip']) {
+              expect(tester.getSize(key(c)).height, greaterThanOrEqualTo(kMinTouch), reason: '$why $c');
+            }
+          }
+        }
+      }
+    });
   }
 }

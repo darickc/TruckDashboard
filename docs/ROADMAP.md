@@ -324,7 +324,8 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       Phase 1 in software `[SIM]` (ADR-0045 amendment): audio-manager follows the Telephony tree (`--call-mic` enables
       it; without a microphone calls stay on the phone), publishes the call in `f250.audio.v1` with `AnswerCall`,
       `HangUp` and `SetMicMuted`, pauses the music for a call and resumes it after, and skips prompts during one; the
-      dashboard shows the call over every screen under the alert banner (Answer/Decline, then the time, Mute, Hang up).
+      dashboard shows the call over every screen under the alert banner (Answer/Decline, then the time, Mute, Hang up),
+      and in camera mode in the left column, the cameras as a 2×2 grid of arrows, never over the picture.
       Simulated calls on both sides (`SIM_CALL=<s>`). Not on the Pi: the D-Bus client has only run against the
       simulation, and the hands-free role, its D-Bus policy and the call audio path aren't shipped.
       Next: S2 with audio-manager on the bench, then the packaging; S3/S4 and the knob display after

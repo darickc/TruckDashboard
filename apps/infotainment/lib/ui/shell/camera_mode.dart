@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../audio/audio_state.dart';
 import '../../cameras/camera_state.dart';
 import '../app_scope.dart';
 import '../theme.dart';
+import '../widgets/call_bar.dart';
 import '../widgets/save_clip_button.dart';
 import '../widgets/tap_target.dart';
 
@@ -93,6 +95,11 @@ class CameraArea extends StatelessWidget {
 /// a REC dot, and while recording is on, "Save clip" (ADR-0027 decision 8)
 /// is the sixth button. Five buttons over 436 px are about 85 px tall, six
 /// about 72 px.
+///
+/// During a phone call (ADR-0045) the call takes the column's top (the
+/// caller, Answer and Decline or Mute and Hang up, 60 px tall), and the four
+/// cameras become a 2×2 grid of arrows; Save clip and Close keep their rows.
+/// The camera's window is never drawn over.
 class CameraControls extends StatelessWidget {
   const CameraControls({super.key, required this.view, this.recording, this.simulated = false});
 
@@ -108,11 +115,23 @@ class CameraControls extends StatelessWidget {
     final p = Palette.of(context);
 
     final rec = recording;
+    return ValueListenableBuilder(
+      valueListenable: s.audio.status,
+      builder: (context, audio, _) {
+        // Only from a current report (CallBar says nothing otherwise either).
+        final inCall = audio.link == AudioLink.up && audio.report?.call != null;
+        return _column(context, s, p, rec, inCall);
+      },
+    );
+  }
+
+  Widget _column(BuildContext context, AppServices s, Palette p, RecordingStatus? rec, bool inCall) {
+    // [arrowOnly]: the call's 2×2 grid, the label only for the screen reader.
     Widget button(String key, String label, IconData icon, SwitchMove move,
-            {bool selected = false, CameraId? camera}) =>
+            {bool selected = false, CameraId? camera, bool arrowOnly = false}) =>
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
+            padding: EdgeInsets.symmetric(vertical: 3, horizontal: arrowOnly ? 2 : 0),
             child: SizedBox(
               width: double.infinity,
               child: TapTarget(
@@ -121,18 +140,21 @@ class CameraControls extends StatelessWidget {
                 selected: selected,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 onTap: () => s.cameras.move(move).ignore(),
-                child: Row(children: [
-                  Icon(icon, size: 30, color: selected ? p.accent : p.text),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: selected ? p.accent : p.text)),
-                  ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(icon, size: arrowOnly ? 34 : 30, color: selected ? p.accent : p.text),
+                  if (!arrowOnly) ...[
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: selected ? p.accent : p.text)),
+                    ),
+                  ] else
+                    const SizedBox(width: 6),
                   if (camera != null && (rec?.records(camera) ?? false))
                     Container(
                       key: ValueKey('camera-rec-dot-${camera.name}'),
@@ -147,20 +169,38 @@ class CameraControls extends StatelessWidget {
           ),
         );
 
+    Widget front({bool arrowOnly = false}) => button(
+        'camera-front', 'Front', Icons.arrow_upward_rounded, SwitchMove.forward,
+        selected: view.camera == CameraId.front, camera: CameraId.front, arrowOnly: arrowOnly);
+    Widget left({bool arrowOnly = false}) => button(
+        'camera-left', 'Left', Icons.arrow_back_rounded, SwitchMove.left,
+        selected: view.camera == CameraId.left, camera: CameraId.left, arrowOnly: arrowOnly);
+    Widget rear({bool arrowOnly = false}) => button(
+        'camera-rear', 'Rear', Icons.arrow_downward_rounded, SwitchMove.back,
+        selected: view.camera == CameraId.rear, camera: CameraId.rear, arrowOnly: arrowOnly);
+    Widget right({bool arrowOnly = false}) => button(
+        'camera-right', 'Right', Icons.arrow_forward_rounded, SwitchMove.right,
+        selected: view.camera == CameraId.right, camera: CameraId.right, arrowOnly: arrowOnly);
+
     return Container(
       key: const ValueKey('camera-controls'),
       width: kCameraControlsWidth,
       color: p.surface,
       padding: const EdgeInsets.fromLTRB(6, 3, 6, 3),
       child: Column(children: [
-        button('camera-front', 'Front', Icons.arrow_upward_rounded, SwitchMove.forward,
-            selected: view.camera == CameraId.front, camera: CameraId.front),
-        button('camera-left', 'Left', Icons.arrow_back_rounded, SwitchMove.left,
-            selected: view.camera == CameraId.left, camera: CameraId.left),
-        button('camera-rear', 'Rear', Icons.arrow_downward_rounded, SwitchMove.back,
-            selected: view.camera == CameraId.rear, camera: CameraId.rear),
-        button('camera-right', 'Right', Icons.arrow_forward_rounded, SwitchMove.right,
-            selected: view.camera == CameraId.right, camera: CameraId.right),
+        if (inCall) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: CallBar(audio: s.audio, compact: true),
+          ),
+          Expanded(child: Row(children: [front(arrowOnly: true), rear(arrowOnly: true)])),
+          Expanded(child: Row(children: [left(arrowOnly: true), right(arrowOnly: true)])),
+        ] else ...[
+          front(),
+          left(),
+          rear(),
+          right(),
+        ],
         if (rec != null && !rec.isOff)
           const Expanded(
             child: Padding(

@@ -13,10 +13,15 @@ import 'tap_target.dart';
 /// call is answered on the phone). During a call: who, how long, Mute and
 /// Hang up. Nothing to type. Gone with the call, the phone or audio-manager:
 /// a call is never shown from a report that isn't current.
+///
+/// [compact]: camera mode's left column (220 px wide), where the camera's
+/// window covers the rest of the screen: the caller over two lines, the
+/// buttons below, side by side.
 class CallBar extends StatefulWidget {
-  const CallBar({super.key, required this.audio});
+  const CallBar({super.key, required this.audio, this.compact = false});
 
   final AudioSource audio;
+  final bool compact;
 
   static const height = kMinTouch + 2 * kGap + 4;
 
@@ -70,28 +75,85 @@ class _CallBarState extends State<CallBar> {
         final calls = report?.calls;
         final call = calls?.call;
         if (report == null || calls == null || call == null) return const SizedBox.shrink();
-        return _bar(context, report, calls, call);
+        return widget.compact ? _panel(context, report, calls, call) : _bar(context, report, calls, call);
       },
+    );
+  }
+
+  static (String, IconData) _label(PhoneCall call) => switch (call.phase) {
+        CallPhase.incoming => ('Incoming call', Icons.ring_volume_rounded),
+        CallPhase.waiting => ('Another call', Icons.ring_volume_rounded),
+        CallPhase.dialing || CallPhase.alerting => ('Calling', Icons.call_made_rounded),
+        CallPhase.held => ('On hold', Icons.phone_paused_rounded),
+        CallPhase.active || CallPhase.unknown => ('Call', Icons.phone_in_talk_rounded),
+      };
+
+  static String _details(CallsStatus calls, PhoneCall call, {bool compact = false}) => [
+        if (call.secondLine.isNotEmpty && !compact) call.secondLine,
+        if (call.phase == CallPhase.active) formatTrackTime(call.active),
+        if (calls.otherCalls > 0) '${calls.otherCalls} more on the phone',
+        if (call.phase == CallPhase.waiting) 'answer it on the phone',
+        if (calls.phoneName.isNotEmpty && !compact) 'on ${calls.phoneName}',
+      ].join(' · ');
+
+  /// Camera mode: the caller over two lines, the buttons side by side.
+  Widget _panel(BuildContext context, AudioReport report, CallsStatus calls, PhoneCall call) {
+    final p = Palette.of(context);
+    final note = _noteCall == call.id ? _note : '';
+    final (label, icon) = _label(call);
+    final details = _details(calls, call, compact: true);
+    final accent = call.rings ? p.ok : p.accent;
+    return Container(
+      key: const ValueKey('call-bar'),
+      padding: const EdgeInsets.fromLTRB(6, 6, 6, 3),
+      decoration: BoxDecoration(
+        color: p.surfaceHigh,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accent, width: 2),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+        Row(children: [
+          if (report.simulated) ...[
+            Pill('SIM', color: p.simulated),
+            const SizedBox(width: 6),
+          ],
+          Icon(icon, size: 20, color: accent),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(label,
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: p.textDim)),
+          ),
+        ]),
+        Text.rich(
+          TextSpan(text: call.caller, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: p.text)),
+          key: const ValueKey('call-caller'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (note.isNotEmpty || details.isNotEmpty)
+          Text(
+            note.isNotEmpty ? note : details,
+            key: const ValueKey('call-detail'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 13, color: note.isNotEmpty ? p.critical : p.textDim),
+          ),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: kMinTouch,
+          child: Row(children: [
+            for (final b in _buttons(context, calls, call)) Expanded(child: b),
+          ]),
+        ),
+      ]),
     );
   }
 
   Widget _bar(BuildContext context, AudioReport report, CallsStatus calls, PhoneCall call) {
     final p = Palette.of(context);
     final note = _noteCall == call.id ? _note : '';
-    final (label, icon) = switch (call.phase) {
-      CallPhase.incoming => ('Incoming call', Icons.ring_volume_rounded),
-      CallPhase.waiting => ('Another call', Icons.ring_volume_rounded),
-      CallPhase.dialing || CallPhase.alerting => ('Calling', Icons.call_made_rounded),
-      CallPhase.held => ('On hold', Icons.phone_paused_rounded),
-      CallPhase.active || CallPhase.unknown => ('Call', Icons.phone_in_talk_rounded),
-    };
-    final details = [
-      if (call.secondLine.isNotEmpty) call.secondLine,
-      if (call.phase == CallPhase.active) formatTrackTime(call.active),
-      if (calls.otherCalls > 0) '${calls.otherCalls} more on the phone',
-      if (call.phase == CallPhase.waiting) 'answer it on the phone',
-      if (calls.phoneName.isNotEmpty) 'on ${calls.phoneName}',
-    ].join(' · ');
+    final (label, icon) = _label(call);
+    final details = _details(calls, call);
     final accent = call.rings ? p.ok : p.accent;
     return Container(
       key: const ValueKey('call-bar'),
@@ -140,27 +202,28 @@ class _CallBarState extends State<CallBar> {
 
   List<Widget> _buttons(BuildContext context, CallsStatus calls, PhoneCall call) {
     final p = Palette.of(context);
+    final compact = widget.compact;
     Widget button(String key, String text, IconData icon, Color color, VoidCallback onTap,
             {bool selected = false, String? label}) =>
         Padding(
-          padding: const EdgeInsets.only(left: kGap),
+          padding: EdgeInsets.only(left: compact ? 0 : kGap, right: compact ? 3 : 0),
           child: SizedBox(
-            width: 140,
+            width: compact ? double.infinity : 140,
             height: kMinTouch,
             child: TapTarget(
               key: ValueKey(key),
               label: label ?? '$text: ${call.caller}',
               selected: selected,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 8),
               onTap: onTap,
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(icon, size: 26, color: color),
-                const SizedBox(width: 6),
+                Icon(icon, size: compact ? 22 : 26, color: color),
+                SizedBox(width: compact ? 3 : 6),
                 Flexible(
                   child: Text(text,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: color)),
+                      style: TextStyle(fontSize: compact ? 15 : 17, fontWeight: FontWeight.w800, color: color)),
                 ),
               ]),
             ),

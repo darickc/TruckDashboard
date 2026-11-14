@@ -164,8 +164,14 @@ What is built, and the decisions it made:
    and "answer it on the phone" (waiting), the time, Mute and Hang up
    (active), Hang up (otherwise); a refusal is said on the bar for 5 s. It
    covers the screen's top instead of shrinking it, so no screen's layout
-   changes during a call. Not in camera mode yet (the camera keeps its
-   window; the phone still rings). The Phones screen says where calls go.
+   changes during a call. The Phones screen says where calls go.
+   **In camera mode** (camera-manager's window covers x 220–800, y 44–480,
+   and nothing is drawn over it) the call takes the top of the left
+   column: what it is, the caller, and its two buttons side by side, 60 px
+   tall. The four cameras become a 2×2 grid of arrows (front and rear, then
+   left and right), still 60 px or more, still highlighting the camera up;
+   Save clip and Close keep their rows. The column goes back as it was when
+   the call ends.
 7. **Simulation.** audio-manager's simulated phone and the dashboard's both
    have calls (`SIM_CALL=<s>` with `make sim`, `make audio` or `make ui-web`
    rings a made-up caller every so often).
@@ -177,8 +183,11 @@ resumed and a prompt refused; declined, a withheld number, a waiting call;
 a prompt cut off by a call; calls going and coming back with the phone;
 calls off without a microphone. The dashboard: the gRPC mapping, the call
 bar on every screen and under the alert banner, a refusal shown, nothing
-from a lost link, and 800×480 in both themes with the longest texts. It ran
-in the browser preview with a simulated call.
+from a lost link, and 800×480 in both themes with the longest texts; in
+camera mode, the call in the column and never over the window, every camera
+still a 60 px button that switches, with and without an alert and Save clip,
+in both themes. It ran in the browser preview with a simulated call, on a
+screen and in camera mode.
 
 Not done, in order:
 
