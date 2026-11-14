@@ -147,6 +147,23 @@ final $typed_data.Uint8List eventSeverityDescriptor = $convert.base64Decode(
     'RfU0VWRVJJVFlfSU5GTxABEhsKF0VWRU5UX1NFVkVSSVRZX0FEVklTT1JZEAISGwoXRVZFTlRf'
     'U0VWRVJJVFlfQ1JJVElDQUwQAw==');
 
+@$core.Deprecated('Use reverseStateDescriptor instead')
+const ReverseState$json = {
+  '1': 'ReverseState',
+  '2': [
+    {'1': 'REVERSE_STATE_UNSPECIFIED', '2': 0},
+    {'1': 'REVERSE_STATE_UNKNOWN', '2': 1},
+    {'1': 'REVERSE_STATE_NOT_ENGAGED', '2': 2},
+    {'1': 'REVERSE_STATE_ENGAGED', '2': 3},
+  ],
+};
+
+/// Descriptor for `ReverseState`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List reverseStateDescriptor = $convert.base64Decode(
+    'CgxSZXZlcnNlU3RhdGUSHQoZUkVWRVJTRV9TVEFURV9VTlNQRUNJRklFRBAAEhkKFVJFVkVSU0'
+    'VfU1RBVEVfVU5LTk9XThABEh0KGVJFVkVSU0VfU1RBVEVfTk9UX0VOR0FHRUQQAhIZChVSRVZF'
+    'UlNFX1NUQVRFX0VOR0FHRUQQAw==');
+
 @$core.Deprecated('Use signalDefinitionDescriptor instead')
 const SignalDefinition$json = {
   '1': 'SignalDefinition',
@@ -586,3 +603,36 @@ final $typed_data.Uint8List setCalibrationResponseDescriptor =
     $convert.base64Decode(
         'ChZTZXRDYWxpYnJhdGlvblJlc3BvbnNlEjkKBnNpZ25hbBgBIAEoCzIhLmYyNTAudmVoaWNsZS'
         '52MS5TaWduYWxEZWZpbml0aW9uUgZzaWduYWw=');
+
+@$core.Deprecated('Use watchReverseRequestDescriptor instead')
+const WatchReverseRequest$json = {
+  '1': 'WatchReverseRequest',
+};
+
+/// Descriptor for `WatchReverseRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List watchReverseRequestDescriptor =
+    $convert.base64Decode('ChNXYXRjaFJldmVyc2VSZXF1ZXN0');
+
+@$core.Deprecated('Use watchReverseResponseDescriptor instead')
+const WatchReverseResponse$json = {
+  '1': 'WatchReverseResponse',
+  '2': [
+    {
+      '1': 'state',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.f250.vehicle.v1.ReverseState',
+      '10': 'state'
+    },
+    {'1': 'age_ms', '3': 2, '4': 1, '5': 13, '10': 'ageMs'},
+    {'1': 'has_age', '3': 3, '4': 1, '5': 8, '10': 'hasAge'},
+    {'1': 'detail', '3': 4, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `WatchReverseResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List watchReverseResponseDescriptor = $convert.base64Decode(
+    'ChRXYXRjaFJldmVyc2VSZXNwb25zZRIzCgVzdGF0ZRgBIAEoDjIdLmYyNTAudmVoaWNsZS52MS'
+    '5SZXZlcnNlU3RhdGVSBXN0YXRlEhUKBmFnZV9tcxgCIAEoDVIFYWdlTXMSFwoHaGFzX2FnZRgD'
+    'IAEoCFIGaGFzQWdlEhYKBmRldGFpbBgEIAEoCVIGZGV0YWls');

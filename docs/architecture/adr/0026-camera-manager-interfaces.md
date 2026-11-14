@@ -64,7 +64,9 @@ dashboard never touches cameras, and camera-manager owns the V4L2 devices
    `230` decoder is verified (ADR-0024), and the speed limit is off by
    default, so camera-manager doesn't connect to the gateway. When either is
    switched on, it subscribes to the gateway's snapshots; it never asks the
-   gateway to transmit.
+   gateway to transmit. *Amended 2026-11-14 ([ADR-0046](0046-automatic-reverse.md)):
+   with `--auto-reverse` it follows the gateway's `WatchReverse` stream (not
+   the snapshots); speed is still not read.*
 6. **power-manager passes each switch move to `Move`** (added 2026-11-10,
    `services/power-manager/src/camera_link.rs`). The power key comes first,
    so the link can never hold up power-manager's loop:

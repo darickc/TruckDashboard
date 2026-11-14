@@ -14,6 +14,7 @@ pub mod config;
 pub mod core;
 pub mod link;
 pub mod poll;
+pub mod reverse;
 pub mod scheduler;
 pub mod server;
 pub mod transport;

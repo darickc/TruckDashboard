@@ -1511,6 +1511,147 @@ class SetCalibrationResponse extends $pb.GeneratedMessage {
   SignalDefinition ensureSignal() => $_ensure(0);
 }
 
+class WatchReverseRequest extends $pb.GeneratedMessage {
+  factory WatchReverseRequest() => WatchReverseRequest._();
+
+  WatchReverseRequest._();
+
+  factory WatchReverseRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      WatchReverseRequest()..mergeFromBuffer(data, registry);
+  factory WatchReverseRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      WatchReverseRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WatchReverseRequest',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'f250.vehicle.v1'),
+      createEmptyInstance: WatchReverseRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WatchReverseRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WatchReverseRequest copyWith(void Function(WatchReverseRequest) updates) =>
+      super.copyWith((message) => updates(message as WatchReverseRequest))
+          as WatchReverseRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use WatchReverseRequest() / WatchReverseRequest.new instead')
+  static WatchReverseRequest create() => WatchReverseRequest._();
+  static $pb.GeneratedMessage $_createMessage() => WatchReverseRequest._();
+  @$core.override
+  WatchReverseRequest createEmptyInstance() => WatchReverseRequest._();
+  @$core.pragma('dart2js:noInline')
+  static WatchReverseRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WatchReverseRequest>(
+          WatchReverseRequest.$_createMessage);
+  static WatchReverseRequest? _defaultInstance;
+}
+
+class WatchReverseResponse extends $pb.GeneratedMessage {
+  factory WatchReverseResponse({
+    ReverseState? state,
+    $core.int? ageMs,
+    $core.bool? hasAge,
+    $core.String? detail,
+  }) {
+    final result = WatchReverseResponse._();
+    if (state != null) result.state = state;
+    if (ageMs != null) result.ageMs = ageMs;
+    if (hasAge != null) result.hasAge = hasAge;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  WatchReverseResponse._();
+
+  factory WatchReverseResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      WatchReverseResponse()..mergeFromBuffer(data, registry);
+  factory WatchReverseResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      WatchReverseResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WatchReverseResponse',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'f250.vehicle.v1'),
+      createEmptyInstance: WatchReverseResponse.$_createMessage)
+    ..aE<ReverseState>(1, _omitFieldNames ? '' : 'state',
+        enumValues: ReverseState.values)
+    ..aI(2, _omitFieldNames ? '' : 'ageMs', fieldType: $pb.PbFieldType.OU3)
+    ..aOB(3, _omitFieldNames ? '' : 'hasAge')
+    ..aOS(4, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WatchReverseResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WatchReverseResponse copyWith(void Function(WatchReverseResponse) updates) =>
+      super.copyWith((message) => updates(message as WatchReverseResponse))
+          as WatchReverseResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use WatchReverseResponse() / WatchReverseResponse.new instead')
+  static WatchReverseResponse create() => WatchReverseResponse._();
+  static $pb.GeneratedMessage $_createMessage() => WatchReverseResponse._();
+  @$core.override
+  WatchReverseResponse createEmptyInstance() => WatchReverseResponse._();
+  @$core.pragma('dart2js:noInline')
+  static WatchReverseResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WatchReverseResponse>(
+          WatchReverseResponse.$_createMessage);
+  static WatchReverseResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  ReverseState get state => $_getN(0);
+  @$pb.TagNumber(1)
+  set state(ReverseState value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasState() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearState() => $_clearField(1);
+
+  /// Since the last `230` frame decoded; 0 with has_age false when none was.
+  @$pb.TagNumber(2)
+  $core.int get ageMs => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set ageMs($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasAgeMs() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearAgeMs() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get hasAge => $_getBF(2);
+  @$pb.TagNumber(3)
+  set hasAge($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasHasAge() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearHasAge() => $_clearField(3);
+
+  /// Why it is unknown, or the byte read (for logs and the dashboard).
+  @$pb.TagNumber(4)
+  $core.String get detail => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set detail($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDetail() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDetail() => $_clearField(4);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

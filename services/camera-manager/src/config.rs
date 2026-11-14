@@ -115,6 +115,27 @@ pub struct Config {
     /// Where /dev is, for listing the cameras plugged in (tests).
     #[arg(long, default_value = "/dev")]
     pub dev_root: PathBuf,
+
+    /// Show the rear camera automatically in reverse, from the gateway's
+    /// `WatchReverse` (ADR-0046; the broadcast `230`, VERIFICATION_LOG
+    /// 2026-11-10). Off: reverse shows as off and only a choice shows a
+    /// camera.
+    #[arg(long)]
+    pub auto_reverse: bool,
+
+    /// vehicle-gateway's API, for --auto-reverse: unix:PATH or tcp:HOST:PORT.
+    #[arg(long, default_value = "unix:/run/f250/vehicle.sock")]
+    pub gateway: String,
+
+    /// Reverse must be reported this long before the rear view comes up, ms
+    /// (an example: it keeps the brief pass through R into P from flashing
+    /// the rear camera; 2026-11-10 saw R for 0.1 s there).
+    #[arg(long, default_value_t = 150)]
+    pub reverse_debounce_ms: u64,
+
+    /// The rear view stays this long after reverse ends, ms (an example).
+    #[arg(long, default_value_t = 2000)]
+    pub reverse_hold_ms: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -180,7 +201,12 @@ impl Config {
             start_timeout: Duration::from_millis(self.start_timeout_ms),
             restart_min: Duration::from_millis(self.restart_min_ms),
             restart_max: Duration::from_millis(self.restart_max_ms.max(self.restart_min_ms)),
-            policy: camera_policy::Config::default(),
+            policy: camera_policy::Config {
+                auto_reverse: self.auto_reverse,
+                rev_debounce: Duration::from_millis(self.reverse_debounce_ms),
+                rev_hold: Duration::from_millis(self.reverse_hold_ms),
+                ..camera_policy::Config::default()
+            },
         }
     }
 }
@@ -197,8 +223,8 @@ pub struct Settings {
     pub start_timeout: Duration,
     pub restart_min: Duration,
     pub restart_max: Duration,
-    /// Automatic reverse and the speed limit stay off (their defaults):
-    /// camera-manager doesn't read the gateway yet (ADR-0026 decision 5).
+    /// Automatic reverse with --auto-reverse (ADR-0046); the speed limit
+    /// stays off (ADR-0024 decision 6).
     pub policy: camera_policy::Config,
     /// `None`: recording is off.
     pub recording: Option<RecordingConfig>,
@@ -392,5 +418,25 @@ mod tests {
         assert_eq!(s.sink, "waylandsink");
         assert!(!s.policy.auto_reverse);
         assert_eq!(s.policy.manual_max_speed_kph, None);
+    }
+
+    #[test]
+    fn auto_reverse_and_its_times() {
+        let c = Config::try_parse_from([
+            "camera-manager",
+            "--auto-reverse",
+            "--reverse-debounce-ms",
+            "200",
+            "--reverse-hold-ms",
+            "3000",
+        ])
+        .expect("valid");
+        assert_eq!(c.gateway, "unix:/run/f250/vehicle.sock");
+        let p = c.settings().policy;
+        assert!(p.auto_reverse);
+        assert_eq!(p.rev_debounce, Duration::from_millis(200));
+        assert_eq!(p.rev_hold, Duration::from_millis(3000));
+        assert_eq!(p.rev_stale, camera_policy::Config::default().rev_stale);
+        assert_eq!(p.manual_max_speed_kph, None);
     }
 }

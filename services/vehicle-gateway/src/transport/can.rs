@@ -9,7 +9,8 @@
 //! Safety (ADR-0007):
 //! - The socket is opened only on `connect`, which the link machine only
 //!   asks for when `--transmit` was given. Without it the gateway is
-//!   PASSIVE_ONLY and never opens the interface.
+//!   PASSIVE_ONLY and this transport never opens the interface. (The
+//!   reverse reader, `crate::reverse`, opens its own receive-only socket.)
 //! - Every frame is built by [`isotp::request_frame`] / [`isotp::raw_frame`],
 //!   which apply the read-only service allow-list and allow only the OBD
 //!   request IDs (7DF, 7E0–7E7). Nothing else can be written.

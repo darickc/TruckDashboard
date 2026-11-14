@@ -32,9 +32,11 @@ The camera manager **never** asks the gateway to transmit anything.
 Priority, highest first:
 
 1. **Reverse** shows the rear camera.
-   - **Off by default** (`auto_reverse`) until the `230` decoder has its
-     VERIFICATION_LOG entry (ADR-0024 decision 4). Off, the indicator says so,
-     and the switch's Back is the way to see the rear camera.
+   - **Off by default** (`auto_reverse`); on the Pi it is on with
+     `TRANSPORT=can` (`CAMERA_AUTO_REVERSE`, ADR-0046), following the
+     gateway's reader of `230` (verified on the truck 2026-11-10). Off, the
+     indicator says so, and the switch's Back is the way to see the rear
+     camera.
    - Activates when reverse has been reported for at least `rev_debounce_ms`
      (default 150 ms, an example).
    - Stays up for `rev_hold_ms` after reverse clears (default 2000 ms, an

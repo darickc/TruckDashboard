@@ -228,5 +228,33 @@ class EventSeverity extends $pb.ProtobufEnum {
   const EventSeverity._(super.value, super.name);
 }
 
+class ReverseState extends $pb.ProtobufEnum {
+  static const ReverseState REVERSE_STATE_UNSPECIFIED =
+      ReverseState._(0, _omitEnumNames ? '' : 'REVERSE_STATE_UNSPECIFIED');
+
+  /// Stale, never heard, an undocumented value, or no broadcast reader
+  /// (--transport sim or obdlink).
+  static const ReverseState REVERSE_STATE_UNKNOWN =
+      ReverseState._(1, _omitEnumNames ? '' : 'REVERSE_STATE_UNKNOWN');
+  static const ReverseState REVERSE_STATE_NOT_ENGAGED =
+      ReverseState._(2, _omitEnumNames ? '' : 'REVERSE_STATE_NOT_ENGAGED');
+  static const ReverseState REVERSE_STATE_ENGAGED =
+      ReverseState._(3, _omitEnumNames ? '' : 'REVERSE_STATE_ENGAGED');
+
+  static const $core.List<ReverseState> values = <ReverseState>[
+    REVERSE_STATE_UNSPECIFIED,
+    REVERSE_STATE_UNKNOWN,
+    REVERSE_STATE_NOT_ENGAGED,
+    REVERSE_STATE_ENGAGED,
+  ];
+
+  static final $core.List<ReverseState?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static ReverseState? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const ReverseState._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');

@@ -19,6 +19,12 @@ service VehicleService {
   // Truck-specific correction for one signal (docs/diagnostics/CALIBRATION.md).
   // Affects only what is displayed and recorded; nothing is written to the truck.
   rpc SetCalibration(SetCalibrationRequest) returns (SetCalibrationResponse);
+  // Whether the truck is in reverse, from the broadcast `230` byte 0, heard
+  // passively (ADR-0046): one message at once, then on every change and at
+  // least every 100 ms. Unknown when the broadcast is stale or can't be read,
+  // never "not engaged". A client that stops receiving messages must treat
+  // reverse as unknown.
+  rpc WatchReverse(WatchReverseRequest) returns (stream WatchReverseResponse);
 }
 
 enum Quantity {
@@ -214,4 +220,24 @@ message SetCalibrationRequest {
 
 message SetCalibrationResponse {
   SignalDefinition signal = 1;
+}
+
+enum ReverseState {
+  REVERSE_STATE_UNSPECIFIED = 0;
+  // Stale, never heard, an undocumented value, or no broadcast reader
+  // (--transport sim or obdlink).
+  REVERSE_STATE_UNKNOWN = 1;
+  REVERSE_STATE_NOT_ENGAGED = 2;
+  REVERSE_STATE_ENGAGED = 3;
+}
+
+message WatchReverseRequest {}
+
+message WatchReverseResponse {
+  ReverseState state = 1;
+  // Since the last `230` frame decoded; 0 with has_age false when none was.
+  uint32 age_ms = 2;
+  bool has_age = 3;
+  // Why it is unknown, or the byte read (for logs and the dashboard).
+  string detail = 4;
 }

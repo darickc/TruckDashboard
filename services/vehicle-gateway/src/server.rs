@@ -14,16 +14,31 @@ use tokio_stream::Stream;
 use tonic::{Request, Response, Status};
 
 use crate::core::{Command, Reply};
+use crate::reverse::{self, Feed};
+
+/// The longest gap between two `WatchReverse` messages.
+const REVERSE_EVERY: Duration = Duration::from_millis(100);
 
 #[derive(Clone)]
 pub struct Api {
     cmds: mpsc::Sender<Command>,
     snapshots: watch::Receiver<Arc<pb::Snapshot>>,
+    reverse: Feed,
 }
 
 impl Api {
     pub fn new(cmds: mpsc::Sender<Command>, snapshots: watch::Receiver<Arc<pb::Snapshot>>) -> Self {
-        Api { cmds, snapshots }
+        Api {
+            cmds,
+            snapshots,
+            reverse: Feed::absent("no broadcast reader in this gateway"),
+        }
+    }
+
+    /// Where `WatchReverse` reads from (ADR-0046).
+    pub fn with_reverse(mut self, reverse: Feed) -> Self {
+        self.reverse = reverse;
+        self
     }
 
     async fn call<T>(&self, make: impl FnOnce(Reply<T>) -> Command) -> Result<T, Status> {
@@ -42,6 +57,23 @@ impl Api {
 
 type SnapshotStream =
     Pin<Box<dyn Stream<Item = Result<pb::StreamSnapshotsResponse, Status>> + Send>>;
+type ReverseStream = Pin<Box<dyn Stream<Item = Result<pb::WatchReverseResponse, Status>> + Send>>;
+
+/// One `WatchReverse` message.
+pub fn reverse_message(r: &reverse::Report) -> pb::WatchReverseResponse {
+    pb::WatchReverseResponse {
+        state: match r.state {
+            reverse::State::Unknown => pb::ReverseState::Unknown,
+            reverse::State::NotEngaged => pb::ReverseState::NotEngaged,
+            reverse::State::Engaged => pb::ReverseState::Engaged,
+        } as i32,
+        age_ms: r
+            .age
+            .map_or(0, |a| u32::try_from(a.as_millis()).unwrap_or(u32::MAX)),
+        has_age: r.age.is_some(),
+        detail: r.detail.clone(),
+    }
+}
 
 #[tonic::async_trait]
 impl VehicleService for Api {
@@ -110,6 +142,37 @@ impl VehicleService for Api {
         Ok(Response::new(pb::SetCalibrationResponse {
             signal: Some(signal),
         }))
+    }
+
+    type WatchReverseStream = ReverseStream;
+
+    async fn watch_reverse(
+        &self,
+        _: Request<pb::WatchReverseRequest>,
+    ) -> Result<Response<Self::WatchReverseStream>, Status> {
+        let feed = self.reverse.clone();
+        let mut changes = feed.changes();
+        let stream = async_stream(move |tx| async move {
+            let mut tick = tokio::time::interval(REVERSE_EVERY);
+            tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                tokio::select! {
+                    _ = tick.tick() => {}
+                    r = changes.changed() => {
+                        if r.is_err() {
+                            // No reader (or it ended): the ticks go on.
+                            changes = watch::channel(0).1;
+                        }
+                        tick.reset();
+                    }
+                }
+                let msg = reverse_message(&feed.report());
+                if tx.send(Ok(msg)).await.is_err() {
+                    return; // client went away
+                }
+            }
+        });
+        Ok(Response::new(Box::pin(stream)))
     }
 }
 

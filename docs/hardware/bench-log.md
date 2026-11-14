@@ -2584,3 +2584,46 @@ speakers: the test was whether call audio crosses into the Pi.
   answers "No such interface" for that very interface (the check in
   `call_properties_get` is inverted; fixed on PipeWire's master). `GetAll`
   and the gateway's ObjectManager work.
+
+## 2026-11-14 — Automatic reverse on the Pi, with the truck's `230` values on a virtual CAN interface (ADR-0046) [BENCH]
+
+Image cb62346 plus `make deploy` of the ADR-0046 change, truck settings
+(`TRANSPORT=can`, `CAN_AUTO_ACTIVE=1`), no truck bus on the bench.
+
+**The installed services.** gateway-start passed `--transport can` with can0
+listen-only (f250-can-auto heard nothing, so PASSIVE_ONLY, no requests). The
+gateway logged "reading broadcast 230 on can0, receive-only", and
+`/proc/net/can/rcvlist_fil` showed its one filter: can0, `230`, mask `7FF`,
+raw. camera-start added `--auto-reverse --gateway unix:/run/f250/vehicle.sock`
+(empty `CAMERA_AUTO_REVERSE`, TRANSPORT=can); camera-manager connected through
+its sandbox and reports "reverse unknown (no 230 frame yet on can0)". No failed
+units; `stage1-setup.sh --check` clean.
+
+**The path end to end, on vcan0.** A second gateway (`--can-if vcan0`, no
+`--transmit`) and camera-manager (`--auto-reverse`, the rear webcam, `--media
+launch --sink fakesink`) on /tmp sockets, as root; `cansend vcan0` played byte
+0 of `230` at about 31 frames a second (vcan0 is virtual: nothing reached can0
+or the truck). Times from the start of the replay, read with `camera-ctl view`
+every 0.1 s:
+
+| Played | Seen |
+|---|---|
+| `F0` 1.5 s | not engaged at 0.12 s |
+| `10` 3 s | engaged 1.60 s; rear (reverse) starting 1.71 s; live 3.51 s |
+| `01` 4 s | not engaged 4.79 s; rear held until 7.01 s (the 2 s hold) |
+| `F1`, `10`, `F0` 0.1 s each (2026-11-10's pass through R into P) | engaged 9.02 s, not engaged 9.13 s; **no camera** (the 150 ms debounce) |
+| `10` 2 s, then silence | rear (reverse) 11.36 s; **unknown** 13.80 s (no frame for 0.6 s); the rear view stays, "reverse unknown" (camera-policy: until a switch move) |
+| `42` after the silence | unknown stays unknown (an undocumented value) |
+
+Notes:
+- The webcam took 1.8 s from "starting" to its first frame through
+  `gst-launch` (the 2026-11-10 service measurement was 0.7 s, in-process
+  GStreamer; the installed camera-manager uses that). To time in the truck.
+- The gateway logs each change of state, but not the broadcast going stale
+  (that is computed when asked); camera-manager's journal shows it.
+- vcan0 removed and the module unloaded afterwards; the installed services
+  were not touched.
+
+Next: the truck. Shift into R (the rear camera within about a second), out
+of R (gone 2 s later), through R into P (no flash), a cold start already in
+R, and the adapter unplugged (unknown).

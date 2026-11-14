@@ -3,7 +3,8 @@
 # line from /etc/default/f250, with the same rules as tools/pi/run.sh.
 #
 # Without TRANSMIT=1 the gateway runs PASSIVE_ONLY and never opens the
-# adapter (ADR-0007). With TRANSPORT=can TRANSMIT=1, can0 must already be in
+# adapter for requests (ADR-0007). With TRANSPORT=can it still reads the
+# broadcast 230 for reverse on a receive-only socket (ADR-0046). With TRANSPORT=can TRANSMIT=1, can0 must already be in
 # active mode: the gateway can't change the interface (that needs root), and a
 # listen-only interface would leave every poll unanswered.
 #
@@ -94,7 +95,7 @@ if [[ "$TRANSPORT" != sim ]]; then
   if [[ "$TRANSMIT" == 1 ]]; then
     args+=(--transmit)
   else
-    echo "PASSIVE_ONLY: the adapter will not be opened. Opt in with TRANSMIT=1 (ADR-0007)." >&2
+    echo "PASSIVE_ONLY: no requests; the adapter is opened for nothing else but, with TRANSPORT=can, a receive-only reverse reader (ADR-0046). Opt in to polling with TRANSMIT=1 (ADR-0007)." >&2
     [[ -n "${PASSIVE_REASON:-}" ]] && args+=(--passive-reason "$PASSIVE_REASON")
   fi
 fi

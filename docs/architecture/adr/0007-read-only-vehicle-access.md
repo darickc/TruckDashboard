@@ -79,3 +79,11 @@ card.
   taken.
 - The allow-list is unit-tested over the whole table: a test fails if any
   enabled signal uses a service that isn't allowed.
+
+## Note: the reverse reader (2026-11-14)
+
+[ADR-0046](0046-automatic-reverse.md): with `--transport can`, the gateway
+opens one receive-only socket without `--transmit`, to read the broadcast
+`230` for reverse. It has no way to send (its type has no send), filters
+only `230`, and never changes the interface's mode: listening, which this
+ADR makes the default. Nothing here changes what may be transmitted.

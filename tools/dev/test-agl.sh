@@ -499,6 +499,15 @@ check "data drive, no RECORD_CAMERAS: the screen may still turn recording on" "[
 check "camera-manager: a state directory for the screen's settings (ADR-0029)" "grep -qx 'StateDirectory=f250-camera' agl/rootfs/etc/systemd/system/f250-camera-manager.service && grep -q 'F250_CAMERA_SETTINGS:-/var/lib/f250-camera/settings' agl/rootfs/opt/f250/libexec/camera-start"
 check "dashboard: preferences kept in its state directory (ADR-0029)" "grep -qx 'Environment=F250_SETTINGS_FILE=/var/lib/f250-dashboard/settings.json' agl/rootfs/etc/systemd/system/f250-dashboard.service && grep -qx 'StateDirectory=f250-dashboard' agl/rootfs/etc/systemd/system/f250-dashboard.service && grep -q \"F250_SETTINGS_FILE\" apps/infotainment/lib/core/settings_store_io.dart"
 check "camera-start's options exist in camera-manager" "grep -q 'pub settings_file: Option<PathBuf>' services/camera-manager/src/config.rs && grep -q 'pub recording_allowed: bool' services/camera-manager/src/config.rs"
+CB='--listen unix:/run/f250-camera/camera.sock --settings-file /var/lib/f250-camera/settings'
+check "automatic reverse: on with TRANSPORT=can (ADR-0046)" "[[ \"\$(cam TRANSPORT=can)\" == \"$CB --auto-reverse --gateway unix:/run/f250/vehicle.sock\" ]]"
+check "automatic reverse: off with the simulator or the MX+" "[[ \"\$(cam TRANSPORT=sim)\" == \"$CB\" && \"\$(cam TRANSPORT=obdlink)\" == \"$CB\" ]]"
+check "automatic reverse: 0 turns it off on CAN, 1 forces it" "[[ \"\$(cam TRANSPORT=can CAMERA_AUTO_REVERSE=0)\" == \"$CB\" && \"\$(cam CAMERA_AUTO_REVERSE=1)\" == \"$CB --auto-reverse --gateway unix:/run/f250/vehicle.sock\" ]]"
+check "automatic reverse: its times passed on" "[[ \"\$(cam TRANSPORT=can CAMERA_REVERSE_DEBOUNCE_MS=200 CAMERA_REVERSE_HOLD_MS=3000)\" == \"$CB --auto-reverse --gateway unix:/run/f250/vehicle.sock --reverse-debounce-ms 200 --reverse-hold-ms 3000\" ]]"
+check "automatic reverse: a bad value refused" "! cam CAMERA_AUTO_REVERSE=yes >/dev/null"
+check "automatic reverse: in the settings file, empty" "has_line $DF 'CAMERA_AUTO_REVERSE=' && has_line $DF 'CAMERA_REVERSE_DEBOUNCE_MS=' && has_line $DF 'CAMERA_REVERSE_HOLD_MS='"
+check "automatic reverse: camera-start's options exist in camera-manager and the gateway's reader" "grep -q 'pub auto_reverse: bool' services/camera-manager/src/config.rs && grep -q 'pub reverse_debounce_ms: u64' services/camera-manager/src/config.rs && grep -q 'pub reverse_hold_ms: u64' services/camera-manager/src/config.rs && grep -q 'default_value = \"unix:/run/f250/vehicle.sock\"' services/camera-manager/src/config.rs && grep -q 'RuntimeDirectory=f250\$' agl/rootfs/etc/systemd/system/f250-gateway.service"
+check "automatic reverse: the gateway's sandbox allows CAN sockets, camera-manager reaches its socket as group f250" "grep -q 'RestrictAddressFamilies=.*AF_CAN' agl/rootfs/etc/systemd/system/f250-gateway.service && grep -qx 'Group=f250' agl/rootfs/etc/systemd/system/f250-camera-manager.service && grep -qx 'RestrictAddressFamilies=AF_UNIX' agl/rootfs/etc/systemd/system/f250-camera-manager.service"
 
 echo "grow-root"
 # A fake sysfs for the card: <disk sectors> then partitions as <n>:<start>:<size>

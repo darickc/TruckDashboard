@@ -20,9 +20,9 @@
 //!
 //! Status: `[SIM]`. The loop's tests run against a fake `gst-launch` and a
 //! fake media; the GStreamer media's tests run real pipelines from
-//! `videotestsrc` in Linux (`make linux-test`). Nothing reads reverse or
-//! speed from the gateway yet (automatic reverse and the speed limit are off
-//! by default). Recording `[BENCH]` 2026-11-10 on the Pi with two webcams
+//! `videotestsrc` in Linux (`make linux-test`). [`reverse_link`] follows the
+//! gateway's reverse with --auto-reverse (ADR-0046, `[SIM]`); speed isn't
+//! read (the speed limit is off). Recording `[BENCH]` 2026-11-10 on the Pi with two webcams
 //! onto a tmpfs in the data drive's place (bench-log); no real drive yet.
 
 pub mod camera_settings;
@@ -33,4 +33,5 @@ pub mod gst;
 pub mod manager;
 pub mod media;
 pub mod pipeline;
+pub mod reverse_link;
 pub mod server;

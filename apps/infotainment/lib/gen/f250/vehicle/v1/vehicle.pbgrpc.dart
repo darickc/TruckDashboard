@@ -68,6 +68,20 @@ class VehicleServiceClient extends $grpc.Client {
     return $createUnaryCall(_$setCalibration, request, options: options);
   }
 
+  /// Whether the truck is in reverse, from the broadcast `230` byte 0, heard
+  /// passively (ADR-0046): one message at once, then on every change and at
+  /// least every 100 ms. Unknown when the broadcast is stale or can't be read,
+  /// never "not engaged". A client that stops receiving messages must treat
+  /// reverse as unknown.
+  $grpc.ResponseStream<$0.WatchReverseResponse> watchReverse(
+    $0.WatchReverseRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createStreamingCall(
+        _$watchReverse, $async.Stream.fromIterable([request]),
+        options: options);
+  }
+
   // method descriptors
 
   static final _$listSignals =
@@ -90,6 +104,11 @@ class VehicleServiceClient extends $grpc.Client {
           '/f250.vehicle.v1.VehicleService/SetCalibration',
           ($0.SetCalibrationRequest value) => value.writeToBuffer(),
           $0.SetCalibrationResponse.fromBuffer);
+  static final _$watchReverse =
+      $grpc.ClientMethod<$0.WatchReverseRequest, $0.WatchReverseResponse>(
+          '/f250.vehicle.v1.VehicleService/WatchReverse',
+          ($0.WatchReverseRequest value) => value.writeToBuffer(),
+          $0.WatchReverseResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('f250.vehicle.v1.VehicleService')
@@ -131,6 +150,15 @@ abstract class VehicleServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.SetCalibrationRequest.fromBuffer(value),
         ($0.SetCalibrationResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.WatchReverseRequest, $0.WatchReverseResponse>(
+            'WatchReverse',
+            watchReverse_Pre,
+            false,
+            true,
+            ($core.List<$core.int> value) =>
+                $0.WatchReverseRequest.fromBuffer(value),
+            ($0.WatchReverseResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.ListSignalsResponse> listSignals_Pre($grpc.ServiceCall $call,
@@ -166,4 +194,13 @@ abstract class VehicleServiceBase extends $grpc.Service {
 
   $async.Future<$0.SetCalibrationResponse> setCalibration(
       $grpc.ServiceCall call, $0.SetCalibrationRequest request);
+
+  $async.Stream<$0.WatchReverseResponse> watchReverse_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.WatchReverseRequest> $request) async* {
+    yield* watchReverse($call, await $request);
+  }
+
+  $async.Stream<$0.WatchReverseResponse> watchReverse(
+      $grpc.ServiceCall call, $0.WatchReverseRequest request);
 }

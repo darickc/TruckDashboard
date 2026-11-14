@@ -1,6 +1,7 @@
 //! Command-line configuration. Everything that could make the gateway
 //! transmit to the vehicle is an explicit flag (ADR-0007): without
-//! `--transmit`, the OBDLink transport never opens the adapter.
+//! `--transmit`, the OBDLink transport never opens the adapter. The one
+//! socket opened without it is the receive-only reverse reader (ADR-0046).
 
 use std::path::PathBuf;
 
@@ -98,6 +99,15 @@ pub struct Config {
     /// Read the adapter supply voltage (ATRV) this often, seconds; 0 = never.
     #[arg(long, default_value_t = 10)]
     pub voltage_every_s: u64,
+    /// CAN: don't read reverse from the broadcast `230` (ADR-0046). Without
+    /// this, with --transport can, a receive-only socket on --can-if follows
+    /// it for WatchReverse, with or without --transmit.
+    #[arg(long)]
+    pub no_reverse: bool,
+    /// CAN: reverse is unknown after this long without a `230` frame, ms (it
+    /// arrives about 31 times a second). An example to tune.
+    #[arg(long, default_value_t = 500)]
+    pub reverse_stale_ms: u64,
 }
 
 impl Config {

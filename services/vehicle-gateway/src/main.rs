@@ -12,14 +12,16 @@ use f250_proto::vehicle::v1::vehicle_service_server::VehicleServiceServer;
 use f250_sd_notify::{Notifier, run_watchdog};
 use tokio::sync::mpsc;
 use tonic::transport::Server;
-use vehicle_gateway::config::Config;
+use vehicle_gateway::config::{Config, TransportKind};
 use vehicle_gateway::core::Core;
+use vehicle_gateway::reverse::{self, Feed};
 use vehicle_gateway::server::Api;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cfg = Config::parse();
     let listen = cfg.listen.clone();
+    let reverse = reverse_feed(&cfg);
     let (core, driver_rx, snapshots) = Core::new(cfg)?;
     let (cmd_tx, cmd_rx) = mpsc::channel(64);
     let notifier = Notifier::from_env();
@@ -31,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::spawn(run_watchdog(notifier.clone(), core.heartbeat(), "gateway"));
     tokio::spawn(core.run(cmd_rx, driver_rx));
 
-    let api = Api::new(cmd_tx, snapshots);
+    let api = Api::new(cmd_tx, snapshots).with_reverse(reverse);
     let router = Server::builder()
         .add_service(VehicleServiceServer::new(api.clone()))
         .add_service(DiagnosticsServiceServer::new(api));
@@ -74,4 +76,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err(format!("--listen must start with unix: or tcp:, got {listen}").into());
     }
     Ok(())
+}
+
+/// Reverse from the broadcast `230` (ADR-0046): a receive-only reader on the
+/// CAN interface, or a reason why there is none.
+fn reverse_feed(cfg: &Config) -> Feed {
+    let why = match cfg.transport {
+        TransportKind::Can if !cfg.no_reverse => {
+            eprintln!(
+                "[gateway] reverse: reading broadcast 230 on {}, receive-only (ADR-0046)",
+                cfg.can_if
+            );
+            return reverse::spawn(
+                &cfg.can_if,
+                std::time::Duration::from_millis(cfg.reverse_stale_ms),
+                reverse::socket::opener(cfg.can_if.clone()),
+            );
+        }
+        TransportKind::Can => "--no-reverse: the broadcast reader is off",
+        TransportKind::Sim => "--transport sim: no CAN broadcast to read",
+        TransportKind::Obdlink => {
+            "--transport obdlink: no CAN broadcast stream (reverse needs the CAN adapter)"
+        }
+    };
+    eprintln!("[gateway] reverse: unknown ({why})");
+    Feed::absent(why)
 }

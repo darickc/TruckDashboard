@@ -1,8 +1,9 @@
 # ADR 0024 — Cameras: a 5-way switch picks the view, reverse comes from CAN; no opto board
 
-- **Status:** Accepted (decided by the owner, 2026-11-09). [SIM] nothing yet:
-  the reverse decoder still needs its own truck check, and the switch isn't
-  chosen
+- **Status:** Accepted (decided by the owner, 2026-11-09). The reverse
+  decoder was verified on the truck (VERIFICATION_LOG 2026-11-10) and is
+  built: [ADR-0046](0046-automatic-reverse.md) (2026-11-14, [SIM]). The
+  switch isn't chosen
 - **Date:** 2026-11-09
 - **Supersedes:** the "Reverse input" and "Turn signals" rows of
   [ADR-0013](0013-dcdc-usb-power-supply.md) decision 4, and the GPIO plan in

@@ -40,6 +40,11 @@ class FakeGateway extends pb.VehicleServiceBase {
     return pb.SetCalibrationResponse(
         signal: pb.SignalDefinition(id: request.signalId, calibrationScale: request.scale));
   }
+
+  // camera-manager's, not the dashboard's (ADR-0046).
+  @override
+  Stream<pb.WatchReverseResponse> watchReverse(ServiceCall call, pb.WatchReverseRequest request) =>
+      const Stream.empty();
 }
 
 pb.Snapshot snapshot({

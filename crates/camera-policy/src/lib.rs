@@ -5,10 +5,11 @@
 //! Priority, highest first:
 //!
 //! 1. **Reverse** shows the rear camera, from the gateway's reverse signal
-//!    (HS-CAN broadcast `230`, a candidate decoder). It counts once reverse
-//!    has been reported for `rev_debounce`, and the rear view stays for
-//!    `rev_hold` after reverse clears. Automatic reverse is **off by default**
-//!    until the decoder is verified on the truck ([`Config::auto_reverse`]).
+//!    (HS-CAN broadcast `230`, verified on the truck 2026-11-10). It counts
+//!    once reverse has been reported for `rev_debounce`, and the rear view
+//!    stays for `rev_hold` after reverse clears. Automatic reverse is **off
+//!    by default** ([`Config::auto_reverse`]); camera-manager turns it on
+//!    with `--auto-reverse` (ADR-0046).
 //! 2. **The switch's choice**, latched until the next move. Moves during
 //!    reverse are recorded and shown when reverse ends.
 //!
@@ -81,9 +82,9 @@ pub enum Choice {
 /// on the truck.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
-    /// Show the rear camera automatically in reverse. Off until the `230`
-    /// decoder has its VERIFICATION_LOG entry (ADR-0024 decision 4); until
-    /// then the switch's Back is the way to see the rear camera.
+    /// Show the rear camera automatically in reverse. Off by default;
+    /// camera-manager's `--auto-reverse` turns it on, following the
+    /// gateway's `230` reader (ADR-0046; verified on the truck 2026-11-10).
     pub auto_reverse: bool,
     /// How long reverse must be reported before the rear view comes up.
     pub rev_debounce: Duration,

@@ -21,6 +21,12 @@
 #       cameras aren't recording (the dashboard shows it).
 #   RECORD_MAX_AGE_DAYS ... RECORD_CLIP_AFTER_S   retention; camera-manager
 #       reads them from its environment (the unit's EnvironmentFile).
+#   CAMERA_AUTO_REVERSE   1: reverse shows the rear camera, from the
+#       gateway's broadcast reader (ADR-0046); 0: off. Empty: on with
+#       TRANSPORT=can (the only transport that hears the broadcast), else off.
+#   CAMERA_REVERSE_DEBOUNCE_MS, CAMERA_REVERSE_HOLD_MS   examples: how long
+#       reverse must last before the rear view comes up, and how long it
+#       stays after; empty: camera-manager's defaults (150, 2000).
 #
 # Settings saved on the dashboard's Settings tab (ADR-0029) live in
 # /var/lib/f250-camera/settings and, once saved, replace the CAMERA_* and
@@ -33,6 +39,7 @@ set -euo pipefail
 
 SOCK="${F250_CAMERA_SOCK:-/run/f250-camera/camera.sock}"
 SETTINGS="${F250_CAMERA_SETTINGS:-/var/lib/f250-camera/settings}"
+GATEWAY_SOCK="${F250_GATEWAY_SOCK:-/run/f250/vehicle.sock}"
 BIN="${F250_CAMERA_BIN:-/opt/f250/bin/camera-manager}"
 STORAGE="${F250_STORAGE:-/var/lib/f250/storage}"
 
@@ -71,6 +78,20 @@ if [[ "${DATA_DRIVE:-0}" == 1 && -n "${RECORD_CAMERAS:-}" ]]; then
     IFS=','; args+=(--record "${record[*]}"); unset IFS
   fi
 fi
+
+auto_reverse="${CAMERA_AUTO_REVERSE:-}"
+if [[ -z "$auto_reverse" ]]; then
+  [[ "${TRANSPORT:-sim}" == can ]] && auto_reverse=1 || auto_reverse=0
+fi
+case "$auto_reverse" in
+  1)
+    args+=(--auto-reverse --gateway "unix:$GATEWAY_SOCK")
+    [[ -n "${CAMERA_REVERSE_DEBOUNCE_MS:-}" ]] && args+=(--reverse-debounce-ms "$CAMERA_REVERSE_DEBOUNCE_MS")
+    [[ -n "${CAMERA_REVERSE_HOLD_MS:-}" ]] && args+=(--reverse-hold-ms "$CAMERA_REVERSE_HOLD_MS")
+    ;;
+  0) ;;
+  *) echo "CAMERA_AUTO_REVERSE must be 0, 1 or empty, got $auto_reverse" >&2; exit 1 ;;
+esac
 
 echo "exec $BIN ${args[*]}" >&2
 exec "$BIN" "${args[@]}"

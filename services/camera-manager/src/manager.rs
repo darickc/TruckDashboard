@@ -54,6 +54,9 @@ pub enum Command {
         source: String,
         reply: oneshot::Sender<pb::SaveClipResponse>,
     },
+    /// The gateway's reverse, as a policy input ([`crate::reverse_link`]):
+    /// `Input::Reverse` or `Input::ReverseInvalid`.
+    Reverse { input: Input, detail: String },
     /// Stop: every capture is stopped (never restarted), recordings
     /// finished, and [`Manager::run`] returns. Its view sender goes with it,
     /// which ends every `WatchView` stream, so the server's graceful shutdown
@@ -382,6 +385,12 @@ impl Manager {
                         ..Default::default()
                     });
                 }
+            }
+            Command::Reverse { input, detail: _ } => {
+                let now = Instant::now();
+                self.policy.handle(input, self.now_d(now));
+                self.reconcile(now).await;
+                self.publish();
             }
             // Handled in run().
             Command::Shutdown => {}

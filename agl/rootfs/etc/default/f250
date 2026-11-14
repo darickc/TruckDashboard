@@ -100,6 +100,18 @@ CAMERA_FRONT=
 CAMERA_LEFT=
 CAMERA_RIGHT=
 CAMERA_REAR=
+# CAMERA_AUTO_REVERSE  1: reverse shows the rear camera by itself, from
+#            the gateway's receive-only reader of the broadcast 230
+#            (ADR-0046; reverse verified on the truck 2026-11-10). 0: off,
+#            the switch's back or the dashboard's Rear only. Empty: on with
+#            TRANSPORT=can, off otherwise (no broadcast to hear).
+# CAMERA_REVERSE_DEBOUNCE_MS, CAMERA_REVERSE_HOLD_MS  examples: reverse must
+#            last this long before the rear view comes up (empty: 150), and
+#            the view stays this long after (empty: 2000).
+#            After editing: systemctl restart f250-camera-manager
+CAMERA_AUTO_REVERSE=
+CAMERA_REVERSE_DEBOUNCE_MS=
+CAMERA_REVERSE_HOLD_MS=
 # CAMERA_CAPS  camera-manager: caps and decoder after v4l2src. Empty: the
 #            bench webcam's 640x480 MJPEG (ADR-0026).
 CAMERA_CAPS=

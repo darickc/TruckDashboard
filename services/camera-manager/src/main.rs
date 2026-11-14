@@ -70,7 +70,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (c, d) in &settings.cameras {
         eprintln!("[camera] {} camera: {d}", camera_name(*c));
     }
-    eprintln!("[camera] automatic reverse off; speed limit off (ADR-0024, ADR-0026)");
+    if cfg.auto_reverse {
+        eprintln!(
+            "[camera] automatic reverse on, from the gateway at {} (ADR-0046); speed limit off",
+            cfg.gateway
+        );
+    } else {
+        eprintln!("[camera] automatic reverse off (--auto-reverse); speed limit off (ADR-0024)");
+    }
 
     let media = make_media(cfg.media, &settings.gst_launch)?;
     match (&settings.recording, media.can_record()) {
@@ -118,6 +125,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "camera",
     ));
     let manager_done = tokio::spawn(manager.run(cmd_rx));
+    if cfg.auto_reverse {
+        tokio::spawn(camera_manager::reverse_link::follow(
+            cfg.gateway.clone(),
+            cmd_tx.clone(),
+        ));
+    }
 
     let stop_cmds = cmd_tx.clone();
     let router = Server::builder().add_service(CameraServiceServer::new(
