@@ -313,7 +313,7 @@ The spoken directions' voice ([ADR-0048](../architecture/adr/0048-piper-voice.md
 | Item | Finding | Status | Source |
 |---|---|---|---|
 | Project | OHF-Voice/piper1-gpl (the archived rhasspy/piper's successor), v1.8.0 2026-09-04, GPL-3.0; C API `libpiper` | V | GitHub API; `libpiper/include/piper.h` |
-| Build | libpiper's CMake fetches espeak-ng (`212928b3`) and prebuilt onnxruntime 1.22.0 linux-aarch64; built in debian:trixie, runs on AGL 22's glibc 2.43 | T | bench-log 2026-11-15 |
+| Build | libpiper's CMake fetches espeak-ng (`212928b3`) and prebuilt onnxruntime 1.22.0 linux-aarch64; built in debian:trixie, runs on AGL 22's glibc 2.43. In Yocto (AGL 22, cmake 4.3.1, GCC 15.3): espeak-ng from its own recipe (native-built data) through a patch; `find_library` needs `ONNXRUNTIME_LIB` under the cross toolchain | T | bench-log 2026-11-15 |
 | macOS wheel | piper-tts 1.8.0's macOS arm64 wheel looks for espeak-ng data under its CI build path and fails; the Linux aarch64 wheel works | T | the owner's Mac, 2026-11-15 |
 | Speed on the Pi 5 | Voice load 1.4 s; loaded, about 0.25× the speech's length on one core ("Turn left." 0.22 s) | T | bench-log 2026-11-15 |
 | Sandbox | onnxruntime needs `/proc/cpuinfo` (aborts under `ProcSubset=pid`); works with `MemoryDenyWriteExecute=yes` | T | bench-log 2026-11-15 |

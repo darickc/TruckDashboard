@@ -15,8 +15,9 @@
 #
 # F250_TTS_BIN, F250_PIPER_PREFIX and F250_TTS_SOCK are for the tests.
 #
-# Status: [BENCH] 2026-11-15 with Piper installed by hand (bench-log); the
-# image doesn't carry Piper yet, so there this exits and Flite speaks.
+# Status: [BENCH] 2026-11-15; meta-f250's piper and
+# piper-voice-en-us-ljspeech recipes install the tree and the voice
+# (ADR-0048 amendment).
 set -euo pipefail
 
 BIN="${F250_TTS_BIN:-/opt/f250/bin/tts}"

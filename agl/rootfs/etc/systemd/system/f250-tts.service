@@ -12,7 +12,8 @@
 #
 # Nothing here touches the vehicle bus (ADR-0007).
 #
-# Status: [BENCH] 2026-11-15 with Piper installed by hand (bench-log).
+# Status: [BENCH] 2026-11-15, with Piper from meta-f250's recipes
+# (ADR-0048).
 [Unit]
 Description=F-250 voice for spoken directions (Piper)
 

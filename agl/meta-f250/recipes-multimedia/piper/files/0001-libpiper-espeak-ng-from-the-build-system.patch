@@ -1,0 +1,61 @@
+From: F-250 head unit <noreply@anthropic.com>
+Date: Sun, 15 Nov 2026 16:27:17 -0700
+Subject: [PATCH] libpiper: espeak-ng from the build system when ESPEAKNG_DIR
+ is set
+
+BitBake builds offline and cross-compiles, so it can't run the
+ExternalProject that fetches espeak-ng and compiles its data with the
+program it has just built. With ESPEAKNG_DIR (an installed static
+espeak-ng) and ESPEAKNG_DATA_DIR (its data, from a native build), use
+those instead.
+
+Upstream-Status: Inappropriate [build-system specific]
+---
+ libpiper/CMakeLists.txt | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/libpiper/CMakeLists.txt b/libpiper/CMakeLists.txt
+index d43e714..6b40e93 100644
+--- a/libpiper/CMakeLists.txt
++++ b/libpiper/CMakeLists.txt
+@@ -35,6 +35,16 @@ else()
+     set(UCD_STATIC_LIB ${UCD_TOOLS_DIR}/${UCD_CONFIG_SUBDIR}libucd.a)
+ endif()
+ 
++# ESPEAKNG_DIR: an espeak-ng already built and installed (lib/libespeak-ng.a,
++# lib/libucd.a, include/), as a build system that can't fetch or cross-build
++# an ExternalProject provides it; ESPEAKNG_DATA_DIR: its compiled
++# espeak-ng-data, from a native build. Without them, the ExternalProject below.
++if(DEFINED ESPEAKNG_DIR)
++    set(ESPEAKNG_INSTALL_DIR ${ESPEAKNG_DIR})
++    set(ESPEAKNG_STATIC_LIB ${ESPEAKNG_DIR}/lib/libespeak-ng.a)
++    set(UCD_STATIC_LIB ${ESPEAKNG_DIR}/lib/libucd.a)
++    add_custom_target(espeak_ng_external)
++else()
+ ExternalProject_Add(espeak_ng_external
+     GIT_REPOSITORY https://github.com/espeak-ng/espeak-ng.git
+     GIT_TAG 212928b394a96e8fd2096616bfd54e17845c48f6  # 2025-Mar-22
+@@ -60,6 +70,7 @@ ExternalProject_Add(espeak_ng_external
+         ${UCD_STATIC_LIB}
+     UPDATE_DISCONNECTED TRUE
+ )
++endif()
+ 
+ include_directories(
+     ${ESPEAKNG_INSTALL_DIR}/include
+@@ -200,7 +211,11 @@ if(DEFINED ONNXRUNTIME_DIR)
+ endif()
+ 
+ # Copy espeak-ng-data
+-set(ESPEAKNG_DATA_SRC ${CMAKE_BINARY_DIR}/espeak_ng-install/share/espeak-ng-data)
++if(DEFINED ESPEAKNG_DATA_DIR)
++    set(ESPEAKNG_DATA_SRC ${ESPEAKNG_DATA_DIR})
++else()
++    set(ESPEAKNG_DATA_SRC ${CMAKE_BINARY_DIR}/espeak_ng-install/share/espeak-ng-data)
++endif()
+ 
+ install(
+     DIRECTORY ${ESPEAKNG_DATA_SRC}
+-- 
+2.54.0 (Apple Git-157)
+

@@ -44,6 +44,8 @@ IMAGE_INSTALL += " \
     pipewire-modules-echo-cancel \
     pipewire-spa-plugins-aec-webrtc \
     flite \
+    piper \
+    piper-voice-en-us-ljspeech \
 "
 
 # weston-ini-conf-flutter: the compositor's configuration for flutter-auto
@@ -92,6 +94,11 @@ IMAGE_INSTALL += " \
 # pw-play, which plays the prompt, is pipewire-tools' pw-cat, built when the
 # distro has agl-devel (meta-pipewire's pipewire bbappend), as this build
 # configuration does.
+#
+# piper and piper-voice-en-us-ljspeech (ADR-0048, recipes-multimedia/piper):
+# libpiper, onnxruntime and espeak-ng-data in /opt/f250/piper, and the
+# owner's voice in /opt/f250/piper/voices, which f250-tts.service keeps
+# loaded for speak-prompt; Flite stays as its fallback. About 100 MB.
 #
 # valhalla: valhalla_service, which services/navigation runs once per route
 # (ADR-0035; recipes-navigation/valhalla). Its routing data comes on the map

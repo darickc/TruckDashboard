@@ -3063,3 +3063,26 @@ afterwards.
 Bench left: Piper in `/opt/f250/piper` by hand (a reflash removes it; the
 image falls back to Flite), `f250-tts` running, `AUDIO_PIPER_VOICE` unset
 (ljspeech). Test files removed.
+
+## 2026-11-15 — Piper from meta-f250's recipes (ADR-0048 amendment) [BENCH]
+
+`bitbake piper-voice-en-us-ljspeech piper` in the build VM (AGL 22.0.1 tree,
+cmake-native 4.3.1, GCC 15.3, glibc 2.43), six runs to a clean build:
+
+| Run | Failed on | Fix |
+|---|---|---|
+| 1, 2 | `piper-espeak-ng` installed-vs-shipped: `/usr/share/vim/...`, then the empty `/usr/share` | removed in `do_install` |
+| 3 | `piper` configure: `Could not find ONNXRUNTIME_LIB` (the cross toolchain's find root is the sysroot) | `-DONNXRUNTIME_LIB=` |
+| 4 | `piper-espeak-ng` useless-rpaths on `/usr/bin/espeak-ng` | the target's program removed (unused) |
+| 5 | `piper` do_create_spdx: the notices' path joined to S; package_qa buildpaths: onnxruntime's include dir in libpiper's debug info | path relative to S; `-ffile-prefix-map` for it |
+| 6 | — | EXIT 0 |
+
+Packages: `piper-1.8.0-r0.aarch64.rpm` (16 MB: libpiper, onnxruntime
+1.22.0 and its providers_shared, its LICENSE and ThirdPartyNotices, 401
+espeak-ng-data files; provides `libonnxruntime.so.1`), and
+`piper-voice-en-us-ljspeech-1.0-r0.noarch.rpm` (58 MB). On the bench Pi the
+Docker-built `/opt/f250/piper` was moved aside and the two RPMs installed
+(`rpm -ivh`, 98 MB). `f250-tts` restarted: "loaded in 1411 ms". Two prompts
+through audio-manager: 891 ms and 831 ms; the owner: "Same, good". The
+Docker build was then deleted; `/opt/f250/piper` now belongs to the `piper`
+package.

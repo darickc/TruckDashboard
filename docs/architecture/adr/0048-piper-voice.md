@@ -2,8 +2,8 @@
 
 - **Status:** Accepted (owner, 2026-11-15: "The voice used for navigation is
   very robotic. Can it be improved?"; ljspeech chosen by ear on the bench).
-  `[BENCH]` with Piper installed on the bench Pi by hand; **not yet in the
-  image** (see Consequences).
+  `[BENCH]`; in the image since the amendment below (its packages tested on
+  the bench Pi; the image itself built but not yet flashed).
 - **Date:** 2026-11-15
 - **Refines:** [ADR-0039](0039-audio-manager.md) decision 9 (the voice:
   `speak-prompt`, Flite+hts_engine with cmu_us_arctic_slt).
@@ -79,13 +79,8 @@ setting, `voice.rs`), so 1.5 s of loading on every prompt is too much.
 - **Licences:** Piper (libpiper) GPL-3.0; espeak-ng GPL-3.0-or-later (built
   in); onnxruntime MIT; ljspeech public domain. They are dynamically loaded by
   `tts`, which is never distributed.
-- **The image doesn't carry Piper yet.** On the bench it was built in Docker
-  (debian:trixie, aarch64) from v1.8.0 and copied to `/opt/f250/piper` by
-  hand. Next: a meta-f250 recipe that builds libpiper with espeak-ng from a
-  pinned fetch (the CMake ExternalProject can't fetch inside BitBake) and
-  onnxruntime (prebuilt, or meta-oe's recipe if it has one), and installs
-  the ljspeech voice with its checksum. Until then a reflash loses Piper and
-  the voice falls back to Flite.
+- **In the image** (amendment below). Before that, the bench's Piper was a
+  Docker build (debian:trixie, aarch64) copied to `/opt/f250/piper` by hand.
 - `/proc/cpuinfo` must be readable: onnxruntime aborts without it, so the unit
   has no `ProcSubset=pid` (bench, 2026-11-15).
 - Text normalisation is espeak-ng's: "US 36" was read acceptably on the bench;
@@ -96,3 +91,41 @@ setting, `voice.rs`), so 1.5 s of loading on every prompt is too much.
 - A prompt is noticeably late in the truck: then libpiper's thread count (1)
   or a smaller ("low") voice.
 - A better offline voice runs within a second on the Pi 5.
+
+## Amendment, 2026-11-15: Piper in the image `[BENCH]`
+
+The owner asked for Piper to be built into the image. meta-f250's
+`recipes-multimedia/piper`:
+
+1. **`piper-espeak-ng`**: espeak-ng at the commit libpiper pins
+   (`212928b3`), with libpiper's options. libpiper's CMake builds it as an
+   ExternalProject, which BitBake can't use (it fetches at build time, gets
+   no cross toolchain, and compiles the data by running the program it just
+   built). The target build gives the static `libespeak-ng.a` and `libucd.a`;
+   the native build (`BBCLASSEXTEND`) compiles `espeak-ng-data`. sonic, which
+   espeak-ng's CMake fetches at configure time whatever `USE_LIBSONIC` says,
+   is fetched by the recipe and handed over; nothing of it is linked.
+   **Decision:** without `EXTRA_cmn`/`EXTRA_ru`, the big Chinese and Russian
+   dictionaries: the voice is English.
+2. **`piper`**: libpiper at v1.8.0 with a patch
+   (`0001-libpiper-espeak-ng-from-the-build-system.patch`) that takes
+   espeak-ng and its data from the build system when `ESPEAKNG_DIR` is set;
+   **Microsoft's prebuilt onnxruntime 1.22.0** for linux-aarch64 (sha256
+   pinned), as libpiper's own build downloads it: no onnxruntime recipe in
+   this AGL tree, and building it from source is a project of its own.
+   Installed in `/opt/f250/piper` (prefix set in the recipe), with
+   onnxruntime's LICENSE and ThirdPartyNotices beside it. Licence
+   `GPL-3.0-only & MIT & GPL-3.0-or-later & Unicode-DFS-2016 &
+   Onnxruntime-ThirdPartyNotices`.
+3. **`piper-voice-en-us-ljspeech`**: the voice from rhasspy/piper-voices at a
+   pinned revision (`e9ab671f`), sha256-checked, in `/opt/f250/piper/voices`.
+4. `agl-f250-base.inc` installs `piper` and `piper-voice-en-us-ljspeech`
+   (about 74 MB of packages, 98 MB installed).
+
+Bench: the recipes built in the VM (`bitbake piper piper-voice-en-us-ljspeech`)
+after fixes for espeak-ng's Vim files and target program, `find_library` under
+the cross toolchain (`ONNXRUNTIME_LIB`), the notices' path for SPDX, and a
+prefix map for onnxruntime's headers (a build path in the debug info). Their
+RPMs, installed on the bench Pi in place of the Docker build: `f250-tts`
+loaded the voice in 1411 ms, prompts through audio-manager took 831–891 ms,
+and the owner heard the same voice.
