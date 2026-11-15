@@ -185,12 +185,9 @@ struct Args {
     /// PipeWire sink's node.name. Empty: the default sink.
     #[arg(long, default_value = "")]
     call_speaker: String,
-    /// pw-dump, to find the phone's hands-free nodes during a call.
+    /// pw-dump, to find the phone's hands-free streams during a call.
     #[arg(long, default_value = "pw-dump")]
     pw_dump: PathBuf,
-    /// pw-loopback, for the call's audio path.
-    #[arg(long, default_value = "pw-loopback")]
-    pw_loopback: PathBuf,
 }
 
 #[tokio::main]
@@ -363,7 +360,7 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             args.call_mic.trim().to_string(),
             (!args.call_speaker.trim().is_empty()).then(|| args.call_speaker.trim().to_string()),
             args.pw_dump.clone(),
-            args.pw_loopback.clone(),
+            args.pw_metadata.clone(),
         ))
     };
     let manager = Manager::new(config, bt, dsp, voice, calls, ringer, book, call_audio);

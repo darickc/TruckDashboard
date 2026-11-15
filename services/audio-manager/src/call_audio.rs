@@ -1,43 +1,62 @@
 //! The call's audio path (ADR-0045 decision 3, first cut): while a call is
-//! up, the microphone goes to the phone and the phone's voice to the
-//! speakers, through two `pw-loopback`s audio-manager runs and stops.
+//! up, the call microphone feeds the phone and the phone's voice goes to the
+//! speakers.
 //!
-//! PipeWire's bluez5 plugin makes the call's nodes when the phone opens its
-//! call audio (SCO): a source (the phone's voice) and a sink (to the phone),
-//! each with `api.bluez5.address` and `api.bluez5.profile` (PipeWire 1.6.8
-//! `spa/plugins/bluez5/bluez5-device.c`: "headset-head-unit" or
-//! "headset-audio-gateway" for hands-free, "a2dp-…" for music). They are
-//! found in `pw-dump`'s output by the phone's address and a `headset`
-//! profile, so the music nodes are never taken; their `node.name`s are the
-//! loopbacks' targets.
+//! With the head unit in the hands-free role, PipeWire 1.6.8 shows the
+//! phone's call audio as two **streams** on the phone's `audio-gateway`
+//! device, made when the call starts (bench Pi with the owner's Z Fold8,
+//! 2026-11-14): the phone's voice, `media.class` `Stream/Output/Audio`
+//! (`bluez_input.<address>.0`), and the way to the phone,
+//! `Stream/Input/Audio` (`bluez_output.<address>.1`), both with
+//! `api.bluez5.profile` "headset-audio-gateway" and `api.bluez5.address`.
+//! The phone's music is a stream too, with an "a2dp-…" profile, and is never
+//! taken. WirePlumber links streams like any application's: the voice to
+//! the default sink (AGL's Communication role), the phone's input from the
+//! default source. audio-manager pins them with `target.object` in
+//! WirePlumber's default metadata: the input to the call microphone (the
+//! default source could be a camera's), the voice to `--call-speaker` when
+//! one is named.
 //!
-//! No echo cancellation yet (WebRTC isn't in the image: spike S3), and the
-//! voice goes to the default sink unless `--call-speaker` names one.
-//! Status: the matching is tested on hand-written `pw-dump` output [SIM];
-//! the loopbacks on the Pi are UNVERIFIED until a bench call.
+//! The call audio link (SCO) opens only once these streams run, that is
+//! once they are linked: on the bench, with no sink at all (no DAC yet), the
+//! transport stayed "pending" for a whole call and nothing was heard.
+//!
+//! No echo cancellation yet (WebRTC isn't in the image: spike S3). Status:
+//! the stream matching is tested on pw-dump output shaped like the bench's
+//! [SIM]; `target.object` pinning is UNVERIFIED until a bench call with a
+//! sink.
 
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Mutex;
 use std::time::Duration;
 
-/// How long to look for the call's nodes after a call starts (the phone
-/// opens its call audio when it rings in-band or the call connects).
+/// How long to look for the call's streams after a call starts.
 const FIND_FOR: Duration = Duration::from_secs(60);
 const FIND_EVERY: Duration = Duration::from_millis(500);
 
-/// The phone's hands-free nodes: its voice (a source) and the way to it (a
-/// sink), by `node.name`.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct PhoneNodes {
-    pub voice: Option<String>,
-    pub to_phone: Option<String>,
+/// A PipeWire node: its id (the metadata's subject) and `node.name`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Node {
+    pub id: u64,
+    pub name: String,
 }
 
-/// `address`'s hands-free nodes in `pw-dump`'s JSON. Music (A2DP) nodes and
-/// other phones' are left out.
-pub fn phone_nodes(dump: &str, address: &str) -> PhoneNodes {
-    let mut out = PhoneNodes::default();
+/// The phone's hands-free streams.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct PhoneStreams {
+    /// The phone's voice, played into the graph.
+    pub voice: Option<Node>,
+    /// To the phone, captured from the graph (the microphone).
+    pub to_phone: Option<Node>,
+}
+
+/// `address`'s hands-free streams in `pw-dump`'s JSON. Music (A2DP) and
+/// other phones' are left out. Devices' nodes (`Audio/Source`,
+/// `Audio/Sink`), which the other hands-free role would make, are taken the
+/// same way.
+pub fn phone_streams(dump: &str, address: &str) -> PhoneStreams {
+    let mut out = PhoneStreams::default();
     let Ok(serde_json::Value::Array(objects)) = serde_json::from_str::<serde_json::Value>(dump)
     else {
         return out;
@@ -46,48 +65,42 @@ pub fn phone_nodes(dump: &str, address: &str) -> PhoneNodes {
         if o.get("type").and_then(|t| t.as_str()) != Some("PipeWire:Interface:Node") {
             continue;
         }
-        let Some(props) = o.pointer("/info/props") else {
+        let (Some(id), Some(props)) = (
+            o.get("id").and_then(serde_json::Value::as_u64),
+            o.pointer("/info/props"),
+        ) else {
             continue;
         };
         let s = |k: &str| props.get(k).and_then(|v| v.as_str()).unwrap_or("");
         if !s("api.bluez5.address").eq_ignore_ascii_case(address)
             || !s("api.bluez5.profile").starts_with("headset")
+            || s("node.name").is_empty()
         {
             continue;
         }
-        let name = s("node.name");
-        if name.is_empty() {
-            continue;
-        }
+        let node = Node {
+            id,
+            name: s("node.name").to_string(),
+        };
         match s("media.class") {
-            "Audio/Source" => out.voice = Some(name.to_string()),
-            "Audio/Sink" => out.to_phone = Some(name.to_string()),
+            "Stream/Output/Audio" | "Audio/Source" => out.voice = Some(node),
+            "Stream/Input/Audio" | "Audio/Sink" => out.to_phone = Some(node),
             _ => {}
         }
     }
     out
 }
 
-/// The two `pw-loopback` command lines: the microphone to the phone, and
-/// the phone's voice to `speaker` (None: the default sink). Mono both ways:
-/// hands-free audio is one channel (CVSD or mSBC).
-pub fn loopbacks(mic: &str, speaker: Option<&str>, n: &PhoneNodes) -> Vec<Vec<String>> {
+/// The `pw-metadata` command lines that pin the streams: the input to the
+/// phone to `mic`, the phone's voice to `speaker` when named (else
+/// WirePlumber's choice).
+pub fn pins(mic: &str, speaker: Option<&str>, s: &PhoneStreams) -> Vec<Vec<String>> {
     let mut out = Vec::new();
-    let mono = ["-c", "1", "-m", "[ MONO ]"];
-    if let Some(to_phone) = &n.to_phone {
-        let mut a: Vec<String> = vec!["-n".into(), "f250-call-mic".into()];
-        a.extend(mono.iter().map(|s| (*s).to_string()));
-        a.extend(["-C".into(), mic.into(), "-P".into(), to_phone.clone()]);
-        out.push(a);
+    if let Some(n) = &s.to_phone {
+        out.push(vec![n.id.to_string(), "target.object".into(), mic.into()]);
     }
-    if let Some(voice) = &n.voice {
-        let mut a: Vec<String> = vec!["-n".into(), "f250-call-voice".into()];
-        a.extend(mono.iter().map(|s| (*s).to_string()));
-        a.extend(["-C".into(), voice.clone()]);
-        if let Some(sp) = speaker {
-            a.extend(["-P".into(), sp.into()]);
-        }
-        out.push(a);
+    if let (Some(n), Some(sp)) = (&s.voice, speaker) {
+        out.push(vec![n.id.to_string(), "target.object".into(), sp.into()]);
     }
     out
 }
@@ -112,7 +125,7 @@ pub struct PwCallAudio {
     pub mic: String,
     pub speaker: Option<String>,
     pub pw_dump: PathBuf,
-    pub pw_loopback: PathBuf,
+    pub pw_metadata: PathBuf,
     task: Mutex<Option<tokio::task::JoinHandle<()>>>,
 }
 
@@ -121,86 +134,76 @@ impl PwCallAudio {
         mic: String,
         speaker: Option<String>,
         pw_dump: PathBuf,
-        pw_loopback: PathBuf,
+        pw_metadata: PathBuf,
     ) -> PwCallAudio {
         PwCallAudio {
             mic,
             speaker,
             pw_dump,
-            pw_loopback,
+            pw_metadata,
             task: Mutex::new(None),
         }
     }
 
-    async fn dump(pw_dump: &PathBuf) -> Option<String> {
+    async fn run_cmd(program: &PathBuf, args: &[String]) -> Result<String, String> {
         let out = tokio::time::timeout(
             Duration::from_secs(3),
-            tokio::process::Command::new(pw_dump)
+            tokio::process::Command::new(program)
+                .args(args)
                 .stdin(Stdio::null())
-                .stderr(Stdio::null())
                 .output(),
         )
         .await
-        .ok()?
-        .ok()?;
-        out.status
-            .success()
-            .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+        .map_err(|_| format!("{}: no answer in 3 s", program.display()))?
+        .map_err(|e| format!("{}: {e}", program.display()))?;
+        if !out.status.success() {
+            return Err(format!(
+                "{}: {} {}",
+                program.display(),
+                out.status,
+                String::from_utf8_lossy(&out.stderr).trim()
+            ));
+        }
+        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     }
 
-    /// Finds the phone's nodes, then keeps the loopbacks running until
-    /// aborted (their children are killed with the task).
+    /// Finds the phone's streams, then pins them once.
     async fn run(
         address: String,
         mic: String,
         speaker: Option<String>,
         pw_dump: PathBuf,
-        pw_loopback: PathBuf,
+        pw_metadata: PathBuf,
     ) {
         let until = tokio::time::Instant::now() + FIND_FOR;
-        let nodes = loop {
-            if let Some(d) = Self::dump(&pw_dump).await {
-                let n = phone_nodes(&d, &address);
-                if n.voice.is_some() && n.to_phone.is_some() {
-                    break n;
+        let streams = loop {
+            if let Ok(d) = Self::run_cmd(&pw_dump, &[]).await {
+                let s = phone_streams(&d, &address);
+                if s.voice.is_some() && s.to_phone.is_some() {
+                    break s;
                 }
             }
             if tokio::time::Instant::now() >= until {
                 eprintln!(
-                    "[audio] call audio: the phone's hands-free nodes didn't appear in {} s",
+                    "[audio] call audio: the phone's hands-free streams didn't appear in {} s",
                     FIND_FOR.as_secs()
                 );
                 return;
             }
             tokio::time::sleep(FIND_EVERY).await;
         };
-        let mut children = Vec::new();
-        for args in loopbacks(&mic, speaker.as_deref(), &nodes) {
-            match tokio::process::Command::new(&pw_loopback)
-                .args(&args)
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .kill_on_drop(true)
-                .spawn()
-            {
-                Ok(c) => children.push(c),
-                Err(e) => eprintln!("[audio] call audio: {}: {e}", pw_loopback.display()),
+        for args in pins(&mic, speaker.as_deref(), &streams) {
+            if let Err(e) = Self::run_cmd(&pw_metadata, &args).await {
+                eprintln!("[audio] call audio: pinning {}: {e}", args[0]);
             }
         }
         eprintln!(
             "[audio] call audio: {} → phone ({}), phone ({}) → {}",
             mic,
-            nodes.to_phone.as_deref().unwrap_or("?"),
-            nodes.voice.as_deref().unwrap_or("?"),
-            speaker.as_deref().unwrap_or("the default sink")
+            streams.to_phone.as_ref().map_or("?", |n| n.name.as_str()),
+            streams.voice.as_ref().map_or("?", |n| n.name.as_str()),
+            speaker.as_deref().unwrap_or("WirePlumber's choice")
         );
-        // Kept until the task is aborted; a loopback that ends is said.
-        for mut c in children {
-            if let Ok(status) = c.wait().await {
-                eprintln!("[audio] call audio: a loopback ended ({status})");
-            }
-        }
-        std::future::pending::<()>().await;
     }
 }
 
@@ -218,11 +221,12 @@ impl CallAudio for PwCallAudio {
             self.mic.clone(),
             self.speaker.clone(),
             self.pw_dump.clone(),
-            self.pw_loopback.clone(),
+            self.pw_metadata.clone(),
         )));
     }
 
     fn stop(&self) {
+        // The streams go with the call; only a search still running stops.
         if let Some(t) = self
             .task
             .lock()
@@ -230,7 +234,6 @@ impl CallAudio for PwCallAudio {
             .take()
         {
             t.abort();
-            eprintln!("[audio] call audio: stopped");
         }
     }
 }
@@ -242,82 +245,92 @@ mod tests {
 
     const ADDR: &str = "B0:DE:31:1E:55:96";
 
-    fn node(name: &str, class: &str, addr: &str, profile: &str) -> String {
+    fn node(id: u64, name: &str, class: &str, addr: &str, profile: &str) -> String {
         format!(
-            r#"{{"id":1,"type":"PipeWire:Interface:Node","info":{{"props":{{"node.name":"{name}","media.class":"{class}","api.bluez5.address":"{addr}","api.bluez5.profile":"{profile}"}}}}}}"#
+            r#"{{"id":{id},"type":"PipeWire:Interface:Node","info":{{"props":{{"node.name":"{name}","media.class":"{class}","api.bluez5.address":"{addr}","api.bluez5.profile":"{profile}"}}}}}}"#
         )
     }
 
+    /// Shaped like the bench Pi's pw-dump during a call (2026-11-14).
     #[test]
-    fn finds_the_phones_hands_free_nodes_only() {
+    fn finds_the_phones_hands_free_streams_only() {
         let dump = format!(
             "[{},{},{},{},{},{}]",
             r#"{"id":0,"type":"PipeWire:Interface:Core","info":{}}"#,
-            node("bluez_input.music", "Audio/Source", ADDR, "a2dp-sink"),
             node(
-                "bluez_input.voice",
-                "Audio/Source",
+                120,
+                "bluez_input.B0_DE_31_1E_55_96.2",
+                "Stream/Output/Audio",
+                ADDR,
+                "a2dp-source"
+            ),
+            node(
+                121,
+                "bluez_input.B0_DE_31_1E_55_96.0",
+                "Stream/Output/Audio",
                 ADDR,
                 "headset-audio-gateway"
             ),
             node(
-                "bluez_output.to_phone",
-                "Audio/Sink",
+                122,
+                "bluez_output.B0_DE_31_1E_55_96.1",
+                "Stream/Input/Audio",
                 ADDR,
                 "headset-audio-gateway"
             ),
             node(
+                130,
                 "bluez_input.other",
-                "Audio/Source",
+                "Stream/Output/Audio",
                 "11:22:33:44:55:66",
-                "headset-head-unit"
+                "headset-audio-gateway"
             ),
             r#"{"id":9,"type":"PipeWire:Interface:Node","info":{"props":{"node.name":"alsa_input.mic","media.class":"Audio/Source"}}}"#,
         );
         assert_eq!(
-            phone_nodes(&dump, &ADDR.to_ascii_lowercase()),
-            PhoneNodes {
-                voice: Some("bluez_input.voice".into()),
-                to_phone: Some("bluez_output.to_phone".into()),
+            phone_streams(&dump, &ADDR.to_ascii_lowercase()),
+            PhoneStreams {
+                voice: Some(Node {
+                    id: 121,
+                    name: "bluez_input.B0_DE_31_1E_55_96.0".into()
+                }),
+                to_phone: Some(Node {
+                    id: 122,
+                    name: "bluez_output.B0_DE_31_1E_55_96.1".into()
+                }),
             }
         );
-        assert_eq!(phone_nodes(&dump, "11:22:33:44:55:66").to_phone, None);
-        assert_eq!(phone_nodes("not json", ADDR), PhoneNodes::default());
+        assert_eq!(phone_streams(&dump, "11:22:33:44:55:66").to_phone, None);
+        assert_eq!(phone_streams("not json", ADDR), PhoneStreams::default());
+        // The other role's device nodes are taken the same way.
+        let dev = format!(
+            "[{},{}]",
+            node(5, "v", "Audio/Source", ADDR, "headset-head-unit"),
+            node(6, "p", "Audio/Sink", ADDR, "headset-head-unit")
+        );
+        assert_eq!(phone_streams(&dev, ADDR).to_phone.unwrap().id, 6);
     }
 
     #[test]
-    fn the_loopbacks() {
-        let n = PhoneNodes {
-            voice: Some("v".into()),
-            to_phone: Some("p".into()),
+    fn the_pins() {
+        let s = PhoneStreams {
+            voice: Some(Node {
+                id: 121,
+                name: "v".into(),
+            }),
+            to_phone: Some(Node {
+                id: 122,
+                name: "p".into(),
+            }),
         };
         assert_eq!(
-            loopbacks("mic", None, &n),
-            vec![
-                vec![
-                    "-n",
-                    "f250-call-mic",
-                    "-c",
-                    "1",
-                    "-m",
-                    "[ MONO ]",
-                    "-C",
-                    "mic",
-                    "-P",
-                    "p"
-                ],
-                vec![
-                    "-n",
-                    "f250-call-voice",
-                    "-c",
-                    "1",
-                    "-m",
-                    "[ MONO ]",
-                    "-C",
-                    "v"
-                ],
-            ]
+            pins("mic", None, &s),
+            vec![vec!["122", "target.object", "mic"]],
+            "the voice is WirePlumber's choice without a speaker"
         );
-        assert_eq!(loopbacks("mic", Some("dac"), &n)[1].last().unwrap(), "dac");
+        assert_eq!(
+            pins("mic", Some("dac"), &s)[1],
+            vec!["121", "target.object", "dac"]
+        );
     }
 }
