@@ -2723,3 +2723,36 @@ listed them, sorted by name, with the Call buttons dimmed and "Calls
 stay on the phone: no call microphone is configured." under them.
 Still UNVERIFIED: which vCard version the phone sent (not inspected), and
 whether the phone asks again after a reboot of either side.
+
+## 2026-11-14 — Calls turned on with the C920's microphone (256cda1, d048782, and the calls-config fix) [BENCH]
+
+The owner asked for the call microphone to be set up so calls can be made;
+the bench Pi's only microphone is the C920 webcam's (the owner's choice for
+a bench test; the DAC arrives in two days, so the caller can't be heard on
+the bench yet; echo cancellation after a first call).
+
+- **The deploy of 256cda1 left audio-manager failing**: audio-start ran
+  `${AUDIO_CALL_MIC//[[:space:]]/}` under `set -u` on a settings file
+  without that line; bash 5 stops on it ("unbound variable"), the Mac's
+  bash 3.2 doesn't, so `make agl-test` passed. About a minute without
+  Bluetooth audio; fixed in d048782 (and a check that the wrappers never
+  substitute on a setting), redeployed: all units running, `--check`
+  clean.
+- **Turning calls on** (`/etc/default/f250` backed up as
+  `f250.pre-calls`; `AUDIO_CALL_MIC=alsa_input.usb-046d_HD_Pro_Webcam_C920_…`
+  added): `systemctl restart f250-calls-config` hung, the unit (ordered
+  before wireplumber@bluetooth) waiting on WirePlumber's restart, which
+  waited on the unit. `systemctl kill` cleared it; the script now restarts
+  with `--no-block` and finished at once. WirePlumber's Bluetooth instance
+  came back with `61-f250-calls.conf`; `org.pipewire.Telephony` is on the
+  system bus. audio-manager runs with `--call-mic` and the ring tone through
+  `pw-play`.
+- **The phone needed to reconnect** to open hands-free: the Fold8 was
+  connected (A2DP) from before. `bluetoothctl disconnect`/`connect` from the
+  Pi; audio-manager also reconnected it by itself. Then the gateway was
+  there (`AudioGateway1`, its call audio link `idle`) and the Phones view
+  said "Calls on Darick's Z Fold8 come to the truck."
+
+Not yet: a call. The owner places the first one (below, when done).
+To turn calls off: `cp -p /etc/default/f250.pre-calls /etc/default/f250`,
+then `systemctl restart f250-calls-config f250-audio-manager`.
