@@ -95,7 +95,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
         sim gateway navigation audio route-region search-region map-test-pattern map-region map-assets map-stick map-import-dev map-check console docs-lint \
         pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can \
         agl-test agl-image deploy deploy-build logs build-vm agl-build \
-        mech-test mech-stl
+        mech-test mech-fusion mech-stl
 
 help: ## List targets
 	@grep -hE '^[a-z][a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -334,17 +334,21 @@ logs: ## Collect logs and state from the AGL Pi into build/logs/: make logs PI=<
 	tools/dev/logs.sh "$(PI)"
 
 # ---- Mechanical (Phase 7); mechanical/head-unit, ADR-0047 -------------------
+# The model is built in Autodesk Fusion from mechanical/head-unit/parameters.json.
+# mech-fusion and mech-stl need Fusion running with its MCP server on
+# (http://127.0.0.1:27182/mcp; FUSION_MCP overrides).
 
-OPENSCAD ?= $(shell command -v openscad 2>/dev/null || ls /Applications/OpenSCAD*.app/Contents/MacOS/OpenSCAD 2>/dev/null | head -1)
-MECH_PARTS := glass_template rail_left rail_right
+MECH_DIR := mechanical/head-unit
+FUSION   := python3 -I tools/mechanical/fusion_mcp.py
 
-mech-test: ## Check the head unit model's numbers against the display's drawing (no OpenSCAD needed)
+mech-test: ## Check the head unit's parameters against the display's drawing (no Fusion needed)
 	python3 -I tools/mechanical/check_head_unit.py
 
-mech-stl: ## Render the head unit's printable parts into build/mechanical/ (needs OpenSCAD)
-	@[[ -n "$(OPENSCAD)" ]] || { echo "mech-stl: OpenSCAD not found (set OPENSCAD=/path/to/openscad); see mechanical/head-unit/README.md" >&2; exit 1; }
+mech-fusion: ## Build the head unit parts in the open, empty Fusion design, then check what Fusion built
+	$(FUSION) script $(MECH_DIR)/build_head_unit.py --params $(MECH_DIR)/parameters.json
+	python3 -I tools/mechanical/check_head_unit.py --fusion
+
+mech-stl: ## Export the printable parts from Fusion into build/mechanical/ and check the STLs
 	@mkdir -p build/mechanical
-	@for p in $(MECH_PARTS); do \
-	  echo "==> build/mechanical/$$p.stl"; \
-	  "$(OPENSCAD)" -q -D "part=\"$$p\"" -o "build/mechanical/$$p.stl" mechanical/head-unit/head_unit.scad || exit 1; \
-	done
+	$(FUSION) script $(MECH_DIR)/export_head_unit.py --ro --set OUT_DIR=$(ROOT)/build/mechanical
+	python3 -I tools/mechanical/check_head_unit.py --fusion --stl build/mechanical

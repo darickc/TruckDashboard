@@ -1,0 +1,48 @@
+{
+  "about": "F-250 head unit: the 7-inch display flush behind the radio opening (ADR-0047). Millimetres, seen from the driver's seat: origin at the cover glass's bottom-left corner on its front face, X right, Y up, Z into the dash. Each expr is a Fusion user-parameter expression in mm, evaluated in order; build_head_unit.py turns them into user parameters and dimensioned sketches. Display numbers: drawing LMD-D/5624/KIT-LC-V3 rev 003 (Raspberry Pi RP-008246-DS), whose back view is mirrored. Status: DESIGN, NOT FITTED.",
+  "parameters": [
+    {"name": "glass_w", "expr": "192.96", "comment": "cover glass (LENS), drawing"},
+    {"name": "glass_h", "expr": "110.76", "comment": "cover glass (LENS), drawing"},
+    {"name": "glass_t", "expr": "0.7", "comment": "glass thickness (0.7 +-0.1 on the side view); reference body only"},
+    {"name": "module_t", "expr": "5.96", "comment": "glass front to the metal back, drawing"},
+    {"name": "va_w", "expr": "154.88", "comment": "touch viewable area (TP V.A) +-0.15, drawing"},
+    {"name": "va_h", "expr": "86.72", "comment": "touch viewable area (TP V.A) +-0.15, drawing"},
+    {"name": "va_right", "expr": "19.04", "comment": "viewable area from the glass's right (and left) edge, drawing"},
+    {"name": "va_top", "expr": "11.01", "comment": "viewable area from the glass's top edge, drawing"},
+    {"name": "va_x", "expr": "glass_w - va_w - va_right", "comment": "viewable area's left edge"},
+    {"name": "va_y", "expr": "glass_h - va_h - va_top", "comment": "viewable area's bottom edge (13.03)"},
+    {"name": "frame_w", "expr": "166.2", "comment": "metal back envelope, drawing"},
+    {"name": "frame_h", "expr": "100.6", "comment": "metal back, drawing"},
+    {"name": "frame_right", "expr": "11.89", "comment": "metal back from the glass's right edge (the back view's left), drawing"},
+    {"name": "frame_x", "expr": "glass_w - frame_right - frame_w", "comment": "metal back's left edge"},
+    {"name": "frame_y", "expr": "3.53", "comment": "metal back above the glass's bottom edge, drawing"},
+    {"name": "m3_edge", "expr": "20", "comment": "M3 holes in from the metal back's right edge and bottom, drawing"},
+    {"name": "m3_pitch_x", "expr": "126.2", "comment": "M3 holes apart, drawing"},
+    {"name": "m3_pitch_y", "expr": "65.65", "comment": "M3 holes apart, drawing"},
+    {"name": "m3_x1", "expr": "frame_x + frame_w - m3_edge", "comment": "right-hand M3 holes"},
+    {"name": "m3_x0", "expr": "m3_x1 - m3_pitch_x", "comment": "left-hand M3 holes"},
+    {"name": "m3_y0", "expr": "frame_y + m3_edge", "comment": "lower M3 holes"},
+    {"name": "m3_y1", "expr": "m3_y0 + m3_pitch_y", "comment": "upper M3 holes"},
+
+    {"name": "m3_clear", "expr": "3.4", "comment": "M3 clearance hole"},
+    {"name": "m3_head_d", "expr": "6", "comment": "counterbore for an M3 head"},
+    {"name": "m3_head_h", "expr": "3", "comment": "counterbore depth"},
+    {"name": "insert_d", "expr": "4", "comment": "M3 heat-set insert hole (set for the inserts bought)"},
+    {"name": "insert_h", "expr": "5", "comment": "insert hole depth: insert length + 1"},
+
+    {"name": "template_t", "expr": "1.2", "comment": "glass template thickness"},
+    {"name": "template_gap", "expr": "5", "comment": "template drawn this far in front of the glass (view only)"},
+    {"name": "notch_w", "expr": "6", "comment": "template's top-edge notch: this side up"},
+    {"name": "notch_h", "expr": "3", "comment": "template's top-edge notch depth"},
+
+    {"name": "rail_t", "expr": "6", "comment": "rail thickness; the display's M3 screws pass through it"},
+    {"name": "rail_half", "expr": "9", "comment": "rail reaches this far inboard of the display's M3 holes"},
+    {"name": "ear_w", "expr": "14", "comment": "ear beyond the glass's side edge for the truck's brackets (example until H35)"},
+    {"name": "ear_insert_y0", "expr": "20", "comment": "ear inserts this far from the bottom and the top"},
+    {"name": "box_insert_y0", "expr": "7", "comment": "rear-box inserts this far from the bottom and the top"},
+    {"name": "rail_l_in", "expr": "m3_x0 + rail_half", "comment": "left rail's inner edge"},
+    {"name": "rail_r_in", "expr": "m3_x1 - rail_half", "comment": "right rail's inner edge"},
+    {"name": "box_l_x", "expr": "(rail_l_in + frame_x) / 2", "comment": "left rail's rear-box inserts"},
+    {"name": "box_r_x", "expr": "(rail_r_in + frame_x + frame_w) / 2", "comment": "right rail's rear-box inserts"}
+  ]
+}

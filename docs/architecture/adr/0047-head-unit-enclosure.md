@@ -1,8 +1,9 @@
 # ADR 0047 — The head unit's enclosure: the display flush behind the dash, a printed box, the amplifier outside it
 
 - **Status:** Proposed (owner asked, 2026-11-15: "Start working on the truck
-  installation"). Design only: nothing printed, fitted or measured on the
-  truck. The display's numbers come from its drawing; the truck's are TODO
+  installation"; in Fusion: "I would prefer it done in fusion"). Design
+  only: built in Fusion and checked against the drawing [SIM]; nothing
+  printed, fitted or measured on the truck. The display's numbers come from its drawing; the truck's are TODO
   ([H34–H37](../../hardware/open-questions.md)).
 - **Date:** 2026-11-15
 - **Relates to:** [ADR-0013](0013-dcdc-usb-power-supply.md) (power),
@@ -72,12 +73,20 @@ Facts used (sources and status in the
    with slots, so the glass can be drawn forward against the dash. They bolt
    to the radio opening's own mounting points, as the Miata build does. Their
    shape waits for H35.
-3. **Flat parts, a parametric model, checked numbers.**
-   [`mechanical/head-unit/head_unit.scad`](../../../mechanical/head-unit/head_unit.scad)
-   (OpenSCAD) holds every dimension, with the drawing's numbers converted to
-   front-view coordinates. `make mech-test` checks them against the drawing
-   and each other without OpenSCAD. `make mech-stl` renders the parts. The
-   first parts are the **glass template** and the **rails**. The template is
+3. **Flat parts, a parametric Fusion model, checked numbers.** The owner
+   designs in Autodesk Fusion (2026-11-15).
+   [`mechanical/head-unit/parameters.json`](../../../mechanical/head-unit/parameters.json)
+   holds every dimension as a Fusion parameter expression, with the drawing's
+   numbers converted to front-view coordinates.
+   [`build_head_unit.py`](../../../mechanical/head-unit/build_head_unit.py),
+   a Fusion API script, turns them into user parameters and fully constrained
+   sketches driven by them, so the owner can change a parameter in Fusion and
+   the parts follow. `make mech-fusion` runs it through Fusion's local MCP
+   server. It then checks each body's size, place and volume against the
+   parameters, that every sketch is fully constrained, and the timeline.
+   `make mech-stl` exports and checks the STLs. `make mech-test` checks the
+   parameters against the drawing without Fusion. The first parts are the
+   **glass template** and the **rails**. The template is
    the glass's outline with the viewable area cut out, 1.2 mm thick, to hold
    behind the dash. The side brackets and the rear box come after the
    measurements. Parts print flat on their largest face and join with M3
@@ -163,6 +172,9 @@ Facts used (sources and status in the
   the Bluetooth and GPS checked with it plugged in.
 
 ## Rejected
+
+- **OpenSCAD.** The first draft (f5687c1) was OpenSCAD. The owner prefers
+  Fusion, and Fusion's model stays editable there with its parameters.
 
 - **Clamping the glass at its edges.** That puts stress on the glass and its
   bond; the display has M3 holes for mounting.

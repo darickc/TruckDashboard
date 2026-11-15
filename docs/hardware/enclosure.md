@@ -3,7 +3,8 @@
 **Status: DESIGN, NOT FITTED.** Nothing here has been printed, held against
 the truck or screwed to the display. Decision:
 [ADR-0047](../architecture/adr/0047-head-unit-enclosure.md). Model:
-[`mechanical/head-unit/`](../../mechanical/head-unit/README.md).
+[`mechanical/head-unit/`](../../mechanical/head-unit/README.md) (Autodesk Fusion,
+built from `parameters.json` by a Fusion script).
 
 ## The idea
 
@@ -85,8 +86,8 @@ ruler in view. Put the numbers in
 
 | Part | Status | Printing |
 |---|---|---|
-| Glass template | Drawn; prints now | ASA, PETG or PLA (it's a gauge); flat, 1.2 mm |
-| Rails (left, right) | Drawn; ears are an example until H35 | ASA; front face (against the display) on the bed; 4 walls, 40 % infill or more |
+| Glass template | Modelled in Fusion; prints now (`make mech-stl`) | ASA, PETG or PLA (it's a gauge); flat, 1.2 mm |
+| Rails (left, right) | Modelled in Fusion; ears are an example until H35 | ASA; front face (against the display) on the bed; 4 walls, 40 % infill or more |
 | Side brackets | Waits for H35 (mounting points) | ASA; flat |
 | Rear box | Waits for H35, the DAC8x and the NVMe board fitted together (H4) | ASA; flat panels, M3 inserts at the joints |
 | Amplifier bracket | Waits for H37 (where it goes) | ASA; flat |
@@ -95,7 +96,7 @@ ruler in view. Put the numbers in
 point. PETG only after a summer test in the cab. Print the template in
 anything.
 
-**Hardware (example sizes; set them in the model for what you buy):**
+**Hardware (example sizes; set `insert_d` and the screw sizes in Fusion's parameters, and in `parameters.json`, for what you buy):**
 
 - M3 socket or pan-head screws, 6–12 mm
 - M3 heat-set inserts (the model's holes: 4.0 mm across, 5 mm deep)
