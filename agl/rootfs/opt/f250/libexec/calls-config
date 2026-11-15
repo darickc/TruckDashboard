@@ -5,7 +5,7 @@
 # the drop-in, and calls stay on the phone. Restarts WirePlumber's Bluetooth
 # instance when that changed while it runs. Run by f250-calls-config.service
 # before WirePlumber at boot; after changing AUDIO_CALL_MIC:
-#   systemctl restart f250-calls-config f250-audio-manager
+#   systemctl restart f250-calls-config f250-echo-cancel f250-audio-manager
 #
 # F250_CALLS_SRC, F250_CALLS_DST and F250_SYSTEMCTL are for the tests.
 set -euo pipefail

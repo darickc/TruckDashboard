@@ -21,7 +21,10 @@
 //! once they are linked: on the bench, with no sink at all (no DAC yet), the
 //! transport stayed "pending" for a whole call and nothing was heard.
 //!
-//! No echo cancellation yet (WebRTC isn't in the image: spike S3). Status:
+//! Echo cancellation is outside this service: on the image, `--call-mic` is
+//! the source of f250-echo-cancel.service's WebRTC canceller
+//! (`f250.call-aec`, ADR-0045 amendment 2026-11-14b), pinned like any
+//! microphone. Status:
 //! the stream matching is tested on pw-dump output shaped like the bench's
 //! [SIM]; `target.object` pinning is UNVERIFIED until a bench call with a
 //! sink.

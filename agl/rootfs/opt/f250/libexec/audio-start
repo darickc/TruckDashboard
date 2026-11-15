@@ -36,6 +36,9 @@
 #                       microphone, a PipeWire source's node.name. Empty: off,
 #                       calls stay on the phone (f250-calls-config offers
 #                       phones a hands-free unit from the same setting).
+#   AUDIO_CALL_ECHO_CANCEL  1 (or empty): the phone gets the microphone
+#                       through f250-echo-cancel.service's WebRTC canceller
+#                       (--call-mic f250.call-aec). 0: the microphone as it is.
 #   AUDIO_CALL_SPEAKER  where the caller's voice goes (a sink's node.name;
 #                       empty: the default sink).
 #   AUDIO_RING_COMMAND  the ring tone's player for a phone that doesn't ring
@@ -106,7 +109,13 @@ esac
 # setting.
 call_mic="${AUDIO_CALL_MIC:-}"
 if [[ -n "${call_mic//[[:space:]]/}" && "${AUDIO_SIMULATE:-0}" != 1 ]]; then
-  args+=(--call-mic "$AUDIO_CALL_MIC")
+  # The echo canceller's source (/opt/f250/libexec/echo-cancel-start), or
+  # the microphone itself.
+  case "${AUDIO_CALL_ECHO_CANCEL:-1}" in
+    1) args+=(--call-mic f250.call-aec) ;;
+    0) args+=(--call-mic "$AUDIO_CALL_MIC") ;;
+    *) echo "audio-start: AUDIO_CALL_ECHO_CANCEL=$AUDIO_CALL_ECHO_CANCEL: use 0 or 1" >&2; exit 2 ;;
+  esac
   [[ -n "${AUDIO_CALL_SPEAKER:-}" ]] && args+=(--call-speaker "$AUDIO_CALL_SPEAKER")
   case "${AUDIO_RING_COMMAND:-}" in
     none) ;;

@@ -41,6 +41,8 @@ IMAGE_INSTALL += " \
     pipewire-tools \
     wireplumber-config-agl \
     wireplumber-policy-config-agl \
+    pipewire-modules-echo-cancel \
+    pipewire-spa-plugins-aec-webrtc \
     flite \
 "
 
@@ -75,6 +77,14 @@ IMAGE_INSTALL += " \
 # live. audio-manager runs `pipewire -c` for the speakers' filter-chain.
 # Names from the 22.0.1 tree's recipes and build's deploy/rpm; UNVERIFIED in
 # a meta-f250 build until the next `make agl-build`.
+#
+# Echo cancellation for phone calls (ADR-0045 decision 3):
+# pipewire-modules-echo-cancel and the WebRTC canceller,
+# pipewire-spa-plugins-aec-webrtc, which meta-f250's pipewire bbappend builds
+# (AGL's PACKAGECONFIG leaves it out). pipewire-spa-plugins-meta would pull
+# both in; they are named so the build fails if the canceller goes missing.
+# f250-echo-cancel.service runs it. Built 2026-11-14 (bitbake pipewire:
+# pipewire-spa-plugins-aec-webrtc, needing webrtc-audio-processing-2 2.1).
 #
 # flite: Flite+hts_engine 1.06 from meta-agl-demo (BSD-3-Clause; its
 # flite-voicedata voice is CC-BY-3.0), audio-manager's voice for spoken

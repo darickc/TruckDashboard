@@ -1,0 +1,67 @@
+# Echo cancellation for phone calls (ADR-0045 decision 3): PipeWire's
+# echo-cancel module with the WebRTC canceller between the call microphone
+# and the phone, the speakers' monitor as its reference
+# (/opt/f250/libexec/echo-cancel-start). Started by
+# f250-audio-manager.service; it exits at once, doing nothing, when calls
+# are off (no AUDIO_CALL_MIC) or AUDIO_CALL_ECHO_CANCEL=0.
+#
+# A client of the system PipeWire at /run/pipewire/pipewire-0, like
+# audio-manager's filter-chain: group pipewire and PIPEWIRE_RUNTIME_DIR,
+# real-time allowed for its audio thread (module-rt) within LimitRTPRIO.
+# Nothing in the graph runs until a call takes its source: the microphone's
+# capture is passive.
+#
+# Nothing here touches the vehicle bus (ADR-0007).
+#
+# Status: [SIM] (make agl-test). UNVERIFIED on the Pi (spike S3).
+[Unit]
+Description=F-250 echo cancellation for calls (WebRTC)
+Wants=pipewire.socket
+After=pipewire.socket f250-calls-config.service
+
+[Service]
+Type=simple
+User=f250
+Group=f250
+SupplementaryGroups=pipewire
+EnvironmentFile=-/etc/default/f250
+Environment=PIPEWIRE_RUNTIME_DIR=/run/pipewire
+ExecStart=/opt/f250/libexec/echo-cancel-start
+Restart=on-failure
+RestartSec=5
+UMask=0077
+RuntimeDirectory=f250-echo-cancel
+RuntimeDirectoryMode=0700
+LimitRTPRIO=88
+LimitNICE=-11
+
+# Sandbox (ADR-0021), as audio-manager's without its input devices: no
+# network (PipeWire's socket is a unix socket on the filesystem), group
+# pipewire mapped (no PrivateUsers), real-time allowed (no RestrictRealtime,
+# no ~@resources).
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any

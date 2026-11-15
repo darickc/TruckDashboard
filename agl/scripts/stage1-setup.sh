@@ -545,8 +545,9 @@ apply() {
     sys systemctl disable "$DEMO_HOMESCREEN"; echo "  disabled $DEMO_HOMESCREEN"
   fi
   sys systemctl enable "${F250_UNITS[@]}"
-  # Hands-free on or off (AUDIO_CALL_MIC) before audio-manager starts again.
-  sys systemctl restart f250-calls-config.service
+  # Hands-free on or off (AUDIO_CALL_MIC) and its echo canceller, before
+  # audio-manager starts again.
+  sys systemctl restart f250-calls-config.service f250-echo-cancel.service
   sys systemctl restart f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service f250-navigation.service f250-usb-export.service f250-audio-manager.service f250-knob-link.service
   # agl-compositor 0.0.24 takes one homescreen client per run: a second one
   # (a restarted dashboard, or ours after the demo's) makes it abort. Stop

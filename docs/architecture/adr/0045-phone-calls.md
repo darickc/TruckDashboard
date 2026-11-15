@@ -32,7 +32,8 @@ display's microphone. Today audio-manager offers phones only an A2DP sink:
 | The native backend, in the Hands-Free role, runs a **Telephony D-Bus service** (`org.pipewire.Telephony`): `AudioGateway1` per phone (`Dial`, `HangupAll`, `SwapCalls`, `HoldAndAnswer`, `ReleaseAndAnswer`, `SendTones`, …) and `Call1` per call (`Answer`, `Hangup`; properties `State` — incoming, dialing, alerting, active, held, waiting, disconnected — `LineIdentification`, `Name`, `Multiparty`), announced through ObjectManager; ofono-compatible interfaces too | PipeWire 1.6.8 `spa/plugins/bluez5/README-Telephony.md` | Verified from source |
 | It is on the session bus unless `bluez5.telephony.use-system-bus = true`; `bluez5.telephony-dbus-service = false` turns it off; `bluez5.telephony.default-reject-sco` | 1.6.8 `spa/plugins/bluez5/telephony.c` | Verified from source |
 | oFono 2.19 is installed and disabled; `/usr/share/dbus-1/system.d/ofono.conf` exists; nothing for `org.pipewire.Telephony` | the bench Pi | Verified |
-| PipeWire's echo-cancel module is installed, but only the **null** canceller (`libspa-aec-null.so`): AGL's `pipewire_1.%.bbappend` replaces PACKAGECONFIG without `webrtc-echo-cancelling`. The recipe has it (`-Decho-cancel-webrtc`, needs `webrtc-audio-processing-2`, which meta-multimedia has, 2.1) | the bench Pi; `meta-agl/meta-pipewire/…/pipewire_1.%.bbappend`; meta-oe `pipewire_1.6.8.bb` | Verified |
+| PipeWire's echo-cancel module is installed, but only the **null** canceller (`libspa-aec-null.so`): AGL's `pipewire_1.%.bbappend` replaces PACKAGECONFIG without `webrtc-echo-cancelling`. The recipe has it (`-Decho-cancel-webrtc`, needs `webrtc-audio-processing-2`, which meta-multimedia has, 2.1) | the bench Pi; `meta-agl/meta-pipewire/…/pipewire_1.%.bbappend`; meta-oe `pipewire_1.6.8.bb` | Verified; meta-f250 adds it back (amendment 2026-11-14b) |
+| PipeWire 1.6.8's echo-cancel module: `monitor.mode` captures the default sink's monitor (or a `target.object`) as the reference instead of making a sink; the capture stream is passive by default; `library.name` defaults to `aec/libspa-aec-webrtc`. The WebRTC plugin (webrtc-audio-processing 2.x) defaults: high-pass filter and noise suppression on, gain control off | 1.6.8 `src/modules/module-echo-cancel.c`, `spa/plugins/aec/aec-webrtc.cpp` | Verified from source |
 | The controller is a BCM4345C0 (CYW43455) on the UART (`hci_uart_bcm`, `brcm/BCM4345C0.hcd`) | the bench Pi's kernel log | Verified |
 | SCO reaches the host over HCI on this chip, with no vendor command: eSCO, transparent air mode (mSBC), about 133 packets a second each way; the forum claim that it goes to the PCM pins by default doesn't hold here (kernel 6.18.33, BCM4345C0 003.001.025) | btmon on the bench Pi during calls to the owner's Z Fold8, 2026-11-14 | [BENCH] |
 | BlueZ 5.86's own Hands-Free unit (`profiles/audio/hfp-hf.c`, profile `hfp`, experimental) comes on with `--experimental`, competes with PipeWire's for the phone's gateway, and on its own connected to the owner's phone with the shipped config (a phone would then route calls to a truck with no call audio) | bluez-5.86 source; the bench Pi, 2026-11-14 | [BENCH]; `--noplugin=hfp` shipped (ADR-0042 amended) |
@@ -381,4 +382,42 @@ test; the DAC not yet here; echo cancellation after a first call).
      appears (upstream behaviour): the bench keeps its null sink.
 4. Still to do: hear the caller (the DAC), echo cancellation (S3), the
    truck's microphone (S4 or a USB microphone near the driver).
+
+## Amendment, 2026-11-14b: echo cancellation in the image `[SIM]`
+
+The owner asked for the echo canceller to be built into the image, ahead
+of S3's bench checks.
+
+1. **Built:** `meta-f250/recipes-multimedia/pipewire/pipewire_%.bbappend`
+   adds `webrtc-echo-cancelling` back to PipeWire's PACKAGECONFIG (after
+   AGL's replacement). `bitbake pipewire` in the build VM (2026-11-14) gave
+   `-Decho-cancel-webrtc=enabled` and `pipewire-spa-plugins-aec-webrtc`
+   (`/usr/lib/spa-0.2/aec/libspa-aec-webrtc.so`, needing
+   `webrtc-audio-processing-2` 2.1). `agl-f250-base.inc` installs it and
+   `pipewire-modules-echo-cancel` by name.
+2. **Decision: the echo-cancel module in monitor mode, in a unit of its
+   own.** `f250-echo-cancel.service` (user f250, a client of the system
+   PipeWire like the speakers' filter-chain) runs
+   `/opt/f250/libexec/echo-cancel-start`, which writes the module's
+   configuration from `/etc/default/f250`: capture `AUDIO_CALL_MIC`
+   (passive, so the microphone and the canceller run only while a call
+   takes the source), the reference from the monitor ports of
+   `AUDIO_DAC_NODE` (the default sink without one), mono at 48 kHz, the
+   WebRTC module's defaults. audio-start then passes the module's source,
+   `f250.call-aec`, as `--call-mic`, so audio-manager's pin and mute act on
+   the cleaned signal; `AUDIO_CALL_ECHO_CANCEL=0` gives the phone the
+   microphone itself. Started by `f250-audio-manager.service`; it exits
+   doing nothing when calls are off.
+   - Monitor mode, not the module's own sink: the reference is everything
+     the speakers play (the caller, a ring tone), and the caller's voice
+     keeps AGL's Communication route; pinning the voice to a sink lost to
+     AGL's role routing on the bench (amendment above).
+   - Its own unit, not audio-manager's child: nothing in it changes during
+     a call, systemd restarts it, and audio-manager needs no new code.
+3. **UNVERIFIED until S3 on the bench, with the DAC:** that WirePlumber
+   links the reference stream to the DAC's monitor under AGL's policy
+   (`stream.capture.sink`; AGL's role rules skip monitor streams in
+   `lutils.is_role_policy_target`), that the far end hears no echo at a
+   normal volume, the CPU it costs on the Pi 5, and muting the module's
+   source. Not yet in a built image (the next `make agl-build`).
 

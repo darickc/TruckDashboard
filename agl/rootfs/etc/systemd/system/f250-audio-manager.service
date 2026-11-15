@@ -27,6 +27,10 @@
 # leaves /run readable). bluetoothd runs with --experimental for the
 # player's ObexPort (bluetooth.service.d/50-f250.conf).
 #
+# Calls (ADR-0045): the phone gets the call microphone through
+# f250-echo-cancel.service's WebRTC canceller (its source f250.call-aec),
+# started with this unit; audio-start names it with --call-mic.
+#
 # The volume knob (ADR-0043): audio-manager reads /dev/input/event* (group
 # input, read-only) for the volume keys, play/pause and REL_DIAL, as
 # power-manager reads the power key. Which knob is TODO.
@@ -39,8 +43,8 @@
 # the filter-chain keeps up without xruns.
 [Unit]
 Description=F-250 audio manager (Bluetooth audio, speaker DSP)
-Wants=bluetooth.service pipewire.socket f250-obexd.service f250-calls-config.service
-After=bluetooth.service pipewire.socket dbus.service f250-obexd.service f250-calls-config.service
+Wants=bluetooth.service pipewire.socket f250-obexd.service f250-calls-config.service f250-echo-cancel.service
+After=bluetooth.service pipewire.socket dbus.service f250-obexd.service f250-calls-config.service f250-echo-cancel.service
 
 [Service]
 Type=notify

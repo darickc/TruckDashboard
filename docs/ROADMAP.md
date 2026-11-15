@@ -340,7 +340,13 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       WirePlumber's policy instance stopped linking all audio after a deploy (2026-11-15): an upstream 0.5.14 bug made
       fatal by an AGL patch; fixed `[BENCH]` with backported linking scripts, and audio-manager now puts call or music
       audio left unlinked in the banner ("Audio not playing", `[SIM]`) (bench-log 2026-11-15, ADR-0045 amendment 3).
-      Next: S2 with audio-manager on the bench (and PBAP with the owner's phone), then the packaging; S3/S4 after
+      Echo cancellation in the image `[SIM]` (ADR-0045 amendment 2026-11-14b): meta-f250 builds PipeWire with WebRTC
+      (`pipewire-spa-plugins-aec-webrtc`, built in the VM); `f250-echo-cancel.service` runs the echo-cancel module in
+      monitor mode, the microphone in, the speakers' monitor (`AUDIO_DAC_NODE`) as the reference, and the phone gets
+      its source `f250.call-aec` (`AUDIO_CALL_ECHO_CANCEL=0`: the microphone as it is). Not yet in a built image or on
+      the bench: the links under AGL's policy, the far end's echo and the CPU are S3's checks.
+      Next: S2 with audio-manager on the bench (and PBAP with the owner's phone), then the packaging; S3 on the next
+      image (with the DAC); S4 after
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
       JSON and tracks the position honestly (status, the last fix with its age, never stale as current); 23 tests,
       with gpsd 3.27.5's own output from synthetic NMEA as the test vectors. `services/navigation` serves
