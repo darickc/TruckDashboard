@@ -2787,5 +2787,7 @@ numbers).
   pin) and `bluez_input…:output_FL/FR →
   input.loopback.sink.role.communication` (AGL's role routing: it won over
   the voice's `target.object` pin, so `AUDIO_CALL_SPEAKER` has no effect
-  under AGL's policy), then eq-sink. Whether the far end heard the C920:
-  the owner's answer below.
+  under AGL's policy), then eq-sink. **The far end heard the C920** (the
+  owner, on the phone called): the microphone path works end to end
+  through the Pi. The caller's voice reached the Pi's graph (the stream
+  ran) but wasn't heard: no DAC yet.

@@ -350,7 +350,8 @@ test; the DAC not yet here; echo cancellation after a first call).
    phone (`Stream/Input/Audio`, `bluez_output.<addr>.1`), `media.role`
    Communication, made when the phone opens SCO. WirePlumber links them like
    an application's; audio-manager pins the input to `AUDIO_CALL_MIC` with
-   `target.object` (verified: the C920 was linked to the phone). The
+   `target.object` (verified: the C920 was linked to the phone, and the
+   far end heard it, 2026-11-15). The
    voice's pin to `AUDIO_CALL_SPEAKER` loses to AGL's role routing (the
    Communication role loopback, then the EQ), so the caller's voice follows
    AGL's Communication route: the DAC's, once it is there. No loopbacks.
