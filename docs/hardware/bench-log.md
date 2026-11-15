@@ -2878,3 +2878,15 @@ owner's phone while linking is broken [SIM only].
 Bench left: the scripts in `/usr/local/share/wireplumber`, the null sink
 recreated as before (the default sink again), stock log level, test files
 removed.
+
+## 2026-11-15 — Main (b7794f2) deployed on the bench Pi [BENCH]
+
+`make deploy` of b7794f2 (pushed to origin): the files already matched what
+the WirePlumber session had deployed before committing (only the
+dashboard's `config.toml` reinstalled); the deploy restarted the services
+as usual. All units running, none failed; `stage1-setup.sh --check`: all
+checks passed. After the restarts: no `wp_properties_get` assertion in
+`wireplumber@policy`'s journal, and a new stream (a short silent `pw-play`
+into `f250-bench-null`) linked and played. Calls still on (C920 as
+`AUDIO_CALL_MIC`), the Fold8's hands-free gateway present, its 202
+contacts and 100 recent calls read again.
