@@ -2919,7 +2919,8 @@ kept, `f250-echo-cancel.service` and the helpers installed.
   hides `/proc/cpuinfo`); audio-manager's `pw-metadata` logs the same.
 
 Not tested: a call through the canceller (the far end's echo, muting
-`f250.call-aec`, its CPU during a call). Found: the reference follows
-`AUDIO_DAC_NODE` (or the default sink) while the caller's voice goes to
-`AUDIO_CALL_SPEAKER`; on this bench that is `f250-bench-null`, so the
-reference would not hear the caller. On the truck both should be the DAC.
+`f250.call-aec`, its CPU during a call). The reference does hear the caller
+here: the voice's pin to `AUDIO_CALL_SPEAKER` (`f250-bench-null` on this
+bench) loses to AGL's role routing, so the voice goes through the
+Communication loopback into `eq-sink` (ADR-0045, 2026-11-15), the sink whose
+monitor the reference captures. Not observed in a call yet.
