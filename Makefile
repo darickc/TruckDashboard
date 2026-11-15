@@ -94,7 +94,8 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
         sim gateway navigation audio route-region search-region map-test-pattern map-region map-assets map-stick map-import-dev map-check console docs-lint \
         pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can \
-        agl-test agl-image deploy deploy-build logs build-vm agl-build
+        agl-test agl-image deploy deploy-build logs build-vm agl-build \
+        mech-test mech-stl
 
 help: ## List targets
 	@grep -hE '^[a-z][a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | \
@@ -116,7 +117,7 @@ doctor: ## Print tool versions without installing anything
 
 # ---- aggregate --------------------------------------------------------------
 
-test: fw-test knob-test sim-test rust-test ui-test agl-test ## Run every test available in this environment
+test: fw-test knob-test sim-test rust-test ui-test agl-test mech-test ## Run every test available in this environment
 
 lint: docs-lint rust-lint proto-lint ui-lint ## Run every linter available
 
@@ -331,3 +332,19 @@ deploy: ## Build, copy to the AGL Pi and set up: make deploy PI=<host> (SKIP_BUI
 
 logs: ## Collect logs and state from the AGL Pi into build/logs/: make logs PI=<host>
 	tools/dev/logs.sh "$(PI)"
+
+# ---- Mechanical (Phase 7); mechanical/head-unit, ADR-0047 -------------------
+
+OPENSCAD ?= $(shell command -v openscad 2>/dev/null || ls /Applications/OpenSCAD*.app/Contents/MacOS/OpenSCAD 2>/dev/null | head -1)
+MECH_PARTS := glass_template rail_left rail_right
+
+mech-test: ## Check the head unit model's numbers against the display's drawing (no OpenSCAD needed)
+	python3 -I tools/mechanical/check_head_unit.py
+
+mech-stl: ## Render the head unit's printable parts into build/mechanical/ (needs OpenSCAD)
+	@[[ -n "$(OPENSCAD)" ]] || { echo "mech-stl: OpenSCAD not found (set OPENSCAD=/path/to/openscad); see mechanical/head-unit/README.md" >&2; exit 1; }
+	@mkdir -p build/mechanical
+	@for p in $(MECH_PARTS); do \
+	  echo "==> build/mechanical/$$p.stl"; \
+	  "$(OPENSCAD)" -q -D "part=\"$$p\"" -o "build/mechanical/$$p.stl" mechanical/head-unit/head_unit.scad || exit 1; \
+	done

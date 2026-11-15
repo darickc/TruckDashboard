@@ -49,6 +49,12 @@ At most:
 | Wiring, ferrules, grommets, a remote-turn-on lead | Install |
 | Rotary encoder (volume knob) | Into the ESP32, or into Pi GPIO |
 | USB GNSS receiver (u-blox, gpsd-compatible) | Navigation |
+| ASA (or ABS) filament | The printed enclosure ([ADR-0047](../architecture/adr/0047-head-unit-enclosure.md), [enclosure.md](enclosure.md)); not PLA |
+| M3 heat-set inserts, M3 screws (6–12 mm) | Joining the printed parts; the model's insert holes are 4.0 mm, set them for the inserts bought |
+| 1 mm closed-cell foam tape | The gasket between the glass's border and the dash |
+| Quiet 40 mm 12 V fan, inline fuse | The rear box's exhaust, on the switched 12 V |
+| Raspberry Pi 5 Active Cooler and a 16 mm stacking header with standoffs | The Pi under the DAC8x (fit UNVERIFIED) |
+| USB 2.0 hub | **Only with more than one camera** (ADR-0047 decision 6): the CAN adapter, GPS and knob on one port. USB 2 preferred over the USB 3 candidate (`B0CN3F9Y1Z`): none of these devices needs USB 3, and USB 3 adds 2.4 GHz noise near Bluetooth and the GPS |
 
 ## Stage 3 — chosen after measurement (Phase 6)
 
@@ -57,7 +63,7 @@ At most:
 | Cameras and capture hardware | UVC first; latency and driver checks ([camera policy](../architecture/camera-policy.md)) |
 | HiFiBerry DAC8x | **Chosen 2026-11-04** ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)), not bought. Pi 5 only. Check header access first ([H27](open-questions.md)) |
 | 3 × 3.5 mm TRS (stereo) → 2 × RCA male leads | Front, rear and sub from the DAC8x. Short ones if they meet longer RCA runs behind the dash; strain-relieve the jacks |
-| New 4-channel amplifier (replaces the Pioneer's built-in amp) | Owner's choice against these criteria: RCA inputs with a 4-channel input mode; about 50–75 W RMS × 4 at 4 Ω; stable at 2 Ω, in case the factory speakers are about 3 Ω ([H29](open-questions.md)); a REM input; small enough for behind the dash or under the rear seat. Crossovers can be flat (the Pi does them) |
+| New 4-channel amplifier (replaces the Pioneer's built-in amp) | **Candidate (owner, 2026-11-15): Taramps TS 400x4**, which meets these criteria (4 × 63 W at 4 Ω, 2 Ω stable, 4 RCA inputs, REM; [matrix](compatibility-matrix.md#taramps-ts-400x4-amplifier-candidate)); mounted outside the head unit box ([ADR-0047](../architecture/adr/0047-head-unit-enclosure.md)). Owner's choice against these criteria: RCA inputs with a 4-channel input mode; about 50–75 W RMS × 4 at 4 Ω; stable at 2 Ω, in case the factory speakers are about 3 Ω ([H29](open-questions.md)); a REM input; small enough for behind the dash or under the rear seat. Crossovers can be flat (the Pi does them) |
 | Amplifier power kit for the new amp | Power wire, a fuse holder within about 18 in of the battery, ground lead, ring terminals. Gauge and fuse from the chosen amp's manual. Or a distribution block with one fuse per amp, if the R150-2's feed is big enough ([H28](open-questions.md)) |
 | RCA ground-loop isolator | Only if the engine-running whine test fails ([wiring](../wiring/audio.md#alternator-whine-and-ground-loops)) |
 | Small inline fuse for the amps' REM feed | ACC goes straight to both amps' REM ([wiring](../wiring/audio.md#remote-turn-on-acc-straight-to-rem)). **No timer relay** (owner, 2026-11-09); one is only needed if the DAC8x pops at power-up with the amps on ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)) |

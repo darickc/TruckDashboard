@@ -605,6 +605,7 @@ that decision chose.
 3. **7.3** Thermal validation in a closed cab in summer, with throttle logging.
 4. **7.4** Communication stress tests: long drives, dropout injection, and recovery statistics.
 5. **7.5** An on-vehicle acceptance checklist and a troubleshooting guide.
+6. **7.6** The head unit enclosure and dash mount ([ADR-0047](architecture/adr/0047-head-unit-enclosure.md)): the display flush behind the radio opening, printed parts, the electronics' box, the amplifier's bracket.
 
 ---
 

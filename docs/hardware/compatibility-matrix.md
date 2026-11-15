@@ -107,6 +107,12 @@ recorded here yet: **TODO** (owner).
 | Enabled in AGL `config.txt` | **No.** Only `vc4-kms-v3d-pi5,cma-256`. No `display_auto_detect`. `rpi-ft5406` is commented out | V | [AGL config.txt](https://download.automotivelinux.org/AGL/release/vimba/22.0.0/raspberrypi5/deploy/images/raspberrypi5/bootfiles/config.txt) |
 | On Raspberry Pi OS Lite (trixie, kernel 6.18) | **Works with no `config.txt` change** on DSI0 (the 2026-11-02 entry said DSI1; its `dmesg` shows DSI0): picture, backlight, touch (edt_ft5x06 at I2C 10-0038), and the app fullscreen under `cage` | T | [bench-log](bench-log.md), 2026-11-02 |
 | Legacy `rpi-ft5406` needed | It shouldn't be with the KMS overlay | U | — |
+| Glass and picture | Cover glass 192.96 × 110.76; touch viewable area 154.88 × 86.72 ±0.15 (LCD active area 154.08 × 85.92), 19.04 from each side, 11.01 from the top, 13.03 from the bottom; black ink on the rest of the glass's back | V | [Mechanical drawing](https://pip.raspberrypi.com/documents/RP-008246-DS) (LMD-D/5624/KIT-LC-V3 rev 003), read 2026-11-15 |
+| Module and metal back | 5.96 thick (glass to metal back); the back is 166.2 × 100.6, 11.89 from the glass's right edge (seen from the front) and 3.53 above its bottom | V | same drawing |
+| Mounting holes | 4 × M3 in the metal back, 126.2 × 65.65 apart, 20.0 in from the back's right edge (from the front) and bottom: all behind the viewable area. 4 × M2.5 for the Pi (58 × 49). Thread depth not given ([H36](open-questions.md)) | V / U (depth) | same drawing |
+| Whole depth with the adapter board and standoffs | 20 mm in an older spec sheet ("194mm x 110mm x 20mm (including standoffs)") | U (measure) | search result only |
+| Environment and brightness | −20 to +70 °C operating, 250 cd/m², outer 192.96 × 110.76 | V | [RPi display docs](https://www.raspberrypi.com/documentation/accessories/display.html) |
+| Power | Through the supplied jumper wires from the Pi's GPIO header (5 V, GND). With the DAC8x on the header, how the display gets 5 V is part of [H27](open-questions.md) | V (docs) / U (with the DAC8x) | RPi display docs |
 
 ## Raspberry Pi 5 onboard RTC
 
@@ -298,6 +304,27 @@ Researched 2026-11-10 for front and rear recording
 | Recording plugins for the image | `gstreamer1.0-plugins-good-matroska` and `-multifile` 1.28.5-r0 are built (the build's `deploy/rpm`); matroska also needs `libgstriff-1.0-0` and `libgstpbutils-1.0-0`, not on 6114c52. Installed with `rpm -i`, they record on the Pi; in both images from `f3bf43b`; the development image, flashed, records | T | [bench-log](bench-log.md) 2026-11-10, the build's manifests |
 | camera-manager recording on the Pi (gstreamer-rs, 1.28.5) | Two webcams recorded in 10 s Matroska segments from the service's sandbox, about 1 % of one core; the window joins the running capture in 37 ms | T | [bench-log](bench-log.md) 2026-11-10 |
 | Clock sync on image 6114c52 | connman keeps the time; systemd-timesyncd isn't running, so `/run/systemd/timesync/synchronized` never appears. `timedatectl` reports synchronized | T | [bench-log](bench-log.md) 2026-11-10 |
+
+## Taramps TS 400x4 (amplifier candidate)
+
+Owner's candidate, 2026-11-15 ([ADR-0047](../architecture/adr/0047-head-unit-enclosure.md)). Sources:
+the [product page](https://taramps.com.br/en/?p=596) and the
+[manual, R02](https://www.taramps.com.br/wp-content/uploads/2022/09/MN_R02_TS-400X4_ENG.pdf),
+read 2026-11-15.
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| Power | 4 × 100 W RMS at 2 Ω, 4 × 63 W at 4 Ω, 2 × 200 W bridged at 4 Ω; at 13.8 V (manual) or 14.4 V (web), 1 kHz, THD ≤ 10 % | V | both |
+| Inputs | 4 RCA (CH1–CH4); no high-level input in the manual; 22 kΩ (manual) or 10 kΩ (web) | V / conflicting | both |
+| Sensitivity | 200 mV at full level (manual); 180 mV to 4 V (web). The DAC8x's 2.1 Vrms maximum is inside the range | V | both |
+| Crossover | A FULL/HPF/LPF switch per channel pair, 90 Hz fixed. FULL here: the Pi does the crossover | V | both |
+| Turn-on | REM terminal, 0.75 mm² (18 AWG) | V | manual |
+| Power wiring | 11 AWG (4 mm²) power and ground and a 20 A fuse near the battery, for runs up to 4 m; speakers 15 AWG | V | manual |
+| Current | Idle 0.8 A (manual) or 0.40 A (web); music 16.5 A (manual) or 19 A (web); rated 33 A (manual) or 38 A (web) | conflicting | both |
+| Size | 5.43" × 1.93" × 4.76" (138 × 49 × 121 mm, manual) or 140 × 48 × 101 mm (web) | conflicting | both |
+| Mounting | A firm place with at least 1" around the heatsink; not dusty or wet; the heatsink normally runs at 65 °C | V | manual |
+| Protection | Output short circuit and thermal shutdown | V | both |
+| Availability | One retailer lists it as discontinued; others in stock | F | search results |
 
 ## 2007 F-250 6.0L diagnostic network
 

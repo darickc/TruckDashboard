@@ -76,7 +76,8 @@ services/            Rust daemons: vehicle-gateway, recorder, power-manager, cam
 apps/infotainment/   Flutter UI, 800×480 (simulated data source today)
 simulator/           Power Stroke scenarios (f250.scenario.v1) + Dart engine; Rust transport in Phase 3
 agl/                 AGL Stage 1: release pin, boot config, rootfs files, target scripts; meta-f250 in 5.4
-tools/               pid-importer, can-monitor, search-index, diagnostics, maps/ and dev/ helpers
+tools/               pid-importer, can-monitor, search-index, diagnostics, mechanical/, maps/ and dev/ helpers
+mechanical/          printable parts (OpenSCAD): head-unit/, the display's dash mount (ADR-0047)
 docs/                architecture/ (ADRs), hardware/, wiring/, setup/, safety/, diagnostics/, esp32/
 ```
 
@@ -109,6 +110,7 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make pi-can CMD=status\|listen\|active\|down\|capture\|flash` | On the Pi: the USB CAN adapter (`tools/pi/can.sh`; listen-only unless `active`). Then `TRANSPORT=can` for `pi-run`/`pi-start`. See [docs/setup/can.md](docs/setup/can.md) |
 | `cargo run -p pid-importer -- import [--out FILE]` / `check` | The Torque export against the registry: every row in the registry, new (as `IMPORTED_UNVERIFIED`, disabled YAML) or rejected and why; `check` fails on drift. See [shared/signals/README.md](shared/signals/README.md#importing-the-torque-export) |
 | `cargo run --release -p can-monitor -- census\|pids\|correlate\|csv LOG` / `diff A B` | Analyse a `candump` capture offline (a file, or a capture folder's parts): census, PID answers decoded with the registry, broadcast-vs-PID fits, CSV, and the bits and bytes that differ between two captures. See [docs/setup/can.md](docs/setup/can.md#analysing-a-capture) |
+| `make mech-test` / `make mech-stl` | Check the head unit model's numbers against the display's drawing (no OpenSCAD) / render its parts into `build/mechanical/` (needs OpenSCAD) |
 | `make ui` / `make ui-macos-build` | Dashboard as a macOS window / just build it (needs Xcode; the Makefile sets `DEVELOPER_DIR` if `xcode-select` points at the Command Line Tools) |
 
 Also: `make proto` (regenerate the Dart gRPC client) and `make linux-test` (Rust

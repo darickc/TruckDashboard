@@ -554,3 +554,9 @@ a Phone button replaces Diagnostics on Home (before Settings), and Diagnostics o
       [troubleshooting.md](setup/troubleshooting.md)), each item with what has been shown so far and where; the tools
       and services they name checked on the bench Pi (image cb62346). The checklist itself hasn't been run in the
       truck: it needs the installation (7.1, 7.2) first
+- [~] 7.6 Head unit enclosure and dash mount ([ADR-0047](architecture/adr/0047-head-unit-enclosure.md), owner 2026-11-15): the display
+      flush behind the radio opening on its own M3 holes, printed ASA parts joined with heat-set inserts, a rear box for the
+      Pi, DAC, NVMe, DCDC-USB and fan, the amplifier on its own bracket. Design only: the glass template and the rails are
+      modelled (`mechanical/head-unit`, `make mech-test` checks them against the display's drawing). Nothing printed.
+      Next: the truck's measurements (H34–H37, [enclosure.md](hardware/enclosure.md)) and the glass template held behind the
+      opening; then the side brackets and the rear box
