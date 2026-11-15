@@ -2890,3 +2890,36 @@ checks passed. After the restarts: no `wp_properties_get` assertion in
 into `f250-bench-null`) linked and played. Calls still on (C920 as
 `AUDIO_CALL_MIC`), the Fold8's hands-free gateway present, its 202
 contacts and 100 recent calls read again.
+
+## 2026-11-15 — Echo cancellation (c0ca406) on the bench Pi, in place [BENCH]
+
+Not a reflash: the Pi still runs the cb62346 image (`/etc/f250-release`
+unchanged), with the canceller's three packages from the c0ca406 image build
+installed by hand (`rpm -Uvh`): `pipewire-spa-plugins-aec-webrtc-1.6.8-r0`
+(sha256 `62fff988…`), `libwebrtc-audio-processing-2-1-2.1-r0` (`df9a651d…`)
+and `pipewire-modules-echo-cancel-1.6.8-r0` (`91611c42…`, already installed,
+replaced). `/usr/lib/spa-0.2/aec/` now has `libspa-aec-webrtc.so` beside
+`libspa-aec-null.so`. Then `make deploy` of c0ca406: `/etc/default/f250`
+kept, `f250-echo-cancel.service` and the helpers installed.
+
+- `f250-echo-cancel` active: "WebRTC on
+  alsa_input.usb-046d_HD_Pro_Webcam_C920_05B217AF-02.analog-stereo, reference
+  the default sink; the phone gets f250.call-aec". Its `pipewire -c` client,
+  idle (no call): 0.2 % CPU, 12.6 MB resident.
+- Nodes `f250.call-aec.mic`, `f250.call-aec.reference` and `f250.call-aec`
+  present. AGL's WirePlumber policy linked the C920's `capture_FL`/`_FR` to
+  the mic stream and `eq-sink:monitor_FL`/`_FR` to the reference: the
+  monitor-mode reference does get linked under AGL's policy, here to the
+  default sink (`eq-sink`, "Equalizer Sink"), since `AUDIO_DAC_NODE` is empty.
+  With the DAC named: still UNVERIFIED.
+- audio-manager runs with `--call-mic f250.call-aec`.
+- `stage1-setup.sh --check`: all checks passed; no failed units; no
+  `wp_properties_get` assertion in `wireplumber@policy`'s journal.
+- The client logs `spa.cpu: Can't read cpuinfo` (the unit's `ProcSubset=pid`
+  hides `/proc/cpuinfo`); audio-manager's `pw-metadata` logs the same.
+
+Not tested: a call through the canceller (the far end's echo, muting
+`f250.call-aec`, its CPU during a call). Found: the reference follows
+`AUDIO_DAC_NODE` (or the default sink) while the caller's voice goes to
+`AUDIO_CALL_SPEAKER`; on this bench that is `f250-bench-null`, so the
+reference would not hear the caller. On the truck both should be the DAC.
