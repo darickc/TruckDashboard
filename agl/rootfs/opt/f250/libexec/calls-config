@@ -34,7 +34,10 @@ else
   echo "calls-config: hands-free off (no AUDIO_CALL_MIC): calls stay on the phone"
 fi
 
+# --no-block: this runs as a unit ordered before WirePlumber's, so waiting
+# for its restart would wait on this very unit (it hung on the bench Pi,
+# 2026-11-14).
 if [[ "$changed" == 1 ]] && "$systemctl" -q is-active wireplumber@bluetooth.service; then
-  "$systemctl" restart wireplumber@bluetooth.service
+  "$systemctl" restart --no-block wireplumber@bluetooth.service
   echo "calls-config: restarted wireplumber@bluetooth for the change"
 fi
