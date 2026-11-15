@@ -12,14 +12,15 @@
 #   AUDIO_DSP           0: no filter-chain (the speakers get the stereo mix
 #                       straight from WirePlumber). Default 1.
 #   AUDIO_DAC_NODE      the DAC's PipeWire node name (pw-cli ls Node);
-#                       empty: the default sink. UNVERIFIED for the DAC8x.
+#                       empty: the default sink. The 8xOUT's pro-audio
+#                       node ships in /etc/default/f250 ([BENCH] 2026-11-15).
 #   AUDIO_DAC_POSITIONS the DAC's channel positions, in order. Default
-#                       FL,FR,RL,RR,FC,LFE,SL,SR. UNVERIFIED for the DAC8x.
+#                       FL,FR,RL,RR,FC,LFE,SL,SR; the 8xOUT's are AUX0..AUX7.
 #   AUDIO_FRONT, AUDIO_REAR, AUDIO_SUB
 #                       which DAC channels (0-based left,right) feed the
 #                       front, rear and sub inputs. Defaults 0,1 / 2,3 /
-#                       4,5: examples, found on the bench with a test tone
-#                       (docs/wiring/audio.md).
+#                       4,5: jacks 1-3 from the end furthest from the USB
+#                       ports (bench, docs/wiring/audio.md).
 #   AUDIO_CROSSOVER_HZ  the crossover's default (Defaults on the screen).
 #                       Default 80, an example: tune it in the truck.
 #   AUDIO_VOICE         spoken directions (navigation's prompts): a program
@@ -40,7 +41,9 @@
 #                       through f250-echo-cancel.service's WebRTC canceller
 #                       (--call-mic f250.call-aec). 0: the microphone as it is.
 #   AUDIO_CALL_SPEAKER  where the caller's voice goes (a sink's node.name;
-#                       empty: the default sink).
+#                       empty, the usual: AGL's Communication role into the
+#                       speakers' filter-chain, which the echo canceller
+#                       hears).
 #   AUDIO_RING_COMMAND  the ring tone's player for a phone that doesn't ring
 #                       in-band (empty: /usr/bin/pw-play; none: no tone).
 #   AUDIO_COVER_ART     1: the phone's cover art on the Media screen, through

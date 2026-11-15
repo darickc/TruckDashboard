@@ -9,7 +9,9 @@
   (mSBC, both ways), and a call was answered over D-Bus (bench-log); S2 is
   partly done with it. **Phase 2** (dialling, contacts and recent calls, the
   Phone screen) built `[SIM]` the same day at the owner's request: see the
-  second amendment.
+  second amendment. **S3 (echo cancellation) [BENCH] 2026-11-15** with the
+  DAC: no echo at the far end once WirePlumber honoured audio-manager's
+  pins (amendment 2026-11-15b).
 - **Date:** 2026-11-14
 - **Refines:** [ADR-0039](0039-audio-manager.md) (audio-manager; A2DP sink
   only, "HFP: not part of release 1"), [ADR-0043](0043-master-volume-and-the-volume-knob.md)
@@ -352,7 +354,8 @@ test; the DAC not yet here; echo cancellation after a first call).
    Communication, made when the phone opens SCO. WirePlumber links them like
    an application's; audio-manager pins the input to `AUDIO_CALL_MIC` with
    `target.object` (verified: the C920 was linked to the phone, and the
-   far end heard it, 2026-11-15). The
+   far end heard it, 2026-11-15; **corrected in amendment 2026-11-15b**:
+   the C920 was the default source, and the pin wasn't read). The
    voice's pin to `AUDIO_CALL_SPEAKER` loses to AGL's role routing (the
    Communication role loopback, then the EQ), so the caller's voice follows
    AGL's Communication route: the DAC's, once it is there. No loopbacks.
@@ -421,3 +424,57 @@ of S3's bench checks.
    normal volume, the CPU it costs on the Pi 5, and muting the module's
    source. Not yet in a built image (the next `make agl-build`).
 
+
+## Amendment, 2026-11-15b: echo cancellation on the bench, with the DAC `[BENCH]`
+
+The DAC came (a RaspiAudio 8xOUT, [ADR-0014](0014-multichannel-dac8x.md)
+amendment), and S3 ran on the bench Pi with the owner's Z Fold8, the C920's
+microphone and a powered speaker on the front jack (bench-log 2026-11-15).
+
+1. **The first call had a strong echo, because the canceller was
+   bypassed.** audio-manager pinned the way to the phone to `f250.call-aec`
+   ("call audio: f250.call-aec → phone" in its log), but WirePlumber linked
+   it to the C920, the default source. Cause: AGL's
+   `50-AGL-media-role-nodes.conf` sets `linking.allow-moving-streams =
+   false`, and with it WirePlumber 0.5.14 reads no `target.object`
+   metadata (`find-defined-target.lua`) and rescans on no change of it
+   (`rescan.lua`). Reproduced with a test capture stream: pinned, it
+   stayed on the C920; with the setting on, it moved to `f250.call-aec`.
+   - **This corrects amendment 2026-11-15 item 2.** The microphone pin was
+     never in effect: the C920 reached the phone because it was the
+     default source. The voice's pin to `AUDIO_CALL_SPEAKER` didn't lose to
+     the role routing; it wasn't read either.
+   - **Decision:** `61-f250-calls.conf` (installed only with calls on) sets
+     `linking.allow-moving-streams = true`, and `f250-calls-config` restarts
+     the policy instance too when it installs or removes the file.
+     audio-manager is the only writer of `target.object` metadata on this
+     image, and the policy instance is stateless (`mixin.stateless`), so
+     nothing else moves. Rejected: setting `target.object` as a property of
+     the phone's streams through `monitor.bluez.rules`, which works without
+     the setting but would freeze the choice between the canceller and the
+     raw microphone into WirePlumber's configuration, where audio-manager
+     already makes it at runtime.
+   - `AUDIO_CALL_SPEAKER` now takes effect. Leave it empty: the caller then
+     keeps AGL's Communication route into the speakers' filter-chain, which
+     the canceller hears. The bench's `f250-bench-null` setting, a stand-in
+     from before the DAC, was cleared.
+2. **The reference is the speakers' filter-chain input, not the DAC's
+   monitor.** `f250.speakers` is a smart filter targeting the DAC, so
+   WirePlumber sends the reference (which targets the DAC) to
+   `f250.speakers:monitor_FL/FR`: the stereo mix before the crossover and
+   the master volume. The canceller models a linear echo path, so this
+   worked; a volume change during a call is a change in that path, which it
+   has to re-learn (not tested).
+3. **Second call, with the setting on: no echo `[BENCH]`.** Links during the
+   call: C920 → `f250.call-aec.mic`; `f250.speakers` monitor → the
+   reference; `f250.call-aec` → `bluez_output.<addr>.1`; the caller's
+   voice → the Communication loopback → `eq-sink` → `f250.speakers` → the
+   DAC. The owner heard the caller clearly; the far end heard the owner
+   clearly and no echo of themselves. The first call (the raw microphone)
+   is the comparison with the canceller off: a strong echo.
+4. **CPU:** the canceller's client (`pipewire -c`, user f250) used 5.3 s
+   of CPU over the 109 s call, about 5 % of one core (about 1.2 % of the
+   Pi 5's four); idle, 0.07 s over 16 s.
+5. **Not tested yet:** muting `f250.call-aec` from the screen, a volume
+   change during a call, a louder speaker or a real amplifier, the truck's
+   cab and microphone (S4).

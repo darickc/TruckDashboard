@@ -4,7 +4,9 @@
   header pass-through and the R150-2's bridged input are pending)
 - **Date:** 2026-11-04. Amended 2026-11-05: the amplifier remote is on ACC
   through a delay-on timer, not on the Pi (decision 6). Amended 2026-11-09
-  (owner): ACC goes straight to the amps' remote leads, with no timer
+  (owner): ACC goes straight to the amps' remote leads, with no timer.
+  Amended 2026-11-15: the board bought is a RaspiAudio 8xOUT on the same
+  driver; channels identified on the bench
 - **Amends:** [audio-routing.md](../audio-routing.md),
   [power-and-inputs.md](../../wiring/power-and-inputs.md) (GPIO pins), and the
   "I2S DAC HAT, model TBD" row of [ADR-0013](0013-dcdc-usb-power-supply.md).
@@ -122,3 +124,45 @@ There were two ways to feed them:
   to a Pi-controlled remote with a hardware heartbeat timer that drops it.
 - The owner replaces the R150-2 and the new 4-ch amp with one 5-channel amp.
   The channel map stays the same.
+
+## Amendment, 2026-11-15: the board is a RaspiAudio 8xOUT `[BENCH]`
+
+The owner bought a **RaspiAudio 8xOUT**, not a HiFiBerry DAC8x. The channel
+map, the filter-chain and the GPIO plan above stand. Bench details in
+[bench-log](../../hardware/bench-log.md) (2026-11-15); facts and sources in
+the [compatibility matrix](../../hardware/compatibility-matrix.md#raspiaudio-8xout).
+
+1. **Same driver.** Its HAT EEPROM reads vendor "Raspiaudio.com", product
+   "8xOUT", and loads the `hifiberry-dac8x` overlay by itself: the card is
+   `snd_rpi_hifiberry_dac8x` on AGL 22's kernel (6.18), with
+   `dtoverlay=hifiberry-dac8x` still commented out in `config.txt`.
+   RaspiAudio's guide names the same overlay, and four PCM5102A DACs.
+2. **PipeWire's default profile is wrong for it.** ACP offers
+   `output:stereo-fallback` (2 channels, the first jack only) and `pro-audio`
+   (one 8-channel sink, `AUX0`–`AUX7`), and picks the first; AGL's
+   WirePlumber is stateless, so a profile chosen by hand is lost at boot.
+   **Decision:** `62-f250-dac.conf` makes `pro-audio` this card's preferred
+   profile (`device.profile.priority.rules`), and `/etc/default/f250` ships
+   `AUDIO_DAC_NODE=alsa_output.platform-soc_107c000000_sound.pro-output-0`
+   and `AUDIO_DAC_POSITIONS=AUX0,…,AUX7`.
+3. **Jacks and channels**, identified with a spoken "channel N" per channel
+   into a powered speaker (left and right correct on all four). Jacks are
+   numbered from the end **furthest from the Pi's USB ports**, so jack *n*
+   carries `AUX(2n−2)`/`AUX(2n−1)`, and the default pairs (0,1 / 2,3 / 4,5)
+   put front, rear and sub on jacks 1, 2 and 3 as decision 2 planned; jack 4,
+   nearest the USB ports, is the spare.
+4. **It must see the header's I2S pins.** With the owner's PoE HAT (kept for
+   its fan) between the Pi and the 8xOUT, the EEPROM was read and the stream
+   ran on GPIO18–27, but no jack made a sound; directly on the header it
+   worked. Which of the PoE HAT's pins don't pass through wasn't checked.
+   So the Pi needs other cooling under the DAC: decision 7 of
+   [ADR-0047](0047-head-unit-enclosure.md) already plans the Active Cooler
+   on a 16 mm stacking header (fit UNVERIFIED with the 8xOUT).
+5. **Open:** RaspiAudio's pinout lists one output's data line on GPIO17
+   (header pin 11), which the overlay doesn't use and the camera switch
+   claims ([ADR-0024](0024-camera-selection-switch-and-can-reverse.md)).
+   All four jacks played with the overlay's pins (GPIO21/23/25/27), so the
+   guide's line looks wrong for this board, but the board's traces weren't
+   checked: check that pin 11 isn't connected on the 8xOUT before wiring the
+   camera switch (H27). Mute at power-up (H6), the line level, and the boot
+   pop with the amplifiers are still to measure.

@@ -1,6 +1,6 @@
 # Audio: the Pi to the amplifiers, speakers and subwoofers
 
-**Status: DESIGN, NOT VERIFIED. Nothing here has been bought or connected.** A
+**Status: DESIGN, NOT VERIFIED.** The DAC (a RaspiAudio 8xOUT) is on the bench and its jacks are identified (check 1); nothing else here has been bought or connected. A
 person must check every line against the truck, the DAC and both amplifiers,
 and sign it off in [bench-log.md](../hardware/bench-log.md), before it is
 installed ([safety gates](../safety/assumptions.md#human-verification-gates)).
@@ -52,16 +52,20 @@ flowchart LR
 
 ## Channel map
 
-This is configuration in audio-manager, not hardware. Which DAC8x jack carries
-which ALSA channel pair is **TODO**. HiFiBerry doesn't publish it, so identify
-each jack with a test tone on the bench.
+This is configuration in audio-manager, not hardware. The board is a
+RaspiAudio 8xOUT on the DAC8x driver ([ADR-0014 amendment](../architecture/adr/0014-multichannel-dac8x.md#amendment-2026-11-15-the-board-is-a-raspiaudio-8xout-bench)).
+**Jacks are numbered from the end furthest from the Pi's USB ports.** Which
+jack carries which channel pair was found on the bench (2026-11-15, check 1):
+jack *n* is PipeWire's `AUX(2n−2)` left and `AUX(2n−1)` right on the DAC's
+`pro-audio` node, and audio-manager's default pairs (`AUDIO_FRONT=0,1`,
+`AUDIO_REAR=2,3`, `AUDIO_SUB=4,5`) match the table below.
 
-| DAC8x jack | Feeds | Content |
-|---|---|---|
-| 1 | 4-ch amp, front inputs | Front left/right, high-passed |
-| 2 | 4-ch amp, rear inputs | Rear left/right, high-passed. The fader moves level between jacks 1 and 2 |
-| 3 | R150-2 RCA inputs | Left+right summed to mono, sent on **both** legs, low-passed. Sub level is set here |
-| 4 | Nothing | Spare |
+| DAC jack (from the end furthest from the USB ports) | Channels | Feeds | Content |
+|---|---|---|---|
+| 1 | AUX0 L, AUX1 R | 4-ch amp, front inputs | Front left/right, high-passed |
+| 2 | AUX2 L, AUX3 R | 4-ch amp, rear inputs | Rear left/right, high-passed. The fader moves level between jacks 1 and 2 |
+| 3 | AUX4 L, AUX5 R | R150-2 RCA inputs | Left+right summed to mono, sent on **both** legs, low-passed. Sub level is set here |
+| 4, nearest the USB ports | AUX6 L, AUX7 R | Nothing | Spare |
 
 The crossover frequency is example configuration (for example 80 Hz), not a
 recommended value ([CLAUDE.md rule 10](../../CLAUDE.md#thresholds)). Tune it in
@@ -150,7 +154,7 @@ a GPIO breakout.
 
 | # | Check | Expected | Result |
 |---|---|---|---|
-| 1 | DAC8x: test tone on each ALSA channel pair, identify jacks 1–4 | Channel map filled in above | |
+| 1 | DAC8x: test tone on each ALSA channel pair, identify jacks 1–4 | Channel map filled in above | **Done [BENCH] 2026-11-15** (spoken "channel N" per channel into a powered speaker): map above, left and right correct on all four. Only with the DAC directly on the header: on top of a PoE HAT it was silent |
 | 2 | DAC8x line level: 0 dBFS 1 kHz into a meter on each jack | About 2.1 Vrms or less (documented maximum) | |
 | 3 | DAC8x at power-up and shutdown, on a scope, amps disconnected | Record any pop or DC step (H6) | |
 | 4 | Amps connected: key on, crank, key off, listening at each step | No pop at key-on while the Pi boots (H6); amps off the moment ACC drops (H22) | |

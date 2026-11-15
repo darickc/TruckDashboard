@@ -57,6 +57,7 @@ Update a row whenever a source or a test changes it, and keep the citation.
 | Speech engines in the Vimba 22.0.1 tree (2026-11-12, ADR-0040) | `meta-agl-demo` has Flite 1.06 + hts_engine (BSD-3-Clause) and `flite-voicedata` 1.05 (CMU ARCTIC slt, CC-BY-3.0), already built in our sstate: `PKGSIZE` flite 919,728, voice 1,743,641, hts-engine 133,208 bytes; AGL's demo `ondemandnavi` depends on it. `meta-multimedia` has Flite 2.2 (BSD-3-Clause, alsa-lib). `meta-oe` has only eSpeak 1.48.04 (GPL-3.0-only, PortAudio); **no espeak-ng, Piper or onnxruntime recipe** (an `onnxruntime-vendor` in meta-ros only). None is in `agl-f250`, never run on the Pi | V (recipes, pkgdata in the tree) | the build VM's `vimba-22.0.1` checkout (meta-openembedded `f28a144a`) |
 | espeak-ng and Piper upstream (2026-11-12) | espeak-ng 1.52.0 (2024-12-12) is GPL-3.0-or-later. rhasspy/piper (MIT) was archived 2025-10-06; development moved to OHF-Voice/piper1-gpl, GPL-3.0 (sources disagree on -only/-or-later), which embeds espeak-ng and needs ONNX Runtime | C (package metadata and secondary sources) | [espeak-ng (Arch)](https://archlinux.org/packages/extra/x86_64/espeak-ng/), [Homebrew](https://formulae.brew.sh/formula/espeak-ng), [piper1-gpl v1.3.0](https://newreleases.io/project/github/OHF-Voice/piper1-gpl/release/v1.3.0) |
 | WirePlumber 0.5.14 role-based linking under AGL (2026-11-15) | A stream moved to a new target leaves its role-based link recorded as the priority link (upstream issue #1030, fixed in 0.5.19 by `bdc17eb2`; also `055c0d5d`, `9ff714b0` in 0.5.16, `ade3b3ef` in 0.5.19). AGL's meta-agl patch `0001-linking-reset-link-when-moving-target.patch` resets that link first, so the next role link removed crashes `rescan-media-role-links.lua` and the policy instance links nothing until restarted. Backported in `agl/rootfs/usr/local/share/wireplumber` | T | [bench-log](bench-log.md) 2026-11-15; [wireplumber#1030](https://gitlab.freedesktop.org/pipewire/wireplumber/-/work_items/1030), [bdc17eb2](https://gitlab.freedesktop.org/pipewire/wireplumber/-/commit/bdc17eb2c419cbe41dbb248cf20cbe93370ee2f7); the build VM's `vimba-22.0.1/meta-agl` |
+| `target.object` metadata under AGL (2026-11-15) | AGL's `50-AGL-media-role-nodes.conf` sets `linking.allow-moving-streams = false`: WirePlumber 0.5.14 then ignores `target.object`/`target.node` in the default metadata (`find-defined-target.lua`) and doesn't rescan when it changes (`rescan.lua`). A stream's own `target.object` property still works. Turned back on in `61-f250-calls.conf` for audio-manager's call pins | T | bench-log 2026-11-15; WirePlumber 0.5.14 scripts on the image |
 | Audio userspace in `agl-f250` (2026-11-12) | The image's manifest (build of 2026-11-12) has no PipeWire, WirePlumber or ALSA utilities, unlike AGL's demo images (PipeWire 1.6.6). Navigation's prompts can't be heard until audio-manager (ADR-0039) brings an audio path | V | `agl-f250-raspberrypi5.rootfs-20261112034926.manifest` |
 | Flutter vector maps with the app's gRPC (2026-11-11) | `vector_map_tiles` 8.x/9.x → `vector_tile_renderer` → `vector_tile` needs `protobuf ^3`; `grpc` 5 needs `protobuf ^6`: pub can't resolve both. `pmtiles` 2.x needs Dart 3.11 (Flutter 3.38.3 has 3.10.1). So raster tiles (ADR-0030) | V | `flutter pub add` in a copy of the app; pub.dev |
 | 22.0.1 on the Pi 5 | Boots; `uname -r` 6.18.33-v8-16k; `/etc/default/flutter` 3.38.3 release; root SSH over Ethernet | T | [bench-log](bench-log.md), 2026-11-06 |
@@ -266,7 +267,8 @@ applies to the Pi 5 variant must be checked when the HAT is fitted.
 
 ## HiFiBerry DAC8x
 
-Chosen 2026-11-04, not bought yet
+Chosen 2026-11-04; the owner bought the RaspiAudio 8xOUT instead (below),
+which uses this board's overlay and driver
 ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)). Wiring:
 [wiring/audio.md](../wiring/audio.md).
 
@@ -284,6 +286,25 @@ Chosen 2026-11-04, not bought yet
 | Mute at boot, pop behaviour | Not documented (H6) | U | — |
 | Jack-to-channel mapping | Not documented | U | — find with a test tone |
 | AGL kernel support | The Vimba 22.0.1 image ships `hifiberry-dac8x.dtbo` and the modules the overlay uses (`snd-soc-rpi-simple-soundcard`, `snd-soc-pcm5102a`), plus `snd-soc-hifiberry-studio-dac8x`. Not tested; which driver binds is checked on the image with `aplay -l` | V (manifest) / U (works) | [22.0.1 manifest](https://download.automotivelinux.org/AGL/release/vimba/22.0.1/raspberrypi5/deploy/images/raspberrypi5/agl-ivi-demo-flutter-raspberrypi5.manifest), 2026-11-06 |
+
+## RaspiAudio 8xOUT
+
+The board bought instead of the DAC8x (owner, 2026-11-15;
+[ADR-0014 amendment](../architecture/adr/0014-multichannel-dac8x.md#amendment-2026-11-15-the-board-is-a-raspiaudio-8xout-bench)).
+Bench details: [bench-log](bench-log.md) 2026-11-15.
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| Identity | HAT EEPROM: vendor "Raspiaudio.com", product "8xOUT", product_id 0x2400, product_ver 0x0001, uuid all zeros | T | `/proc/device-tree/hat/` on the bench Pi |
+| Driver | Its EEPROM loads `hifiberry-dac8x` with no `config.txt` line; ALSA card `snd_rpi_hifiberry_dac8x` (`RPi-simple`), PCM "HifiBerry DAC8x HiFi", on AGL 22's kernel 6.18.33. RaspiAudio's manual route is the same overlay | T / V | bench Pi; [RaspiAudio guide](https://forum.raspiaudio.com/t/8xout-8xin-out-for-raspberry-pi5-installation-guide/1273) |
+| DACs | 4 × TI PCM5102A | V | RaspiAudio guide |
+| Outputs | Line level, not for passive speakers | V | RaspiAudio guide |
+| Formats | PipeWire opened it at 8 channels, S32_LE, 48 kHz; ACP lists S32LE, S24_32LE, S16LE and 8–192 kHz | T | `/proc/asound/card3/pcm0p/sub0/hw_params`, `EnumFormat` |
+| PipeWire profiles | `output:stereo-fallback` (2 channels, picked by default) and `pro-audio` (8 channels, `AUX0`–`AUX7`, node `alsa_output.platform-soc_107c000000_sound.pro-output-0`) | T | `pw-cli e <device> EnumProfile` |
+| Jacks | 4 × 3.5 mm. From the end furthest from the Pi's USB ports: AUX0/1, AUX2/3, AUX4/5, AUX6/7, left then right | T (by ear) | bench-log 2026-11-15 |
+| GPIO | The overlay puts BCM18–27 in `i2s0` (seen on the bench); RaspiAudio says not to use GPIO18–27. Its pinout lists data lines on GPIO21, 23, 25 and **17** (pin 11), but all four jacks play with the overlay's GPIO27: check that pin 11 is unconnected before wiring the camera switch (H27) | T / C | bench Pi `pinmux-pins`; RaspiAudio guide; [RaspiAudio CamillaDSP notes](https://github.com/RASPIAUDIO/CamillaDSP/blob/main/prototypes/pi5_spdif_gpio/README.md) |
+| Stacking | Silent on top of a PoE HAT (EEPROM read, I2S running); plays directly on the header. RaspiAudio's guide fits it on a riser in the official case | T | bench-log 2026-11-15 |
+| Header pass-through, mute at boot, line level | Not documented (H27, H6) | U | — |
 
 ## Cameras and video
 

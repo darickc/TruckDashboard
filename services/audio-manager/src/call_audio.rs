@@ -26,8 +26,10 @@
 //! (`f250.call-aec`, ADR-0045 amendment 2026-11-14b), pinned like any
 //! microphone. Status:
 //! the stream matching is tested on pw-dump output shaped like the bench's
-//! [SIM]; `target.object` pinning is UNVERIFIED until a bench call with a
-//! sink.
+//! [SIM]. The pins work on the bench Pi [BENCH] 2026-11-15 only because
+//! `61-f250-calls.conf` turns WirePlumber's `linking.allow-moving-streams`
+//! back on: AGL turns it off, and then WirePlumber reads no `target.object`
+//! metadata at all (ADR-0045 amendment 2026-11-15b).
 
 use std::path::PathBuf;
 use std::process::Stdio;

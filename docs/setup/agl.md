@@ -7,9 +7,9 @@ recorder and dashboard on it. No Yocto build.
 > **Status (2026-11-06):** sections 2–5 work on the Pi with AGL 22.0.1
 > **[BENCH]**: flashing, `make deploy`, `--check`, and every bring-up check
 > that needs no extra hardware (1–9; [bench-log](../hardware/bench-log.md)).
-> Check 11 and the data drive ran on 2026-11-11 with the NVMe HAT. Not run
-> yet: check 10 (it waits for the DAC8x HAT) and the fallback procedure in
-> section 6. Record each step that works
+> Check 11 and the data drive ran on 2026-11-11 with the NVMe HAT; check 10
+> on 2026-11-15 with the DAC (a RaspiAudio 8xOUT). Not run yet: the fallback
+> procedure in section 6. Record each step that works
 > on the Pi in the bench log.
 >
 > **2026-11-09 (image 288d091):** check 13 (power key) passes **[BENCH]**, and
@@ -152,7 +152,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 | 7 | Power and Restart | Dashboard *Settings → Power* → the Pi powers off cleanly (`journalctl -b -1 -u f250-dashboard` after the next boot shows "power off: requested"; the journal is kept on the SD card since 2026-11-06). *Settings → Restart* → the Pi reboots and the dashboard comes back (`journalctl -b -1 -u f250-dashboard` shows "restart: requested") | ADR-0016, ADR-0034 |
 | 8 | CAN, listen-only | Plug in the adapter, then `f250-can status` (still down), `f250-can listen`, `ip -details link show can0` shows `LISTEN-ONLY`. With a second node on a bench bus: no ACKs | H7 on the AGL kernel |
 | 9 | RTC | `ls /sys/class/rtc/`, `hwclock -r`. Once the rechargeable cell is fitted: uncomment `dtparam=rtc_bbat_vchg` in `agl/boot/config-f250.txt`, deploy, reboot; `cat /sys/class/rtc/rtc0/charging_voltage` shows 3000000 | H20 on AGL |
-| 10 | Audio (once the DAC8x is fitted) | Uncomment `dtoverlay=hifiberry-dac8x` in `agl/boot/config-f250.txt`, deploy, reboot; `aplay -l` lists it; `pw-cli ls Node` shows its sink. Then check 21 | ADR-0014 on AGL |
+| 10 | Audio (the DAC fitted directly on the header, not over another HAT) | The RaspiAudio 8xOUT's EEPROM loads `hifiberry-dac8x` itself (a board without one: uncomment it in `agl/boot/config-f250.txt`). `cat /proc/asound/cards` lists `snd_rpi_hifiberry_dac8x` (the image has no `aplay`); `wpctl status` shows "Built-in Audio Pro" as the sink (`62-f250-dac.conf` picks the pro-audio profile), and `pw-link -l` shows `f250.speakers.out` on its `playback_AUX0`–`AUX7`. Done `[BENCH]` 2026-11-15. Then check 21 | ADR-0014 on AGL |
 | 11 | NVMe (once the HAT is fitted) | `dtparam=pciex1` (on), deploy, reboot; `lspci` lists the drive's controller; `f250-storage status` shows `nvme0n1` and its health (no health until the image has `smartctl`). Passed on the bench 2026-11-11. Then [the data drive](#data-drive-nvme-hat-or-usb-ssd) | H31 |
 | 12 | Bluetooth and the MX+ | After a reboot, `--check` has no Bluetooth warnings; `bluetoothctl show` says `Powered: yes`, `Discoverable: no`. Then [pair the MX+](#bluetooth-and-the-mx) and run `TRANSPORT=obdlink` in the gateway's sandbox | ADR-0023, ADR-0021 §10 |
 | 13 | Power key ([power-manager](../architecture/power-states.md), pulse-only) | `journalctl -u f250-power-manager -b` shows "reading the power key on /dev/input/eventN". Press the Pi's power button within 30 s of power-on: "ignored: inside the boot window". Press it later: "power off: power key after the boot window", and the Pi halts cleanly (`journalctl -b -1` after the next boot). The DCDC-USB's PSW on J2 is the same press once it is wired (H21) | ADR-0013 |

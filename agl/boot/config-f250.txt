@@ -21,8 +21,10 @@ dtoverlay=vc4-kms-dsi-7inch,dsi0
 # the clock starts at 1970 on every cold boot until network time sets it.
 #dtparam=rtc_bbat_vchg=3000000
 
-# HiFiBerry DAC8x (ADR-0014). The overlay ships in the Vimba 22.0.1 image.
-# Uncomment once the HAT is fitted: the overlay claims BCM18-27.
+# The 8-output DAC (ADR-0014): a RaspiAudio 8xOUT, whose HAT EEPROM loads
+# this overlay by itself (bench, 2026-11-15), so the line stays commented.
+# Uncomment it only for a board without that EEPROM (a HiFiBerry DAC8x
+# without one). The overlay claims BCM18-27.
 #dtoverlay=hifiberry-dac8x
 
 # Camera switch (ADR-0024, ADR-0025): five contacts to ground, one gpio-key

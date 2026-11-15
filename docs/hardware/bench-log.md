@@ -2924,3 +2924,94 @@ here: the voice's pin to `AUDIO_CALL_SPEAKER` (`f250-bench-null` on this
 bench) loses to AGL's role routing, so the voice goes through the
 Communication loopback into `eq-sink` (ADR-0045, 2026-11-15), the sink whose
 monitor the reference captures. Not observed in a call yet.
+
+## 2026-11-15 — The DAC (RaspiAudio 8xOUT): channels, and echo cancellation in a call [BENCH]
+
+The owner's DAC arrived: a **RaspiAudio 8xOUT** (ADR-0014 amendment). Bench
+Pi on AGL, image cb62346 with the c0ca406 echo canceller installed in place
+(entry above), kernel 6.18.33-v8-16k. A powered speaker on one jack at a
+time; the owner's Z Fold8; the C920's microphone for calls.
+
+**Detection.** HAT EEPROM (`/proc/device-tree/hat/`): vendor
+"Raspiaudio.com", product "8xOUT", product_id 0x2400, product_ver 0x0001,
+uuid all zeros. The firmware loaded `hifiberry-dac8x` from it with the
+`config.txt` line still commented: card 3 `snd_rpi_hifiberry_dac8x`
+(`RPi-simple`), PCM "HifiBerry DAC8x HiFi snd-soc-dummy-dai-0"; dmesg "no
+ADC8x detected". GPIO18–27 in `i2s0` (alt2, `1f000a0000.i2s`), GPIO5 an
+input. PipeWire's ACP offered `output:stereo-fallback` (selected, 2
+channels) and `pro-audio`; `wpctl set-profile` to `pro-audio` gave one
+8-channel sink `alsa_output.platform-soc_107c000000_sound.pro-output-0`,
+`AUX0`–`AUX7`, opened S32_LE 48 kHz. audio-manager's `f250.speakers.out`
+(the smart filter, `AUDIO_DAC_NODE` still empty) linked itself to it in
+order.
+
+**Silent on top of the PoE HAT.** The owner had the 8xOUT on a PoE HAT
+(kept for its fan). A spoken clip and a 440 Hz tone at −12 dBFS on all eight
+channels, played straight to the DAC node (`pw-play --target … --channel-map
+AUX0,…`): nothing on any jack into a working speaker, while ALSA showed
+`RUNNING` with `hw_ptr` advancing and nothing muted. The owner moved the DAC
+directly onto the Pi's header (PoE HAT removed): the same clip played. Which
+of the PoE HAT's pins don't pass through wasn't checked. The Pi now has no
+fan: 58 °C shortly after boot on the bench.
+
+**Channel map** (a spoken "channel N" on `AUX(N−1)` alone, in turn, about
+−24 dBFS peak), jacks counted from the end furthest from the USB ports:
+
+| Jack | Left | Right |
+|---|---|---|
+| 1 (furthest) | AUX0 | AUX1 |
+| 2 | AUX2 | AUX3 |
+| 3 | AUX4 | AUX5 |
+| 4 (nearest) | AUX6 | AUX7 |
+
+So audio-manager's default pairs put front, rear and sub on jacks 1–3
+(docs/wiring/audio.md).
+
+**At boot.** AGL's WirePlumber is stateless, so the profile went back to
+stereo-fallback at the next boot. Installed `62-f250-dac.conf`
+(`device.profile.priority.rules`: `pro-audio` for `snd_rpi_hifiberry_dac8x`)
+and set `AUDIO_DAC_NODE` and `AUDIO_DAC_POSITIONS=AUX0,…,AUX7` in
+`/etc/default/f250`, `.truck` and `.bench-sim` (backups `*.pre-dac`). After
+a reboot: "Built-in Audio Pro" the default sink, `f250.speakers.out`
+`AUX0`–`AUX7` on the DAC, audio-manager, the canceller and WirePlumber
+active. The canceller's reference (targeting the DAC) was linked to
+`f250.speakers:monitor_FL/FR`: WirePlumber hands the smart filter's input
+to anything targeting its DAC.
+
+**Call 1: strong echo.** The far end heard themselves clearly; the owner
+heard them clearly from the speaker. A 2 s logger of `pw-link -l` and `top`
+on the Pi showed the phone's uplink `bluez_output.B0_DE_31_1E_55_96.1`
+linked from the C920 directly, not from `f250.call-aec`, although
+audio-manager logged "call audio: f250.call-aec → phone". Reproduced with a
+`pw-record` stream and `pw-metadata -n default <id> target.object
+f250.call-aec`: the metadata was set, nothing moved, and the policy instance
+(debug logging through a /run drop-in) logged nothing for it. Cause: AGL's
+`50-AGL-media-role-nodes.conf` sets `linking.allow-moving-streams = false`,
+so `find-defined-target.lua` reads no metadata and `rescan.lua` registers
+no hook for `target.object`. The earlier "the voice's pin loses to role
+routing" and "the C920 pin verified" (entries above) were this: neither pin
+was read; the C920 was the default source.
+
+**Fix.** `61-f250-calls.conf` gets `wireplumber.settings = {
+linking.allow-moving-streams = true }`. Copied to the Pi, `wireplumber@policy`
+restarted: the test stream, pinned again, moved from the C920 to
+`f250.call-aec:capture_MONO`. `AUDIO_CALL_SPEAKER=f250-bench-null` cleared in
+the three settings files (it would now take effect, and the null sink isn't
+there).
+
+**Call 2: no echo.** The far end heard the owner clearly and no echo of
+themselves; the owner heard the caller clearly. Links during the call: C920
+→ `f250.call-aec.mic`; `f250.speakers` monitor → `f250.call-aec.reference`;
+`f250.call-aec:capture_MONO` → `bluez_output.….1:input_MONO`; the caller
+`bluez_input.….0` → `input.loopback.sink.role.communication` (→ `eq-sink`
+→ `f250.speakers` → the DAC). CPU: the canceller's client (pid 500, user
+f250) went from 0:07.33 to 0:12.62 over the 109 s call (about 4.9 % of one
+core; 0.07 s over 16 s idle); the whole system about 93 % idle on average.
+
+Not tested: muting `f250.call-aec` from the screen, a volume change during a
+call, the line level and boot pop (wiring checks 2–3), an amplifier.
+
+Bench left: the DAC directly on the header (no PoE HAT, no fan),
+`62-f250-dac.conf` and the new `61-f250-calls.conf` installed, the DAC
+settings above, debug logging removed, test files removed. Still image
+cb62346 plus the hand-installed rpms.

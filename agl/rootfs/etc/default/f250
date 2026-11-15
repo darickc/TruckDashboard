@@ -217,16 +217,19 @@ NAV_TRUCK_AXLE_LOAD_T=
 #            an example). It opens only from the Media screen and closes by
 #            itself, and when one phone has paired.
 # AUDIO_DSP      0: no filter-chain (no crossover, fader or sub). 1: on.
-# The filter-chain in front of the HiFiBerry DAC8x (ADR-0014). UNVERIFIED
-# until the bench: the DAC's node name and which channel is which jack
-# (docs/wiring/audio.md, a test tone per jack).
+# The filter-chain in front of the 8-output DAC, a RaspiAudio 8xOUT on the
+# hifiberry-dac8x driver (ADR-0014). The node and positions below are its
+# "pro-audio" profile (62-f250-dac.conf selects it), found on the bench Pi
+# 2026-11-15 [BENCH]; jacks and channels in docs/wiring/audio.md.
 # AUDIO_DAC_NODE  the DAC's PipeWire node name (pw-cli ls Node; empty: the
 #            default sink).
 # AUDIO_DAC_POSITIONS  its channel positions in order (empty:
 #            FL,FR,RL,RR,FC,LFE,SL,SR).
 # AUDIO_FRONT, AUDIO_REAR, AUDIO_SUB  the DAC channels (0-based left,right)
-#            of jacks 1, 2 and 3 (empty: 0,1 / 2,3 / 4,5, examples). The sub
-#            gets (L+R)/2 on both, low-passed.
+#            of jacks 1, 2 and 3, counted from the end furthest from the
+#            Pi's USB ports (empty: 0,1 / 2,3 / 4,5, which are those jacks).
+#            Which amplifier input each feeds is wiring: docs/wiring/audio.md.
+#            The sub gets (L+R)/2 on both, low-passed.
 # AUDIO_CROSSOVER_HZ  the crossover's default (empty: 80 Hz, an example; tune
 #            it in the truck). The driver changes it, the fader, balance and
 #            sub level under Settings → Speakers.
@@ -235,8 +238,8 @@ AUDIO_ADAPTER=
 AUDIO_NAME=
 AUDIO_PAIR_WINDOW_S=
 AUDIO_DSP=1
-AUDIO_DAC_NODE=
-AUDIO_DAC_POSITIONS=
+AUDIO_DAC_NODE=alsa_output.platform-soc_107c000000_sound.pro-output-0
+AUDIO_DAC_POSITIONS=AUX0,AUX1,AUX2,AUX3,AUX4,AUX5,AUX6,AUX7
 AUDIO_FRONT=
 AUDIO_REAR=
 AUDIO_SUB=
@@ -258,10 +261,13 @@ AUDIO_PHONEBOOK=
 #            the phone.
 # AUDIO_CALL_ECHO_CANCEL  1 (or empty): the microphone reaches the phone
 #            through WebRTC echo cancellation (f250-echo-cancel), with what
-#            the speakers play (AUDIO_DAC_NODE's monitor, else the default
-#            sink's) as the echo to remove. 0: the microphone as it is.
+#            the speakers play as the echo to remove (the speakers'
+#            filter-chain's input when AUDIO_DAC_NODE is set, else the
+#            default sink's monitor). 0: the microphone as it is.
 # AUDIO_CALL_SPEAKER  where the caller's voice goes, a PipeWire sink's
-#            node.name (empty: the default sink).
+#            node.name. Empty (the usual): AGL's Communication role, through
+#            the speakers' filter-chain, which the echo canceller hears; a
+#            sink named here must be one it hears too.
 # AUDIO_RING_COMMAND  plays the ring tone for a phone that doesn't ring
 #            in-band (empty: /usr/bin/pw-play; none: no tone).
 AUDIO_CALL_MIC=

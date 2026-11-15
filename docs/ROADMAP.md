@@ -279,8 +279,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       allowed), `audio-start` with `AUDIO_*`, PipeWire and AGL's WirePlumber config in the images; `make agl-test`. Tests:
       BlueZ object-tree parsing from 5.86's documented properties, every pairing-window transition, link loss, the rendered
       graph, the runner against fake `pipewire`/`pw-cli`, end to end over gRPC, the screens at 800×480, and the real binary
-      against the dashboard's client. **Never run against a real BlueZ or PipeWire; nothing heard.** The DAC8x's node name and
-      jack map are UNVERIFIED. Next: bench check 21 (agl.md), then 6.2 and 6.3, which attach to the filter-chain and the manager
+      against the dashboard's client. **Never run against a real BlueZ or PipeWire; nothing heard.** The DAC is a RaspiAudio
+      8xOUT on the DAC8x driver: its pro-audio node, `62-f250-dac.conf` to select it at boot, and the jack map `[BENCH]`
+      2026-11-15 (ADR-0014 amendment; the speakers' filter-chain feeds all 8 channels there). Next: bench check 21 (agl.md), then 6.2 and 6.3, which attach to the filter-chain and the manager
       Cover art `[SIM]` ([ADR-0042](architecture/adr/0042-cover-art-from-the-phone.md), owner 2026-11-12): audio-manager fetches
       each track's thumbnail over AVRCP 1.6 BIP through obexd (`f250-obexd.service`: system bus, user f250, no servers;
       bluetoothd `--experimental` for `ObexPort`), `GetCoverArt`; the Media screen shows it beside the track, never another
@@ -343,10 +344,11 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       Echo cancellation in the image `[SIM]` (ADR-0045 amendment 2026-11-14b): meta-f250 builds PipeWire with WebRTC
       (`pipewire-spa-plugins-aec-webrtc`, built in the VM); `f250-echo-cancel.service` runs the echo-cancel module in
       monitor mode, the microphone in, the speakers' monitor (`AUDIO_DAC_NODE`) as the reference, and the phone gets
-      its source `f250.call-aec` (`AUDIO_CALL_ECHO_CANCEL=0`: the microphone as it is). Not yet in a built image or on
-      the bench: the links under AGL's policy, the far end's echo and the CPU are S3's checks.
-      Next: S2 with audio-manager on the bench (and PBAP with the owner's phone), then the packaging; S3 on the next
-      image (with the DAC); S4 after
+      its source `f250.call-aec` (`AUDIO_CALL_ECHO_CANCEL=0`: the microphone as it is). **S3 `[BENCH]` 2026-11-15**
+      with the DAC (ADR-0045 amendment 2026-11-15b): no echo at the far end and about 5 % of one core, once
+      `61-f250-calls.conf` turned WirePlumber's `linking.allow-moving-streams` back on (AGL turns it off, and the
+      phone got the raw microphone: a strong echo). Not yet in a built image (rpms installed by hand); muting and a
+      volume change mid-call untested. Next: S4 (the truck's microphone)
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
       JSON and tracks the position honestly (status, the last fix with its age, never stale as current); 23 tests,
       with gpsd 3.27.5's own output from synthetic NMEA as the test vectors. `services/navigation` serves

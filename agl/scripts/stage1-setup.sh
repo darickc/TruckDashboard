@@ -392,7 +392,7 @@ install_file() {  # install_file <src> <dest> <mode>: say whether it changed
 }
 
 apply() {
-  local u d cfg ver bundle engine f rel mode new rf bluez_new=0 wp_new=0
+  local u d cfg ver bundle engine f rel mode new rf bluez_new=0 wp_new=0 wpconf_new=0
   [[ -n "$ROOT" || "$(id -u)" == 0 ]] || die "Run as root (on AGL, ssh root@<pi>)"
   [[ -n "$ROOT" || -f /etc/default/flutter ]] || die "/etc/default/flutter missing: this is not the AGL Flutter image"
 
@@ -456,6 +456,7 @@ apply() {
     if install_file "$f" "$ROOT/$rel" "$mode"; then
       if [[ "$rel" == "$BLUEZ_DROPIN" ]]; then bluez_new=1; fi
       if [[ "$rel" == usr/local/share/wireplumber/* ]]; then wp_new=1; fi
+      if [[ "$rel" == etc/wireplumber/* ]]; then wpconf_new=1; fi
     fi
   done < <(find "$HERE/rootfs" -type f | sort)
   # The linking scripts load when WirePlumber's policy instance starts; it
@@ -463,6 +464,14 @@ apply() {
   if ((wp_new)); then
     sys systemctl restart wireplumber@policy.service
     echo "  restarted WirePlumber's policy instance (its linking scripts changed)"
+  fi
+  # A drop-in in /etc/wireplumber is read when an instance starts: the DAC's
+  # profile (62-f250-dac.conf) by the audio instance, the phone's roles by
+  # the Bluetooth one. Restarting the Bluetooth instance drops a connected
+  # phone, which reconnects by itself.
+  if ((wpconf_new)); then
+    sys systemctl restart wireplumber@audio.service wireplumber@bluetooth.service wireplumber@policy.service
+    echo "  restarted WirePlumber (its configuration in /etc/wireplumber changed)"
   fi
   sys systemctl daemon-reload
   # The backlight rule (ADR-0028) applies at boot; apply it now as well.

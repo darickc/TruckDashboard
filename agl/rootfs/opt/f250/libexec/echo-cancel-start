@@ -9,8 +9,11 @@
 #                           calls are off, and so is this (exits 0).
 #   AUDIO_CALL_ECHO_CANCEL  1 (or empty): on. 0: off (exits 0), and
 #                           audio-start gives the phone the microphone itself.
-#   AUDIO_DAC_NODE          the echo's reference is this sink's monitor, what
-#                           the speakers play; empty: the default sink's.
+#   AUDIO_DAC_NODE          the echo's reference targets this sink; empty: the
+#                           default sink's monitor. With the speakers'
+#                           filter-chain (a smart filter on the DAC) WirePlumber
+#                           links the reference to f250.speakers' monitor: the
+#                           stereo mix before the crossover and the volume.
 #
 # The module, in monitor mode (PipeWire 1.6.8 module-echo-cancel.c):
 #   - f250.call-aec.mic        captures AUDIO_CALL_MIC (passive: the
@@ -27,9 +30,10 @@
 #
 # F250_PIPEWIRE, F250_AEC_CONF and F250_AEC_PLUGIN are for the tests.
 #
-# Status: [SIM] (make agl-test). UNVERIFIED on the Pi: that WirePlumber
-# links the reference to the DAC's monitor under AGL's policy, the far end's
-# echo at a normal volume, and the CPU it costs (S3).
+# Status: [BENCH] 2026-11-15 with the 8xOUT and a powered speaker (ADR-0045
+# amendment 2026-11-15b): no echo at the far end, about 5 % of one core
+# during a call. Needs 61-f250-calls.conf's linking.allow-moving-streams, or
+# the phone gets the raw microphone. Not yet in the truck (S4).
 set -euo pipefail
 
 PIPEWIRE="${F250_PIPEWIRE:-/usr/bin/pipewire}"
