@@ -239,7 +239,9 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
      underneath: that part of the song is lost. Documented, not shown.
    - Muted directions are navigation's: it doesn't call Speak, and the music
      is untouched.
-   - **The voice:** `/opt/f250/libexec/speak-prompt`, Flite+hts_engine 1.06
+   - **The voice** (refined by [ADR-0048](0048-piper-voice.md): Piper's
+     ljspeech voice through `f250-tts.service`, with this as the fallback):
+     `/opt/f250/libexec/speak-prompt`, Flite+hts_engine 1.06
      (meta-agl-demo's `flite`, BSD-3-Clause, with `flite-voicedata`'s
      cmu_us_arctic_slt voice, CC-BY-3.0; already built in the VM's sstate)
      writes a WAV in `/run/f250-audio/`, then `exec pw-play --media-role

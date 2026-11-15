@@ -288,7 +288,7 @@ check() {
   else
     bad "no dashboard bundle in $bundle (make deploy)"
   fi
-  for d in vehicle-gateway recorder obd-console power-manager camera-manager camera-ctl navigation usb-export audio-manager knob-link f250-can f250-storage; do
+  for d in vehicle-gateway recorder obd-console power-manager camera-manager camera-ctl navigation usb-export audio-manager knob-link tts f250-can f250-storage; do
     [[ -x "$ROOT/opt/f250/bin/$d" ]] && ok "/opt/f250/bin/$d" || bad "/opt/f250/bin/$d missing (make deploy)"
   done
   if [[ -d "$ROOT/opt/f250/share/data/signals" && -f "$ROOT/opt/f250/share/data/warning_rules.json" ]]; then
@@ -554,9 +554,9 @@ apply() {
     sys systemctl disable "$DEMO_HOMESCREEN"; echo "  disabled $DEMO_HOMESCREEN"
   fi
   sys systemctl enable "${F250_UNITS[@]}"
-  # Hands-free on or off (AUDIO_CALL_MIC) and its echo canceller, before
-  # audio-manager starts again.
-  sys systemctl restart f250-calls-config.service f250-echo-cancel.service
+  # Hands-free on or off (AUDIO_CALL_MIC), its echo canceller and the
+  # prompts' voice (ADR-0048), before audio-manager starts again.
+  sys systemctl restart f250-calls-config.service f250-echo-cancel.service f250-tts.service
   sys systemctl restart f250-gateway.service f250-recorder.service f250-power-manager.service f250-camera-manager.service f250-navigation.service f250-usb-export.service f250-audio-manager.service f250-knob-link.service
   # agl-compositor 0.0.24 takes one homescreen client per run: a second one
   # (a restarted dashboard, or ours after the demo's) makes it abort. Stop

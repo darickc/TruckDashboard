@@ -27,6 +27,9 @@
 # leaves /run readable). bluetoothd runs with --experimental for the
 # player's ObexPort (bluetooth.service.d/50-f250.conf).
 #
+# Spoken directions (ADR-0048): speak-prompt asks f250-tts.service, started
+# with this unit, for Piper's WAV on /run/f250-tts/tts.sock, else uses Flite.
+#
 # Calls (ADR-0045): the phone gets the call microphone through
 # f250-echo-cancel.service's WebRTC canceller (its source f250.call-aec),
 # started with this unit; audio-start names it with --call-mic.
@@ -43,8 +46,8 @@
 # the filter-chain keeps up without xruns.
 [Unit]
 Description=F-250 audio manager (Bluetooth audio, speaker DSP)
-Wants=bluetooth.service pipewire.socket f250-obexd.service f250-calls-config.service f250-echo-cancel.service
-After=bluetooth.service pipewire.socket dbus.service f250-obexd.service f250-calls-config.service f250-echo-cancel.service
+Wants=bluetooth.service pipewire.socket f250-obexd.service f250-calls-config.service f250-echo-cancel.service f250-tts.service
+After=bluetooth.service pipewire.socket dbus.service f250-obexd.service f250-calls-config.service f250-echo-cancel.service f250-tts.service
 
 [Service]
 Type=notify

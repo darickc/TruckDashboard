@@ -277,10 +277,16 @@ AUDIO_RING_COMMAND=
 # Spoken directions (ADR-0039 decision 9; navigation, ADR-0040). The music
 # is paused while a prompt is said (owner, 2026-11-12) and resumed after.
 # AUDIO_VOICE  a program that says its argument (empty:
-#            /opt/f250/libexec/speak-prompt, Flite); none: no prompts.
+#            /opt/f250/libexec/speak-prompt: Piper if f250-tts runs, else
+#            Flite); none: no prompts.
+# AUDIO_PIPER_VOICE  speak-prompt's Piper voice (ADR-0048): a name in
+#            /opt/f250/piper/voices or a path to its .onnx (empty:
+#            en_US-ljspeech-medium, the owner's choice); none: Flite. With
+#            no Piper installed, Flite.
 # AUDIO_PROMPT_HOLD_MS  the music resumes this long after the last prompt
 #            (empty: 1000, an example), so close prompts don't let it back in.
 AUDIO_VOICE=
+AUDIO_PIPER_VOICE=
 AUDIO_PROMPT_HOLD_MS=
 # Phones (the Media screen's Phones): with none connected, audio-manager tries
 # the phone connected last (kept in /var/lib/f250-audio/last-phone) by itself

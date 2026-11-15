@@ -3015,3 +3015,51 @@ Bench left: the DAC directly on the header (no PoE HAT, no fan),
 `62-f250-dac.conf` and the new `61-f250-calls.conf` installed, the DAC
 settings above, debug logging removed, test files removed. Still image
 cb62346 plus the hand-installed rpms.
+
+## 2026-11-15 — A natural voice for directions: Piper (ADR-0048) [BENCH]
+
+The owner found Flite's voice robotic. Same bench Pi, the DAC's front jack
+into a powered speaker.
+
+**Choosing by ear.** piper-tts 1.8.0 (PyPI) made the same three-sentence
+prompt with five voices with clean licences (en_US ljspeech, kristin, joe,
+john, norman, "medium"; sha256 of ljspeech's .onnx `6f52a751…7f22`). The
+macOS wheel failed (it looks for espeak-ng data under its CI build path), so
+the samples came from the Linux aarch64 wheel in Docker. Played on the Pi
+with `pw-play --media-role Speech-High` after the same sentence from Flite:
+the owner chose **ljspeech**.
+
+**Piper on the Pi.** libpiper and its CLI built from v1.8.0 (commit
+`639388b6`) in debian:trixie for aarch64 (glibc 2.41; the Pi has 2.43),
+with onnxruntime 1.22.0's prebuilt linux-aarch64 library and espeak-ng at
+the commit Piper pins; installed by hand in `/opt/f250/piper` (100 MB with
+the voice). Timings on the Pi 5:
+
+| | Time |
+|---|---|
+| CLI, a fresh process each prompt | 1.61 s ("Hi."), 1.74 s ("Turn left."), 2.90 s (two sentences, 5.5 s of speech); one core |
+| Loading the voice | 1.40 s |
+| Loaded: "Turn left." (0.93 s of speech) | 0.22–0.24 s |
+| Loaded: one sentence (3.4 s of speech) | 0.87 s |
+| Loaded: two sentences (5.5 s of speech) | 1.38 s (first sentence 0.84 s) |
+| Flite, "Voice 1. …" three sentences | 0.35 s |
+
+**The service.** `f250-tts.service` (`services/tts`) deployed with
+`make deploy`. First start: onnxruntime aborted ("Error in cpuinfo: failed
+to parse processor information from /proc/cpuinfo", then an
+`OnnxRuntimeException` from its logger) because the unit had
+`ProcSubset=pid`. Without it: "Piper 1.8.0 with …/en_US-ljspeech-medium.onnx
+loaded in 1405 ms", 107 MB resident, socket `srwxrwx--- f250 f250`, with
+`MemoryDenyWriteExecute=yes` and the rest of the sandbox.
+
+**Through navigation's path.** audio-manager's `Speak` called over an SSH
+forward of its socket (`buf curl` with `shared/proto`): "In half a mile, turn
+right onto US 36." made in 789–889 ms, "Turn left. Then you will arrive at
+your destination." in 806–823 ms, played as Speech-High through the
+speakers' chain to the front jack. The owner: "Good". With `f250-tts`
+stopped, a prompt came from Flite (`speak-prompt`'s fallback); started again
+afterwards.
+
+Bench left: Piper in `/opt/f250/piper` by hand (a reflash removes it; the
+image falls back to Flite), `f250-tts` running, `AUDIO_PIPER_VOICE` unset
+(ljspeech). Test files removed.

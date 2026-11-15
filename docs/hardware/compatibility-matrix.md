@@ -306,6 +306,19 @@ Bench details: [bench-log](bench-log.md) 2026-11-15.
 | Stacking | Silent on top of a PoE HAT (EEPROM read, I2S running); plays directly on the header. RaspiAudio's guide fits it on a riser in the official case | T | bench-log 2026-11-15 |
 | Header pass-through, mute at boot, line level | Not documented (H27, H6) | U | — |
 
+## Piper (text to speech)
+
+The spoken directions' voice ([ADR-0048](../architecture/adr/0048-piper-voice.md)).
+
+| Item | Finding | Status | Source |
+|---|---|---|---|
+| Project | OHF-Voice/piper1-gpl (the archived rhasspy/piper's successor), v1.8.0 2026-09-04, GPL-3.0; C API `libpiper` | V | GitHub API; `libpiper/include/piper.h` |
+| Build | libpiper's CMake fetches espeak-ng (`212928b3`) and prebuilt onnxruntime 1.22.0 linux-aarch64; built in debian:trixie, runs on AGL 22's glibc 2.43 | T | bench-log 2026-11-15 |
+| macOS wheel | piper-tts 1.8.0's macOS arm64 wheel looks for espeak-ng data under its CI build path and fails; the Linux aarch64 wheel works | T | the owner's Mac, 2026-11-15 |
+| Speed on the Pi 5 | Voice load 1.4 s; loaded, about 0.25× the speech's length on one core ("Turn left." 0.22 s) | T | bench-log 2026-11-15 |
+| Sandbox | onnxruntime needs `/proc/cpuinfo` (aborts under `ProcSubset=pid`); works with `MemoryDenyWriteExecute=yes` | T | bench-log 2026-11-15 |
+| Voice en_US-ljspeech-medium | 22050 Hz, 63.5 MB; dataset public domain (LJ Speech) | V | its MODEL_CARD on Hugging Face (rhasspy/piper-voices) |
+
 ## Cameras and video
 
 Researched 2026-11-10 for front and rear recording

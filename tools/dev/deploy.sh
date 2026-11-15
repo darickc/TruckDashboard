@@ -13,7 +13,7 @@
 #
 # What lands on the Pi:
 #   /opt/f250/bin/              vehicle-gateway, recorder, obd-console, power-manager, camera-manager,
-#                               camera-ctl, navigation, usb-export, audio-manager, knob-link, f250-can, f250-storage
+#                               camera-ctl, navigation, usb-export, audio-manager, knob-link, tts, f250-can, f250-storage
 #   /opt/f250/share/agl/        this repo's agl/ (scripts, rootfs, boot config)
 #   /opt/f250/share/data/       signal registry, warning rules, scenarios, Valhalla's config
 #   /usr/share/flutter/f250_infotainment/<flutter>/release/
@@ -71,11 +71,11 @@ build() {
     "$IMAGE" bash -euo pipefail -c '
       cd /src
       cargo build -q --release --locked -p vehicle-gateway --features rfcomm
-      cargo build -q --release --locked -p recorder -p obd-console -p power-manager -p navigation -p usb-export -p audio-manager -p knob-link
+      cargo build -q --release --locked -p recorder -p obd-console -p power-manager -p navigation -p usb-export -p audio-manager -p knob-link -p tts
       # In-process GStreamer, so it can record (ADR-0027 decision 2).
       cargo build -q --release --locked -p camera-manager --features gstreamer
       mkdir -p /out/bin
-      cp /target/release/vehicle-gateway /target/release/recorder /target/release/obd-console /target/release/power-manager /target/release/camera-manager /target/release/camera-ctl /target/release/navigation /target/release/usb-export /target/release/audio-manager /target/release/knob-link /out/bin/
+      cp /target/release/vehicle-gateway /target/release/recorder /target/release/obd-console /target/release/power-manager /target/release/camera-manager /target/release/camera-ctl /target/release/navigation /target/release/usb-export /target/release/audio-manager /target/release/knob-link /target/release/tts /out/bin/
 
       for d in apps/infotainment simulator/powerstroke; do
         mkdir -p "/work/$d"

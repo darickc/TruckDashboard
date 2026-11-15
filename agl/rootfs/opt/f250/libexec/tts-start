@@ -1,0 +1,52 @@
+#!/bin/bash
+# ExecStart of f250-tts.service: the spoken directions' voice (ADR-0048).
+# Runs `tts serve`, which keeps a Piper voice loaded and answers
+# speak-prompt on /run/f250-tts/tts.sock. Exits 0, doing nothing, when the
+# voice is off or Piper isn't installed: speak-prompt then uses Flite, as
+# before.
+#
+#   AUDIO_PIPER_VOICE  a Piper voice: a name in /opt/f250/piper/voices
+#                      (its .onnx and .onnx.json), or a path to the .onnx.
+#                      Empty: en_US-ljspeech-medium (the owner's choice,
+#                      2026-11-15). none: off, Flite says the prompts.
+#
+# Piper's tree is libpiper's CMake install prefix, /opt/f250/piper:
+# lib/libpiper.so, lib/libonnxruntime.so.1, share/espeak-ng-data, voices/.
+#
+# F250_TTS_BIN, F250_PIPER_PREFIX and F250_TTS_SOCK are for the tests.
+#
+# Status: [BENCH] 2026-11-15 with Piper installed by hand (bench-log); the
+# image doesn't carry Piper yet, so there this exits and Flite speaks.
+set -euo pipefail
+
+BIN="${F250_TTS_BIN:-/opt/f250/bin/tts}"
+PREFIX="${F250_PIPER_PREFIX:-/opt/f250/piper}"
+SOCK="${F250_TTS_SOCK:-/run/f250-tts/tts.sock}"
+
+voice="${AUDIO_PIPER_VOICE:-}"
+voice="${voice//[[:space:]]/}"
+case "$voice" in
+  none) echo "tts: off (AUDIO_PIPER_VOICE=none): Flite says the prompts"; exit 0 ;;
+  "") voice=en_US-ljspeech-medium ;;
+esac
+if [[ ! "$voice" =~ ^[A-Za-z0-9_./-]+$ ]]; then
+  echo "tts: AUDIO_PIPER_VOICE=$voice: letters, digits and _ . / - only" >&2
+  exit 2
+fi
+if [[ "$voice" == */* ]]; then
+  model="$voice"
+else
+  model="$PREFIX/voices/$voice.onnx"
+fi
+
+missing=""
+for f in "$PREFIX/lib/libpiper.so" "$PREFIX/lib/libonnxruntime.so.1" "$PREFIX/share/espeak-ng-data" "$model" "$model.json"; do
+  [[ -e "$f" ]] || missing="$missing $f"
+done
+if [[ -n "$missing" ]]; then
+  echo "tts: Piper isn't installed here (missing$missing): Flite says the prompts"
+  exit 0
+fi
+
+echo "exec $BIN serve --prefix $PREFIX --voice $model --listen $SOCK" >&2
+exec "$BIN" serve --prefix "$PREFIX" --voice "$model" --listen "$SOCK"

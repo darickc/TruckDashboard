@@ -1,0 +1,60 @@
+# The spoken directions' voice (ADR-0048): `tts serve` keeps a Piper voice
+# loaded (about 1.4 s to load on the Pi 5, then about a quarter of the
+# speech's length to say it) and answers speak-prompt on
+# /run/f250-tts/tts.sock with a WAV for each prompt. Started by
+# f250-audio-manager.service; it exits at once, doing nothing, when
+# AUDIO_PIPER_VOICE=none or Piper isn't installed, and speak-prompt uses
+# Flite.
+#
+# The socket is created only once the voice is loaded (mode 0770 from
+# UMask, in a 0750 directory, both user f250): audio-manager, also f250,
+# runs speak-prompt.
+#
+# Nothing here touches the vehicle bus (ADR-0007).
+#
+# Status: [BENCH] 2026-11-15 with Piper installed by hand (bench-log).
+[Unit]
+Description=F-250 voice for spoken directions (Piper)
+
+[Service]
+Type=simple
+User=f250
+Group=f250
+EnvironmentFile=-/etc/default/f250
+ExecStart=/opt/f250/libexec/tts-start
+Restart=on-failure
+RestartSec=5
+UMask=0007
+RuntimeDirectory=f250-tts
+RuntimeDirectoryMode=0750
+
+# Sandbox (ADR-0021): no network, no devices, no real-time, unix sockets
+# only, no writable-and-executable memory.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+# No ProcSubset=pid: onnxruntime reads /proc/cpuinfo to pick its kernels, and
+# without it aborts while loading the voice (bench, 2026-11-15).
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
