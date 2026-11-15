@@ -26,7 +26,7 @@ class AlertBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge([s.store, s.settings, s.cameras.status, s.cleared]),
+      listenable: Listenable.merge([s.store, s.settings, s.cameras.status, s.audio.status, s.cleared]),
       builder: (context, _) {
         final alerts = bannerAlerts(s);
         if (alerts.isEmpty) return const SizedBox.shrink();

@@ -63,6 +63,11 @@ COMPOSITOR=agl-compositor.service
 COMPOSITOR_DROPIN=etc/systemd/system/agl-compositor.service.d/50-f250.conf
 CONNMAN_DROPIN=etc/systemd/system/connman.service.d/50-f250.conf
 BLUEZ_DROPIN=etc/systemd/system/bluetooth.service.d/50-f250.conf
+# WirePlumber 0.5.14's linking scripts with upstream's fixes backported
+# (bench-log 2026-11-15); WirePlumber finds them before /usr/share's.
+WP_SCRIPTS=(usr/local/share/wireplumber/scripts/linking/prepare-link.lua
+  usr/local/share/wireplumber/scripts/linking/rescan-media-role-links.lua
+  usr/local/share/wireplumber/scripts/lib/linking-utils.lua)
 # BlueZ's mpris-proxy (a user unit the image enables for every user) opens
 # its own cover art session once bluetoothd shows ObexPort, and phones allow
 # one per device: masked, so audio-manager's is the one (ADR-0042).
@@ -308,6 +313,14 @@ check() {
     bad "/$COMPOSITOR_DROPIN missing or old: a compositor crash leaves the panel on the text console"
   fi
 
+  local wp_ok=1
+  for f in "${WP_SCRIPTS[@]}"; do cmp -s "$HERE/rootfs/$f" "$ROOT/$f" || wp_ok=0; done
+  if ((wp_ok)); then
+    ok "WirePlumber's linking scripts with the fixes for a wedged policy instance (/usr/local/share/wireplumber)"
+  else
+    bad "/usr/local/share/wireplumber's linking scripts missing or old: WirePlumber's policy instance can stop linking all audio (run this script)"
+  fi
+
   say "Bluetooth (ADR-0023; the MX+ over RFCOMM)"
   if cmp -s "$HERE/rootfs/$CONNMAN_DROPIN" "$ROOT/$CONNMAN_DROPIN"; then
     ok "connman leaves Bluetooth to BlueZ (/$CONNMAN_DROPIN)"
@@ -379,7 +392,7 @@ install_file() {  # install_file <src> <dest> <mode>: say whether it changed
 }
 
 apply() {
-  local u d cfg ver bundle engine f rel mode new rf bluez_new=0
+  local u d cfg ver bundle engine f rel mode new rf bluez_new=0 wp_new=0
   [[ -n "$ROOT" || "$(id -u)" == 0 ]] || die "Run as root (on AGL, ssh root@<pi>)"
   [[ -n "$ROOT" || -f /etc/default/flutter ]] || die "/etc/default/flutter missing: this is not the AGL Flutter image"
 
@@ -442,8 +455,15 @@ apply() {
     [[ "$rel" == opt/f250/libexec/* ]] && mode=0755
     if install_file "$f" "$ROOT/$rel" "$mode"; then
       if [[ "$rel" == "$BLUEZ_DROPIN" ]]; then bluez_new=1; fi
+      if [[ "$rel" == usr/local/share/wireplumber/* ]]; then wp_new=1; fi
     fi
   done < <(find "$HERE/rootfs" -type f | sort)
+  # The linking scripts load when WirePlumber's policy instance starts; it
+  # relinks everything when it comes back (bench-log 2026-11-15).
+  if ((wp_new)); then
+    sys systemctl restart wireplumber@policy.service
+    echo "  restarted WirePlumber's policy instance (its linking scripts changed)"
+  fi
   sys systemctl daemon-reload
   # The backlight rule (ADR-0028) applies at boot; apply it now as well.
   sys udevadm control --reload || true

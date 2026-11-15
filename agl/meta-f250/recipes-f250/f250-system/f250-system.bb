@@ -100,7 +100,7 @@ pkg_postinst:${PN}() {
 CONFFILES:${PN} = "${sysconfdir}/default/f250"
 
 FILES:${PN} = "${sysconfdir} /opt/f250 ${localstatedir}/lib/journal \
-    ${nonarch_libdir}/systemd/user-preset"
+    ${nonarch_libdir}/systemd/user-preset /usr/local/share/wireplumber"
 
 # What the scripts call, so the image needn't happen to carry it: bash;
 # f250-can: ip (iproute2), candump (can-utils), lsusb (usbutils), timeout

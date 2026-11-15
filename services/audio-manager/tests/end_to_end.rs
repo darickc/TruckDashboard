@@ -1764,3 +1764,68 @@ async fn a_phone_without_its_own_ring_tone_is_rung_through_the_speakers() {
     assert!(!calls(&m).local_ring);
     assert_eq!(r.ringer.rings(), rung);
 }
+
+/// What routing.rs checks follows the calls, the music and the prompts, and
+/// a problem it finds reaches the screen (bench-log 2026-11-15).
+#[tokio::test]
+async fn routing_watches_the_music_or_the_call_and_reports_a_problem() {
+    let mut r = start("routing", no_pairing()).await;
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "playing, calls ready", |m| {
+        m.streaming && calls(m).available
+    })
+    .await;
+    let addr = m.phone.as_ref().unwrap().address.clone();
+    assert!(m.routing_problem.is_empty());
+    let want = r.manager.routing_expectation();
+    assert_eq!(
+        (want.call, want.music.as_deref()),
+        (None, Some(addr.as_str()))
+    );
+
+    // A prompt corks the music: nothing to check while it is said.
+    assert!(speak(&mut r.client, "Turn right.").await.accepted);
+    until(&mut s, "speaking", |m| prompts(m).speaking).await;
+    assert_eq!(r.manager.routing_expectation().music, None);
+    until(&mut s, "said, music back", |m| {
+        !prompts(m).speaking && m.streaming
+    })
+    .await;
+
+    r.calls.ring(SIM_NUMBER, SIM_CALLER);
+    let m = until(&mut s, "ringing", |m| {
+        call_state(m) == pb::CallState::Incoming
+    })
+    .await;
+    assert!(
+        r.manager.routing_expectation().is_empty(),
+        "no call audio yet, the music paused"
+    );
+    let id = calls(&m).call.unwrap().id;
+    assert!(answer(&mut r.client, id).await.accepted);
+    until(&mut s, "active", |m| call_state(m) == pb::CallState::Active).await;
+    let want = r.manager.routing_expectation();
+    assert_eq!(
+        (want.call.as_deref(), want.music),
+        (Some(addr.as_str()), None)
+    );
+
+    r.manager
+        .set_routing_problem(Some(audio_manager::routing::Problem {
+            screen: "The call's audio isn't connected: test.".into(),
+            log: "test".into(),
+        }));
+    until(&mut s, "the problem shown", |m| {
+        m.routing_problem == "The call's audio isn't connected: test."
+    })
+    .await;
+    r.manager.set_routing_problem(None);
+    until(&mut s, "and cleared", |m| m.routing_problem.is_empty()).await;
+
+    assert!(hang_up(&mut r.client, id).await.accepted);
+    until(&mut s, "no call, music back", |m| {
+        calls(m).call.is_none() && m.streaming
+    })
+    .await;
+    assert_eq!(r.manager.routing_expectation().music, Some(addr));
+}

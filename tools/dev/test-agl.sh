@@ -731,6 +731,12 @@ check "knob-link: stage1 installs, enables and restarts it" "grep -q 'f250-audio
 WPB=agl/rootfs/etc/wireplumber/wireplumber.conf.d/60-f250-bluetooth.conf
 check "WirePlumber: the phone streams to us, nothing else (A2DP sink only)" "grep -qx '  bluez5.roles = \\[ a2dp_sink \\]' $WPB && grep -qx '  bluez5.hfphsp-backend = \"none\"' $WPB"
 check "WirePlumber drop-in sorts after AGL's 30-AGL-bluetooth.conf" "[[ \"\$(basename $WPB)\" > 30-AGL-bluetooth.conf ]]"
+WPS=agl/rootfs/usr/local/share/wireplumber/scripts
+check "WirePlumber: prepare-link clears the priority role link before AGL's reset (bdc17eb2)" "grep -B4 '^          link:reset ()' $WPS/linking/prepare-link.lua | grep -q 'lutils.clearPriorityMediaRoleLink (link)'"
+check "WirePlumber: a failed role link is cleared too (bdc17eb2)" "grep -B1 '^            l:remove()' $WPS/linking/rescan-media-role-links.lua | grep -q 'clearPriorityMediaRoleLink(l)'"
+check "WirePlumber: a removed priority role link is never used (F-250 guard)" "grep -q 'pmrl = validPriorityMediaRoleLink(om, mc)' $WPS/linking/rescan-media-role-links.lua"
+check "WirePlumber: linking-utils has 055c0d5d, 9ff714b0, ade3b3ef" "grep -q 'if getprio (l) > prio or' $WPS/lib/linking-utils.lua && grep -q 'if not pmrl then return \"mix\" end' $WPS/lib/linking-utils.lua && grep -q 'the stream of a role loopback must not link to another role-based target' $WPS/lib/linking-utils.lua"
+check "WirePlumber: the scripts are in the image and setup restarts the policy instance for them" "grep -q '/usr/local/share/wireplumber\"' agl/meta-f250/recipes-f250/f250-system/f250-system.bb && grep -q 'sys systemctl restart wireplumber@policy.service' '$SETUP'"
 for p in packagegroup-pipewire pipewire-tools wireplumber-config-agl wireplumber-policy-config-agl; do
   check "audio: the image has $p" "grep -qx '    $p \\\\' agl/meta-f250/recipes-platform/images/agl-f250-base.inc"
 done

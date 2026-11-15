@@ -437,5 +437,6 @@ AudioReport reportFromPb(pb.WatchAudioResponse r) {
         : null,
     calls: callsFromPb(r, phone),
     phonebook: phonebookStatusFromPb(r, phone),
+    routingProblem: r.routingProblem,
   );
 }

@@ -370,6 +370,7 @@ class AudioReport {
     this.volume,
     this.calls,
     this.phonebook,
+    this.routingProblem = '',
   });
 
   final bool bluetoothReady;
@@ -409,6 +410,11 @@ class AudioReport {
   /// The phone's lists (ADR-0045 phase 2); null from an audio-manager
   /// without them.
   final PhonebookStatus? phonebook;
+
+  /// Audio that should be playing (the call, the phone's music) left
+  /// unlinked by PipeWire's session manager, said for the driver; empty:
+  /// none seen (bench-log 2026-11-15).
+  final String routingProblem;
 
   /// The call to show, if any.
   PhoneCall? get call => calls?.call;

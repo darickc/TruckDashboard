@@ -1,13 +1,14 @@
 import 'package:flutter/foundation.dart';
 
+import '../audio/audio_state.dart';
 import '../cameras/camera_state.dart';
 import '../telemetry/source_info.dart';
 import '../telemetry/warnings.dart';
 import 'app_scope.dart';
 import 'presentation.dart';
 
-/// One alert as the banner shows it: the vehicle's alerts (TelemetryStore)
-/// and camera-manager's, in one list. The telemetry model stays about
+/// One alert as the banner shows it: the vehicle's alerts (TelemetryStore),
+/// camera-manager's and audio-manager's, in one list. The telemetry model stays about
 /// signals; camera alerts join here, in the UI, so they show wherever the
 /// banner does: above every screen, and in camera mode in the status bar's
 /// place.
@@ -63,6 +64,23 @@ List<BannerAlert> recordingAlerts(CameraStatus c) {
         detail: r.problem,
         simulated: c.simulated,
       ),
+  ];
+}
+
+/// The advisory for audio left unlinked (audio-manager's routing check,
+/// bench-log 2026-11-15): the call or the phone's music isn't reaching the
+/// speakers, and audio-manager has seen it for several seconds. Nothing
+/// without audio-manager (the dashboard can't say).
+List<BannerAlert> audioAlerts(AudioStatus a) {
+  final r = a.report;
+  if (r == null || r.routingProblem.isEmpty) return const [];
+  return [
+    BannerAlert(
+      level: AlertLevel.advisory,
+      title: 'Audio not playing',
+      detail: r.routingProblem,
+      simulated: r.simulated,
+    ),
   ];
 }
 
@@ -153,7 +171,7 @@ class ClearedAlerts extends ChangeNotifier {
 
 /// Every active alert the driver hasn't cleared, critical first; within a
 /// level "not polling" first, then the vehicle's (in the store's order), then
-/// the cameras'.
+/// the cameras', then audio's.
 List<BannerAlert> bannerAlerts(AppServices s) {
   final store = s.store;
   final all = [
@@ -168,6 +186,7 @@ List<BannerAlert> bannerAlerts(AppServices s) {
             level: a.level, title: title, detail: detail, simulated: store.source.simulated);
       }(),
     ...recordingAlerts(s.cameras.status.value),
+    ...audioAlerts(s.audio.status.value),
   ];
   // List.sort isn't stable; sort indices to keep the order within a level.
   final order = List.generate(all.length, (i) => i)

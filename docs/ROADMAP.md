@@ -337,6 +337,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       only), and the Phone screen from Home: Contacts and Recent (usable while driving), a Keypad only when stopped
       (a current speed below 1 km/h, an example), the paired phones, and the call shown large while it is set up and
       talked on. Not on the Pi: dialling needs the hands-free packaging above; the PBAP read hasn't met a phone.
+      WirePlumber's policy instance stopped linking all audio after a deploy (2026-11-15): an upstream 0.5.14 bug made
+      fatal by an AGL patch; fixed `[BENCH]` with backported linking scripts, and audio-manager now puts call or music
+      audio left unlinked in the banner ("Audio not playing", `[SIM]`) (bench-log 2026-11-15, ADR-0045 amendment 3).
       Next: S2 with audio-manager on the bench (and PBAP with the owner's phone), then the packaging; S3/S4 after
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
       JSON and tracks the position honestly (status, the last fix with its age, never stale as current); 23 tests,

@@ -355,10 +355,30 @@ test; the DAC not yet here; echo cancellation after a first call).
    voice's pin to `AUDIO_CALL_SPEAKER` loses to AGL's role routing (the
    Communication role loopback, then the EQ), so the caller's voice follows
    AGL's Communication route: the DAC's, once it is there. No loopbacks.
-3. **Open:** WirePlumber's policy instance once stopped linking every new
-   stream (assertion failures at a deploy's restarts; bench-log), cured only
-   by restarting it. Its cause, and whether audio-manager should detect it
-   (a stream left unlinked) and say so, are to find before the truck.
+3. **WirePlumber's policy instance once stopped linking every new stream**
+   (a deploy's restarts; cured only by restarting it). Found and fixed
+   `[BENCH]` (bench-log 2026-11-15): WirePlumber 0.5.14 leaves a moved
+   stream's role-based link recorded as the priority link (upstream #1030,
+   fixed in 0.5.19), AGL's `link:reset ()` patch empties that link, and the
+   next role link removed crashes `rescan-media-role-links.lua`, whose
+   unfinished hook stops WirePlumber's one-at-a-time event dispatcher.
+   - **Decision:** ship the image's three linking scripts with the upstream
+     fixes backported (and a guard of ours that never uses a removed
+     priority link) in `/usr/local/share/wireplumber/scripts`, which
+     WirePlumber reads before `/usr/share`; drop them once the image has
+     WirePlumber 0.5.19 or later. Bumping WirePlumber in the image instead
+     is a larger change to AGL's pinned stack for three script files.
+   - **Decision:** audio-manager checks that what should be heard is linked
+     (the call's streams during an active call; the phone's music while it
+     streams with nothing above it) and, after 6 s without a link, logs it
+     and puts "Audio not playing" in the banner, rather than staying
+     silent. Not an automatic restart of WirePlumber: audio-manager runs
+     unprivileged, and a restart rebuilds AGL's whole audio graph.
+     Detection is `[SIM]`; on the Pi it has not yet fired (it needs the
+     owner's phone during a failure).
+   - With no real sink at all, AGL's equalizer output links into the
+     emergency role loopback and corks the role streams until a sink
+     appears (upstream behaviour): the bench keeps its null sink.
 4. Still to do: hear the caller (the DAC), echo cancellation (S3), the
    truck's microphone (S4 or a USB microphone near the driver).
 

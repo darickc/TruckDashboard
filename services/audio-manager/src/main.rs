@@ -18,6 +18,7 @@ use audio_manager::manager::{Config, Manager, Reconnect, load_settings};
 use audio_manager::pairing;
 use audio_manager::phonebook::{Lists, NoPhonebook, ObexReader, Phonebook, SimReader};
 use audio_manager::ring::{CommandRinger, NoRinger, Ringer, SimRinger, Tone};
+use audio_manager::routing;
 use audio_manager::runner::{Dsp, NoDsp, PipewireConfig, PipewireDsp};
 use audio_manager::server::Api;
 use audio_manager::sim::{SimConfig, SimPhone};
@@ -185,7 +186,8 @@ struct Args {
     /// PipeWire sink's node.name. Empty: the default sink.
     #[arg(long, default_value = "")]
     call_speaker: String,
-    /// pw-dump, to find the phone's hands-free streams during a call.
+    /// pw-dump, to find the phone's hands-free streams during a call, and
+    /// to check that the call and the music are linked (routing.rs).
     #[arg(long, default_value = "pw-dump")]
     pw_dump: PathBuf,
 }
@@ -370,6 +372,11 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         "audio",
     ));
     tokio::spawn(Arc::clone(&manager).run(agent_rx));
+    // Audio left unlinked by WirePlumber, on the screen (bench-log
+    // 2026-11-15). Not in the simulation: there is no PipeWire.
+    if !args.simulate {
+        tokio::spawn(routing::watch(Arc::clone(&manager), args.pw_dump.clone()));
+    }
     if args.knob {
         let (tx, mut rx) = mpsc::channel(32);
         tokio::spawn(knob::run(

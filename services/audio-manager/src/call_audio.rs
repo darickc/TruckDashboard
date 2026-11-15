@@ -105,6 +105,29 @@ pub fn pins(mic: &str, speaker: Option<&str>, s: &PhoneStreams) -> Vec<Vec<Strin
     out
 }
 
+/// Runs a PipeWire tool (pw-dump, pw-metadata) for at most 3 s: its output.
+pub async fn run_cmd(program: &std::path::Path, args: &[String]) -> Result<String, String> {
+    let out = tokio::time::timeout(
+        Duration::from_secs(3),
+        tokio::process::Command::new(program)
+            .args(args)
+            .stdin(Stdio::null())
+            .output(),
+    )
+    .await
+    .map_err(|_| format!("{}: no answer in 3 s", program.display()))?
+    .map_err(|e| format!("{}: {e}", program.display()))?;
+    if !out.status.success() {
+        return Err(format!(
+            "{}: {} {}",
+            program.display(),
+            out.status,
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
 /// Starts and stops the call's audio path.
 pub trait CallAudio: Send + Sync {
     /// A call is up on `address`'s phone.
@@ -145,28 +168,6 @@ impl PwCallAudio {
         }
     }
 
-    async fn run_cmd(program: &PathBuf, args: &[String]) -> Result<String, String> {
-        let out = tokio::time::timeout(
-            Duration::from_secs(3),
-            tokio::process::Command::new(program)
-                .args(args)
-                .stdin(Stdio::null())
-                .output(),
-        )
-        .await
-        .map_err(|_| format!("{}: no answer in 3 s", program.display()))?
-        .map_err(|e| format!("{}: {e}", program.display()))?;
-        if !out.status.success() {
-            return Err(format!(
-                "{}: {} {}",
-                program.display(),
-                out.status,
-                String::from_utf8_lossy(&out.stderr).trim()
-            ));
-        }
-        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
-    }
-
     /// Finds the phone's streams, then pins them once.
     async fn run(
         address: String,
@@ -177,7 +178,7 @@ impl PwCallAudio {
     ) {
         let until = tokio::time::Instant::now() + FIND_FOR;
         let streams = loop {
-            if let Ok(d) = Self::run_cmd(&pw_dump, &[]).await {
+            if let Ok(d) = run_cmd(&pw_dump, &[]).await {
                 let s = phone_streams(&d, &address);
                 if s.voice.is_some() && s.to_phone.is_some() {
                     break s;
@@ -193,7 +194,7 @@ impl PwCallAudio {
             tokio::time::sleep(FIND_EVERY).await;
         };
         for args in pins(&mic, speaker.as_deref(), &streams) {
-            if let Err(e) = Self::run_cmd(&pw_metadata, &args).await {
+            if let Err(e) = run_cmd(&pw_metadata, &args).await {
                 eprintln!("[audio] call audio: pinning {}: {e}", args[0]);
             }
         }

@@ -26,6 +26,7 @@ use crate::pairing::{self, Action, Outcome, State, Window};
 use crate::phonebook::{self, BookState, Phonebook, RecentKind};
 use crate::prompts::{Act, PromptPause};
 use crate::ring::Ringer;
+use crate::routing::{Expected, Problem};
 use crate::runner::{Dsp, DspState};
 use crate::telephony::Telephony;
 use crate::voice::{Voice, clean_prompt};
@@ -172,6 +173,9 @@ struct Inner {
     incoming: Option<(u64, Instant)>,
     /// The phone whose lists were asked for last (ADR-0045 phase 2).
     book_for: Option<String>,
+    /// Audio that should be playing left unlinked (routing.rs); empty: none
+    /// seen.
+    routing_problem: String,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -337,6 +341,7 @@ impl Manager {
                 ring: None,
                 incoming: None,
                 book_for: None,
+                routing_problem: String::new(),
             }),
             cfg,
             bt,
@@ -1768,6 +1773,44 @@ impl Manager {
             .cloned()
     }
 
+    /// What should be linked now (routing.rs): the phone's hands-free
+    /// streams during an active call; its music while it streams and
+    /// nothing is above it (a call, a prompt, the ring tone), since AGL's
+    /// role policy corks the music then.
+    pub fn routing_expectation(&self) -> Expected {
+        let s: Snapshot = self.bt.snapshot().borrow().clone();
+        let t = self.tel.calls().borrow().clone();
+        let inner = self.lock();
+        let Some(phone) = Self::current(&inner, &s) else {
+            return Expected::default();
+        };
+        let active = Self::phone_calls(&inner, &s, &t)
+            .iter()
+            .any(|c| c.state == CallState::Active);
+        let quiet = !inner.in_call && !inner.prompts.speaking() && inner.ring.is_none();
+        Expected {
+            call: active.then(|| phone.address.clone()),
+            music: (s.streaming && quiet).then(|| phone.address.clone()),
+        }
+    }
+
+    /// Audio left unlinked, or none: logged when it starts and ends, and on
+    /// the screen while it lasts.
+    pub fn set_routing_problem(&self, p: Option<Problem>) {
+        let mut inner = self.lock();
+        let screen = p.as_ref().map(|p| p.screen.clone()).unwrap_or_default();
+        if screen == inner.routing_problem {
+            return;
+        }
+        match &p {
+            Some(p) => eprintln!("[audio] audio routing: {}", p.log),
+            None => eprintln!("[audio] audio routing: linked again"),
+        }
+        inner.routing_problem = screen;
+        drop(inner);
+        self.publish();
+    }
+
     pub fn publish(&self) {
         let s: Snapshot = self.bt.snapshot().borrow().clone();
         let now = Instant::now();
@@ -1880,6 +1923,7 @@ impl Manager {
             volume: Some(volume),
             calls: Some(self.calls_pb(&inner, &s, now)),
             phonebook: Some(self.phonebook_pb()),
+            routing_problem: inner.routing_problem.clone(),
             connect: Some(pb::ConnectAttempt {
                 address: inner
                     .attempt

@@ -405,6 +405,7 @@ const WatchAudioResponse$json = {
       '6': '.f250.audio.v1.Phonebook',
       '10': 'phonebook'
     },
+    {'1': 'routing_problem', '3': 16, '4': 1, '5': 9, '10': 'routingProblem'},
   ],
 };
 
@@ -422,7 +423,8 @@ final $typed_data.Uint8List watchAudioResponseDescriptor = $convert.base64Decode
     'Byb21wdHMSNwoHY29ubmVjdBgMIAEoCzIdLmYyNTAuYXVkaW8udjEuQ29ubmVjdEF0dGVtcHRS'
     'B2Nvbm5lY3QSLQoGdm9sdW1lGA0gASgLMhUuZjI1MC5hdWRpby52MS5Wb2x1bWVSBnZvbHVtZR'
     'IqCgVjYWxscxgOIAEoCzIULmYyNTAuYXVkaW8udjEuQ2FsbHNSBWNhbGxzEjYKCXBob25lYm9v'
-    'axgPIAEoCzIYLmYyNTAuYXVkaW8udjEuUGhvbmVib29rUglwaG9uZWJvb2s=');
+    'axgPIAEoCzIYLmYyNTAuYXVkaW8udjEuUGhvbmVib29rUglwaG9uZWJvb2sSJwoPcm91dGluZ1'
+    '9wcm9ibGVtGBAgASgJUg5yb3V0aW5nUHJvYmxlbQ==');
 
 @$core.Deprecated('Use callDescriptor instead')
 const Call$json = {

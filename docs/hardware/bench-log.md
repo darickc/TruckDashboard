@@ -2777,8 +2777,8 @@ numbers).
   failed`, at the time of an earlier deploy's service restarts): the call
   streams and even a `pw-play` sat suspended with no links. `systemctl
   restart wireplumber@policy` fixed it; one audio-manager restart
-  afterwards didn't bring it back. **Cause UNKNOWN**: on the truck it
-  would silence music and calls until a reboot. Open.
+  afterwards didn't bring it back. On the truck it would silence music
+  and calls until a reboot. Cause found and fixed: the next entry.
 - **The bench has no sink** (no DAC): a silent `support.null-audio-sink`
   `f250-bench-null` (lingering until PipeWire restarts) and
   `AUDIO_CALL_SPEAKER=f250-bench-null` in `/etc/default/f250`, bench only.
@@ -2791,3 +2791,90 @@ numbers).
   owner, on the phone called): the microphone path works end to end
   through the Pi. The caller's voice reached the Pi's graph (the stream
   ran) but wasn't heard: no DAC yet.
+
+## 2026-11-15 — WirePlumber's policy instance stopped linking: cause, reproduction and fix [BENCH]
+
+The wedge of 2026-11-14 22:05:23 – 2026-11-15 00:37 (previous entry): every
+new stream sat `suspended` with no links until `systemctl restart
+wireplumber@policy`. Investigated on the bench Pi (WirePlumber 0.5.14,
+PipeWire 1.6.8, AGL Vimba 22) with silent WAVs only, into the bench's null
+sink; nothing audible, no calls, `/etc/default/f250` not touched.
+
+- **The journal at 22:05:23** had more than the four assertions: two Lua
+  errors in WirePlumber's own `linking/rescan-media-role-links.lua`.
+  `setVolume` (line 34, from `restoreVolume (om, pmrl)` at line 192) built a
+  `Constraint` from a nil value, then the activation callback hit `table
+  index is nil` in `linking-utils.lua:19` (`get_flags (nil)`). Each pair of
+  assertions is `wp_properties_get (NULL)`: the *priority media role link*
+  (`pmrl`) had no properties.
+- **Why it wedges everything** (WirePlumber 0.5.14 source,
+  `lib/wp/event-dispatcher.c`): the dispatcher runs one event at a time and
+  `wp_event_source_dispatch` returns while an async hook is in progress
+  (`current_hook_in_async`). Both errors left the hook's transition
+  un-advanced, so no later event ran: not the next stream's `select-target`,
+  not anything. A restart was the only way out.
+- **Why `pmrl` had no properties** — two things together:
+  1. WirePlumber records the highest-priority role-based link per media class
+     (`lutils.priority_media_role_link`). `prepare-link.lua` removes a
+     stream's link when it moves the stream to a new target, without clearing
+     that record: upstream issue #1030 ("All new streams corked … until
+     wireplumber is restarted"), fixed in 0.5.19 by `bdc17eb2` (2026-10-01),
+     with `055c0d5d` and `9ff714b0` (0.5.16) and `ade3b3ef` (0.5.19) nearby.
+  2. AGL adds `link:reset ()` before that remove (meta-agl
+     `meta-pipewire/recipes-multimedia/wireplumber/wireplumber/0001-linking-reset-link-when-moving-target.patch`,
+     Collabora 2024-12-13, "Upstream-Status: Inappropriate"). The reset clears
+     the link's properties, so the stale record crashes the hook instead of
+     merely corking streams as in #1030.
+  The crash comes at the next **removal** of a role-based link (a stream
+  linked to a role loopback ends) while the stale record stands. A new role
+  link instead replaces the record, with one assertion and no error: that
+  was the lone assertion at 00:38:11, as a call started.
+- **What moves a role-linked stream here**: whenever a role loopback sink is
+  the default sink, the role loopbacks' own streams and the "DSP"-role
+  streams (AGL's `eq-output-stream`, our `f250.speakers.out`) link into
+  `input.loopback.sink.role.emergency` (priority 99) and are moved as soon
+  as a real sink is the default. That happens with no real sink (the bench
+  before `f250-bench-null`), and at **every start of the policy instance**:
+  its debug log at 00:56 showed `update priority link(…) media role("DSP")
+  priority(99)` for both DSP streams while the null sink existed. A
+  `target.object` pin does not move a role-linked stream:
+  `find-media-role-target.lua` overrides it, which is why the call voice's
+  pin lost (previous entry).
+- **The exact sequence before 22:05:23 can't be rebuilt**: the persistent
+  journal is at its cap (46.9 MB of `SystemMaxUse=50M`) and keeps only a few
+  lines from 19:51–22:05. The deploy's restarts end streams, which is all
+  the crash needs once a stale record exists.
+
+Reproduction, a role stream R (Multimedia) and the debug log
+(`WIREPLUMBER_DEBUG=N,s-linking:D,…` in a runtime drop-in, removed after):
+
+| Sequence | Stock 0.5.14 + AGL patch | With the backport (below) |
+|---|---|---|
+| R plays; default sink → emergency loopback → null sink; R ends; a new stream | Wedged: the same four assertions and two tracebacks; new stream `suspended`, 0 links; `pw-play` hangs | Linked (`ade3b3ef` already keeps the loopbacks out of the emergency loopback) |
+| As above, plus a "DSP"-role stream D linked into the emergency loopback and moved; R and D end | Wedged (2 Lua errors, 0 links) | Linked; the priority link goes back to R's, cleared when R ends |
+| Same, backported `rescan-media-role-links.lua` and `linking-utils.lua` with the stock `prepare-link.lua` (the guard alone) | — | Linked; one assertion and `priority media role link for Audio/Sink was removed; now none (F-250 guard)` |
+| 3 × stage 1 step 7's restarts with R playing; 5 × `f250-audio-manager` restarts mid-stream; 2 × `wireplumber@bluetooth` restarts; one `make deploy` | — | All linked; no assertion. The phone stayed connected |
+| No sink at all (null sink removed): 3 × step 7, 3 × audio-manager | New streams' role links registered but never activated: `eq-output-stream` sits in the emergency loopback (priority 99, cork), #1030's corking. Not the wedge | The same corking while there is no real sink; it clears when one appears. Upstream behaviour: the bench needs `f250-bench-null`, the truck its DAC |
+
+The fix: `agl/rootfs/usr/local/share/wireplumber/scripts/`
+(`linking/prepare-link.lua`, `linking/rescan-media-role-links.lua`,
+`lib/linking-utils.lua`): the image's 0.5.14 files (with AGL's reset) and
+the four upstream commits, plus a guard of ours in
+`rescan-media-role-links.lua` that chooses the priority link again when
+the recorded one is no longer registered, rather than using it. WirePlumber
+looks for scripts in `$XDG_DATA_DIRS` (`/usr/local/share` before
+`/usr/share`; `lib/wp/base-dirs.c`), confirmed by `wp-base-dirs` debug
+lines. `stage1-setup.sh` installs them, restarts `wireplumber@policy` when
+they change and checks them; `f250-system` puts them in the image.
+
+audio-manager now says so if it happens anyway (`routing.rs`): during an
+active call it checks the phone's hands-free streams, and while the phone
+streams music with no call, prompt or ring tone above it, the music stream;
+one without a link for 6 s is logged (`[audio] audio routing: … has had no
+link for N s …`) and shown in the banner ("Audio not playing"). Deployed
+here; **not yet seen firing on the Pi**: it needs a call or music from the
+owner's phone while linking is broken [SIM only].
+
+Bench left: the scripts in `/usr/local/share/wireplumber`, the null sink
+recreated as before (the default sink again), stock log level, test files
+removed.

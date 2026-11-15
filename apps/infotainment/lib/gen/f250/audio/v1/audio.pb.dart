@@ -704,6 +704,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     Volume? volume,
     Calls? calls,
     Phonebook? phonebook,
+    $core.String? routingProblem,
   }) {
     final result = WatchAudioResponse._();
     if (bluetooth != null) result.bluetooth = bluetooth;
@@ -721,6 +722,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
     if (volume != null) result.volume = volume;
     if (calls != null) result.calls = calls;
     if (phonebook != null) result.phonebook = phonebook;
+    if (routingProblem != null) result.routingProblem = routingProblem;
     return result;
   }
 
@@ -762,6 +764,7 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
         subBuilder: Calls.$_createMessage)
     ..aOM<Phonebook>(15, _omitFieldNames ? '' : 'phonebook',
         subBuilder: Phonebook.$_createMessage)
+    ..aOS(16, _omitFieldNames ? '' : 'routingProblem')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -939,6 +942,18 @@ class WatchAudioResponse extends $pb.GeneratedMessage {
   void clearPhonebook() => $_clearField(15);
   @$pb.TagNumber(15)
   Phonebook ensurePhonebook() => $_ensure(14);
+
+  /// Audio that should be playing (the call, or the phone's music) has been
+  /// left unlinked by PipeWire's session manager for several seconds, said
+  /// for the driver; empty: no such problem seen (bench-log 2026-11-15).
+  @$pb.TagNumber(16)
+  $core.String get routingProblem => $_getSZ(15);
+  @$pb.TagNumber(16)
+  set routingProblem($core.String value) => $_setString(15, value);
+  @$pb.TagNumber(16)
+  $core.bool hasRoutingProblem() => $_has(15);
+  @$pb.TagNumber(16)
+  void clearRoutingProblem() => $_clearField(16);
 }
 
 /// One call on the connected phone. Never a call of a phone that isn't

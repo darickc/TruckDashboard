@@ -11,6 +11,9 @@
 //! microphone configured; the call audio path itself is the bench's (S3).
 //! Phase 2: dialling, and the phone's contacts and recent calls over PBAP
 //! (`phonebook.rs`).
+//!
+//! Audio left unlinked by WirePlumber is put on the screen and in the log
+//! (`routing.rs`, bench-log 2026-11-15).
 
 pub mod backend;
 pub mod bluez;
@@ -26,6 +29,7 @@ pub mod pairing;
 pub mod phonebook;
 pub mod prompts;
 pub mod ring;
+pub mod routing;
 pub mod runner;
 pub mod server;
 pub mod sim;
