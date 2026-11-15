@@ -2756,3 +2756,36 @@ the bench yet; echo cancellation after a first call).
 Not yet: a call. The owner places the first one (below, when done).
 To turn calls off: `cp -p /etc/default/f250.pre-calls /etc/default/f250`,
 then `systemctl restart f250-calls-config f250-audio-manager`.
+
+Later (2026-11-15 00:16–00:38): six calls placed by the owner from the
+Phone screen to another phone, each dialling → alerting → active through
+`AudioGateway1.Dial`, recorded on the Pi (states, nodes, links; no names or
+numbers).
+
+- **The call audio is two streams**, not devices: in the hands-free role
+  PipeWire 1.6.8 makes `bluez_input.<addr>.0` (`Stream/Output/Audio`, the
+  phone's voice, factory `api.bluez5.sco.source`, mSBC) and
+  `bluez_output.<addr>.1` (`Stream/Input/Audio`, to the phone,
+  `api.bluez5.sco.sink`) on the phone's `audio-gateway` device as the
+  transport goes `pending` (the phone opened SCO at dialling), with
+  `media.role` Communication and `node.autoconnect`. audio-manager looked
+  for Audio/Source and Audio/Sink: fixed in d2582e0 (find the streams, pin
+  them with `target.object`). `pending` in 1.6.8 means SCO connected and
+  waiting for a node to acquire it (backend-native.c), not "not connected".
+- **WirePlumber's policy instance had stopped linking any new stream**
+  since 22:05:23 (four `wp_properties_get: assertion 'self != NULL'
+  failed`, at the time of an earlier deploy's service restarts): the call
+  streams and even a `pw-play` sat suspended with no links. `systemctl
+  restart wireplumber@policy` fixed it; one audio-manager restart
+  afterwards didn't bring it back. **Cause UNKNOWN**: on the truck it
+  would silence music and calls until a reboot. Open.
+- **The bench has no sink** (no DAC): a silent `support.null-audio-sink`
+  `f250-bench-null` (lingering until PipeWire restarts) and
+  `AUDIO_CALL_SPEAKER=f250-bench-null` in `/etc/default/f250`, bench only.
+- **With linking back, the last call ran**: both streams `running` for the
+  whole call; links `C920 capture_FL/FR → bluez_output…:input_FL/FR` (the
+  pin) and `bluez_input…:output_FL/FR →
+  input.loopback.sink.role.communication` (AGL's role routing: it won over
+  the voice's `target.object` pin, so `AUDIO_CALL_SPEAKER` has no effect
+  under AGL's policy), then eq-sink. Whether the far end heard the C920:
+  the owner's answer below.

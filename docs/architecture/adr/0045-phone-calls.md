@@ -333,3 +333,31 @@ Not done:
 - **Dialling on the Pi** waits for the hands-free packaging above (S2, then
   the role and its D-Bus policy), like answering.
 
+## Amendment, 2026-11-15: calls on the bench Pi `[BENCH]`
+
+The owner had the call microphone set up (the C920 webcam's, for a bench
+test; the DAC not yet here; echo cancellation after a first call).
+
+1. **Packaging** (256cda1, efd97ce): `AUDIO_CALL_MIC` in
+   `/etc/default/f250` turns calls on. `f250-calls-config.service` (root,
+   before `wireplumber@bluetooth`) then installs `61-f250-calls.conf`
+   (`bluez5.roles = [ a2dp_sink hfp_hf ]`, the native backend, Telephony on
+   the system bus), and removes it without a microphone;
+   `f250-telephony.conf` lets `pipewire` own the name and `f250` and root
+   call it. A phone connected before has to reconnect to open hands-free.
+2. **The call audio is two streams** (bench, owner's Z Fold8): the phone's
+   voice (`Stream/Output/Audio`, `bluez_input.<addr>.0`) and the way to the
+   phone (`Stream/Input/Audio`, `bluez_output.<addr>.1`), `media.role`
+   Communication, made when the phone opens SCO. WirePlumber links them like
+   an application's; audio-manager pins the input to `AUDIO_CALL_MIC` with
+   `target.object` (verified: the C920 was linked to the phone). The
+   voice's pin to `AUDIO_CALL_SPEAKER` loses to AGL's role routing (the
+   Communication role loopback, then the EQ), so the caller's voice follows
+   AGL's Communication route: the DAC's, once it is there. No loopbacks.
+3. **Open:** WirePlumber's policy instance once stopped linking every new
+   stream (assertion failures at a deploy's restarts; bench-log), cured only
+   by restarting it. Its cause, and whether audio-manager should detect it
+   (a stream left unlinked) and say so, are to find before the truck.
+4. Still to do: hear the caller (the DAC), echo cancellation (S3), the
+   truck's microphone (S4 or a USB microphone near the driver).
+
