@@ -104,7 +104,8 @@ esac
 # Calls (ADR-0045): only with a call microphone. calls-config (its own
 # unit, before WirePlumber) offers phones a hands-free unit from the same
 # setting.
-if [[ -n "${AUDIO_CALL_MIC//[[:space:]]/}" && "${AUDIO_SIMULATE:-0}" != 1 ]]; then
+call_mic="${AUDIO_CALL_MIC:-}"
+if [[ -n "${call_mic//[[:space:]]/}" && "${AUDIO_SIMULATE:-0}" != 1 ]]; then
   args+=(--call-mic "$AUDIO_CALL_MIC")
   [[ -n "${AUDIO_CALL_SPEAKER:-}" ]] && args+=(--call-speaker "$AUDIO_CALL_SPEAKER")
   case "${AUDIO_RING_COMMAND:-}" in

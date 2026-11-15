@@ -470,6 +470,11 @@ check "cover art off (ADR-0042)" "[[ \"\$(aud AUDIO_COVER_ART=0)\" == \"$ABASE $
 check "an unknown AUDIO_COVER_ART refuses to start" "! aud AUDIO_COVER_ART=maybe"
 check "the phone's contacts off (ADR-0045 phase 2)" "[[ \"\$(aud AUDIO_PHONEBOOK=0)\" == \"$ABASE $AVOICE $ACOVER $AKNOB\" ]] && has_line $DF 'AUDIO_PHONEBOOK='"
 check "an unknown AUDIO_PHONEBOOK refuses to start" "! aud AUDIO_PHONEBOOK=maybe"
+# The Pi's bash 5 stops on \${UNSET//x/y} under set -u; the Mac's bash 3.2
+# doesn't, so these checks can't see it (bench Pi, 2026-11-14: audio-start
+# on a settings file without AUDIO_CALL_MIC). Settings are copied into a
+# defaulted local first. The services' wrappers only: they read /etc/default/f250.
+check "no pattern substitution on a setting that may be unset" "! grep -nE '\\\$\\{[A-Z][A-Z0-9_]*//' agl/rootfs/opt/f250/libexec/*"
 ACALL='--call-mic alsa_input.mic --ring-command /usr/bin/pw-play --ring-file /run/f250-audio/ring.wav'
 check "calls: a microphone turns them on, ringing with pw-play (ADR-0045)" "[[ \"\$(aud AUDIO_CALL_MIC=alsa_input.mic)\" == \"$ABASE $AVOICE $ACOVER $ACALL $APB $AKNOB\" ]] && for k in CALL_MIC CALL_SPEAKER RING_COMMAND; do has_line $DF \"AUDIO_\$k=\" || exit 1; done"
 check "calls: a speaker, no ring tone, blank is off, simulated is off" "[[ \"\$(aud AUDIO_CALL_MIC=m AUDIO_CALL_SPEAKER=dac AUDIO_RING_COMMAND=none)\" == \"$ABASE $AVOICE $ACOVER --call-mic m --call-speaker dac $APB $AKNOB\" ]] && [[ \"\$(aud 'AUDIO_CALL_MIC=  ')\" == \"$ABASE $AVOICE $ACOVER $APB $AKNOB\" ]] && [[ \"\$(aud AUDIO_CALL_MIC=m AUDIO_SIMULATE=1)\" != *--call-mic* ]]"
