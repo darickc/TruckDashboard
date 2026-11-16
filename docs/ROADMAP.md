@@ -356,7 +356,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       its source `f250.call-aec` (`AUDIO_CALL_ECHO_CANCEL=0`: the microphone as it is). **S3 `[BENCH]` 2026-11-15**
       with the DAC (ADR-0045 amendment 2026-11-15b): no echo at the far end and about 5 % of one core, once
       `61-f250-calls.conf` turned WirePlumber's `linking.allow-moving-streams` back on (AGL turns it off, and the
-      phone got the raw microphone: a strong echo). Not yet in a built image (rpms installed by hand); muting and a
+      phone got the raw microphone: a strong echo). In a built image since 58beac2 (flashed 2026-11-15: the WebRTC
+      packages in its manifest, the echo canceller's reference on the speakers' monitor after boot `[BENCH]`; no call
+      made on that image yet, bench-log 2026-11-15); muting and a
       volume change mid-call untested. Next: S4 (the truck's microphone)
 - [~] 6.4 GPS `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md)): `crates/gpsd` parses gpsd's
       JSON and tracks the position honestly (status, the last fix with its age, never stale as current); 23 tests,
