@@ -3,7 +3,7 @@
 - **Status:** Accepted (owner, 2026-11-15: "The voice used for navigation is
   very robotic. Can it be improved?"; ljspeech chosen by ear on the bench).
   `[BENCH]`; in the image since the amendment below (its packages tested on
-  the bench Pi; the image itself built but not yet flashed).
+  the bench Pi; the image flashed on the bench Pi, same day).
 - **Date:** 2026-11-15
 - **Refines:** [ADR-0039](0039-audio-manager.md) decision 9 (the voice:
   `speak-prompt`, Flite+hts_engine with cmu_us_arctic_slt).
@@ -129,3 +129,8 @@ prefix map for onnxruntime's headers (a build path in the debug info). Their
 RPMs, installed on the bench Pi in place of the Docker build: `f250-tts`
 loaded the voice in 1411 ms, prompts through audio-manager took 831–891 ms,
 and the owner heard the same voice.
+
+Flashed on the bench Pi the same day (image 58beac2, bench-log): `f250-tts`
+loads the voice in 4.0 s at boot (read cold from the SD card), and the first
+prompts through audio-manager took 1050 and 915 ms; the owner heard the same
+voice.

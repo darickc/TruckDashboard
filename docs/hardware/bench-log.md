@@ -3086,3 +3086,45 @@ Docker-built `/opt/f250/piper` was moved aside and the two RPMs installed
 through audio-manager: 891 ms and 831 ms; the owner: "Same, good". The
 Docker build was then deleted; `/opt/f250/piper` now belongs to the `piper`
 package.
+
+## 2026-11-15 — Image 58beac2 flashed on the bench Pi: Piper from the image [BENCH]
+
+`agl-f250-22.0.1-58beac2.wic` (development image, 2.06 GB) written to the
+bench Pi's SD card by the owner with Raspberry Pi Imager. Before, the Pi's
+state was saved over SSH (`etc/default/f250*`, `/var/lib/bluetooth`,
+`connman`, `f250-audio`, `f250-camera`, `f250-dashboard`, `f250-nav`,
+`f250-power`; owners recorded). The NVMe data drive isn't touched by a
+reflash.
+
+First boot: `/etc/f250-release` `F250_SRCREV=58beac29…`, AGL 22.0.1,
+`piper-1.8.0-r0` and `piper-voice-en-us-ljspeech-1.0-r0` installed,
+`f250-tts` active with the image's defaults. Restore: the image's tar is
+BusyBox (no `--same-owner`), so the archive was unpacked into a staging
+directory as root and copied with `cp -a`. Only the f250 files in
+`/etc/default` were restored; the image's own copies of the others stay.
+Owners came back as saved (bluetooth `root` 700, f250-audio `f250:f250` 750,
+f250-camera `agl-driver:f250`, f250-dashboard `agl-driver` 700). Rebooted.
+
+After the reboot:
+
+- `stage1-setup.sh --check`: 2 failures, both the data drive. The restored
+  `DATA_DRIVE=1` with the fresh image's `/etc/fstab`, which has no entry for
+  it. `stage1-setup.sh` added `LABEL=f250-data` (and masked `mpris-proxy`
+  for every user; the image's preset had already left it disabled). Then:
+  `/dev/nvme0n1p1` ext4 on `/var/lib/f250/storage` with its maps, routing,
+  search and recordings. "all checks passed (0 warnings)". Recorder
+  restarted: session 64 on the drive.
+- DAC: "Built-in Audio Pro" is the default sink at boot (62-f250-dac.conf
+  from the image); `f250.speakers.out` AUX0–AUX7 → `pro-output-0`
+  AUX0–AUX7; the echo canceller's reference on `f250.speakers:monitor`.
+- The Fold8 reconnected by itself (paired, trusted, connected) from the
+  restored link keys.
+- `f250-tts` at boot: "loaded in 3987 ms" (the voice read from the SD card
+  cold, against 1411 ms warm). Then audio-manager's `Speak` over an SSH
+  forward: "In half a mile, turn left onto U S 36." in 1050 ms and 915 ms.
+  The owner: "Yes, same voice". pw-play logs `spa.cpu: Can't read cpuinfo`
+  under audio-manager's sandbox; it is a warning and the prompt plays.
+
+Bench left: the 58beac2 image with the truck settings (`TRANSPORT=can`) as
+before the flash, Piper from the image's packages. The backup on the Mac
+(`build/agl/pi-backup-20261115/`, untracked) holds the phone's link keys.
