@@ -29,7 +29,7 @@ so each amplifier input gets its own signal.
 
 ```mermaid
 flowchart LR
-  subgraph PI[Pi 5 + HiFiBerry DAC8x]
+  subgraph PI[Pi 5 + RaspiAudio 8xOUT, DAC8x driver]
     P1[Jack 1<br/>front L/R]
     P2[Jack 2<br/>rear L/R]
     P3[Jack 3<br/>sub, mono on both legs]
@@ -79,7 +79,7 @@ the truck by ear and with a meter.
 | DAC8x jack 2 | New 4-ch amp **rear** RCA inputs | Same kind of lead |
 | DAC8x jack 3 | R150-2 RCA inputs | Reuse the existing sub RCA run from the dash if it reaches; a 3.5 mm → RCA female adapter joins them. Whether the R150-2 in bridged mode reads both inputs or only one: **TODO from its manual** ([H28](../hardware/open-questions.md)). The same mono signal on both legs covers either case |
 | New 4-ch amp speaker outputs | Radio harness adapter: LF±, RF±, LR±, RR± | These are the wires the Pioneer's speaker outputs used, so the factory speaker wiring is reused. Wire colours: **TODO**, from the existing adapter's label and confirmed with a 1.5 V battery "pop" test or a test tone. Keep + and − the same on all four (polarity check below) |
-| Battery +12 V | Fuse within about 18 in (45 cm) of the battery → power wire → new 4-ch amp B+ | Gauge and fuse rating: **TODO**, from the chosen amp's manual. If the R150-2's existing power wire is large enough for both amps, a distribution block with **one fuse per amp** can split it instead ([H28](../hardware/open-questions.md)) |
+| Battery +12 V | Fuse within about 18 in (45 cm) of the battery → power wire → new 4-ch amp B+ | Gauge and fuse rating: from the chosen amp's manual. For the TS 400x4, [ADR-0047](../architecture/adr/0047-head-unit-enclosure.md) records 20 A in 11 AWG up to 4 m; check against the manual ([fuses](ground-and-protection.md#fuses)). If the R150-2's existing power wire is large enough for both amps, a distribution block with **one fuse per amp** can split it instead ([H28](../hardware/open-questions.md)) |
 | New 4-ch amp GND | Bare chassis metal, short run | Ideally the same ground point as the R150-2, to avoid alternator whine (below) |
 | Radio harness **ACC** | Small inline fuse → 4-ch amp **REM** and R150-2 **REM** | The same ACC wire that feeds the DCDC-USB's IGN ([power-and-inputs.md](power-and-inputs.md)); which wire: **TODO** ([H22](../hardware/open-questions.md)). Replaces the Pioneer's remote lead (usually blue/white on aftermarket harnesses; **TODO**, check the Pioneer's harness). Fuse rating: **TODO**, from both amps' REM draw (from their manuals). **The Pi isn't connected to this at all** ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md)) |
 
