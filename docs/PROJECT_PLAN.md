@@ -593,7 +593,7 @@ that decision chose.
 1. **7.1** Wiring diagrams in `docs/wiring/`:
    - fused constant feed and the ACC feed to the DCDC-USB ([power-and-inputs.md](wiring/power-and-inputs.md))
    - PSW to J2, and VOUT to the Pi's USB-C input
-   - external TVS
+   - ~~external TVS~~: not fitted; the DCDC-USB's own input protection is relied on (owner, 2026-11-16, ADR-0013 amendment)
    - ground scheme
    - DLC tap or Y-cable
    - amplifier signal, remote and separate fused power
@@ -702,7 +702,7 @@ already have if the display runs on the Pi 5.
 | OBD-II Y-splitter and DLC breakout | |
 | USB GNSS receiver | u-blox based |
 | USB SSD, or a confirmed-compatible NVMe base | |
-| External inline fuse and TVS | |
+| External inline fuse | No TVS (ADR-0013 amendment, 2026-11-16) |
 | Rotary encoder | For the volume knob |
 | Cameras and capture | Chosen in Phase 6 |
 | Amplifier | Only after inspecting the existing ones |

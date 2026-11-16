@@ -20,7 +20,7 @@ flowchart LR
   G1((G1<br/>cab ground))
   G2((G2<br/>amp ground))
 
-  BATT -- W1 · F1, TVS? --> DCDC[DCDC-USB<br/>AUTOMOTIVE]
+  BATT -- W1 · F1 --> DCDC[DCDC-USB<br/>AUTOMOTIVE]
   ACC -- W3 · F2 → IGN --> DCDC
   DCDC -- W2 --- G1
   DCDC -- W4 · VOUT ≈5 V, USB-C --> PI[Pi 5<br/>+ DAC, NVMe,<br/>display 5 V, USB]
@@ -55,8 +55,9 @@ flowchart LR
   R150 --> SUBS[2 × 10-inch subs]
 ```
 
-Dashed: waits on an open question before it can be wired. "TVS?" is a
-decision still to make ([ground-and-protection.md](ground-and-protection.md#external-tvs-a-decision-to-make)).
+Dashed: waits on an open question before it can be wired. No external
+TVS: the DCDC-USB's own input protection is relied on (owner, 2026-11-16,
+[ground-and-protection.md](ground-and-protection.md#external-tvs-not-fitted)).
 The Pi, DAC, NVMe board, DCDC-USB, fan and hub sit in the rear box behind
 the display ([ADR-0047](../architecture/adr/0047-head-unit-enclosure.md));
 the amplifier is on its own bracket (H37).
@@ -65,7 +66,7 @@ the amplifier is on its own bracket (H37).
 
 | # | From | To | What it carries | Sheet | Blocked by |
 |---|---|---|---|---|---|
-| W1 | Battery +12 V, constant | DCDC-USB VIN (red), through F1 | Supply | [power-and-inputs](power-and-inputs.md#connections) | Fuse and gauge from the measured load (H25); TVS decision |
+| W1 | Battery +12 V, constant | DCDC-USB VIN (red), through F1 | Supply | [power-and-inputs](power-and-inputs.md#connections) | Fuse and gauge from the measured load (H25) |
 | W2 | Chassis ground G1 | DCDC-USB GND (black) | Supply return; the Pi's only ground to the truck | [ground-and-protection](ground-and-protection.md#ground-points) | — |
 | W3 | Radio harness ACC | DCDC-USB IGN (white), through F2 | Key position | [power-and-inputs](power-and-inputs.md#connections) | Which wire (H22) |
 | W4 | DCDC-USB VOUT (yellow) and GND | Pi 5 USB-C | 5 V | [power-and-inputs](power-and-inputs.md#connections) | VOUT measured ≈5 V with the Pi disconnected (check 1) |

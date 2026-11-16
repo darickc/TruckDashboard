@@ -27,7 +27,7 @@ a person signs each off in the bench log before going ahead.
 
 | # | Check | Pass | Status |
 |---|---|---|---|
-| 0.1 | Wiring diagrams ([docs/wiring](../wiring/README.md), Phase 7.1): PSW to J2, VOUT to the Pi, the TVS, the ground scheme, the DLC tap, the amplifiers' signal, remote and fused power, the camera switch's cable, camera power | Each reviewed and signed by a person | Not drawn yet |
+| 0.1 | Wiring diagrams ([docs/wiring](../wiring/README.md), Phase 7.1): PSW to J2, VOUT to the Pi, the ground scheme (no external TVS, ADR-0013 amendment), the DLC tap, the amplifiers' signal, remote and fused power, the camera switch's cable, camera power | Each reviewed and signed by a person | Not drawn yet |
 | 0.2 | The DLC connection | Termination measured with the truck off, before anything is plugged in ([can.md](can.md)) | Measured 2026-11-06 `[TRUCK]` |
 | 0.3 | No 12 V signal reaches Pi GPIO | The only GPIO input is the camera switch on the Pi's own 3.3 V ([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md)); confirm on the wiring as installed | — |
 | 0.4 | Bring-up checks 1–25 for the parts fitted | Each has a `[BENCH]` entry | Most done; see [agl.md](agl.md#5-bring-up-checks-phase-52) |

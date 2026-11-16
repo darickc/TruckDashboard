@@ -112,6 +112,7 @@ limit is to be checked (H25).
 
 | # | Check | Expected | Result |
 |---|---|---|---|
+| 1a | The VIN feed at the DCDC-USB's input harness, with a meter, **before it is plugged in** | +12 V on red (VIN), 0 V on black (GND), the right way round: the DCDC-USB's reverse-polarity protection isn't documented, and no external TVS is fitted ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md#amendment-no-external-tvs-owner-2026-11-16)) | |
 | 1 | VOUT with a meter, **Pi not connected** | About 5 V, not 12 V | |
 | 2 | PSW: voltage across it with the unit powered; continuity when fired from the USB tool | A closure, no driven voltage (H21) | |
 | 3 | J2: continuity from each pad to a GPIO ground pin | One pad is ground | |

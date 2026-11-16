@@ -64,13 +64,12 @@ The ACC wire then feeds three branches (F2, F3, F6). Its own capacity, and
 the fuse already on it in the truck, must cover all three: **TODO**, from the
 truck's wiring diagram and the parts' draw (H22).
 
-## External TVS: a decision to make
+## External TVS: not fitted
 
-The plan lists an external TVS (transient voltage suppressor) on the supply
-input. It was added when the power came from the CarPiHAT, whose input
-protection wasn't published. The DCDC-USB replaced it
-([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md)), and its
-protection is partly documented:
+**Decision (owner, 2026-11-16): rely on the DCDC-USB's own input
+protection; no external TVS** ([ADR-0013 amendment](../architecture/adr/0013-dcdc-usb-power-supply.md#amendment-no-external-tvs-owner-2026-11-16)).
+The plan had one from the CarPiHAT days, when that board's input protection
+wasn't published. The DCDC-USB's is partly documented:
 
 | What the DCDC-USB documents | Status |
 |---|---|
@@ -78,26 +77,14 @@ protection is partly documented:
 | How much energy the clamp absorbs, or a load-dump rating against a named standard | **Not documented** (U) |
 | Reverse-polarity protection | **Not documented** (U) |
 
-So whether a load dump on this truck would get past the DCDC-USB's own
-clamp is **unknown**. Two options, for the owner:
-
-1. **Rely on the DCDC-USB.** Nothing added. The risk is the undocumented
-   clamp energy.
-2. **Add a TVS after F1, across VIN and G1, at the DCDC-USB's input.** The
-   part is **not chosen here**. Whoever chooses it checks:
-   - its stand-off voltage is above the highest normal input, including
-     charging and any jump-start the unit must survive
-   - its clamping voltage at the expected surge current stays within what the
-     DCDC-USB tolerates (its absolute maximum isn't published; its own
-     clamp starts at 35 V)
-   - its power rating against the surge it is meant to absorb, and that F1
-     opens before the TVS fails if it is ever held in conduction
-
-   A failed-short TVS blows F1 and turns the unit off. That is the safe
-   failure.
-
-Either way, record the choice and its reason in an ADR-0013 amendment
-before installation.
+- **Risk accepted:** a transient larger than the DCDC-USB's clamp can absorb
+  reaches it, and possibly the Pi. How large that is, is unknown.
+- **Reverse polarity** is caught by a meter check before the DCDC-USB is
+  plugged in ([power-and-inputs.md](power-and-inputs.md#checks-before-sign-off), check 1a).
+- **Revisit** if a DCDC-USB or the Pi is damaged after a supply transient:
+  then a TVS goes after F1, across VIN and G1, chosen for its stand-off
+  voltage, its clamping voltage against what the DCDC-USB tolerates, and its
+  power rating, with F1 opening before it fails.
 
 ## Checks before sign-off
 
@@ -109,6 +96,5 @@ before installation.
 | 4 | Each USB camera: housing to its USB ground | Record it (isolated or not) | |
 | 5 | Every fuse in the table above fitted, rating matching the decided value | As decided | |
 | 6 | ACC wire's existing fuse and capacity against F2 + F3 + F6 | Enough for all three | |
-| 7 | TVS decision recorded (ADR-0013 amendment) | Option 1 or 2, with the part if 2 | |
 
 Signed off by: _____ Date: _____

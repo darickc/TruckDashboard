@@ -4,7 +4,7 @@
   timers are pending bench measurement)
 - **Date:** 2026-11-04. Amended 2026-11-09 (owner): pulse-only. The DCDC-USB's
   USB port isn't connected, and its timers and output voltage are set by
-  jumpers (decisions 2, 3 and 5)
+  jumpers (decisions 2, 3 and 5). Amended 2026-11-16 (owner): no external TVS
 - **Amends:** [power-states.md](../power-states.md),
   [camera-policy.md](../camera-policy.md),
   [audio-routing.md](../audio-routing.md), and Phases 4.3, 5.2, 6.2, 6.6,
@@ -137,3 +137,28 @@ button ([matrix](../../hardware/compatibility-matrix.md#raspberry-pi-5-power-but
   often enough to matter.
 - The DCDC-USB can't hold 5 V at the Pi's load. Then it runs at 12 V into a
   dedicated 5 V / 5 A converter.
+- A DCDC-USB fails, or the Pi is damaged, after a supply transient, or
+  mini-box publishes a load-dump rating that falls short. Then the external
+  TVS comes back (amendment 2026-11-16).
+
+## Amendment: no external TVS (owner, 2026-11-16)
+
+The plan carried an external TVS on the supply input from the CarPiHAT days,
+when that board's input protection wasn't published. The DCDC-USB documents
+its own: input 6–34 V, an electronic shutdown at 34 V and clamping at
+35–37 V (QIG p. 5). It doesn't document how much energy the clamp absorbs,
+a load-dump rating against a named standard, or reverse-polarity
+protection ([wiring/ground-and-protection.md](../../wiring/ground-and-protection.md#external-tvs-not-fitted)).
+
+Options put to the owner: rely on the DCDC-USB, or add a TVS after the
+supply fuse at its input. **He chose to rely on the DCDC-USB.** Nothing is
+added between the fuse (F1) and VIN.
+
+- **The risk accepted:** a transient larger than the DCDC-USB's clamp can
+  absorb would reach it, and possibly the Pi behind it. How large that is,
+  is unknown.
+- **What still protects the truck:** F1 at the feed. A failed DCDC-USB
+  that shorts its input blows F1.
+- **Reverse polarity** stays a wiring check before power is applied
+  (the meter check of the feed's polarity at the connector), since the
+  DCDC-USB's protection against it isn't documented.

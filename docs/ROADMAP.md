@@ -561,11 +561,11 @@ a Phone button replaces Diagnostics on Home (before Settings), and Diagnostics o
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.
       [system-overview.md](wiring/system-overview.md) draws the whole unit and lists every connection (W1–W22);
-      new sheets for the grounds, fuses and the TVS decision ([ground-and-protection.md](wiring/ground-and-protection.md)),
+      new sheets for the grounds and fuses (no external TVS: owner, 2026-11-16, ADR-0013 amendment) ([ground-and-protection.md](wiring/ground-and-protection.md)),
       the permanent CAN connection (adapter at the DLC on a Y-splitter, [can-permanent.md](wiring/can-permanent.md)) and
       USB and camera power (USB cameras, no 12 V feed, [usb-and-cameras.md](wiring/usb-and-cameras.md)), beside the
       existing power, camera-switch and audio sheets. Open before sign-off: fuse ratings and the ACC wire (H22, H25),
-      the TVS decision, header pin 11 on the 8xOUT, header access with the DAC (H27), the parts (H10, H11, H32, H33),
+      header pin 11 on the 8xOUT, header access with the DAC (H27), the parts (H10, H11, H32, H33),
       cable lengths and the amp's place (H37)
 - [ ] 7.2 Electrical validation
 - [ ] 7.3 Thermal validation
