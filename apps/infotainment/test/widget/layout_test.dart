@@ -32,7 +32,7 @@ void main() {
         }
         // Diagnostics sub-sections too.
         await h.goTo(AppScreen.diagnostics);
-        for (final section in ['signals', 'link', 'dtcs', 'events', 'developer']) {
+        for (final section in ['signals', 'link', 'dtcs', 'events', 'developer', 'licences']) {
           await tester.tap(find.byKey(ValueKey('diag-$section')));
           await tester.pump();
           expect(tester.takeException(), isNull, reason: 'diagnostics/$section: $name');

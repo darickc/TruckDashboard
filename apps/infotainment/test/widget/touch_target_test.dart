@@ -34,7 +34,7 @@ void main() {
       await h.goTo(screen);
       expectAllTargetsLargeEnough(tester, screen.name);
     }
-    for (final section in ['signals', 'link', 'dtcs', 'events', 'developer']) {
+    for (final section in ['signals', 'link', 'dtcs', 'events', 'developer', 'licences']) {
       await h.goTo(AppScreen.diagnostics);
       await tester.tap(find.byKey(ValueKey('diag-$section')));
       await tester.pump();

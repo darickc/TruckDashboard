@@ -18,7 +18,7 @@ sources named.
 | File on the Pi | Built by | Sources | Licence of the data | Credited on screen |
 |---|---|---|---|---|
 | `maps/map.pmtiles` | `make map-region` ([ADR-0031](../architecture/adr/0031-raster-map-build.md), [ADR-0032](../architecture/adr/0032-vector-map.md)) | A [Protomaps](https://docs.protomaps.com/basemaps/downloads) daily build: OpenStreetMap, and Natural Earth at low zooms | OSM: **ODbL**. Natural Earth: public domain | Bottom right of the Nav map, from the file's own metadata: "© OpenStreetMap contributors · Protomaps · data *date*". A map file without attribution shows "© OpenStreetMap contributors" |
-| `routing/valhalla_tiles.tar` | `make route-region` ([ADR-0035](../architecture/adr/0035-routing-with-valhalla.md)) | Geofabrik's OpenStreetMap extracts; time zones from [timezone-boundary-builder](https://github.com/evansiroky/timezone-boundary-builder) release 2026d, downloaded by Valhalla 3.9.1's `valhalla_build_timezones` during the build | Both **ODbL** | By the map's credit: routes are only shown on the Nav map. See [the gap](#gaps-against-the-osmf-guideline) for a route with no map file |
+| `routing/valhalla_tiles.tar` | `make route-region` ([ADR-0035](../architecture/adr/0035-routing-with-valhalla.md)) | Geofabrik's OpenStreetMap extracts; time zones from [timezone-boundary-builder](https://github.com/evansiroky/timezone-boundary-builder) release 2026d, downloaded by Valhalla 3.9.1's `valhalla_build_timezones` during the build | Both **ODbL** | By the map's credit: routes are only shown on the Nav map. With no map file, a route or destination shows "© OpenStreetMap contributors" in the same corner |
 | `search/search.sqlite` | `make search-region` ([ADR-0038](../architecture/adr/0038-offline-address-search.md), [ADR-0041](../architecture/adr/0041-us-census-address-ranges.md)) | Geofabrik's OpenStreetMap extracts; in the US, the Census Bureau's TIGER/Line address ranges (ADDRFEAT) | OSM: **ODbL**. TIGER/Line: not copyrighted, free to use, with acknowledgement of the U.S. Census Bureau as the source (each file's `useLimitation`, ADR-0041) | The search panel's footer: "Search data: *regions* · OpenStreetMap *date* · US Census Bureau TIGER/Line 2026 address ranges" |
 | The map's styles, icons and fonts | `make map-assets`, committed in the app | Protomaps basemaps styles and sprites; Noto Sans | BSD-3-Clause (the visual design CC0), MIT-derived icons, SIL OFL 1.1: [assets/map/README.md](../../apps/infotainment/assets/map/README.md) | Not needed on screen |
 
@@ -63,19 +63,29 @@ project, not legal advice; the licence's text decides.
 - **Building them for this truck** is not public use: no notice or offer is
   needed for the files themselves.
 
-### Gaps against the OSMF guideline
+### The licence page and the other gaps
 
 The guideline's safe harbour also asks that the credit makes clear the data
 is under the ODbL, for example by linking "OpenStreetMap" to
 `openstreetmap.org/copyright`, and that where a link isn't possible, the
 licence information can be found somewhere easy, such as a "Data licences"
-item in a menu. Today:
+item in a menu.
 
-| Gap | Where | Status |
-|---|---|---|
-| Nothing on the head unit names the ODbL or `openstreetmap.org/copyright`. The screen can't open links, so the fix is a **Data licences** page (for example in Settings) listing each source in the table above, its licence and that URL | Dashboard | **TODO** |
-| With routing data but **no map file**, the Nav screen shows routes and no OSM credit at all (the credit comes from the map file) | `navigation_screen.dart` | **TODO**: show "© OpenStreetMap contributors" whenever routing or search data is in use |
-| The routing and search files have no licence notice inside or beside them | `make route-region`, `make search-region` | Only matters if they are shared (above) |
+- **Data licences page (2026-11-16):** Settings → Diagnostics → **Licences**
+  lists every source in the table above with its licence, names the ODbL
+  1.0 and `openstreetmap.org/copyright` (the screen can't open links), and
+  shows the installed map's own credit and date. It is a Diagnostics tab
+  because the Settings row has no room for a fifth section: each would be
+  about 85 px, and the panel's font needs about 100 px for "Speakers".
+  The list is `apps/infotainment/lib/nav/data_licences.dart`; keep it in
+  step with the table above. `[SIM]`: widget tests and the browser preview,
+  not yet on the Pi's panel.
+- **A route with no map file (2026-11-16):** the Nav screen now shows
+  "© OpenStreetMap contributors" in the map's corner whenever a route or a
+  destination is shown without a map file, and nothing when no OSM data is
+  shown. `[SIM]`, widget-tested.
+- **Still open:** the routing and search files carry no licence notice
+  inside or beside them. That matters only if they are shared (above).
 
 ## Storage
 

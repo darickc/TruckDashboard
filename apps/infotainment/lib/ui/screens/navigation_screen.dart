@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:vector_map_tiles/vector_map_tiles.dart';
 
+import '../../nav/data_licences.dart';
 import '../../nav/map_cache.dart';
 import '../../nav/map_update.dart';
 import '../../nav/offline_map.dart';
@@ -259,6 +260,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
     final routeFetched = navRoute != null && navRoute.id == route.guidance?.routeId;
     final guiding = progress != null && routeFetched;
     final destination = onRoute ? (route.guidance?.destination ?? navRoute?.destination) : null;
+    final attribution = reader != null
+        ? [
+            reader.attribution ?? kOsmCredit,
+            if (reader.dataDate != null) 'data ${reader.dataDate}',
+          ].join(' · ')
+        : (onRoute && navRoute != null) || destination != null
+        ? kOsmCredit
+        : null;
     final canRoute =
         route.link == RouteLink.connected &&
         routeState != null &&
@@ -614,8 +623,10 @@ class _NavigationScreenState extends State<NavigationScreen> {
               style: TextStyle(fontSize: 12, color: p.textDim),
             ),
           ),
-        // ODbL: whatever the map shows, its attribution is on screen.
-        if (reader != null)
+        // ODbL: whatever the map shows, its attribution is on screen. With
+        // no map file, a route or destination still comes from
+        // OpenStreetMap (the routing and search data): credit it too.
+        if (attribution != null)
           Positioned(
             right: 8,
             bottom: 6,
@@ -623,10 +634,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               color: p.surface.withValues(alpha: 0.85),
               child: Text(
-                [
-                  reader.attribution ?? '© OpenStreetMap contributors',
-                  if (reader.dataDate != null) 'data ${reader.dataDate}',
-                ].join(' · '),
+                attribution,
                 key: const ValueKey('nav-attribution'),
                 style: TextStyle(fontSize: 12, color: p.text),
               ),

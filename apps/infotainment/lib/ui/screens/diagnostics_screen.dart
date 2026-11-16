@@ -10,10 +10,13 @@ import '../presentation.dart';
 import '../shell/status_bar.dart';
 import '../theme.dart';
 import '../widgets/badges.dart';
+import '../widgets/data_licences_view.dart';
 import '../widgets/panel.dart';
 import '../widgets/tap_target.dart';
 
-enum DiagSection { signals, link, dtcs, events, developer }
+/// Licences is the data licences page (ODbL; docs/setup/map-data.md): the
+/// Settings row has no room for a fifth section at the panel's font.
+enum DiagSection { signals, link, dtcs, events, developer, licences }
 
 const _sectionLabels = {
   DiagSection.signals: 'Signals',
@@ -21,6 +24,7 @@ const _sectionLabels = {
   DiagSection.dtcs: 'DTCs',
   DiagSection.events: 'Events',
   DiagSection.developer: 'Developer',
+  DiagSection.licences: 'Licences',
 };
 
 class DiagnosticsScreen extends StatefulWidget {
@@ -65,6 +69,7 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
             DiagSection.dtcs => const _DtcList(),
             DiagSection.events => const _EventList(),
             DiagSection.developer => const _Developer(),
+            DiagSection.licences => const DataLicencesView(),
           },
         ),
       ),

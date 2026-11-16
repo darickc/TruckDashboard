@@ -1,4 +1,5 @@
 import 'package:f250_infotainment/core/clock.dart';
+import 'package:f250_infotainment/nav/data_licences.dart';
 import 'package:f250_infotainment/model/units.dart';
 import 'package:f250_infotainment/nav/offline_map.dart';
 import 'package:f250_infotainment/nav/pmtiles_file.dart';
@@ -301,5 +302,27 @@ void main() {
       textOf('nav-routing'),
       'Routing unavailable: navigation service unavailable: connection refused',
     );
+  });
+
+  testWidgets('no map file: a route still credits OpenStreetMap, nothing does without one (ODbL)', (
+    tester,
+  ) async {
+    final (_, src) = await open(tester, (s) => view(s, RouteState.idle, route: null));
+    expect(find.byKey(const ValueKey('nav-attribution')), findsNothing, reason: 'no OSM data shown');
+    src.value = view(src, RouteState.active, progress: progress);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('nav-route-line')), findsOneWidget);
+    expect(textOf('nav-attribution'), kOsmCredit);
+    src.value = view(src, RouteState.idle, route: null);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('nav-attribution')), findsNothing);
+  });
+
+  testWidgets("with a map file and a route, the map's own credit", (tester) async {
+    final map = OfflineMap('test/fixtures/maps/solid-z0-3.pmtiles', open: openPmTilesFile);
+    await tester.runAsync(map.load);
+    await open(tester, (s) => view(s, RouteState.active, progress: progress), map: map);
+    await tester.pump();
+    expect(textOf('nav-attribution'), 'Test pattern, not map data');
   });
 }
