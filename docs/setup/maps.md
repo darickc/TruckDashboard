@@ -8,6 +8,10 @@ truck's position from services/navigation, and routes from Valhalla
 **[SIM]**, and **[BENCH]** for routing on the Pi 5 (2026-11-11, with the
 simulated receiver). No GPS receiver is chosen yet (H11).
 
+Where the data comes from, its licences (ODbL), how much room it takes, and
+what it can't be trusted for, **heavy vehicles and trailers** among them:
+[map-data.md](map-data.md).
+
 ## What the screen shows
 
 | Chip | Meaning |
@@ -37,8 +41,9 @@ Long-press the map, then **Route here**, to route there (next section).
 ## Updating the map in the truck (USB stick)
 
 [ADR-0033](../architecture/adr/0033-map-updates-by-usb-stick.md). Status:
-**[SIM]**; not yet tried with a real stick on the Pi (bench check 17 in
-[agl.md](agl.md)).
+**[BENCH]**: a real exFAT stick imported onto the SD card on the Pi
+(bench-log 2026-11-11); not yet through a stick onto the NVMe (bench check 17
+in [agl.md](agl.md)).
 
 A stick with `f250/map.pmtiles` or `f250/routing.tar` is a **map stick**:
 the dashboard won't copy dashcam recordings to it. Use another stick for
@@ -91,15 +96,16 @@ the top of `tools/maps/build-map.py`.
 - **Vector (default, [ADR-0032](../architecture/adr/0032-vector-map.md))**: the
   extract is the map; the dashboard draws it. Needs only `pmtiles`
   (`brew install pmtiles`). A small area takes seconds; a large one is a
-  download. **How fast the Pi draws it is not measured yet.**
+  download. On the Pi 5 by day it fills 1.7 s after Nav opens and keeps up
+  with gestures `[BENCH]` (bench-log 2026-11-11); night not seen on the Pi.
 - **Raster (`MAP_ARGS=--format=webp`, [ADR-0031](../architecture/adr/0031-raster-map-build.md))**:
   the extract is rendered on this Mac with tileserver-gl in Docker (listening
   on 127.0.0.1 only) into WebP tiles, a few hundred a second. Needs Docker
   Desktop running and Node.js 18+ with npm. Use it if the Pi is too slow for
   vector.
 
-Status: both built and checked on the Mac for sample areas in Kansas; **not
-yet shown on the Pi** (6.5.3's update workflow comes later).
+Status: both built and checked on the Mac. The vector lower-48 map draws on
+the Pi `[BENCH]` (bench-log 2026-11-11); raster isn't tried on the Pi.
 
 1. Pick a bounding box (west,south,east,north in degrees; e.g. draw one at
    <https://boundingbox.klokantech.com>, CSV format) and a top zoom. Check the
@@ -410,7 +416,7 @@ can't be said at once is dropped, never said late.
 | Where prompts go | |
 |---|---|
 | The Mac | `make sim`: audio-manager's simulated phone, whose music pauses for them; silent unless `VOICE=say`. `make navigation VOICE=say` alone speaks them with no music to pause. With `SIM_CALL=30` a made-up call rings every 30 s, and directions are skipped during it; `RING=afplay` makes its ring tone heard (ADR-0045) |
-| The Pi | audio-manager (`NAV_AUDIO_MANAGER`, `/run/f250-audio/audio.sock`), which says them with Flite. **Not heard on the Pi yet.** With `NAV_AUDIO_MANAGER=` they go to `journalctl -u f250-navigation` only |
+| The Pi | audio-manager (`NAV_AUDIO_MANAGER`, `/run/f250-audio/audio.sock`), which says them with Piper, Flite as the fallback ([ADR-0048](../architecture/adr/0048-piper-voice.md)). Heard through audio-manager on the bench Pi (2026-11-15); **not yet from a route on the Pi** (bench check 22). With `NAV_AUDIO_MANAGER=` they go to `journalctl -u f250-navigation` only |
 
 ## GPS
 

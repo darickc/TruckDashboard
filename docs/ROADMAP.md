@@ -447,7 +447,12 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       the phone's music, resuming 1 s after the last (owner: pause, not duck); never queued, so never late. Ran on the
       Mac against audio-manager's simulated phone and the real Valhalla. Valhalla is asked in the voice's units, since
       its words carry distances. **Not on the Pi; no prompt heard yet.**
-      Next: 6.5.4's docs; bench check 18 with a stick and the NVMe; bench check 20 (search on the Pi); bench check 22 (places
+      6.5.4 (docs) 2026-11-16: [setup/map-data.md](setup/map-data.md): every data source with its licence and
+      on-screen credit, what the ODbL and the OSMF attribution guideline ask (checked against both), storage per
+      file (Kansas, lower 48), and the limits: no heavy-vehicle or trailer guarantees, data age and coverage,
+      position, search, voice. Gaps found: no "Data licences" page naming the ODbL on the head unit, and no OSM
+      credit on a route shown without a map file (both TODO).
+      Next: the two gaps; bench check 18 with a stick and the NVMe; bench check 20 (search on the Pi); bench check 22 (places
       and the voice on the Pi, after audio-manager's check 21)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 29 unit tests (reverse priority and debounce, the hold, stale and
