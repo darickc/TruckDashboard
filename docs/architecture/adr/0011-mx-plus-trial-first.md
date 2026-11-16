@@ -1,6 +1,6 @@
 # ADR 0011 — MX+ truck trial before buying CAN hardware
 
-- **Status:** Accepted
+- **Status:** Accepted; amended 2026-11-16 (the MX+ is dropped)
 - **Date:** 2026-11-01
 - **Amends:** the Phase 3/4 ordering in [PROJECT_PLAN.md](../../PROJECT_PLAN.md)
 
@@ -58,3 +58,26 @@ CAN hardware (Phase 4):
   `bench-log.md`.
 - The MX+ takes one Bluetooth master at a time, so the phone and the ESP32
   must be disconnected during the trial.
+
+## Amendment: direct CAN only (owner, 2026-11-16)
+
+The MX+ was parked on 2026-11-07, once the USB CAN adapter (ADR-0012) was
+polling the truck. On 2026-11-16 the owner confirmed he doesn't plan to use
+the MX+ at all: the head unit reaches the truck only through direct CAN.
+
+- **Phase 3.5's open items are dropped.** 3.5.2 (pairing), 3.5.3 (the
+  temporary USB-C setup), 3.5.6 (MX+ drives with `ATRV`) and 3.5.7 (the
+  trial report and purchase decision) will not be done; the purchase was
+  made anyway (ADR-0012). What 3.5.4 and 3.5.5 were for (the driveway
+  checks in `TRUCK_SESSION.md`, speed against GPS) is done over direct CAN
+  under 4.8.
+- **Stage D (4.6) is dropped.** With one transport there is nothing to
+  switch, and the never-two-transports-at-once rule has no second
+  transport to guard against.
+- **The untried MX+ fix (`ATCRA` for pinned requests) is not pursued.**
+- **H15 (MX+ Bluetooth beside A2DP) and H19 (recovery without unplugging
+  the MX+) are moot.**
+- **The code stays.** `crates/elm`, the `obdlink` transports and
+  `obd-console` are not removed by this amendment: they cost nothing at run
+  time and still serve the simulator and the bench. Removing them would be
+  its own decision.

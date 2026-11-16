@@ -8,6 +8,7 @@ Legend:
 - `[x]` done
 - `[~]` done, with a caveat noted
 - `[ ]` not started
+- `[-]` dropped, with the reason noted
 
 Tags:
 
@@ -115,22 +116,26 @@ Found along the way:
 
 ## Phase 3.5 — MX+ truck trial (nothing to buy) [HW] [HUMAN]
 
+Dropped after 3.5.1 (owner, 2026-11-16, [ADR-0011 amendment](architecture/adr/0011-mx-plus-trial-first.md#amendment-direct-can-only-owner-2026-11-16)):
+the head unit uses direct CAN only. What 3.5.4 and 3.5.5 were for is done over CAN under 4.8.
+
 - [x] 3.5.1 Raspberry Pi OS on the Pi 5. Display, touch and ribbon confirmed. `tools/pi/setup-raspios.sh`, `make pi-run`.
       The scripts and `make pi-setup` / `pi-build` / `pi-run` exist ([setup/raspberry-pi.md](setup/raspberry-pi.md)).
       On the Pi (Raspberry Pi OS Lite, no display yet): setup, build and the whole stack under `cage` on a virtual display
       work **[BENCH]** ([bench-log](hardware/bench-log.md)). The original 7" display shows the console on DSI0 with stock
       `config.txt`, no HAT fitted; touch works and `make pi-run` fills the screen under `cage` **[BENCH]** (2026-11-02).
       The ribbon fit with the DAC HAT (H3) is left to its arrival
-- [ ] 3.5.2 MX+ paired (`00:04:3E:85:EA:FC`, Secure Simple Pairing: confirm the shown passkey, no PIN). Phone and ESP32 disconnected. Opt-in recorded in `bench-log.md`
-- [ ] 3.5.3 Temporary truck setup: USB-C power (5 V / 5 A preferred), secure mount, shutdown before key-off.
+- [-] 3.5.2 MX+ paired (`00:04:3E:85:EA:FC`, Secure Simple Pairing: confirm the shown passkey, no PIN). Phone and ESP32 disconnected. Opt-in recorded in `bench-log.md`
+- [-] 3.5.3 Temporary truck setup: USB-C power (5 V / 5 A preferred), secure mount, shutdown before key-off.
       Dashboard **Power** button (confirm, then clean stop and `systemctl poweroff`; [setup/raspberry-pi.md](setup/raspberry-pi.md#power)) works on the Pi **[BENCH]** (2026-11-02, [bench-log](hardware/bench-log.md)).
       Still open: power supply and mount in the truck
-- [ ] 3.5.4 Driveway session: `TRUCK_SESSION.md` Parts 1–4 through `obd-console`, transcripts in `VERIFICATION_LOG.md`
-- [ ] 3.5.5 Speed calibration factor measured against GPS
-- [ ] 3.5.6 Logged drives: Torque-style polling and the budgeted schedule, with `ATRV` voltage and STN chatter logged
-- [ ] 3.5.7 `docs/diagnostics/mx-plus-trial.md`: hypotheses eliminated, recovery results, throughput, **purchase decision**
+- [-] 3.5.4 Driveway session: `TRUCK_SESSION.md` Parts 1–4 through `obd-console`, transcripts in `VERIFICATION_LOG.md`
+- [-] 3.5.5 Speed calibration factor measured against GPS
+- [-] 3.5.6 Logged drives: Torque-style polling and the budgeted schedule, with `ATRV` voltage and STN chatter logged
+- [-] 3.5.7 `docs/diagnostics/mx-plus-trial.md`: hypotheses eliminated, recovery results, throughput, **purchase decision**
 
-Parked (the MX+ isn't in the final build, which uses the USB CAN adapter; owner, 2026-11-07):
+Parked (the MX+ isn't in the final build, which uses the USB CAN adapter; owner, 2026-11-07), and not pursued
+(direct CAN only, owner 2026-11-16):
 
 - MX+ EOT misses, about 1 in 100 polls: the ELM closes its window after the TCM's early refusal, before the
   PCM's answer (seen on the wire, [CAN_CENSUS](diagnostics/CAN_CENSUS.md) capture 6). Untried fix: send an
@@ -185,7 +190,8 @@ so 4.1, 4.3, 4.5 and 4.7 can run with it.
       pinned DIDs `22 13 10` / `22 16 74`. The gateway now sends pinned requests that way
       (`--can-pinned`, `PINNED=functional` to go back), `[TRUCK]` over a 25-minute drive: 1999 pinned requests,
       no refusals, no quarantines. Ford DID owners found (MAP, ICP, IPR, FICM, fuel: PCM; gear: TCM)
-- [ ] 4.6 Stage D: transport switching and the no-simultaneous-transmit rule, MX+ and CAN both present
+- [-] 4.6 Stage D: transport switching and the no-simultaneous-transmit rule, MX+ and CAN both present.
+      Dropped (owner, 2026-11-16, ADR-0011 amendment): direct CAN is the only transport
 - [x] 4.7 Dropout experiment (listen-only CAN capture while the MX+ polls) `[TRUCK]` 2026-11-07: the PCM's EOT answer
       was on the bus (+39.5 ms); the MX+ closed its window after the TCM's refusal (+6.4 ms). 1 of 104. Possible MX+
       fix (`ATCRA` for pinned requests) untested. [CAN_CENSUS.md](diagnostics/CAN_CENSUS.md)

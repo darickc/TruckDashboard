@@ -499,7 +499,7 @@ that decision chose.
    - the **event captures**: reverse and brake, one capture each ([can.md](setup/can.md#event-captures-reverse-and-brake)). The turn signals are settled: not on the bus, and not used (ADR-0024, H14)
 4. **4.4** **Stage B:** decoders only for broadcast signals that can be corroborated (for example against the RPM and speed PIDs). Each records its provenance and confidence. **No guessed definitions are shown as validated.**
 5. **4.5** **Stage C:** active diagnostics through kernel ISO-TP (`can-isotp`), PCM `7E0/7E8` and TCM `7E1/7E9`, first proven with a single request. It needs both the transmit opt-in and the checklist. Polling is conservative and has a kill switch.
-6. **4.6** **Stage D:** the OBDLink transport already ran on the truck in Phase 3.5. Here, confirm two things:
+6. **4.6** **Stage D** (dropped 2026-11-16: direct CAN only, ADR-0011 amendment). As planned: the OBDLink transport already ran on the truck in Phase 3.5. Here, confirm two things:
    - switching transports by config with no UI change
    - the **never transmit on two transports at once** rule, with the MX+ and CAN hardware both present
 7. **4.7** **The intermittent-dropout experiment** (see the diagnostics section below).

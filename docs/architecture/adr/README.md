@@ -19,7 +19,7 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0008](0008-crates-and-services.md) | Libraries in `crates/`, daemons in `services/` | Accepted |
 | [0009](0009-camera-rendering.md) | Camera rendering chosen by a measured spike | Accepted |
 | [0010](0010-offline-maps-routing.md) | flutter_map + offline tiles; Valhalla routing | Proposed |
-| [0011](0011-mx-plus-trial-first.md) | MX+ truck trial before buying CAN hardware | Accepted |
+| [0011](0011-mx-plus-trial-first.md) | MX+ truck trial before buying CAN hardware | Accepted; amended 2026-11-16 (MX+ dropped) |
 | [0012](0012-direct-can-usb-adapter.md) | Direct CAN through a USB CANable adapter, with our own single-frame ISO-TP | Accepted |
 | [0013](0013-dcdc-usb-power-supply.md) | Power from a mini-box DCDC-USB; the CarPiHAT is dropped | Proposed (pending bench measurement) |
 | [0014](0014-multichannel-dac8x.md) | Multichannel DAC (HiFiBerry DAC8x; RaspiAudio 8xOUT bought, same driver), a new 4-channel amp, the R150-2 kept | Proposed (jacks identified on the bench; levels and pop pending) |
