@@ -224,7 +224,7 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       **On the Pi [BENCH] (2026-11-06):** 22.0.1 boots, `make deploy` and `--check` pass, and the dashboard
       runs fullscreen on the 7" panel with touch (checks 1, 2, 3, 5; the overlay needed `,dsi0`). The dashboard
       and agl-compositor restart as a pair: the compositor aborts on a second homescreen client (ADR-0016 addendum).
-      Also passed: 7 (Power button), 8 (CAN listen-only with the adapter), 9 (RTC, no cell yet).
+      Also passed: 7 (Power button), 8 (CAN listen-only with the adapter), 9 (RTC; the official rechargeable cell fitted and charging at 3.0 V since 2026-11-17 `[BENCH]`, holding time across a power cut not yet tested: H20).
       The journal is now kept on the SD card (50 MB cap), so `journalctl -b -1` works after a reboot.
       Checks 4 (backlight) and 6 (gateway, recorder) pass too. Still open: 10–11 once those HATs arrive
       ([agl.md](setup/agl.md#5-bring-up-checks-phase-52))
@@ -423,7 +423,8 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       `f250.nav.v1.SearchService.Search`, ranked near the latest fix; every result says whether it is the address, only the
       street, only the town or a place. The Nav screen: Search, an on-screen keyboard, results, Show and Route here. No typing
       lockout (owner, 2026-11-12): a "type only when parked" warning while moving. Kansas 37 MB, the lower 48 4.9 GB
-      (1–75 ms a search on the Mac). Not yet on the Pi (bench check 20).
+      (1–75 ms a search on the Mac). On the Pi `[BENCH]` 2026-11-17 (bench check 20, the lower 48 index on the NVMe): 11–326 ms a search,
+      round trip over SSH. The stick import itself not yet (check 18).
       6.5.3 (US Census address ranges) `[SIM]` ([ADR-0041](architecture/adr/0041-us-census-address-ranges.md)):
       `make search-region` downloads TIGER/Line 2026 ADDRFEAT per county for a US region's states (resumable) and the index
       (schema 4) carries the ranges; a house number OSM lacks is interpolated along its street, preferring the range in the
@@ -431,7 +432,7 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       ZIP codes no OSM address has are placed from the ranges. Kansas estimates are a median 58 m from OSM-mapped houses.
       Lower 48 with 3,108 of the 3,109 county files: 7.2 GB (5.2 GB without), 638 s, no more memory; 0–3 ms more a search;
       estimates a median 44 m from OSM-mapped houses. Kimble County, Texas: the Census server refuses that one file, so it
-      is left out with a warning. Not yet on the Pi (bench check 20).
+      is left out with a warning. On the Pi `[BENCH]` 2026-11-17: ESTIMATED results for `120 n main st` in 326 ms.
       6.5.2 (saved places and spoken directions) `[SIM]` ([ADR-0040](architecture/adr/0040-saved-places-and-spoken-directions.md)):
       navigation keeps Home, up to 50 named favourites and the 10 latest destinations in `places.json` on the data drive (the
       SD card, saying so, while a drive is expected but not mounted), written atomically; a corrupt file is kept aside as
@@ -446,15 +447,15 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       the Mac. Prompts go to audio-manager (merged in, `Speak`/`StopSpeaking`), which says them with Flite and pauses
       the phone's music, resuming 1 s after the last (owner: pause, not duck); never queued, so never late. Ran on the
       Mac against audio-manager's simulated phone and the real Valhalla. Valhalla is asked in the voice's units, since
-      its words carry distances. **Not on the Pi; no prompt heard yet.**
+      its words carry distances. On the Pi `[BENCH]` 2026-11-17: a 24.5 km route in 0.2 s from the lower 48 tiles, its first two
+      prompts said by Piper in 634 and 670 ms and played through `pw-play`; not listened to in that check.
       6.5.4 (docs) 2026-11-16: [setup/map-data.md](setup/map-data.md): every data source with its licence and
       on-screen credit, what the ODbL and the OSMF attribution guideline ask (checked against both), storage per
       file (Kansas, lower 48), and the limits: no heavy-vehicle or trailer guarantees, data age and coverage,
       position, search, voice. Both gaps found then are fixed `[SIM]`: Diagnostics → Licences names every source,
       the ODbL and openstreetmap.org/copyright (no room for a fifth Settings section at the panel's font), and a
       route or destination shown without a map file credits OpenStreetMap. Widget tests at 800×480.
-      Next: bench check 18 with a stick and the NVMe; bench check 20 (search on the Pi); bench check 22 (places
-      and the voice on the Pi, after audio-manager's check 21)
+      Next: bench check 18 with a stick and the NVMe; bench check 22 (places and the voice on the Pi, by ear)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 29 unit tests (reverse priority and debounce, the hold, stale and
       invalid reverse, the latched choice, moves during reverse, the optional speed limit, missing cameras).
@@ -545,8 +546,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       `power-start` wrapper, udev rule for `brightness`, `ProtectKernelTunables` dropped for it. Tests: the logic, the
       writer against a fake sysfs, the real binary end to end; the dashboard's theme follows it (Settings → Display since ADR-0029:
       Auto/Day/Night, brightness, why Auto can't run; 22 Flutter tests). The location and the clock from GPS since
-      2026-11-14 (6.4 above). Not on the Pi yet: the udev rule, the sandbox
-      write, the ramp on the panel ([agl.md](setup/agl.md) check 15). Still to do: the hardware
+      2026-11-14 (6.4 above). On the Pi `[BENCH]` 2026-11-17 (check 15): the udev rule, the sandbox write, Day/Night ramping
+      over ~1 s, the 10 % floor (26), the choice kept across a restart; `systemd-analyze security` 0.8 SAFE. Auto with a
+      configured location not yet. Still to do: the hardware
       watchdog, and the dashboard's Power button becoming Restart once the DCDC-USB is installed
 
 Settings tab `[SIM]` ([ADR-0029](architecture/adr/0029-settings-screen.md), 2026-11-11): Display (ADR-0028), Cameras

@@ -4,7 +4,10 @@
 //!   cargo run -p navigation --example route -- tcp:127.0.0.1:50253 39.8103 -98.5559
 //!   cargo run -p navigation --example route -- unix:/run/f250-nav/nav.sock 39.8103 -98.5559
 //!
-//! Ends on arrival, failure or after 30 s with no change of state.
+//!   cargo run -p navigation --example route -- tcp:127.0.0.1:50253 clear
+//!
+//! Ends on arrival, failure or after 30 s with no change of state. The route
+//! stays active in the service after this exits; `clear` ends it.
 
 use std::time::Duration;
 
@@ -41,8 +44,19 @@ async fn connect(endpoint: &str) -> Result<Channel, String> {
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), String> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if let [endpoint, clear] = args.as_slice()
+        && clear == "clear"
+    {
+        let mut client = RouteServiceClient::new(connect(endpoint).await?);
+        client
+            .clear_route(pb::ClearRouteRequest {})
+            .await
+            .map_err(|e| e.to_string())?;
+        println!("route cleared");
+        return Ok(());
+    }
     let [endpoint, lat, lon] = args.as_slice() else {
-        return Err("usage: route ENDPOINT LAT LON".into());
+        return Err("usage: route ENDPOINT LAT LON | route ENDPOINT clear".into());
     };
     let to = pb::LatLon {
         latitude_deg: lat.parse().map_err(|e| format!("LAT: {e}"))?,

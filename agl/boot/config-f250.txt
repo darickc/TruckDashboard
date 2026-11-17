@@ -15,11 +15,13 @@
 # off, so this line is what turns the display on.
 dtoverlay=vc4-kms-dsi-7inch,dsi0
 
-# Pi 5 onboard RTC: charge the rechargeable cell on J5 (H20). Uncomment once
-# that cell is fitted: only a rechargeable one, never a CR2032. Applied and
-# read back as 3000000 on AGL 22.0.1 (bench-log 2026-11-06). Without a cell
-# the clock starts at 1970 on every cold boot until network time sets it.
-#dtparam=rtc_bbat_vchg=3000000
+# Pi 5 onboard RTC: charge the rechargeable cell on J5 (H20). The official
+# Raspberry Pi rechargeable Li-Mn cell is fitted (owner, 2026-11-17). Only a
+# rechargeable cell: comment this out before fitting a CR2032 or any other
+# primary cell. Read back as 3000000 on AGL 22.0.1 (bench-log 2026-11-06).
+# Without a cell the clock starts at 1970 on every cold boot until network
+# time sets it.
+dtparam=rtc_bbat_vchg=3000000
 
 # The 8-output DAC (ADR-0014): a RaspiAudio 8xOUT, whose HAT EEPROM loads
 # this overlay by itself (bench, 2026-11-15), so the line stays commented.

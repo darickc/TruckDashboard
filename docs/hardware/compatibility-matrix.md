@@ -130,8 +130,8 @@ separate RTC is needed. Researched 2026-11-03. Source for the `V` rows:
 | Retention | Single-digit µA when powered down, so months | V | RPi docs |
 | Wake alarm | `POWER_OFF_ON_HALT=1` and `WAKE_ON_GPIO=0` in the EEPROM config, then write `/sys/class/rtc/rtc0/wakealarm`. About 3 mA while waiting | V | RPi docs |
 | Without a battery | Time is presumably lost whenever the power supply cuts 5 V. The docs imply this but don't say it | inferred | — |
-| In the AGL image | `util-linux-hwclock` is in the 22.0.1 image; the Pi 5 RTC driver isn't a separate module package, so whether it is built in and honours `rtc_bbat_vchg` is not known. Our boot block sets the charging; check on the image: `ls /sys/class/rtc/`, `cat /sys/class/rtc/rtc0/charging_voltage`, `hwclock -r` ([agl.md](../setup/agl.md#5-bring-up-checks-phase-52)) | U | manifest |
-| Holds time across a parked night | Not tested ([H20](open-questions.md)) | U | — |
+| In the AGL image | `rpi-rtc` is built in to the 22.0.1 kernel and honours `rtc_bbat_vchg`: with the official cell fitted (2026-11-17) the kernel logs "trickle charging enabled at 3000000uV", `charging_voltage` reads 3000000 and `battery_voltage` rose from 2.72 to 2.91 V; the clock is set from the RTC at boot ([bench-log](bench-log.md)) | V | bench |
+| Holds time across a parked night | Not tested: the cell is fitted and charging, the power not yet cut ([H20](open-questions.md)) | U | — |
 
 ## mini-box DCDC-USB
 

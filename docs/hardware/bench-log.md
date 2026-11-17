@@ -3128,3 +3128,53 @@ After the reboot:
 Bench left: the 58beac2 image with the truck settings (`TRANSPORT=can`) as
 before the flash, Piper from the image's packages. The backup on the Mac
 (`build/agl/pi-backup-20261115/`, untracked) holds the phone's link keys.
+
+## 2026-11-17 — RTC cell, search and routing on the Pi, backlight (checks 9, 15, 20) [BENCH]
+
+Bench Pi on image 58beac2, truck settings (`NAV_SIMULATE=1`), the NVMe data
+drive with the lower 48 routing tiles (20.9 GB) and search index (7.0 GB).
+
+**RTC (check 9, H20).** The owner fitted the official Raspberry Pi
+rechargeable Li-Mn cell on J5 (confirmed by the owner before charging was
+turned on). Before: `battery_voltage` 2719655, `charging_voltage` 0; that
+boot's kernel set the clock to 1970-01-01 from the RTC (the cell had just
+gone in), and network time set it later. `dtparam=rtc_bbat_vchg=3000000`
+uncommented in `agl/boot/config-f250.txt`, the same block written into the
+Pi's `/boot/config.txt` (old copy `config.txt.pre-rtc-charge`), rebooted:
+the kernel logs "trickle charging enabled at 3000000uV" and "setting system
+clock to 2026-11-17T22:49:58 UTC" from the RTC; `charging_voltage` 3000000,
+`battery_voltage` 2897433, then 2908544 a few minutes later. Not tested yet:
+holding the time with the power cut (unplug overnight, then compare
+`hwclock -r` with network time before Wi-Fi joins).
+
+**Search (check 20).** `cargo run -p navigation --example search` over an
+SSH forward of `/run/f250-nav/nav.sock`, ranked from the simulated fix near
+Lebanon, KS. Round trips: "smith center" 24 ms (first search; the index
+opens then: "search data: … (Lower 48 states; OSM data 2026-11-11)"),
+"main st" 51 ms, "120 n main st" 326 ms (ESTIMATED Census results first,
+then OSM addresses), "us 36" 11 ms, "kensington" 64 ms. The stick import
+(check 18) wasn't part of this: the files were copied onto the NVMe on
+2026-11-12/13.
+
+**Routing and voice.** `--example route` to Smith Center: a 24.5 km,
+18 min, 6-maneuver route 0.2 s after the request (Valhalla, lower 48
+tiles); guidance followed the simulated position. navigation's first two
+prompts went to audio-manager; `f250-tts` said them in 634 and 670 ms and
+`pw-play` played them. Not listened to in this check. At boot navigation
+logs "voice: audio-manager … transport error" because it starts ~2 s
+before audio-manager; it connected by the time the prompts came. The route
+example gained `clear` (`route ENDPOINT clear`), used to end the test route.
+
+**Backlight (check 15).** `/sys/class/backlight/10-0045/brightness` is
+`root f250 -rw-rw-r--` (the udev rule); `power.sock` `f250 f250
+srwxrwx---`. The owner's choice at boot was Night by hand, 40 % (102).
+With a new `power-manager` example (`--example display`, the
+`SetDisplay`/`WatchDisplay` API), sampling `brightness` every 50 ms:
+Day ramps 102 → 255 in about 1 s, Night 255 → 102 the same; night 5 % is
+clamped to the 10 % floor (26); `systemctl restart f250-power-manager`
+comes back at Night 40 % from `/var/lib/f250-power/display`.
+`systemd-analyze security f250-power-manager`: 0.8 SAFE. Left at Night
+40 %, as the owner had it. Not done: Auto with `DISPLAY_LATITUDE`/
+`DISPLAY_LONGITUDE` set.
+
+Closes: agl.md check 20, the bench part of check 15. H20 stays open.
