@@ -3192,3 +3192,28 @@ config.txt block already matched, RTC charging on). `stage1-setup.sh
 (deploy never rewrites them), so it runs with the default (network time).
 Recording is off on this Pi (the screen's settings record nothing), so the
 option has no effect there until recording is turned on. Not rebooted.
+
+## 2026-11-17 — gps-clock on the bench Pi (ADR-0049) [BENCH]
+
+Deployed with `make deploy` (7137161, then the fix below). stage1 installed
+and enabled `f250-gps-clock.service`; it runs as f250, "following
+navigation's positions", and leaves no flag: the bench's navigation runs
+the simulated receiver (`NAV_SIMULATE=1`), whose positions carry no UTC
+time, so nothing is accepted. A hand run with `--dry-run
+--accept-simulated` printed nothing past its start line for the same
+reason. `systemd-analyze security f250-gps-clock`: 1.3 OK.
+`stage1-setup.sh --check`: all checks passed; settings files unchanged.
+
+The privileged part under the unit's own sandbox (`systemd-run` with the
+unit file's 62 `[Service]` properties, so user f250, groups f250 and clock,
+CAP_SYS_TIME alone, `@system-service @clock`): `date -u -s @<now>` set the
+clock (to itself, so no change). The first try at the RTC failed:
+`/usr/sbin/hwclock` is BusyBox 1.37's (`/usr/lib/busybox/usr/sbin/hwclock`,
+`busybox-1.37.0-r0`; util-linux's isn't installed, contrary to the
+manifest note in the compatibility matrix before today), which refuses
+`--noadjfile`. With `hwclock -w -u -f /dev/rtc0` (both versions take it)
+the RTC was written and read back, and no `/etc/adjtime` appeared.
+gps-clock now uses those options, `util-linux-hwclock` is no longer added
+to the image, and the fixed build is deployed and running (01:53:34 UTC).
+
+Not tested: a real receiver (H11), so no step or confirmation from GPS yet.

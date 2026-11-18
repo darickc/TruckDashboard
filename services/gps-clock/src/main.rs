@@ -5,7 +5,7 @@
 //! clock, which camera-manager and power-manager read as "synchronized".
 //!
 //! The decisions are in `lib.rs`. This file does the I/O: the stream,
-//! `clock_settime(2)` (CAP_SYS_TIME), `hwclock --systohc` for the RTC, and
+//! `clock_settime(2)` (CAP_SYS_TIME), `hwclock -w` for the RTC, and
 //! the flag. `--dry-run` only logs what it would do.
 //!
 //! Status: [SIM] (the decisions' tests). Not run against a real receiver:
@@ -41,7 +41,10 @@ struct Args {
     /// The flag file left once the clock is set or confirmed from GPS.
     #[arg(long, default_value = clock_sync::GPS_FILE)]
     flag_file: PathBuf,
-    /// The program that copies the system clock into the RTC.
+    /// The program that copies the system clock into the RTC, run as
+    /// `hwclock -w -u -f RTC`: the short options BusyBox's hwclock (the
+    /// image's, 1.37) and util-linux's both take. BusyBox's never writes
+    /// /etc/adjtime, which the sandbox keeps read-only [BENCH] 2026-11-17.
     #[arg(long, default_value = "/usr/sbin/hwclock")]
     hwclock: PathBuf,
     /// The RTC. Empty: don't write it.
@@ -129,7 +132,7 @@ impl State {
             return;
         }
         let out = tokio::process::Command::new(&self.args.hwclock)
-            .args(["--systohc", "--utc", "--noadjfile", "--rtc", &self.args.rtc])
+            .args(["-w", "-u", "-f", &self.args.rtc])
             .output()
             .await;
         match out {

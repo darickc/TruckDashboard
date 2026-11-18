@@ -110,9 +110,10 @@ FILES:${PN} = "${sysconfdir} /opt/f250 ${localstatedir}/lib/journal \
 # mkfs.ext4 (e2fsprogs-mke2fs), smartctl (smartmontools: the drive's health;
 # the stock AGL image has it, ours didn't, bench-log 2026-11-11); grow-root:
 # sfdisk, partx, findmnt, blkid (util-linux), systemd-growfs (systemd);
-# --check: cmp (diffutils); gps-clock: hwclock (util-linux-hwclock, the RTC;
-# ADR-0049).
+# --check: cmp (diffutils). gps-clock's hwclock is BusyBox's, always in the
+# image; util-linux-hwclock would replace it with one that writes /etc/adjtime
+# (ADR-0049).
 RDEPENDS:${PN} = "bash systemd iproute2 can-utils usbutils coreutils \
     util-linux-blkid util-linux-lsblk util-linux-findmnt e2fsprogs-mke2fs diffutils \
     util-linux-sfdisk util-linux-partx util-linux-mount util-linux-umount kmod \
-    kernel-module-exfat smartmontools util-linux-hwclock"
+    kernel-module-exfat smartmontools"

@@ -2,7 +2,7 @@
 # (/run/f250-nav/nav.sock, group f250) and, while there is no network time,
 # sets the system clock from a real, current GPS fix when it is more than
 # 1 s off (an example threshold), then copies it into the RTC with
-# `hwclock --systohc` (/dev/rtc0, group clock). Once it has set or confirmed
+# `hwclock -w -u -f /dev/rtc0` (BusyBox's; group clock). Once it has set or confirmed
 # the clock it leaves /run/f250-gps-clock/synchronized, which camera-manager
 # and power-manager read as "synchronized" (crates/clock-sync). The
 # simulated receiver's time is never used, so on the bench (NAV_SIMULATE=1)
@@ -12,8 +12,10 @@
 #
 # Nothing here touches the vehicle bus (ADR-0007).
 #
-# Status: [SIM] (gps-clock's tests, make agl-test). Not run with a receiver:
-# none fitted (H11).
+# Status: [SIM] (gps-clock's tests, make agl-test). [BENCH] 2026-11-17: runs
+# and follows navigation; under this sandbox (systemd-run with these
+# properties) setting the clock and writing the RTC both work. Not run with a
+# receiver: none fitted (H11).
 [Unit]
 Description=F-250 clock from GPS
 Wants=f250-navigation.service

@@ -24,7 +24,8 @@ the sun, without changing the system clock.
 | Fact | Source | Status |
 |---|---|---|
 | The image has gpsd (`/usr/sbin/gpsd`, `gpsd.socket` active), no chrony and no ntpd; connman keeps time (`FallbackTimeservers=pool.ntp.org`) | bench Pi, image 58beac2, 2026-11-17 | `[BENCH]` |
-| `/dev/rtc0` is `root:clock 0660`; `/usr/sbin/hwclock` is in the image | bench Pi, 2026-11-17 | `[BENCH]` |
+| `/dev/rtc0` is `root:clock 0660`; `/usr/sbin/hwclock` is BusyBox 1.37's (util-linux's isn't installed): `-w -u -f DEV`, no `--systohc` or `--noadjfile` | bench Pi, 2026-11-17 | `[BENCH]` |
+| Under gps-clock's sandbox (user f250, group clock, CAP_SYS_TIME, `@system-service @clock`): `date -s` sets the clock and `hwclock -w -u -f /dev/rtc0` writes the RTC, no `/etc/adjtime` | bench Pi, 2026-11-17 (`systemd-run` with the unit's properties) | `[BENCH]` |
 | gpsd's TPV time without PPS is the time of the fix, reported late by up to a fraction of a second, receiver-dependent | gpsd's documentation | Unverified for our receiver: none chosen |
 | `clock_settime(CLOCK_REALTIME)` needs CAP_SYS_TIME; systemd's `ProtectClock=` blocks it | clock_settime(2), systemd.exec(5) | Verified |
 
@@ -64,7 +65,7 @@ network time to everything), or a flag file next to timesyncd's, which
 5. **Step only when the clock is more than 1 s off** (`--step-threshold-ms`,
    an example: without PPS, GPS time is good to a fraction of a second).
    Otherwise the clock is confirmed. After a step or the first
-   confirmation, `hwclock --systohc --utc --noadjfile` writes the RTC, so
+   confirmation, `hwclock -w -u -f /dev/rtc0` writes the RTC, so
    the next cold start begins at the right time.
 6. **No second step within 10 minutes** of one: that means something else is
    setting the clock, and gps-clock logs it instead of fighting.
