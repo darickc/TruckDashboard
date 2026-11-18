@@ -3178,3 +3178,17 @@ comes back at Night 40 % from `/var/lib/f250-power/display`.
 `DISPLAY_LONGITUDE` set.
 
 Closes: agl.md check 20, the bench part of check 15. H20 stays open.
+
+## 2026-11-17 — Deploy of c2d7501 onto image 58beac2 [BENCH]
+
+`make deploy PI=root@raspberrypi5.local` (HEAD c2d7501: the clock-trust
+option, the navigation licences page, 9 commits past the image). The Pi's
+`/etc/default/f250*` and `/boot/config.txt` saved first in
+`/root/pre-deploy-20261117/`; both unchanged after the deploy (the
+config.txt block already matched, RTC charging on). `stage1-setup.sh
+--check`: all checks passed (0 warnings). Every f250 service restarted at
+01:28:05 UTC and is active, none failed. `camera-manager --help` lists
+`--clock always`; the Pi's settings files don't carry `RECORD_TRUST_CLOCK`
+(deploy never rewrites them), so it runs with the default (network time).
+Recording is off on this Pi (the screen's settings record nothing), so the
+option has no effect there until recording is turned on. Not rebooted.
