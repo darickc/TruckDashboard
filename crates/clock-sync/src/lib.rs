@@ -11,9 +11,12 @@
 //! power-manager follows the sun only on one (ADR-0028).
 //!
 //! The answer is the kernel's own "synchronized" flag, as `timedatectl`
-//! reports it (`NTPSynchronized`), or systemd-timesyncd's flag file. On the
-//! AGL image connman keeps the time and timesyncd doesn't run, so the file
-//! never appears there [BENCH] 2026-11-10; `timedatectl` answers.
+//! reports it (`NTPSynchronized`), or systemd-timesyncd's flag file (both:
+//! [`network_synchronized`]), or gps-clock's flag file once it has set or
+//! confirmed the clock from a real GPS fix this boot ([`GPS_FILE`],
+//! ADR-0049). On the AGL image connman keeps the time and timesyncd doesn't
+//! run, so timesyncd's file never appears there [BENCH] 2026-11-10;
+//! `timedatectl` answers.
 
 use std::io::Read;
 use std::path::Path;
@@ -22,6 +25,11 @@ use std::time::{Duration, Instant};
 
 /// systemd-timesyncd's flag file.
 pub const TIMESYNC_FILE: &str = "/run/systemd/timesync/synchronized";
+
+/// gps-clock's flag file (ADR-0049): it exists once gps-clock has set or
+/// confirmed the system clock from a real, current GPS fix since boot
+/// (`/run` is emptied at every boot, like timesyncd's file).
+pub const GPS_FILE: &str = "/run/f250-gps-clock/synchronized";
 
 /// 2026-01-01T00:00:00Z. A clock reading earlier than this is never
 /// believed, whatever the settings: it is a board that lost its time (the
@@ -37,9 +45,18 @@ pub fn plausible(unix_s: u64) -> bool {
 /// How long `timedatectl` may take before the answer is "no".
 pub const TIMEDATECTL_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// Whether the system reports the clock synchronized. Blocks for up to
-/// [`TIMEDATECTL_TIMEOUT`]: call it off any loop that must not wait.
+/// Whether the clock is synchronized: by network time, or from GPS by
+/// gps-clock. Blocks for up to [`TIMEDATECTL_TIMEOUT`]: call it off any
+/// loop that must not wait.
 pub fn system_synchronized() -> bool {
+    Path::new(GPS_FILE).exists() || network_synchronized()
+}
+
+/// Whether network time has synchronized the clock: the kernel's flag as
+/// `timedatectl` reports it, or timesyncd's file. gps-clock asks this one,
+/// so its own flag never counts as network time. Blocks like
+/// [`system_synchronized`].
+pub fn network_synchronized() -> bool {
     Path::new(TIMESYNC_FILE).exists() || timedatectl_synchronized()
 }
 

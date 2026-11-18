@@ -72,7 +72,7 @@ firmware/knob-display/ ESP32-S3 round gauge and volume knob (ADR-0044)
 shared/signals/      signal registry (YAML); imports/torque/exportedPIDs.csv
 shared/proto/        versioned gRPC/protobuf API (f250.<domain>.v1); `make proto` regenerates Dart
 crates/              Rust libraries: elm (MX+ client), telemetry, powerstroke-sim, proto, sd-notify, camera-policy, recording, daylight, clock-sync, gpsd, geocode, evdev
-services/            Rust daemons: vehicle-gateway, recorder, power-manager, camera-manager, navigation, usb-export, audio-manager, knob-link, tts
+services/            Rust daemons: vehicle-gateway, recorder, power-manager, camera-manager, navigation, usb-export, audio-manager, knob-link, tts, gps-clock
 apps/infotainment/   Flutter UI, 800×480 (simulated data source today)
 simulator/           Power Stroke scenarios (f250.scenario.v1) + Dart engine; Rust transport in Phase 3
 agl/                 AGL Stage 1: release pin, boot config, rootfs files, target scripts; meta-f250 in 5.4

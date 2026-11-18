@@ -120,7 +120,9 @@ Consequences' "GPS time would remove this" at its word.
    clock for as long as power-manager runs. **The system clock is never
    changed:** power-manager has no `CAP_SYS_TIME`, and setting it belongs
    to whatever keeps time (connman today; chrony with gpsd's shared memory
-   would be the way, a separate decision).
+   would be the way, a separate decision). *That decision: [ADR-0049](0049-clock-from-gps.md),
+   2026-11-17: gps-clock, a service of its own with CAP_SYS_TIME; power-manager
+   still never sets the clock.*
 4. **The simulated receiver is never the truck.** Its positions are
    ignored unless `--gps-accept-simulated` (development only, labelled
    SIMULATED on screen, never saved), and its time is never used.

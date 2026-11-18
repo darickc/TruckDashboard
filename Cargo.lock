@@ -772,6 +772,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "gps-clock"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "f250-clock-sync",
+ "f250-proto",
+ "f250-sd-notify",
+ "hyper-util",
+ "rustix 1.1.6",
+ "tokio",
+ "tonic",
+ "tower",
+]
+
+[[package]]
 name = "gstreamer"
 version = "0.25.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

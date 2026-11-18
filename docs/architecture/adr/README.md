@@ -57,5 +57,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0046](0046-automatic-reverse.md) | Automatic reverse: the gateway reads the broadcast `230` receive-only (`WatchReverse`; unknown when stale, never "not engaged"), camera-manager follows it with `--auto-reverse` (`CAMERA_AUTO_REVERSE`, on with `TRANSPORT=can`) | Accepted (owner asked; [SIM]; not yet seen in the truck) |
 | [0047](0047-head-unit-enclosure.md) | The head unit's enclosure: the display flush behind the radio opening on its own M3 holes, printed ASA rails and side brackets, a rear box for the electronics with a fan, the amplifier on its own bracket, a USB 2 hub only when more cameras come | Proposed (owner asked; design only, nothing printed or fitted) |
 | [0048](0048-piper-voice.md) | A natural voice for spoken directions: Piper (en_US-ljspeech-medium) kept loaded in `f250-tts.service`, libpiper loaded at run time, Flite as the fallback | Accepted ([BENCH]; in the image's recipes, its packages tested on the Pi) |
+| [0049](0049-clock-from-gps.md) | The clock from GPS: `gps-clock` (CAP_SYS_TIME only) sets the system clock and the RTC from a real, current fix when there is no network time and it is more than 1 s off, and leaves a flag `clock-sync` counts as synchronized | Accepted ([SIM]; no receiver yet) |
 
 New ADRs use the next number and the same headings.

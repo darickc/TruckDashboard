@@ -1,0 +1,69 @@
+# The clock from GPS (ADR-0049): gps-clock follows navigation's positions
+# (/run/f250-nav/nav.sock, group f250) and, while there is no network time,
+# sets the system clock from a real, current GPS fix when it is more than
+# 1 s off (an example threshold), then copies it into the RTC with
+# `hwclock --systohc` (/dev/rtc0, group clock). Once it has set or confirmed
+# the clock it leaves /run/f250-gps-clock/synchronized, which camera-manager
+# and power-manager read as "synchronized" (crates/clock-sync). The
+# simulated receiver's time is never used, so on the bench (NAV_SIMULATE=1)
+# it only waits.
+#
+# Its one privilege: CAP_SYS_TIME, for clock_settime(2) and the RTC.
+#
+# Nothing here touches the vehicle bus (ADR-0007).
+#
+# Status: [SIM] (gps-clock's tests, make agl-test). Not run with a receiver:
+# none fitted (H11).
+[Unit]
+Description=F-250 clock from GPS
+Wants=f250-navigation.service
+After=f250-navigation.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=f250
+Group=f250
+# clock: /dev/rtc0 for hwclock.
+SupplementaryGroups=clock
+ExecStart=/opt/f250/bin/gps-clock
+Restart=on-failure
+RestartSec=5
+RuntimeDirectory=f250-gps-clock
+RuntimeDirectoryMode=0755
+# A restart doesn't take the "synchronized" flag away: it is still right.
+RuntimeDirectoryPreserve=yes
+AmbientCapabilities=CAP_SYS_TIME
+CapabilityBoundingSet=CAP_SYS_TIME
+
+# Sandbox (ADR-0021), like knob-link's, except: the clock is its job
+# (no ProtectClock, the @clock calls allowed) and /dev/rtc0 is its device.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+DevicePolicy=closed
+DeviceAllow=/dev/rtc0 rw
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @clock
+SystemCallFilter=~@resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target

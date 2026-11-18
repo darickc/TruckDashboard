@@ -63,6 +63,8 @@ do_install() {
     f250_wants multi-user.target f250-usb-export.service
     f250_wants multi-user.target f250-audio-manager.service
     f250_wants multi-user.target f250-knob-link.service
+    # The clock from GPS while there is no network time (ADR-0049).
+    f250_wants multi-user.target f250-gps-clock.service
     f250_wants multi-user.target f250-can-auto.service
     # Hands-free on or off from AUDIO_CALL_MIC, before WirePlumber (ADR-0045).
     f250_wants multi-user.target f250-calls-config.service
@@ -108,8 +110,9 @@ FILES:${PN} = "${sysconfdir} /opt/f250 ${localstatedir}/lib/journal \
 # mkfs.ext4 (e2fsprogs-mke2fs), smartctl (smartmontools: the drive's health;
 # the stock AGL image has it, ours didn't, bench-log 2026-11-11); grow-root:
 # sfdisk, partx, findmnt, blkid (util-linux), systemd-growfs (systemd);
-# --check: cmp (diffutils).
+# --check: cmp (diffutils); gps-clock: hwclock (util-linux-hwclock, the RTC;
+# ADR-0049).
 RDEPENDS:${PN} = "bash systemd iproute2 can-utils usbutils coreutils \
     util-linux-blkid util-linux-lsblk util-linux-findmnt e2fsprogs-mke2fs diffutils \
     util-linux-sfdisk util-linux-partx util-linux-mount util-linux-umount kmod \
-    kernel-module-exfat smartmontools"
+    kernel-module-exfat smartmontools util-linux-hwclock"

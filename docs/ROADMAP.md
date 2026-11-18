@@ -375,6 +375,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       receiver is never the truck (`--gps-accept-simulated` for development, labelled). `Display` says where both came
       from; Settings → Display shows it. Tests: the logic, the display task, the real binary against a fake navigation,
       the dashboard at 800×480. Not on the Pi; no receiver (H11)
+      The clock from GPS `[SIM]` 2026-11-17 ([ADR-0049](architecture/adr/0049-clock-from-gps.md)): `services/gps-clock` sets the
+      system clock (more than 1 s off, three agreeing fixes, never over network time) and the RTC, and leaves a flag
+      camera-manager and power-manager count as synchronized. Tests: every decision. No receiver (H11)
 - [~] 6.5 Offline map, then routing, then the update workflow
       6.5.1 `[SIM]`: the Navigation tab shows a raster PMTiles map (`/var/lib/f250/maps/map.pmtiles`) with the truck's
       position: follows until dragged, north up (heading up since 2026-11-12, ADR-0032), 60 px zoom and locate buttons, "LAST KNOWN · n S AGO" and a grey marker

@@ -1,0 +1,31 @@
+[package]
+name = "gps-clock"
+version = "0.1.0"
+description = "Sets the system clock and the RTC from a real GPS fix when there is no network time (ADR-0049)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "gps_clock"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gps-clock"
+path = "src/main.rs"
+
+[dependencies]
+f250-proto = { path = "../../crates/proto" }
+f250-sd-notify = { path = "../../crates/sd-notify", features = ["tokio"] }
+f250-clock-sync = { path = "../../crates/clock-sync" }
+tonic = "0.14"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal", "fs", "process"] }
+tower = { version = "0.5", features = ["util"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+clap = { version = "4", features = ["derive"] }
+# clock_settime(2) without unsafe code (the workspace forbids it).
+rustix = { version = "1", features = ["time"] }
+
+[lints]
+workspace = true
