@@ -21,6 +21,11 @@
 #       cameras aren't recording (the dashboard shows it).
 #   RECORD_MAX_AGE_DAYS ... RECORD_CLIP_AFTER_S   retention; camera-manager
 #       reads them from its environment (the unit's EnvironmentFile).
+#   RECORD_TRUST_CLOCK   synchronized (empty) or always: when segment names
+#       carry the time and the age limit applies (ADR-0027 decision 10).
+#       always: the clock as it reads unless before 2026, for an RTC cell
+#       that holds the time (H20). Anything else is reported and treated as
+#       synchronized, so a typo never stops the cameras.
 #   CAMERA_AUTO_REVERSE   1: reverse shows the rear camera, from the
 #       gateway's broadcast reader (ADR-0046); 0: off. Empty: on with
 #       TRANSPORT=can (the only transport that hears the broadcast), else off.
@@ -78,6 +83,12 @@ if [[ "${DATA_DRIVE:-0}" == 1 && -n "${RECORD_CAMERAS:-}" ]]; then
     IFS=','; args+=(--record "${record[*]}"); unset IFS
   fi
 fi
+
+case "${RECORD_TRUST_CLOCK:-}" in
+  ""|synchronized) ;;
+  always) args+=(--clock always) ;;
+  *) echo "RECORD_TRUST_CLOCK must be synchronized, always or empty, got ${RECORD_TRUST_CLOCK}: synchronized" >&2 ;;
+esac
 
 auto_reverse="${CAMERA_AUTO_REVERSE:-}"
 if [[ -z "$auto_reverse" ]]; then

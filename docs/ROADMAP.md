@@ -509,6 +509,8 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       (timesyncd doesn't run on the image). In the Yocto images from `f3bf43b` (camera-manager
       with GStreamer, the four recording packages): the development image flashed and recording `[BENCH]`. Still to do: a real drive and pulls of the power (ADR-0027 "To measure"), truck cameras (H33),
       per-camera caps and the reverse decoder.
+      Clock trust `[SIM]` 2026-11-17 (ADR-0027 decision 10 amended): `RECORD_TRUST_CLOCK=always` names segments and
+      applies the age limit on the clock as it reads, unless before 2026; default still network time, until H20 passes.
       Camera assignment and recording on screen `[SIM]` ([ADR-0029](architecture/adr/0029-settings-screen.md), 2026-11-11):
       `f250.camera.v1` gained `GetCameraSettings` (each camera's device, what records, why nothing can, and the
       cameras plugged in: `/dev/v4l/by-path/*-video-index0` labelled from `by-id`) and `SetCameraSettings` (checked,

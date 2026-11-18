@@ -94,10 +94,12 @@ pub struct Config {
     #[arg(long, default_value = "/var/lib/f250/storage")]
     pub record_drive: String,
 
-    /// Whether segment names carry the wall time: ntp trusts the clock
-    /// while the system says it is synchronized (timedatectl's
-    /// NTPSynchronized, or systemd-timesyncd's flag file); trusted and
-    /// untrusted are for development (ADR-0027 decision 10).
+    /// Whether segment names carry the wall time and the age limit applies:
+    /// ntp trusts the clock while the system says it is synchronized
+    /// (timedatectl's NTPSynchronized, or systemd-timesyncd's flag file);
+    /// always trusts it unless it reads before 2026 (an RTC cell that holds
+    /// the time, H20); trusted and untrusted are for development (ADR-0027
+    /// decision 10).
     #[arg(long, value_enum, default_value_t = ClockChoice::Ntp)]
     pub clock: ClockChoice,
 
@@ -158,6 +160,7 @@ impl Default for MediaChoice {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum ClockChoice {
     Ntp,
+    Always,
     Trusted,
     Untrusted,
 }
@@ -179,6 +182,7 @@ impl Config {
                 settings: recording::settings::Settings::from_vars(env)?,
                 clock: match self.clock {
                     ClockChoice::Ntp => Clock::System(SystemClock::default()),
+                    ClockChoice::Always => Clock::Plausible,
                     ClockChoice::Trusted => Clock::Trusted,
                     ClockChoice::Untrusted => Clock::Untrusted,
                 },
@@ -408,6 +412,28 @@ mod tests {
             .expect("on");
         assert_eq!(r.root, PathBuf::from(DEFAULT_RECORD_DIR));
         assert_eq!(r.mount, Some(PathBuf::from("/var/lib/f250/storage")));
+        assert_eq!(
+            r.clock,
+            Clock::System(SystemClock::default()),
+            "network time by default"
+        );
+    }
+
+    #[test]
+    fn clock_always_trusts_a_plausible_clock() {
+        let c =
+            Config::try_parse_from(["camera-manager", "--record", "front", "--clock", "always"])
+                .expect("valid");
+        let r = c
+            .settings_with(&HashMap::new())
+            .expect("valid")
+            .recording
+            .expect("on");
+        assert_eq!(r.clock, Clock::Plausible);
+        assert!(
+            Config::try_parse_from(["camera-manager", "--clock", "sometimes"]).is_err(),
+            "an unknown choice is refused"
+        );
     }
 
     #[test]

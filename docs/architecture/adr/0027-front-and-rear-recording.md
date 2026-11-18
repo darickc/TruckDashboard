@@ -55,7 +55,8 @@ What constrains it:
   with no warning.
 - **Time.** The RTC battery isn't fitted yet (H20): until it is, the clock
   starts each boot at the last shutdown time and jumps when NTP answers, if
-  it ever does in the truck.
+  it ever does in the truck. *(2026-11-17: fitted and charging; holding the
+  time with the power cut is still to test. See decision 10's amendment.)*
 
 ## Decision
 
@@ -191,6 +192,13 @@ What constrains it:
    the RTC is set: H20). An index file per camera records both. A segment
    recorded on an untrusted clock is never named with a wrong date as if it
    were right (CLAUDE.md rule 4, applied to time).
+   *Amended 2026-11-17 `[SIM]`: the RTC cell is fitted but not yet shown to
+   hold the time with the power cut (H20), so "synchronized" stays the
+   default. `RECORD_TRUST_CLOCK=always` (`camera-manager --clock always`)
+   trusts the clock as it reads unless it reads before 2026
+   (`clock_sync::plausible`, the floor power-manager's
+   `DISPLAY_TRUST_CLOCK=always` uses); set both once H20 passes. A bad value
+   is reported and treated as synchronized: it never stops the cameras.*
 11. **Settings live in `/etc/default/f250` for now** (`RECORD_CAMERAS=front,rear`
     and the table above), read by `camera-start`. A settings screen (the
     dashboard, through camera-manager's API, as camera assignment will) comes

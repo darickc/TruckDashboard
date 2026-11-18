@@ -45,9 +45,13 @@ pub enum Clock {
     /// the time and timesyncd doesn't run, so the file never appears there
     /// [BENCH] 2026-11-10. Asked by the drive thread on each pass and cached:
     /// segment naming (GStreamer's streaming thread) only reads the cache.
-    /// The RTC (H20) isn't fitted.
     System(SystemClock),
-    /// Development and tests.
+    /// The wall clock as it reads, synchronized or not, unless it reads
+    /// before 2026 (`clock_sync::plausible`). For a head unit whose RTC
+    /// cell holds the time with the power cut (H20), where network time
+    /// never comes in the truck. `RECORD_TRUST_CLOCK=always`.
+    Plausible,
+    /// Development and tests: anything, 1970 included.
     Trusted,
     Untrusted,
 }
@@ -85,6 +89,7 @@ impl Clock {
     pub fn is_trusted(&self) -> bool {
         match self {
             Clock::System(c) => c.synced.load(Ordering::Acquire),
+            Clock::Plausible => wall_now().is_some_and(clock_sync::plausible),
             Clock::Trusted => true,
             Clock::Untrusted => false,
         }
@@ -92,14 +97,20 @@ impl Clock {
 
     /// UTC seconds, only while the clock is trusted.
     pub fn trusted_now(&self) -> Option<u64> {
-        if !self.is_trusted() {
-            return None;
+        match self {
+            // One reading, judged and returned, so the two can't disagree.
+            Clock::Plausible => wall_now().filter(|&t| clock_sync::plausible(t)),
+            _ if self.is_trusted() => wall_now(),
+            _ => None,
         }
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .ok()
-            .map(|d| d.as_secs())
     }
+}
+
+fn wall_now() -> Option<u64> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_secs())
 }
 
 #[derive(Debug, Clone)]
@@ -595,6 +606,13 @@ mod tests {
     fn an_untrusted_clock_gives_no_time() {
         assert_eq!(Clock::Untrusted.trusted_now(), None);
         assert!(Clock::Trusted.trusted_now().is_some());
+        // The machine running the tests reads after 2026.
+        assert!(Clock::Plausible.is_trusted());
+        assert!(
+            Clock::Plausible
+                .trusted_now()
+                .is_some_and(clock_sync::plausible)
+        );
         // Not asked yet: not trusted.
         assert_eq!(Clock::System(SystemClock::default()).trusted_now(), None);
     }
