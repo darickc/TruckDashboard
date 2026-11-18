@@ -76,13 +76,16 @@ String? textOf(String key) {
 void main() {
   setUpAll(loadTestAssets);
 
-  testWidgets('the simulated receiver: a current 3D fix, labelled simulated', (tester) async {
+  testWidgets('the simulated receiver: a current fix, no receiver chips, labelled SIM', (tester) async {
     final h = await Harness.start(tester);
     await h.goTo(AppScreen.navigation);
-    expect(
-      textOf('nav-status'),
-      allOf(contains('3D FIX'), contains('SIMULATED'), contains('9 SATS')),
-    );
+    // A current fix needs no words over the map (owner, 2026-11-17)...
+    expect(find.byKey(const ValueKey('nav-status')), findsNothing);
+    expect(find.text('9 SATS'), findsNothing);
+    // ...but a simulated position is still never shown as the truck's
+    // (ADR-0030 decision 4): a tag under the map buttons.
+    expect(textOf('nav-simulated'), 'SIM');
+    expect(find.bySemanticsLabel('Simulated position, not the truck'), findsOneWidget);
     expect(find.byKey(const ValueKey('nav-marker-current')), findsOneWidget);
     expect(find.byKey(const ValueKey('nav-why')), findsNothing);
     expect(textOf('nav-map-problem'), contains('no offline map configured'));
@@ -97,7 +100,6 @@ void main() {
     h.clock.advance(const Duration(seconds: 4));
     await tester.pump(const Duration(seconds: 1));
     expect(textOf('nav-status'), contains('LAST KNOWN · 4 S AGO'));
-    expect(textOf('nav-status'), isNot(contains('3D FIX')));
     expect(find.byKey(const ValueKey('nav-marker-stale')), findsOneWidget);
     expect(find.byKey(const ValueKey('nav-marker-current')), findsNothing);
     expect(textOf('nav-why'), contains('No update from the navigation service'));

@@ -171,8 +171,40 @@ void main() {
       expect(find.byKey(const ValueKey('nav-end-route')), findsOneWidget);
       expect(find.byKey(const ValueKey('nav-routing')), findsNothing, reason: 'the banner says it');
       expect(find.byIcon(Icons.turn_right), findsOneWidget);
+      // As wide as its words, not across the map, so the route line shows.
+      final banner = tester.getRect(find.byKey(const ValueKey('nav-guidance')));
+      expect(banner.width, lessThanOrEqualTo(380));
+      expect(banner.width, lessThan(tester.getRect(find.byType(FlutterMap)).width / 2));
+      // A current fix: no receiver chips above it.
+      expect(find.byKey(const ValueKey('nav-status')), findsNothing);
     });
   }
+
+  testWidgets('a long instruction wraps inside the banner instead of widening it', (tester) async {
+    const long = NavRoute(
+      id: 8,
+      shape: [LatLng(39.83, -98.53), LatLng(39.8103, -98.5559)],
+      maneuvers: [
+        Maneuver(type: 2, instruction: 'Drive west.'),
+        Maneuver(
+          type: 10,
+          instruction: 'Turn right onto North Main Street/US 281/Kansas Highway 9 toward Smith Center.',
+          startM: 900,
+        ),
+      ],
+      lengthM: 3000,
+      timeS: 240,
+      destination: destination,
+      costing: 'auto',
+    );
+    await open(tester, (s) => view(s, RouteState.active, progress: progress, route: long));
+    await tester.pump();
+    final banner = tester.getRect(find.byKey(const ValueKey('nav-guidance')));
+    expect(banner.width, lessThanOrEqualTo(380));
+    final instruction = tester.getRect(find.byKey(const ValueKey('nav-instruction')));
+    expect(instruction.right, lessThanOrEqualTo(banner.right));
+    expect(instruction.height, greaterThan(30), reason: 'two lines');
+  });
 
   testWidgets('a map stick while routing is one line, below the banner\'s warning (ADR-0033)', (
     tester,

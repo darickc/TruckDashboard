@@ -375,6 +375,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       receiver is never the truck (`--gps-accept-simulated` for development, labelled). `Display` says where both came
       from; Settings → Display shows it. Tests: the logic, the display task, the real binary against a fake navigation,
       the dashboard at 800×480. Not on the Pi; no receiver (H11)
+      Nav screen tidied 2026-11-17 (owner) `[BENCH]`: the guidance banner is as wide as its words (at most 380 px), so the
+      route line beside it shows; no fix-type, satellite or accuracy chips while the fix is current ("last known" and "no
+      position" stay, rule 4); a SIM tag above the bottom buttons for the simulated receiver (ADR-0030 decision 4).
       The clock from GPS `[SIM]` 2026-11-17 ([ADR-0049](architecture/adr/0049-clock-from-gps.md)): `services/gps-clock` sets the
       system clock (more than 1 s off, three agreeing fixes, never over network time) and the RTC, and leaves a flag
       camera-manager and power-manager count as synchronized. Tests: every decision. No receiver (H11)

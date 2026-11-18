@@ -278,6 +278,16 @@ class _NavigationScreenState extends State<NavigationScreen> {
       MapReady() => null,
     };
     final bottomNotices = <Widget>[
+      // ADR-0030 decision 4: a simulated position is labelled as such,
+      // down here rather than over the map and the route (owner,
+      // 2026-11-17). In this column it stacks with the rest; beside the
+      // map buttons it met the compass when an alert shortens the map.
+      if (position.report?.simulated ?? false)
+        Semantics(
+          label: 'Simulated position, not the truck',
+          excludeSemantics: true,
+          child: _Chip('SIM', key: const ValueKey('nav-simulated'), color: p.simulated, filled: true),
+        ),
       // While routing it is one small line instead (below), so the truck
       // stays visible between the banner and the buttons.
       if (mapProblem != null && !onRoute)
@@ -543,9 +553,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _StatusRow(position: position, now: now, current: current, palette: p),
+              if (!current) _StatusRow(position: position, now: now, palette: p),
               if (onRoute) ...[
-                const SizedBox(height: kGap),
+                if (!current) const SizedBox(height: kGap),
                 _GuidanceBanner(
                   view: route,
                   route: routeFetched ? navRoute : null,
@@ -775,52 +785,49 @@ class _NavigationScreenState extends State<NavigationScreen> {
   }
 }
 
-/// What the receiver says, in one row over the map.
+/// Over the map only while the fix isn't current (rule 4): "last known"
+/// with its age, or no position, and why. A current fix needs no words:
+/// the marker says it (owner, 2026-11-17: the fix type, satellites and
+/// accuracy took room from the route).
 class _StatusRow extends StatelessWidget {
   const _StatusRow({
     required this.position,
     required this.now,
-    required this.current,
     required this.palette,
   });
 
   final PositionState position;
   final Duration now;
-  final bool current;
   final Palette palette;
 
   @override
   Widget build(BuildContext context) {
     final p = palette;
-    final r = position.report;
-    final fix = r?.fix;
+    final fix = position.report?.fix;
     final age = position.fixAge(now);
-    final chips = <Widget>[
-      if (current)
-        _Chip(r!.status == FixStatus.fix3d ? '3D FIX' : '2D FIX', color: p.ok, filled: true)
-      else if (fix != null && age != null)
-        _Chip('LAST KNOWN · ${_age(age)} AGO', color: p.advisory, filled: true)
-      else
-        _Chip('NO POSITION', color: p.stale, filled: true),
-      if (r?.simulated ?? false) _Chip('SIMULATED', color: p.simulated, filled: true),
-      if (current && r?.satellitesUsed != null)
-        _Chip('${r!.satellitesUsed} SATS', color: p.textDim),
-      if (current && fix?.errorM != null) _Chip('±${fix!.errorM!.round()} m', color: p.textDim),
-    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Wrap(key: const ValueKey('nav-status'), spacing: 6, runSpacing: 4, children: chips),
-        if (!current) ...[
-          const SizedBox(height: 10),
-          _Notice(
-            key: const ValueKey('nav-why'),
-            icon: Icons.gps_off,
-            text: position.why(now),
-            palette: p,
-            color: p.advisory,
-          ),
-        ],
+        Wrap(
+          key: const ValueKey('nav-status'),
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            if (fix != null && age != null)
+              _Chip('LAST KNOWN · ${_age(age)} AGO', color: p.advisory, filled: true)
+            else
+              _Chip('NO POSITION', color: p.stale, filled: true),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _Notice(
+          key: const ValueKey('nav-why'),
+          icon: Icons.gps_off,
+          text: position.why(now),
+          palette: p,
+          color: p.advisory,
+        ),
       ],
     );
   }
@@ -828,7 +835,7 @@ class _StatusRow extends StatelessWidget {
 
 /// A status chip, larger than the gauges' pills: read at a glance while driving.
 class _Chip extends StatelessWidget {
-  const _Chip(this.text, {required this.color, this.filled = false});
+  const _Chip(this.text, {super.key, required this.color, this.filled = false});
 
   final String text;
   final Color color;
@@ -1002,7 +1009,12 @@ class _Compass extends StatelessWidget {
 /// Guidance over the map while there is a destination: the next maneuver
 /// with its distance and what is left, or why guidance is paused (never
 /// distances that aren't current), and always the heavy-vehicle caveat.
+/// As wide as its words, up to [maxWidth], so the route line beside it
+/// stays in sight (owner, 2026-11-17).
 class _GuidanceBanner extends StatelessWidget {
+  /// Long instructions wrap to a second line rather than cross the map.
+  static const maxWidth = 380.0;
+
   const _GuidanceBanner({
     required this.view,
     required this.route,
@@ -1061,10 +1073,11 @@ class _GuidanceBanner extends StatelessWidget {
           final m = r.maneuvers[pr.maneuverIndex.clamp(0, r.maneuvers.length - 1)];
           body = Row(
             key: const ValueKey('nav-guidance-active'),
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(maneuverIcon(m.type), size: 52, color: p.accent),
               const SizedBox(width: 10),
-              Expanded(
+              Flexible(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -1101,6 +1114,7 @@ class _GuidanceBanner extends StatelessWidget {
     }
     return Container(
       key: const ValueKey('nav-guidance'),
+      constraints: const BoxConstraints(maxWidth: maxWidth),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: p.surface.withValues(alpha: 0.94),
@@ -1125,6 +1139,7 @@ class _GuidanceBanner extends StatelessWidget {
   }
 
   Widget _line(IconData icon, String text, Color color) => Row(
+    mainAxisSize: MainAxisSize.min,
     children: [
       Icon(icon, size: 30, color: color),
       const SizedBox(width: 8),
