@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../cameras/camera_settings.dart';
 import '../../cameras/camera_state.dart';
-import '../../model/units.dart';
 import '../app_scope.dart';
 import '../shell/nav_buttons.dart';
 import '../theme.dart';
@@ -15,10 +14,11 @@ import '../widgets/tap_target.dart';
 /// The driver's settings (ADR-0029): Display (power-manager, ADR-0028),
 /// Cameras (camera-manager: which USB port is which camera, and which
 /// record), Speakers (audio-manager: fader, balance, sub level, crossover;
-/// ADR-0039), Units (the dashboard's own, kept in its settings file). After
-/// the sections, Diagnostics (a screen of its own, opened from here rather
-/// than Home). Restart and Power, when the launcher offers them, at the right.
-enum SettingsSection { display, cameras, speakers, units }
+/// ADR-0039). Display also holds Units (the dashboard's own, kept in its
+/// settings file; its own section until 2026-11-18). After the sections,
+/// Diagnostics (a screen of its own, opened from here rather than Home).
+/// Restart and Power, when the launcher offers them, at the right.
+enum SettingsSection { display, cameras, speakers }
 
 /// The Diagnostics button's width in the section row.
 const kDiagnosticsButtonWidth = 150.0;
@@ -27,7 +27,6 @@ const _labels = {
   SettingsSection.display: 'Display',
   SettingsSection.cameras: 'Cameras',
   SettingsSection.speakers: 'Speakers',
-  SettingsSection.units: 'Units',
 };
 
 class SettingsScreen extends StatefulWidget {
@@ -89,48 +88,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Panel(
           padding: const EdgeInsets.all(8),
           child: switch (_section) {
-            SettingsSection.display => ListView(children: const [DisplaySettings()]),
+            SettingsSection.display => ListView(padding: const EdgeInsets.all(6), children: [
+                const DisplaySettings(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(height: 1, color: Palette.of(context).border),
+                ),
+                const UnitsSettings(),
+              ]),
             SettingsSection.cameras => const CameraSettingsView(),
             SettingsSection.speakers => const SpeakerSettingsView(),
-            SettingsSection.units => const _Units(),
           },
         ),
       ),
     ]);
-  }
-}
-
-class _Units extends StatelessWidget {
-  const _Units();
-
-  @override
-  Widget build(BuildContext context) {
-    final s = AppScope.of(context);
-    final p = Palette.of(context);
-    return ListenableBuilder(
-      listenable: s.settings,
-      builder: (context, _) {
-        Widget option(UnitSystem u, String text) => SizedBox(
-              width: 150,
-              child: TapTarget(
-                  key: ValueKey('units-${u.name}'),
-                  label: text,
-                  selected: s.settings.units == u,
-                  onTap: () => s.settings.units = u,
-                  child: Text(text, style: const TextStyle(fontSize: 16))),
-            );
-        return ListView(children: [
-          Row(children: [
-            option(UnitSystem.imperial, 'Imperial'),
-            const SizedBox(width: kGap),
-            option(UnitSystem.metric, 'Metric'),
-          ]),
-          const SizedBox(height: 6),
-          Text('°F, psi, mph (Imperial) or °C, kPa, km/h (Metric). Kept on this head unit.',
-              style: TextStyle(fontSize: 14, color: p.textDim)),
-        ]);
-      },
-    );
   }
 }
 

@@ -49,12 +49,16 @@ FakeCameras connectedFake({String recordingUnavailable = ''}) {
 void main() {
   setUpAll(loadTestAssets);
 
-  testWidgets('the Settings screen: Display first, Units moved here and kept', (tester) async {
+  testWidgets('the Settings screen: Display first, with Units in it, and kept', (tester) async {
     final h = await Harness.start(tester);
     await h.goTo(AppScreen.settings);
     expect(find.byKey(const ValueKey('display-detail')), findsOneWidget, reason: 'Display first');
-    await openSection(tester, h, 'units');
+    expect(find.byKey(const ValueKey('settings-units')), findsNothing, reason: 'no Units section');
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('units-metric')), 80,
+        scrollable: find.byType(Scrollable).last);
+    expect(h.textOf('units-detail'), '°F · psi · mph');
     await tap(tester, 'units-metric');
+    expect(h.textOf('units-detail'), '°C · kPa · km/h');
     expect(h.services.settings.units, UnitSystem.metric);
     // No longer under Diagnostics → Developer.
     await h.goTo(AppScreen.diagnostics);
@@ -172,7 +176,7 @@ void main() {
         await openSection(tester, h, 'cameras');
         if (state == 'picker' || state == 'no cameras') await tap(tester, 'cam-device-front');
         expect(tester.takeException(), isNull);
-        for (final section in ['units', 'display']) {
+        for (final section in ['speakers', 'display']) {
           await openSection(tester, h, section);
           expect(tester.takeException(), isNull);
         }

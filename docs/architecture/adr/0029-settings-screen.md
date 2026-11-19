@@ -86,3 +86,27 @@ files; `/etc/default/f250` is root's and a conffile. camera-manager runs as
 - the in-place restart: READY again, no watchdog kill, the socket back
   within seconds, a recording stopped cleanly (no protected minutes)
 - the dashboard's settings file survives a reboot
+
+
+## Amendment: Units inside Display; theme and brightness controls (2026-11-18)
+
+From the design review (owner, 2026-11-18: "Settings Display"). Display and
+Units were both mostly empty sections, so decision 1 changes:
+
+- **Units moves into the Display section**, under a divider; Settings has
+  three sections (Display, Cameras, Speakers), then Diagnostics, Restart and
+  Power ([ADR-0034](0034-home-buttons-and-back.md) amendment, 2026-11-14).
+  Units is still the dashboard's own, kept in its settings file.
+- **Each setting is a row**: its name (and a dim line) on the left, its
+  controls on the right.
+- **Theme: Auto, Day, Night.** Auto is always shown; while power-manager
+  isn't connected it is dim and not tappable, and the line under the
+  choices says why (as before). It used to be left out, which hid that it
+  exists.
+- **Brightness: − and + around a ten-step bar** (one step per 10 %), the
+  level under it and "Night · never below 10 %" under its name; the same
+  10 % steps and floor as before (ADR-0028).
+
+[SIM]: `test/widget/display_test.dart` (Auto unavailable and connected, the
+bar's steps, the section under an alert in both themes) and
+`settings_test.dart`; checked in the browser at 800×480.

@@ -2,6 +2,7 @@ import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/display/display_state.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/theme.dart';
+import 'package:f250_infotainment/ui/widgets/display_settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -45,45 +46,49 @@ DisplayReport report({
   LocationSource location = LocationSource.unknown,
   int ageS = 0,
   ClockSource clock = ClockSource.unknown,
-}) =>
-    DisplayReport(
-      mode: mode,
-      choice: choice,
-      basis: basis,
-      sun: sun,
-      sunElevationDeg: sun == SunStatus.known ? elevation : null,
-      dayPct: 100,
-      nightPct: 40,
-      minPct: 10,
-      backlight: backlight,
-      brightnessPct: mode == DayNight.day ? 100 : 40,
-      backlightProblem: problem,
-      locationSource: location,
-      locationAgeS: ageS,
-      clockSource: clock,
-    );
+}) => DisplayReport(
+  mode: mode,
+  choice: choice,
+  basis: basis,
+  sun: sun,
+  sunElevationDeg: sun == SunStatus.known ? elevation : null,
+  dayPct: 100,
+  nightPct: 40,
+  minPct: 10,
+  backlight: backlight,
+  brightnessPct: mode == DayNight.day ? 100 : 40,
+  backlightProblem: problem,
+  locationSource: location,
+  locationAgeS: ageS,
+  clockSource: clock,
+);
 
 DisplayStatus connected(DisplayReport r) => DisplayStatus(
-    link: DisplayLink.connected,
-    mode: r.mode,
-    choice: r.choice,
-    report: r,
-    dayPct: r.dayPct,
-    nightPct: r.nightPct,
-    minPct: r.minPct);
+  link: DisplayLink.connected,
+  mode: r.mode,
+  choice: r.choice,
+  report: r,
+  dayPct: r.dayPct,
+  nightPct: r.nightPct,
+  minPct: r.minPct,
+);
 
 const lost = DisplayStatus(
-    link: DisplayLink.lost,
-    mode: DayNight.night,
-    choice: DisplayChoice.auto,
-    detail: 'connection refused');
+  link: DisplayLink.lost,
+  mode: DayNight.night,
+  choice: DisplayChoice.auto,
+  detail: 'connection refused',
+);
 
 Future<void> openDisplay(WidgetTester tester, Harness h) async {
   await h.goTo(AppScreen.settings);
   await tester.tap(find.byKey(const ValueKey('settings-display')));
   await tester.pump();
-  await tester.scrollUntilVisible(find.byKey(const ValueKey('brightness-level')), 80,
-      scrollable: find.byType(Scrollable).last);
+  await tester.scrollUntilVisible(
+    find.byKey(const ValueKey('brightness-level')),
+    80,
+    scrollable: find.byType(Scrollable).last,
+  );
   await tester.pump();
 }
 
@@ -101,26 +106,27 @@ void main() {
     expect(find.byKey(const ValueKey('display-auto')), findsNothing);
     expect(h.textOf('display-detail'), contains('Simulated: no power-manager'));
     expect(background(tester), Palette.night.background);
-    expect(h.textOf('brightness-level'), 'Brightness (night) 40 %');
+    expect(h.textOf('brightness-level'), '40 %');
+    expect(h.textOf('brightness-mode'), 'Night · never below 10 %');
 
     await tester.tap(find.byKey(const ValueKey('display-day')));
     await tester.pumpAndSettle();
     expect(h.services.display.status.value.mode, DayNight.day);
     expect(background(tester), Palette.day.background);
-    expect(h.textOf('brightness-level'), 'Brightness (day) 100 %');
+    expect(h.textOf('brightness-level'), '100 %');
+    expect(h.textOf('brightness-mode'), startsWith('Day'));
 
     await tester.tap(find.byKey(const ValueKey('brightness-up')));
     await tester.pump();
-    expect(h.textOf('brightness-level'), 'Brightness (day) 100 %', reason: 'capped at 100');
+    expect(h.textOf('brightness-level'), '100 %', reason: 'capped at 100');
     for (var i = 0; i < 12; i++) {
       await tester.tap(find.byKey(const ValueKey('brightness-down')));
       await tester.pump();
     }
-    expect(h.textOf('brightness-level'), 'Brightness (day) 10 %', reason: 'never below the floor');
+    expect(h.textOf('brightness-level'), '10 %', reason: 'never below the floor');
   });
 
-  testWidgets('connected: Auto offered, the theme follows power-manager, changes are sent',
-      (tester) async {
+  testWidgets('connected: Auto offered, the theme follows power-manager, changes are sent', (tester) async {
     final fake = FakeDisplaySource(connected(report()));
     final h = await Harness.start(tester, display: fake);
     await openDisplay(tester, h);
@@ -135,29 +141,32 @@ void main() {
     expect(fake.choices, [DisplayChoice.day]);
     expect(fake.levels, [(DayNight.night, 30)]);
 
-    fake.value = connected(report(mode: DayNight.day, choice: DisplayChoice.day, basis: ModeBasis.manual, elevation: 12.0));
+    fake.value = connected(
+      report(mode: DayNight.day, choice: DisplayChoice.day, basis: ModeBasis.manual, elevation: 12.0),
+    );
     await tester.pumpAndSettle();
     expect(background(tester), Palette.day.background);
     expect(h.textOf('display-detail'), 'Day, chosen by hand (sun 12.0°).');
   });
 
   testWidgets('connected: why Auto can\'t follow the sun, and backlight trouble', (tester) async {
-    final fake = FakeDisplaySource(connected(report(
-        mode: DayNight.day, basis: ModeBasis.fallback, sun: SunStatus.clockNotSynchronized)));
+    final fake = FakeDisplaySource(
+      connected(report(mode: DayNight.day, basis: ModeBasis.fallback, sun: SunStatus.clockNotSynchronized)),
+    );
     final h = await Harness.start(tester, display: fake);
     await openDisplay(tester, h);
-    expect(h.textOf('display-detail'),
-        'Auto unavailable: clock not synchronized and no GPS time. Showing Day.');
+    expect(
+      h.textOf('display-detail'),
+      'Auto unavailable: clock not synchronized and no GPS time. Showing Day.',
+    );
 
-    fake.value = connected(report(
-        mode: DayNight.day, basis: ModeBasis.fallback, sun: SunStatus.noLocation));
+    fake.value = connected(report(mode: DayNight.day, basis: ModeBasis.fallback, sun: SunStatus.noLocation));
     await tester.pump();
     expect(h.textOf('display-detail'), contains('no GPS position and no location configured'));
 
     fake.value = connected(report(problem: "can't write brightness: permission denied"));
     await tester.pump();
-    expect(h.textOf('display-backlight'),
-        "Backlight 10-0045: can't write brightness: permission denied.");
+    expect(h.textOf('display-backlight'), "Backlight 10-0045: can't write brightness: permission denied.");
 
     fake.value = connected(report(backlight: null, problem: 'no backlight device'));
     await tester.pump();
@@ -171,36 +180,41 @@ void main() {
     await openDisplay(tester, h);
     expect(find.byKey(const ValueKey('display-sources')), findsNothing);
 
-    fake.value = connected(report(
-        location: LocationSource.gps, ageS: 30, clock: ClockSource.system));
+    fake.value = connected(report(location: LocationSource.gps, ageS: 30, clock: ClockSource.system));
     await tester.pump();
     expect(h.textOf('display-sources'), 'Location: GPS · Clock: synchronized');
 
-    fake.value = connected(report(
-        location: LocationSource.gps, ageS: 600, clock: ClockSource.gps));
+    fake.value = connected(report(location: LocationSource.gps, ageS: 600, clock: ClockSource.gps));
     await tester.pump();
     expect(h.textOf('display-sources'), 'Location: GPS (last fix 10 min old) · Clock: GPS time');
 
-    fake.value = connected(report(
-        location: LocationSource.gpsSaved, clock: ClockSource.trusted));
+    fake.value = connected(report(location: LocationSource.gpsSaved, clock: ClockSource.trusted));
     await tester.pump();
-    expect(h.textOf('display-sources'),
-        'Location: last saved GPS position · Clock: trusted by configuration');
+    expect(
+      h.textOf('display-sources'),
+      'Location: last saved GPS position · Clock: trusted by configuration',
+    );
 
-    fake.value = connected(report(
+    fake.value = connected(
+      report(
         mode: DayNight.day,
         basis: ModeBasis.fallback,
         sun: SunStatus.noLocation,
         location: LocationSource.none,
-        clock: ClockSource.none));
+        clock: ClockSource.none,
+      ),
+    );
     await tester.pump();
     expect(h.textOf('display-sources'), 'Location: none · Clock: not trusted');
 
-    fake.value = connected(report(
-        location: LocationSource.gpsSimulated, ageS: 3 * 3600, clock: ClockSource.system));
+    fake.value = connected(
+      report(location: LocationSource.gpsSimulated, ageS: 3 * 3600, clock: ClockSource.system),
+    );
     await tester.pump();
-    expect(h.textOf('display-sources'),
-        'Location: SIMULATED GPS (last fix 3 h old): not the truck · Clock: synchronized');
+    expect(
+      h.textOf('display-sources'),
+      'Location: SIMULATED GPS (last fix 3 h old): not the truck · Clock: synchronized',
+    );
     final style = tester.widget<Text>(find.byKey(const ValueKey('display-sources'))).style!;
     expect(style.color, Palette.night.advisory);
 
@@ -210,8 +224,7 @@ void main() {
     expect(find.byKey(const ValueKey('display-sources')), findsNothing);
   });
 
-  testWidgets('lost: the theme stays, nothing claims control, Auto is not offered',
-      (tester) async {
+  testWidgets('lost: the theme stays, nothing claims control, Auto is not offered', (tester) async {
     final fake = FakeDisplaySource(lost);
     final h = await Harness.start(tester, display: fake);
     await openDisplay(tester, h);
@@ -219,7 +232,7 @@ void main() {
     expect(find.byKey(const ValueKey('display-auto')), findsNothing);
     expect(h.textOf('display-detail'), contains('power-manager not connected (connection refused)'));
     expect(h.textOf('display-detail'), contains('isn\'t controlled'));
-    expect(h.textOf('brightness-level'), 'Brightness: not controlled');
+    expect(h.textOf('brightness-level'), 'Not controlled');
     expect(find.byKey(const ValueKey('brightness-up')), findsNothing);
   });
 
@@ -230,13 +243,16 @@ void main() {
     'fallback': connected(report(basis: ModeBasis.fallback, sun: SunStatus.clockNotSet)),
     'backlight problem': connected(report(problem: 'x' * 120)),
     // The longest sources line, with the longest fallback and a problem.
-    'every line': connected(report(
+    'every line': connected(
+      report(
         basis: ModeBasis.fallback,
         sun: SunStatus.noLocation,
         problem: 'x' * 120,
         location: LocationSource.gpsSimulated,
         ageS: 99 * 3600,
-        clock: ClockSource.trusted)),
+        clock: ClockSource.trusted,
+      ),
+    ),
     'lost': lost,
   };
   for (final theme in DayNight.values) {
@@ -244,15 +260,18 @@ void main() {
       testWidgets('the display settings lay out at 800×480: $name, ${theme.name}', (tester) async {
         final display = st == null
             ? SimulatedDisplaySource(mode: theme)
-            : FakeDisplaySource(DisplayStatus(
-                link: st.link,
-                mode: theme,
-                choice: st.choice,
-                report: st.report,
-                dayPct: st.dayPct,
-                nightPct: st.nightPct,
-                minPct: st.minPct,
-                detail: st.detail));
+            : FakeDisplaySource(
+                DisplayStatus(
+                  link: st.link,
+                  mode: theme,
+                  choice: st.choice,
+                  report: st.report,
+                  dayPct: st.dayPct,
+                  nightPct: st.nightPct,
+                  minPct: st.minPct,
+                  detail: st.detail,
+                ),
+              );
         final h = await Harness.start(tester, display: display);
         await openDisplay(tester, h);
         expect(tester.takeException(), isNull);
@@ -260,4 +279,80 @@ void main() {
       });
     }
   }
+
+  group('the Display section (2026-11-18)', () {
+    testWidgets('Auto shows, not tappable, when power-manager can\'t run it', (tester) async {
+      for (final display in <DisplaySource>[SimulatedDisplaySource(), FakeDisplaySource(lost)]) {
+        final h = await Harness.start(tester, display: display);
+        await openDisplay(tester, h);
+        expect(find.byKey(const ValueKey('display-auto-unavailable')), findsOneWidget);
+        expect(find.byKey(const ValueKey('display-auto')), findsNothing);
+        final before = h.services.display.status.value.choice;
+        await tester.tap(find.byKey(const ValueKey('display-auto-unavailable')), warnIfMissed: false);
+        await tester.pump();
+        expect(h.services.display.status.value.choice, before, reason: 'nothing was sent');
+      }
+    });
+
+    testWidgets('connected: Auto is a real choice', (tester) async {
+      final h = await Harness.start(tester, display: FakeDisplaySource(connected(report())));
+      await openDisplay(tester, h);
+      expect(find.byKey(const ValueKey('display-auto')), findsOneWidget);
+      expect(find.byKey(const ValueKey('display-auto-unavailable')), findsNothing);
+    });
+
+    test('the step bar fills one step per 10 %, at least one above 0', () {
+      expect(
+        [
+          for (final p in [0, 5, 10, 40, 45, 94, 100]) StepBar.filled(p, 10),
+        ],
+        [0, 1, 1, 4, 5, 9, 10],
+      );
+    });
+
+    testWidgets('the bar follows the level', (tester) async {
+      final h = await Harness.start(tester);
+      await openDisplay(tester, h);
+      expect(find.byKey(const ValueKey('brightness-bar')), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.endsWith('-on'),
+        ),
+        findsNWidgets(4),
+        reason: '40 % at night',
+      );
+      await tester.tap(find.byKey(const ValueKey('brightness-up')));
+      await tester.pump();
+      expect(
+        find.byWidgetPredicate(
+          (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.endsWith('-on'),
+        ),
+        findsNWidgets(5),
+      );
+    });
+
+    for (final theme in DayNight.values) {
+      testWidgets('Display with Units lays out under an alert, ${theme.name}', (tester) async {
+        final h = await Harness.start(
+          tester,
+          scenario: 'link_loss',
+          theme: theme,
+          display: FakeDisplaySource(connected(report(problem: 'x' * 120))),
+        );
+        await h.advance(const Duration(seconds: 100));
+        await openDisplay(tester, h);
+        expect(find.byKey(const ValueKey('alert-banner')), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('units-metric')),
+          80,
+          scrollable: find.byType(Scrollable).last,
+        );
+        expect(tester.takeException(), isNull);
+        expect(
+          tester.getSize(find.byKey(const ValueKey('units-metric'))).height,
+          greaterThanOrEqualTo(kMinTouch),
+        );
+      });
+    }
+  });
 }
