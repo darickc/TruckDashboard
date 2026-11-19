@@ -7,16 +7,8 @@ import '../app_scope.dart';
 import '../theme.dart';
 import 'badges.dart';
 import 'gauge_tile.dart';
+import 'range_bar.dart';
 import 'signal_builder.dart';
-
-/// Display ranges for circular gauges (canonical units). UI configuration,
-/// not vehicle data. Signals not listed use their plausibility range.
-const _gaugeRange = <String, (double, double)>{
-  'rpm': (0, 4000),
-  'boost': (0, 240),
-  'speed': (0, 160),
-  'load': (0, 100),
-};
 
 class CircularGauge extends StatelessWidget {
   const CircularGauge({super.key, required this.signalId});
@@ -30,7 +22,7 @@ class CircularGauge extends StatelessWidget {
       signalId: signalId,
       builder: (context, v) {
         final p = Palette.of(context);
-        final (lo, hi) = _gaugeRange[signalId] ?? (v.def.min, v.def.max);
+        final (lo, hi) = gaugeRanges[signalId] ?? (v.def.min, v.def.max);
         final s = AppScope.of(context).store[signalId]!;
         final fraction = v.isCurrent ? ((s.value! - lo) / (hi - lo)).clamp(0.0, 1.0) : null;
         return GaugeFrame(

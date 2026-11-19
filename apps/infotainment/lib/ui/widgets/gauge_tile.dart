@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../model/units.dart';
 import '../../telemetry/warnings.dart';
+import '../app_scope.dart';
 import '../presentation.dart';
 import '../theme.dart';
 import 'badges.dart';
+import 'range_bar.dart';
 import 'signal_builder.dart';
 import 'stale_hatch.dart';
 
@@ -52,11 +55,24 @@ class DigitalGauge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final services = AppScope.of(context);
+    final rule = services.config.rules.where((r) => r.signalId == signalId).firstOrNull;
+    final range = gaugeRanges[signalId];
+    final zones = rule == null || range == null ? null : rangeZones(rule, range.$1, range.$2);
     return SignalBuilder(
       signalId: signalId,
       builder: (context, v) {
         final p = Palette.of(context);
         final valueColor = v.isCurrent ? p.text : p.stale;
+        final s = services.store[signalId]!;
+        final current = v.isCurrent ? s.value : null;
+        // The side of the range the rule watches: a low-voltage rule's
+        // lowest reading, a temperature's highest.
+        final below = rule?.direction == Direction.below;
+        final peak = rule == null ? null : (below ? s.peakLow : s.peakHigh);
+        final peakText = peak == null
+            ? ''
+            : '${below ? 'min' : 'max'} ${formatValue(v.def, peak, services.settings.units)} ${v.unit}';
         return GaugeFrame(
           view: v,
           child: Padding(
@@ -99,14 +115,34 @@ class DigitalGauge extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (zones != null && range != null)
+                  RangeBar(
+                    key: ValueKey('range-$signalId'),
+                    zones: zones,
+                    marker: current == null ? null : rangeFraction(current, range.$1, range.$2),
+                  ),
+                // The status when there is one (stale, out of range…), else
+                // this drive's peak: the status always wins the line.
                 SizedBox(
                   height: 18,
-                  child: Text(v.status,
-                      key: ValueKey('status-$signalId'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w700, color: v.statusColor)),
+                  child: v.status.isNotEmpty || peakText.isEmpty
+                      ? Text(v.status,
+                          key: ValueKey('status-$signalId'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700, color: v.statusColor))
+                      : Row(children: [
+                          // Kept, empty, so the status key is always there.
+                          Text('', key: ValueKey('status-$signalId')),
+                          Expanded(
+                            child: Text(peakText,
+                                key: ValueKey('peak-$signalId'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 13, fontFeatures: tabular, color: p.textDim)),
+                          ),
+                        ]),
                 ),
               ],
             ),

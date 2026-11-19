@@ -576,6 +576,11 @@ a Phone button replaces Diagnostics on Home (before Settings), and Diagnostics o
 Amended 2026-11-18 `[SIM]`: each Home button has a live line and chip (vehicle state and two readouts, track, route or
 GPS, recording, phone, theme); a value that isn't current shows as "—". Not yet on the Pi's panel.
 
+Gauge range bars and peaks `[SIM]` ([ADR-0050](architecture/adr/0050-gauge-range-bars-and-peaks.md), 2026-11-18): digital tiles
+with a warning rule show a bar with its example advisory and critical zones and a marker at the current value (none when
+it isn't current), and this drive's max (or min) on the status line, kept in the telemetry store from valid values only.
+Not yet on the Pi's panel.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.

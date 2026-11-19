@@ -58,5 +58,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0047](0047-head-unit-enclosure.md) | The head unit's enclosure: the display flush behind the radio opening on its own M3 holes, printed ASA rails and side brackets, a rear box for the electronics with a fan, the amplifier on its own bracket, a USB 2 hub only when more cameras come | Proposed (owner asked; design only, nothing printed or fitted) |
 | [0048](0048-piper-voice.md) | A natural voice for spoken directions: Piper (en_US-ljspeech-medium) kept loaded in `f250-tts.service`, libpiper loaded at run time, Flite as the fallback | Accepted ([BENCH]; in the image's recipes, its packages tested on the Pi) |
 | [0049](0049-clock-from-gps.md) | The clock from GPS: `gps-clock` (CAP_SYS_TIME only) sets the system clock and the RTC from a real, current fix when there is no network time and it is more than 1 s off, and leaves a flag `clock-sync` counts as synchronized | Accepted ([SIM]; no receiver yet) |
+| [0050](0050-gauge-range-bars-and-peaks.md) | Range bars on digital gauges, their zones from the warning rules' example triggers and a marker only for a current value; this drive's max (or min) kept in the telemetry store from valid values, gated like the rule | Accepted (owner asked; [SIM] only; not on the Pi) |
 
 New ADRs use the next number and the same headings.

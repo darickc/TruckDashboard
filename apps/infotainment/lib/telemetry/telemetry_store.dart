@@ -39,6 +39,7 @@ class TelemetryStore extends ChangeNotifier {
     this.linkLostAfter = const Duration(seconds: 3),
     Map<String, Calibration> calibrations = const {},
   })  : warnings = WarningEngine(rules),
+        _peakGates = _gatesFor(rules),
         _calibrations = {...calibrations},
         _order = [for (final d in catalog) d.id],
         states = {for (final d in catalog) d.id: SignalState(d)..reset()} {
@@ -47,6 +48,43 @@ class TelemetryStore extends ChangeNotifier {
 
   final MonotonicClock clock;
   final WarningEngine warnings;
+
+  /// Signal id → the gate its peaks are kept under: a signal whose every
+  /// warning rule is gated (the EOT–ECT delta, only on a warm engine) keeps
+  /// peaks only while the gate holds, so a cold start's readings don't stand
+  /// as this drive's peak. Absent: always.
+  final Map<String, Gate> _peakGates;
+
+  static Map<String, Gate> _gatesFor(List<WarningRule> rules) {
+    final gates = <String, Gate>{};
+    final ungated = <String>{};
+    for (final r in rules) {
+      final g = r.gate;
+      if (g == null) {
+        ungated.add(r.signalId);
+      } else {
+        gates.putIfAbsent(r.signalId, () => g);
+      }
+    }
+    gates.removeWhere((id, _) => ungated.contains(id));
+    return gates;
+  }
+
+  /// Folds each valid value into its signal's peaks. Sampled at each refresh
+  /// (and each gateway snapshot), which is how often the screen shows values.
+  void _trackPeaks() {
+    for (final s in states.values) {
+      final v = s.value;
+      if (v == null || !s.isValid) continue;
+      final g = _peakGates[s.def.id];
+      if (g != null) {
+        final gv = states[g.signalId]?.value;
+        if (gv == null || !(g.direction == Direction.above ? gv > g.value : gv < g.value)) continue;
+      }
+      if (s.peakHigh == null || v > s.peakHigh!) s.peakHigh = v;
+      if (s.peakLow == null || v < s.peakLow!) s.peakLow = v;
+    }
+  }
 
   /// Signals whose silence raises a "not updating" alert.
   final List<String> watchedSignals;
@@ -107,6 +145,8 @@ class TelemetryStore extends ChangeNotifier {
     if (s.def.isComputed) throw ArgumentError.value(id, 'id', 'computed signals are not calibrated');
     _calibrations[id] = c;
     if (s.lastGoodRaw != null) s.lastGoodValue = c.apply(s.lastGoodRaw!);
+    // Peaks under the old factor would mix with the new; start them over.
+    s.peakHigh = s.peakLow = null;
     events.add(TelemetryEvent(clock.now(), DateTime.now(), EventSeverity.info,
         '${s.def.shortName} calibration ×${c.scale.toStringAsFixed(4)}'
         '${c.offset == 0 ? '' : ' ${c.offset >= 0 ? '+' : ''}${c.offset}'}'));
@@ -193,6 +233,7 @@ class TelemetryStore extends ChangeNotifier {
     for (final s in states.values) {
       update(s, now);
     }
+    _trackPeaks();
     if (link != _link) _linkSince = now - linkAge;
     _link = link;
     _alerts = alerts;
@@ -235,6 +276,7 @@ class TelemetryStore extends ChangeNotifier {
     for (final s in states.values) {
       if (s.def.isComputed) _updateComputed(s);
     }
+    _trackPeaks();
     _updateLink(now);
     _updateAlerts(now);
     notifyListeners();

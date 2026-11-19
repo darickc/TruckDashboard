@@ -41,6 +41,12 @@ class SignalState {
   /// For computed signals: ids of inputs that are not valid.
   List<String> invalidInputs = const [];
 
+  /// The highest and lowest valid value since the dashboard started (or the
+  /// scenario or calibration changed), canonical units. Only values that
+  /// were valid when sampled, and only while the signal's warning-rule gate
+  /// holds (TelemetryStore._trackPeaks). Null: none yet.
+  double? peakHigh, peakLow;
+
   Duration? ageAt(Duration now) => lastGoodAt == null ? null : now - lastGoodAt!;
 
   bool get isValid => validity == Validity.valid;
@@ -54,5 +60,6 @@ class SignalState {
     lastResponder = null;
     successes = failures = consecutiveFailures = 0;
     invalidInputs = const [];
+    peakHigh = peakLow = null;
   }
 }
