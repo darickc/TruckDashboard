@@ -604,6 +604,10 @@ yet on the Pi's panel, and not yet seen over a real map.
 Phone call view `[SIM]` ([ADR-0045](architecture/adr/0045-phone-calls.md) amendment, 2026-11-18): the caller's initials, a large
 timer, and a full-width row of 80 px buttons (a filled red Hang up or Decline, a filled green Answer). Not yet on the Pi's panel.
 
+Call bar 68 px `[SIM]` ([ADR-0045](architecture/adr/0045-phone-calls.md) amendment 2026-11-18b): the caller and the call's time on
+one line, icon buttons (filled red Hang up and Decline, green Answer); still over the screen, 16 px less of it. Not yet on
+the Pi's panel.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.

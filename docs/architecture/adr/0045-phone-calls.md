@@ -504,3 +504,28 @@ over other screens and camera mode's panel are unchanged.
 the timer, the buttons' sizes, fills and span, an incoming call's two
 filled buttons, under an alert in both themes) and `call_test.dart`;
 checked in the browser at 800×480.
+
+
+## Amendment, 2026-11-18b: a slimmer call bar `[SIM]`
+
+From the design review (owner, 2026-11-18: "Work on the next screen", the
+call bar). Decision 6's bar over the top of the screen area stays over it
+(no screen's layout changes during a call), but is **68 px instead of
+84**: it hid the top of every screen more than it needed to (on Cameras,
+the panel's title and half of the Front button).
+
+- The caller on one line, with its label ("Incoming call", "Call") in
+  small type, and **the call's time beside the caller** while it is
+  active; the details line under it (number, other calls, "answer it on
+  the phone", which phone) no longer carries the time. A refusal still
+  takes the details line for 5 s.
+- **Icon buttons**, each a 60 px touch target with its word as its label:
+  Mute (64 px wide, highlighted while muted), and Hang up, Decline and
+  Answer (96 px wide) filled red or green like the Phone screen's.
+- Camera mode's panel keeps its worded buttons; the Phone screen keeps its
+  large view.
+
+[SIM]: `test/widget/call_test.dart` (the bar's height, its buttons'
+size, fill and place inside it, the time beside the caller, the details
+without it, a refusal) and the existing call and phone tests; checked in
+the browser at 800×480.

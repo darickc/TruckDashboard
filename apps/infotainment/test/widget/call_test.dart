@@ -4,6 +4,7 @@ import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/theme.dart';
 import 'package:f250_infotainment/ui/widgets/call_bar.dart';
+import 'package:f250_infotainment/ui/widgets/tap_target.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -49,12 +50,15 @@ void main() {
       sim.tick();
     }
     await tester.pump();
-    expect(h.textOf('call-detail'), '+15550100 · 1:05 · on Simulated phone');
+    // The time beside the caller; the details under it.
+    expect(h.textOf('call-bar-timer'), '1:05');
+    expect(h.textOf('call-detail'), '+15550100 · on Simulated phone');
 
     await tester.tap(key('call-mute'));
     await tester.pump();
     expect(sim.status.value.report!.calls!.micMuted, isTrue);
-    expect(find.descendant(of: key('call-mute'), matching: find.text('Muted')), findsOneWidget);
+    final mute = tester.widget<TapTarget>(key('call-mute'));
+    expect((mute.selected, mute.label), (true, 'Unmute the microphone'));
     await tester.tap(key('call-mute'));
     await tester.pump();
     expect(sim.status.value.report!.calls!.micMuted, isFalse);
@@ -71,7 +75,7 @@ void main() {
     sim.ring(number: '', name: '');
     await tester.pump();
     expect(callText(tester), 'Incoming call  Number withheld');
-    expect(find.descendant(of: key('call-hang-up'), matching: find.text('Decline')), findsOneWidget);
+    expect(tester.widget<TapTarget>(key('call-hang-up')).label, 'Decline: Number withheld');
     await tester.tap(key('call-hang-up'));
     await tester.pump();
     expect(key('call-bar'), findsNothing);
@@ -115,6 +119,27 @@ void main() {
     expect(tester.getSize(key('call-hang-up')).height, greaterThanOrEqualTo(kMinTouch));
   });
 
+  testWidgets('the bar is 68 px (redesign 2026-11-18): icon buttons, Hang up and Answer filled', (tester) async {
+    final sim = SimulatedAudioSource(autoRun: false);
+    await Harness.start(tester, audio: sim);
+    sim.ring();
+    await tester.pump();
+    expect(tester.getSize(key('call-bar')).height, 68);
+    expect(tester.widget<TapTarget>(key('call-hang-up')).fill, Palette.night.critical);
+    expect(tester.widget<TapTarget>(key('call-answer')).fill, Palette.night.ok);
+    for (final k in ['call-hang-up', 'call-answer']) {
+      expect(find.descendant(of: key(k), matching: find.byType(Text)), findsNothing, reason: '$k: an icon');
+      final r = tester.getRect(key(k));
+      expect(r.height, greaterThanOrEqualTo(kMinTouch), reason: k);
+      expect(r.top, greaterThanOrEqualTo(tester.getRect(key('call-bar')).top), reason: k);
+      expect(r.bottom, lessThanOrEqualTo(tester.getRect(key('call-bar')).bottom), reason: k);
+    }
+    await tester.tap(key('call-answer'));
+    await tester.pump();
+    expect(tester.getSize(key('call-mute')).width, greaterThanOrEqualTo(kMinTouch));
+    expect(tester.widget<TapTarget>(key('call-mute')).fill, isNull);
+  });
+
   testWidgets('a refusal is said on the bar; no call from a lost link', (tester) async {
     final fake = FakeAudio()
       ..value = const AudioStatus(
@@ -130,13 +155,14 @@ void main() {
       );
     final h = await Harness.start(tester, audio: fake);
     expect(callText(tester), 'Call  +15550100');
-    expect(h.textOf('call-detail'), '0:03 · on Pixel 8');
+    expect(h.textOf('call-bar-timer'), '0:03');
+    expect(h.textOf('call-detail'), 'on Pixel 8');
     await tester.tap(key('call-hang-up'));
     await tester.pump();
     expect(fake.calls, contains('hang up 4'));
     expect(h.textOf('call-detail'), 'The phone didn\'t end the call: InvalidState.');
     await tester.pump(const Duration(seconds: 6));
-    expect(h.textOf('call-detail'), '0:03 · on Pixel 8', reason: 'the refusal clears');
+    expect(h.textOf('call-detail'), 'on Pixel 8', reason: 'the refusal clears');
 
     fake.value = const AudioStatus(link: AudioLink.down, detail: 'audio-manager stopped answering');
     await tester.pump();
