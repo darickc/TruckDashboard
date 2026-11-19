@@ -233,10 +233,10 @@ Widget _toUsb(BuildContext context, {required bool wide}) {
   );
 }
 
+// Never cut short: it wraps instead (the panel's font cut it to "…mirr…",
+// bench 2026-11-19).
 Widget _safety(Palette p) => Text('Not a safety system. Always use the mirrors.',
     key: const ValueKey('cameras-safety'),
-    maxLines: 1,
-    overflow: TextOverflow.ellipsis,
     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: p.advisory));
 
 /// Without camera-manager: recordings can still be copied.

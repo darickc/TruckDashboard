@@ -3,6 +3,7 @@ import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../fake_cameras.dart';
@@ -86,7 +87,13 @@ void main() {
     final usb = rectOf(tester, 'cameras-recordings');
     expect(save.top, usb.top);
     expect(save.right, lessThan(usb.left));
-    expect(find.byKey(const ValueKey('cameras-safety')), findsOneWidget);
+    // Never cut short (the panel's font cut it to "…mirr…", bench
+    // 2026-11-19): it wraps.
+    final safety = tester.widget<Text>(find.byKey(const ValueKey('cameras-safety')));
+    expect(safety.maxLines, isNull);
+    expect(safety.overflow, isNot(TextOverflow.ellipsis));
+    expect(
+        tester.renderObject<RenderParagraph>(find.byKey(const ValueKey('cameras-safety'))).didExceedMaxLines, isFalse);
     await tester.tap(find.byKey(const ValueKey('cameras-recordings')));
     await tester.pump();
     expect(h.services.screens.value, AppScreen.recordings);

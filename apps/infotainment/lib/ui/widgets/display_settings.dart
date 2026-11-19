@@ -218,7 +218,7 @@ class DisplaySettings extends StatelessWidget {
             if (st.canSetBrightness)
               SettingRow(
                 title: 'Brightness',
-                subtitle: '$mode · never below ${st.minPct} %',
+                subtitle: '$mode · min ${st.minPct} %',
                 subtitleKey: const ValueKey('brightness-mode'),
                 child: Row(
                   children: [

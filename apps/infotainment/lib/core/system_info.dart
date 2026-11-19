@@ -2,6 +2,25 @@ import 'package:flutter/foundation.dart';
 
 import 'system_info_stub.dart' if (dart.library.io) 'system_info_io.dart' as impl;
 
+/// The commit this dashboard was built from: `make deploy` sets it
+/// (`F250_COMMIT`, with "+changes" for a build of uncommitted files), and so
+/// does the image's recipe. Empty in other builds.
+const kBuildCommit = String.fromEnvironment('F250_COMMIT');
+
+/// [commit] (a hash, perhaps with "+changes") as "commit 1234567" or
+/// "commit 1234567 (uncommitted changes)"; null when it isn't one.
+String? describeCommit(String commit) {
+  final m = RegExp(r'^([0-9a-fA-F]{7,40})(\+changes)?$').firstMatch(commit.trim());
+  if (m == null) return null;
+  return 'commit ${m.group(1)!.substring(0, 7).toLowerCase()}${m.group(2) == null ? '' : ' (uncommitted changes)'}';
+}
+
+/// The dashboard's own build, from [kBuildCommit] (or [commit] in tests).
+Fact<String> dashboardCommit([String commit = kBuildCommit]) {
+  final d = describeCommit(commit);
+  return d == null ? const Fact.unknown('not recorded in this build') : Fact.known(d);
+}
+
 /// One fact about the head unit, or why it isn't known. Never a made-up
 /// value: a file that isn't there is said to be missing.
 @immutable
@@ -20,11 +39,16 @@ class Fact<T> {
 @immutable
 class SystemFacts {
   const SystemFacts({
+    this.dashboard = const Fact.unknown('not recorded in this build'),
     required this.commit,
     required this.image,
     required this.uptime,
     required this.cpuTemperature,
   });
+
+  /// The commit this dashboard was built from ([kBuildCommit]). It can be
+  /// newer than the image's: `make deploy` sideloads it.
+  final Fact<String> dashboard;
 
   /// The commit the image was built from (`F250_SRCREV` in
   /// `/etc/f250-release`, written by f250-system).
@@ -37,10 +61,11 @@ class SystemFacts {
   final Fact<Duration> uptime;
 
   /// The first thermal zone (`/sys/class/thermal/thermal_zone0`), °C, with
-  /// its type ("cpu-thermal" on a Pi 5: UNVERIFIED on the bench Pi).
+  /// its type ("cpu-thermal" on the bench Pi 5: bench log 2026-11-19).
   final Fact<({double celsius, String zone})> cpuTemperature;
 
   static SystemFacts unavailable(String why) => SystemFacts(
+        dashboard: dashboardCommit(),
         commit: Fact.unknown(why),
         image: Fact.unknown(why),
         uptime: Fact.unknown(why),

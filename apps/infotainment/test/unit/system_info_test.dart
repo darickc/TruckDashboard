@@ -14,6 +14,16 @@ void main() {
     expect(parseRelease('OTHER=1\n'), isNull);
   });
 
+  test('the dashboard\'s own commit, as make deploy and the image record it', () {
+    expect(describeCommit('81f69e1'), 'commit 81f69e1');
+    expect(describeCommit('81f69e1+changes'), 'commit 81f69e1 (uncommitted changes)');
+    expect(describeCommit('58beac2961cfc70bd054cb1d827d045233849232'), 'commit 58beac2');
+    expect(describeCommit(''), isNull);
+    expect(describeCommit('main'), isNull);
+    expect(dashboardCommit('').why, 'not recorded in this build');
+    expect(dashboardCommit('81f69e1').value, 'commit 81f69e1');
+  });
+
   test('os-release: PRETTY_NAME, unquoted', () {
     expect(parseOsRelease('ID=agl\nPRETTY_NAME="Automotive Grade Linux 22.0.1 (vimba)"\n'),
         'Automotive Grade Linux 22.0.1 (vimba)');

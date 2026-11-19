@@ -3239,3 +3239,58 @@ Not tested: a power cut (key off without a clean shutdown) within seconds of
 a change, which is what the new fsync is for; nothing listened to (no
 phone playing during the checks); the dashboard's level after the reboot
 wasn't looked at on the panel.
+
+## 2026-11-19 — Deploy of 81f69e1 (the screen redesigns) onto image 58beac2 [BENCH]
+
+Hardware: the bench Pi 5 (AGL, `root@raspberrypi5.local`), 7" DSI panel,
+NVMe data drive, no CAN bus connected, the owner's phone paired.
+Image: 58beac2, with 81f69e1 sideloaded by `make deploy` (`stage1-setup.sh
+--check`: all checks passed, 0 warnings; no unit failed).
+Setup: `/etc/default/f250` unchanged (the truck settings: TRANSPORT=can,
+CAN_AUTO_ACTIVE=1, NAV_SIMULATE=1), so the gateway stays listen-only and the
+banner says "Not polling the truck". Screens seen with `agl-screenshooter`,
+moved through with a uinput touchscreen.
+
+Result (the panel, DejaVu Sans Bold):
+- Home: each button's chip and line show. Gauges: NO DATA, "Vehicle data
+  lost", "Trans — · EOT —" (the towing profile, saved earlier); Media and
+  Phone: the connected phone; Nav: SIM GPS FIX; Cameras: "Recording off";
+  Settings: "Night · 40 %".
+- Gauges: range bars on Trans, EOT, ECT, EOT−ECT and FICM, no markers and
+  dimmed with no data; no peaks yet (none valid).
+- Media: track beside the picture, transport and the volume bar (22).
+- Nav: over the real map, the speed reads "—" (no vehicle data) and the
+  player strip shows beside Places; the truck marker stays clear.
+- Cameras: the truck picker, recording card ("Recording is off").
+- Settings › Display: Auto offered (power-manager connected), the step bar.
+- Settings › System: read under the dashboard's sandbox (User=agl-driver,
+  ProtectSystem=strict, ProtectProc=invisible): image "Automotive Grade
+  Linux 22.0.1 (vimba)", uptime, CPU 139 °F; `thermal_zone0/type` is
+  `cpu-thermal`. Services: vehicle data "link down", the others connected,
+  GPS "simulated".
+
+Problems found (fixed and redeployed the same morning; see below):
+1. Cameras: "Not a safety system. Always use the mirrors." is cut off
+   ("…mirr…") in the panel's wider font.
+2. Settings › System: "Software" shows `/etc/f250-release`, the *image's*
+   commit (58beac2), while the dashboard running is 81f69e1 (sideloaded).
+3. Settings › System: "Data drive: not mounted" while the NVMe is mounted at
+   /var/lib/f250/storage: camera-manager reports no drive while recording
+   is off (the cameras' saved settings record nothing), and the page read
+   that as unmounted.
+Also: Display's "Night · never below 10 %" wraps its "%" in this font.
+
+Verdict: partial — the redesigned screens run and lay out on the panel with
+the truck settings and no bus; the System page's file reads work under the
+sandbox. Not seen: any screen with live vehicle data, peaks, a playing
+track, or a route; the Phone screen (not photographed: the owner's
+contacts).
+
+Fixed and redeployed (81f69e1 plus the fixes, uncommitted: the dashboard
+says "commit 81f69e1 (uncommitted changes)"); `--check` all passed again, no
+unit failed. On the panel: the safety line wraps to two lines, whole;
+System shows Dashboard (`F250_COMMIT`, set by `make deploy`) apart from
+"Image built from 58beac2"; Data drive reads "not reported while recording
+is off"; Display's line reads "Night · min 10 %". The System page's label
+column got a gap after "Image built from" ran into its value in this font.
+

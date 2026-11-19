@@ -17,6 +17,7 @@ void main() {
   setUpAll(loadTestAssets);
 
   const known = SystemFacts(
+    dashboard: Fact.known('commit 81f69e1 (uncommitted changes)'),
     commit: Fact.known('0f2ffac'),
     image: Fact.known('Automotive Grade Linux 22.0.1'),
     uptime: Fact.known(Duration(hours: 3, minutes: 12)),
@@ -36,7 +37,8 @@ void main() {
 
   testWidgets('the head unit\'s facts, in the driver\'s units', (tester) async {
     final h = await open(tester);
-    expect(h.textOf('system-commit'), 'commit 0f2ffac');
+    expect(h.textOf('system-dashboard'), 'commit 81f69e1 (uncommitted changes)');
+    expect(h.textOf('system-commit'), 'commit 0f2ffac', reason: 'the image\'s, apart from the dashboard\'s');
     expect(h.textOf('system-image'), 'Automotive Grade Linux 22.0.1');
     expect(h.textOf('system-uptime'), '3 h 12 min');
     expect(h.textOf('system-temperature'), '122 °F');
@@ -56,10 +58,21 @@ void main() {
     final h = await open(tester, cameras: cams);
     expect(h.textOf('system-drive'), 'not reported (needs camera-manager)');
     cams.status = up(CameraView.none,
-        recording: const RecordingStatus(driveMounted: true, driveFreeBytes: 412300000000, recordedBytes: 38400000000));
+        recording: const RecordingStatus(
+            cameras: [CameraRecording(camera: CameraId.front, state: RecordingState.recording)],
+            driveMounted: true,
+            driveFreeBytes: 412300000000,
+            recordedBytes: 38400000000));
     await tester.pump();
     expect(h.textOf('system-drive'), '412.3 GB free · video 38.4 GB');
-    cams.status = up(CameraView.none, recording: const RecordingStatus());
+    // No camera set to record: camera-manager says nothing of the drive,
+    // and the page doesn't guess (bench 2026-11-19: it said "not mounted").
+    cams.status = up(CameraView.none, recording: RecordingStatus.off);
+    await tester.pump();
+    expect(h.textOf('system-drive'), 'not reported while recording is off');
+    cams.status = up(CameraView.none,
+        recording: const RecordingStatus(
+            cameras: [CameraRecording(camera: CameraId.front, state: RecordingState.notRecording)]));
     await tester.pump();
     expect(h.textOf('system-drive'), 'not mounted');
   });

@@ -104,7 +104,7 @@ Units were both mostly empty sections, so decision 1 changes:
   choices says why (as before). It used to be left out, which hid that it
   exists.
 - **Brightness: − and + around a ten-step bar** (one step per 10 %), the
-  level under it and "Night · never below 10 %" under its name; the same
+  level under it and "Night · min 10 %" under its name; the same
   10 % steps and floor as before (ADR-0028).
 
 [SIM]: `test/widget/display_test.dart` (Auto unavailable and connected, the
@@ -121,11 +121,12 @@ and nothing is checked anew: it gathers what the dashboard already reads.
 
 | Line | From | When it can't be read |
 |---|---|---|
-| Software | `F250_SRCREV` in `/etc/f250-release` (f250-system writes it at image build), shown as the short commit | "not available: no /etc/f250-release" (the Mac window, a Raspberry Pi OS install) |
+| Dashboard | The commit this dashboard was built from: `F250_COMMIT`, set by `make deploy` ("+changes" for uncommitted files) and by the image's recipe (`F250_SRCREV`) | "not available: not recorded in this build" (the browser, `make ui`) |
+| Image built from | `F250_SRCREV` in `/etc/f250-release` (f250-system writes it at image build), shown as the short commit. Older than Dashboard after a `make deploy` | "not available: no /etc/f250-release" (the Mac window, a Raspberry Pi OS install) |
 | Image | `PRETTY_NAME` in `/etc/os-release` | "not available: …", naming the file |
 | Up for | `/proc/uptime` | "not available: …", naming the file |
 | CPU temperature | `/sys/class/thermal/thermal_zone0/temp` (and its `type`), in the driver's units; a zone whose type isn't a CPU's is named | "not available: …", naming the file |
-| Data drive | camera-manager's recording report (free space and video) | "not reported (needs camera-manager)" |
+| Data drive | camera-manager's recording report (free space and video) | "not reported (needs camera-manager)"; "not reported while recording is off" (camera-manager says nothing of the drive then) |
 
 The facts are read when the section opens and every 5 s while it shows
 (`lib/core/system_info.dart`; the browser preview has none and says so:
@@ -141,9 +142,14 @@ position, routing, saved places, USB export, map. Simulated sources say
 Restart and Power stay at the right of the section row (ADR-0034); the
 mockup's place for them on this page wasn't taken.
 
-**To verify on the Pi** (UNVERIFIED): that the dashboard's service can read
-`/etc/f250-release`, `/proc/uptime` and `/sys/class/thermal/thermal_zone0`
-under its sandbox, and that zone 0's type is `cpu-thermal` on the Pi 5.
+**On the Pi** ([BENCH], bench log 2026-11-19): the dashboard's service
+(User=agl-driver, ProtectSystem=strict, ProtectProc=invisible) reads
+`/etc/f250-release`, `/etc/os-release`, `/proc/uptime` and
+`/sys/class/thermal/thermal_zone0`; zone 0's type is `cpu-thermal`. The
+first deploy showed two mistakes, fixed the same day: "Software" was the
+image's commit while a newer dashboard ran (now Dashboard and Image built
+from, apart), and "Data drive: not mounted" while the drive was mounted
+and recording off (now "not reported while recording is off").
 
 [SIM]: `test/unit/system_info_test.dart` (each file's parser, every file
 present, a missing or garbled file) and `test/widget/system_settings_test.dart`

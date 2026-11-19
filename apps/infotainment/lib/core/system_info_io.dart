@@ -36,6 +36,7 @@ class FileSystemInfo implements SystemInfo {
     final temp = await _read('$thermalZone/temp');
     final zone = (await _read('$thermalZone/type'))?.trim() ?? '';
     return SystemFacts(
+      dashboard: dashboardCommit(),
       commit: fact(release, await _read(release), parseRelease),
       image: fact(osRelease, await _read(osRelease), parseOsRelease),
       uptime: fact(uptime, await _read(uptime), parseUptime),

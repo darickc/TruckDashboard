@@ -39,6 +39,9 @@ MAP_FILE=/var/lib/f250/storage/maps/map.pmtiles
 MAP_STATUS=/run/f250-maps/status.json
 EXPORT_SOCK=/run/f250-export/export.sock
 AUDIO_SOCK=/run/f250-audio/audio.sock
+# The dashboard says which commit it was built from (Settings › System):
+# "+changes" when the build has uncommitted files.
+F250_COMMIT="$(git rev-parse --short=7 HEAD)$(git diff --quiet HEAD -- || echo '+changes')"
 
 say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
 die() { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
@@ -67,7 +70,7 @@ build() {
     -v "$PWD":/src:ro -v "$PWD/$OUT":/out \
     -v f250-arm64-cargo:/usr/local/cargo/registry -v f250-arm64-target:/target \
     -v f250-arm64-pub:/root/.pub-cache -v f250-arm64-work:/work \
-    -e CARGO_TARGET_DIR=/target -e FLUTTER_VERSION="$FLUTTER_VERSION" -e SOCK="$SOCK" -e CAMERA_SOCK="$CAMERA_SOCK" -e POWER_SOCK="$POWER_SOCK" -e NAV_SOCK="$NAV_SOCK" -e MAP_FILE="$MAP_FILE" -e MAP_STATUS="$MAP_STATUS" -e EXPORT_SOCK="$EXPORT_SOCK" -e AUDIO_SOCK="$AUDIO_SOCK" \
+    -e CARGO_TARGET_DIR=/target -e FLUTTER_VERSION="$FLUTTER_VERSION" -e SOCK="$SOCK" -e CAMERA_SOCK="$CAMERA_SOCK" -e POWER_SOCK="$POWER_SOCK" -e NAV_SOCK="$NAV_SOCK" -e MAP_FILE="$MAP_FILE" -e MAP_STATUS="$MAP_STATUS" -e EXPORT_SOCK="$EXPORT_SOCK" -e AUDIO_SOCK="$AUDIO_SOCK" -e F250_COMMIT="$F250_COMMIT" \
     "$IMAGE" bash -euo pipefail -c '
       cd /src
       cargo build -q --release --locked -p vehicle-gateway --features rfcomm
@@ -87,7 +90,8 @@ build() {
         --dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:$SOCK \
         --dart-define=CAMERAS=unix:$CAMERA_SOCK --dart-define=POWER=unix:$POWER_SOCK \
         --dart-define=NAV=unix:$NAV_SOCK --dart-define=MAP_FILE=$MAP_FILE --dart-define=MAP_STATUS=$MAP_STATUS \
-        --dart-define=EXPORT=unix:$EXPORT_SOCK --dart-define=AUDIO=unix:$AUDIO_SOCK
+        --dart-define=EXPORT=unix:$EXPORT_SOCK --dart-define=AUDIO=unix:$AUDIO_SOCK \
+        --dart-define=F250_COMMIT=$F250_COMMIT
       b=build/linux/arm64/release/bundle
       mkdir -p /out/bundle/lib /out/bundle/data
       cp "$b/lib/libapp.so" /out/bundle/lib/

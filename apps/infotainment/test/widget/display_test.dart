@@ -107,7 +107,7 @@ void main() {
     expect(h.textOf('display-detail'), contains('Simulated: no power-manager'));
     expect(background(tester), Palette.night.background);
     expect(h.textOf('brightness-level'), '40 %');
-    expect(h.textOf('brightness-mode'), 'Night · never below 10 %');
+    expect(h.textOf('brightness-mode'), 'Night · min 10 %');
 
     await tester.tap(find.byKey(const ValueKey('display-day')));
     await tester.pumpAndSettle();

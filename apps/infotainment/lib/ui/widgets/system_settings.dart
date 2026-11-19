@@ -171,9 +171,13 @@ class _SystemSettingsState extends State<SystemSettings> {
             fact == null ? 'reading…' : (fact.known ? text(fact.value as T) : 'not available: ${fact.why}');
         final drive = s.cameras.status.value;
         final rec = drive.link == CameraLink.up ? drive.recording : null;
+        // camera-manager says nothing of the drive while no camera is set
+        // to record: unknown then, not "not mounted" (bench 2026-11-19).
         final driveText = rec == null
             ? 'not reported (needs camera-manager)'
-            : rec.driveMounted
+            : rec.isOff
+                ? 'not reported while recording is off'
+                : rec.driveMounted
                 ? '${formatGb(rec.driveFreeBytes)} free · video ${formatGb(rec.recordedBytes)}'
                     '${drive.simulated ? ' (simulated)' : ''}'
                 : 'not mounted';
@@ -186,6 +190,9 @@ class _SystemSettingsState extends State<SystemSettings> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 SizedBox(width: 130, child: Text(label, style: TextStyle(fontSize: 15, color: p.textDim))),
+                // A label that fills its width (the panel's font) still
+                // keeps apart from its value.
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(value,
                       key: ValueKey('system-$key'),
@@ -207,18 +214,24 @@ class _SystemSettingsState extends State<SystemSettings> {
         final rows = serviceRows(s);
         return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
-            child: ListView(padding: const EdgeInsets.all(6), children: [
+            // Six short rows: all built, scrolling only when they outgrow it.
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(6),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               heading('THIS HEAD UNIT'),
-              fact('commit', 'Software', show(f?.commit, (v) => 'commit $v'), known: f?.commit.known ?? false),
+              fact('dashboard', 'Dashboard', show(f?.dashboard, (v) => v), known: f?.dashboard.known ?? false),
               fact('image', 'Image', show(f?.image, (v) => v), known: f?.image.known ?? false),
+              fact('commit', 'Image built from', show(f?.commit, (v) => 'commit $v'),
+                  known: f?.commit.known ?? false),
               fact('uptime', 'Up for', show(f?.uptime, formatUptime), known: f?.uptime.known ?? false),
               fact(
                   'temperature',
                   tempLabel,
                   show(temp, (v) => '${unit.convert(v.celsius).toStringAsFixed(0)} ${unit.label}'),
                   known: temp?.known ?? false),
-              fact('drive', 'Data drive', driveText, known: rec != null && rec.driveMounted),
-            ]),
+              fact('drive', 'Data drive', driveText, known: rec != null && !rec.isOff && rec.driveMounted),
+              ]),
+            ),
           ),
           VerticalDivider(width: 24, color: p.border),
           SizedBox(
