@@ -80,6 +80,41 @@ void main() {
     expect(s.chosen, isEmpty);
   });
 
+  test('each filter\'s count, whatever the filter is', () {
+    final s = RecordingSelection()..setRecordings(list);
+    expect(
+      [for (final f in RecordingFilter.values) s.count(f)],
+      [6, 4, 2, 1],
+      reason: 'all, front (the one being written too), rear, saved',
+    );
+    s.filter = RecordingFilter.rear;
+    expect(s.count(RecordingFilter.front), 4);
+  });
+
+  test('a run\'s header chooses all of it that is shown, then none', () {
+    final two = [...list, rec('front', 2, 0), rec('rear', 2, 0)];
+    final s = RecordingSelection()..setRecordings(two);
+    expect(s.runChoice(1), RunChoice.none);
+    s.tap(list[0]);
+    expect(s.runChoice(1), RunChoice.some);
+    s.toggleRun(1);
+    expect(s.runChoice(1), RunChoice.all);
+    expect(keys(s.chosen), keys(list.sublist(0, 5)), reason: 'not the one being written');
+    expect(s.runChoice(2), RunChoice.none, reason: 'the other run untouched');
+    s.toggleRun(1);
+    expect(s.chosen, isEmpty);
+    // The filter applies: rear only.
+    s.filter = RecordingFilter.rear;
+    s.toggleRun(1);
+    expect(keys(s.chosen), [list[1].key, list[3].key]);
+    expect(s.runChoice(1), RunChoice.all);
+    // A run of only the one being written: nothing to choose.
+    final writing = RecordingSelection()..setRecordings([rec('front', 3, 0, writing: true)]);
+    writing.toggleRun(3);
+    expect(writing.chosen, isEmpty);
+    expect(writing.runChoice(3), RunChoice.none);
+  });
+
   test('a new list keeps what is still there and drops the rest', () {
     final s = RecordingSelection()..setRecordings(list);
     s.chooseAllShown();

@@ -1,7 +1,9 @@
 import 'package:f250_infotainment/cameras/camera_state.dart';
 import 'package:f250_infotainment/export/export_state.dart';
+import 'package:f250_infotainment/export/recording_selection.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/theme.dart';
+import 'package:f250_infotainment/ui/widgets/tap_target.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,6 +38,17 @@ String? text(WidgetTester tester, String k) {
 const front0 = 'front/b00003-s000000-20261112T045200Z.mkv';
 const rear0 = 'rear/b00003-s000000-20261112T045200Z.mkv';
 const front1 = 'front/b00003-s000001-20261112T045300Z.mkv';
+
+/// Taps a recording's row, scrolling it into view first (the run headers
+/// are 60 px touch targets, so fewer rows fit).
+Future<void> tapRow(WidgetTester tester, String rec) async {
+  await tester.scrollUntilVisible(
+    key('rec-$rec'),
+    64,
+    scrollable: find.descendant(of: key('rec-list'), matching: find.byType(Scrollable)),
+  );
+  await tester.tap(key('rec-$rec'));
+}
 
 void expectTouchTargets(WidgetTester tester) {
   for (final e in find.byType(InkWell).evaluate()) {
@@ -94,11 +107,21 @@ void main() {
   testWidgets('choose, copy, watch progress, then safe to unplug', (tester) async {
     final exports = SimulatedExportSource();
     await openRecordings(tester, exports: exports);
-    await tester.tap(key('rec-$front0'));
-    await tester.tap(key('rec-$rear0'));
+    await tapRow(tester, front0);
+    await tapRow(tester, rear0);
     await tester.pump();
     expect(text(tester, 'rec-chosen'), '2 chosen · 134 MB');
-    expect(text(tester, 'rec-fit'), 'Fits on the stick.');
+    expect(text(tester, 'rec-fit'), 'Fits: 29.9 GB left after the copy.');
+    // Copy is filled once it would start one.
+    expect(tester.widget<TapTarget>(key('rec-copy')).fill, isNotNull);
+    expect(
+      tester.getSize(key('stick-chosen')).width,
+      greaterThanOrEqualTo(4),
+      reason: 'a sliver at least',
+    );
+    final bar = tester.getSize(key('rec-stick-bar'));
+    expect(tester.getSize(key('stick-used')).height, 14, reason: 'drawn the bar\'s height');
+    expect(tester.getSize(key('stick-used')).width, closeTo((bar.width - 2) * 2 / 32, 0.5));
     await tester.tap(key('rec-copy'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
@@ -114,6 +137,56 @@ void main() {
     expect(text(tester, 'rec-stick-free'), '29.9 GB free of 32.0 GB');
   });
 
+  testWidgets('filters show their counts; a run\'s header chooses all of it, then none', (
+    tester,
+  ) async {
+    final all = await SimulatedExportSource().list();
+    await openRecordings(tester);
+    int n(bool Function(RecordingFile) f) => all.recordings.where(f).length;
+    expect(text(tester, 'rec-count-all'), '${all.recordings.length}');
+    expect(text(tester, 'rec-count-front'), '${n((r) => r.camera == 'front')}');
+    expect(text(tester, 'rec-count-rear'), '${n((r) => r.camera == 'rear')}');
+    expect(text(tester, 'rec-count-saved'), '${n((r) => r.protected)}');
+    expect(
+      tester.getSize(key('rec-filter-all')).width,
+      closeTo(tester.getSize(key('rec-filter-saved')).width, 0.01),
+    );
+
+    final run3 = all.recordings.where((r) => r.boot == 3 && !r.beingWritten).toList();
+    final bytes = run3.fold(0, (a, r) => a + r.bytes);
+    expect(key('rec-run-box-3-none'), findsOneWidget);
+    final run3All = all.recordings.where((r) => r.boot == 3);
+    expect(
+      text(tester, 'rec-run-size-3'),
+      '${run3All.length} files · ${formatSize(run3All.fold(0, (a, r) => a + r.bytes))}',
+    );
+    await tester.tap(key('rec-run-choose-3'));
+    await tester.pump();
+    expect(key('rec-run-box-3-all'), findsOneWidget);
+    expect(text(tester, 'rec-chosen'), '${run3.length} chosen · ${formatSize(bytes)}');
+    expect(tester.widget<TapTarget>(key('rec-$front0')).selected, isTrue);
+    expect(key('rec-run-box-2-none'), findsOneWidget, reason: 'the other run untouched');
+    // One unchosen: some; the header then chooses all again, and a second tap none.
+    await tapRow(tester, rear0);
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      key('rec-run-choose-3'),
+      -64,
+      scrollable: find.descendant(of: key('rec-list'), matching: find.byType(Scrollable)),
+    );
+    expect(key('rec-run-box-3-some'), findsOneWidget);
+    await tester.ensureVisible(key('rec-run-choose-3'));
+    await tester.pump();
+    await tester.tap(key('rec-run-choose-3'));
+    await tester.pump();
+    expect(key('rec-run-box-3-all'), findsOneWidget);
+    await tester.tap(key('rec-run-choose-3'));
+    await tester.pump();
+    expect(text(tester, 'rec-chosen'), 'Nothing chosen.');
+    expect(tester.widget<TapTarget>(key('rec-copy')).fill, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a range: tap Range, the first and the last', (tester) async {
     await openRecordings(tester);
     await tester.tap(key('rec-filter-front'));
@@ -122,9 +195,9 @@ void main() {
     await tester.tap(key('rec-range'));
     await tester.pump();
     expect(text(tester, 'rec-chosen'), 'Tap the first recording of the range.');
-    await tester.tap(key('rec-$front0'));
+    await tapRow(tester, front0);
     await tester.pump();
-    await tester.tap(key('rec-$front1'));
+    await tapRow(tester, front1);
     await tester.pump();
     expect(text(tester, 'rec-chosen'), '2 chosen · 48 MB');
     await tester.tap(key('rec-all'));
@@ -139,7 +212,7 @@ void main() {
   testWidgets('no stick: says so, and Copy says why it can\'t', (tester) async {
     await openRecordings(tester, exports: SimulatedExportSource(stick: null));
     expect(text(tester, 'rec-stick'), 'No USB stick. Plug one (exFAT) into the head unit.');
-    await tester.tap(key('rec-$front0'));
+    await tapRow(tester, front0);
     await tester.tap(key('rec-copy'));
     await tester.pump();
     expect(text(tester, 'rec-message'), 'Plug a USB stick into the head unit first.');
@@ -160,6 +233,17 @@ void main() {
     await tester.tap(key('rec-all'));
     await tester.pump();
     expect(text(tester, 'rec-fit'), 'Too big for the stick: 50 MB free.');
+    expect(
+      tester.widget<TapTarget>(key('rec-copy')).fill,
+      isNull,
+      reason: 'not filled: it would refuse',
+    );
+    // The chosen part fills the free space, in orange.
+    final bar = tester.getSize(key('rec-stick-bar'));
+    expect(
+      tester.getSize(key('stick-used')).width + tester.getSize(key('stick-chosen')).width,
+      closeTo(bar.width - 2, 1),
+    );
     await tester.tap(key('rec-copy'));
     await tester.pump();
     expect(
@@ -207,7 +291,7 @@ void main() {
     ) async {
       await openRecordings(tester, exports: SimulatedExportSource(stick: stick));
       expect(text(tester, 'rec-stick-detail'), want);
-      await tester.tap(key('rec-$front0'));
+      await tapRow(tester, front0);
       await tester.tap(key('rec-copy'));
       await tester.pump();
       expect(text(tester, 'rec-message'), want, reason: 'Copy refuses with the reason');
@@ -219,7 +303,7 @@ void main() {
   ) async {
     final exports = SimulatedExportSource()..pullAfterBytes = 30000000;
     await openRecordings(tester, exports: exports);
-    await tester.tap(key('rec-$rear0'));
+    await tapRow(tester, rear0);
     await tester.tap(key('rec-copy'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
@@ -231,7 +315,7 @@ void main() {
   testWidgets('cancel stops the copy', (tester) async {
     final exports = SimulatedExportSource();
     await openRecordings(tester, exports: exports);
-    await tester.tap(key('rec-$rear0'));
+    await tapRow(tester, rear0);
     await tester.tap(key('rec-copy'));
     await tester.pump();
     await tester.tap(key('rec-cancel'));

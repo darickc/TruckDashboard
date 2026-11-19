@@ -5,6 +5,9 @@ import 'export_state.dart';
 /// Which recordings the list shows.
 enum RecordingFilter { all, front, rear, saved }
 
+/// How much of a run is chosen: its header's checkbox.
+enum RunChoice { none, some, all }
+
 /// Whether the chosen recordings fit on a stick.
 enum Fit { nothingChosen, noStick, fits, tooBig, fileTooBig }
 
@@ -46,7 +49,9 @@ class RecordingSelection extends ChangeNotifier {
 
   bool isChosen(RecordingFile r) => _chosen.contains(r.key);
 
-  bool _matches(RecordingFile r) => switch (_filter) {
+  bool _matches(RecordingFile r) => _matchesFilter(r, _filter);
+
+  static bool _matchesFilter(RecordingFile r, RecordingFilter f) => switch (f) {
     RecordingFilter.all => true,
     RecordingFilter.front => r.camera == 'front',
     RecordingFilter.rear => r.camera == 'rear',
@@ -116,6 +121,42 @@ class RecordingSelection extends ChangeNotifier {
   void chooseAllShown() {
     for (final r in shown) {
       if (!r.beingWritten) _chosen.add(r.key);
+    }
+    notifyListeners();
+  }
+
+  /// How many recordings [f] would show: the number on its button.
+  int count(RecordingFilter f) => _all.where((r) => _matchesFilter(r, f)).length;
+
+  /// The recordings shown of run [boot] that can be chosen (not being
+  /// written).
+  List<RecordingFile> _runChoosable(int boot) => [
+    for (final r in shown)
+      if (r.boot == boot && !r.beingWritten) r,
+  ];
+
+  /// Whether none, some or all of run [boot]'s shown recordings are chosen.
+  RunChoice runChoice(int boot) {
+    final run = _runChoosable(boot);
+    final n = run.where((r) => _chosen.contains(r.key)).length;
+    if (n == 0) return RunChoice.none;
+    return n == run.length ? RunChoice.all : RunChoice.some;
+  }
+
+  /// A tap on a run's header: chooses every recording of it that is shown
+  /// (the filter applies) and can be copied, or, when all of them already
+  /// are, unchooses them.
+  void toggleRun(int boot) {
+    final run = _runChoosable(boot);
+    if (run.isEmpty) return;
+    if (run.every((r) => _chosen.contains(r.key))) {
+      for (final r in run) {
+        _chosen.remove(r.key);
+      }
+    } else {
+      for (final r in run) {
+        _chosen.add(r.key);
+      }
     }
     notifyListeners();
   }

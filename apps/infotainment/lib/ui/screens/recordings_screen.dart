@@ -169,20 +169,47 @@ class _RecordingsScreenState extends State<RecordingsScreen> {
                 (RecordingFilter.rear, 'Rear'),
                 (RecordingFilter.saved, 'Saved'),
               ]) ...[
-                TapTarget(
-                  key: ValueKey('rec-filter-${f.name}'),
-                  label: 'Show ${label.toLowerCase()} recordings',
-                  selected: _selection.filter == f,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  onTap: () => _selection.filter = f,
-                  child: Text(
-                    label,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.text),
+                // Each with how many it would show, so an empty one is
+                // known before it is tapped.
+                Expanded(
+                  child: TapTarget(
+                    key: ValueKey('rec-filter-${f.name}'),
+                    label: 'Show ${label.toLowerCase()} recordings: ${_selection.count(f)}',
+                    selected: _selection.filter == f,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    onTap: () => _selection.filter = f,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: p.text,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            '${_selection.count(f)}',
+                            key: ValueKey('rec-count-${f.name}'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: p.textDim,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
               ],
-              const Spacer(),
               TapTarget(
                 key: const ValueKey('rec-refresh'),
                 label: 'Read the recordings again',
@@ -221,9 +248,7 @@ class _RecordingsScreenState extends State<RecordingsScreen> {
     final shown = _selection.shown;
     if (shown.isEmpty) return note('rec-none-shown', 'None of these recordings.', p.textDim);
     // Built lazily: a day of both cameras is thousands of rows.
-    final entries = <(String, RecordingFile?)>[
-      if (list.problem.isNotEmpty) ('problem', null),
-    ];
+    final entries = <(String, RecordingFile?)>[if (list.problem.isNotEmpty) ('problem', null)];
     int? run;
     for (final r in shown) {
       if (r.boot != run) {
@@ -237,24 +262,69 @@ class _RecordingsScreenState extends State<RecordingsScreen> {
       itemCount: entries.length,
       itemBuilder: (context, i) => switch (entries[i]) {
         ('run', final r?) => _runHeader(p, r, shown),
-        ('row', final r?) =>
-          Padding(padding: const EdgeInsets.only(bottom: 4), child: _row(p, r)),
+        ('row', final r?) => Padding(padding: const EdgeInsets.only(bottom: 4), child: _row(p, r)),
         _ => note('rec-problem', list.problem, p.advisory),
       },
     );
   }
 
+  /// A run's header: its number and day, and how many of it are shown and
+  /// their size. A tap chooses all of it that is shown, or none when all
+  /// already are.
   Widget _runHeader(Palette p, RecordingFile first, List<RecordingFile> shown) {
-    final timed = shown.where((r) => r.boot == first.boot && r.wallTime != null);
+    final boot = first.boot;
+    final run = shown.where((r) => r.boot == boot).toList();
+    final timed = run.where((r) => r.wallTime != null);
     final when = timed.isEmpty
         ? 'time unknown (clock not synchronized)'
         : formatDay(timed.first.wallTime!);
+    final choice = _selection.runChoice(boot);
+    final choosable = run.any((r) => !r.beingWritten);
+    final bytes = run.fold(0, (a, r) => a + r.bytes);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 6, 0, 4),
-      child: Text(
-        'Run ${first.boot} · $when',
-        key: ValueKey('rec-run-${first.boot}'),
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: p.textDim),
+      padding: const EdgeInsets.only(bottom: 4),
+      child: TapTarget(
+        key: ValueKey('rec-run-choose-$boot'),
+        label: choice == RunChoice.all ? 'Unchoose run $boot' : 'Choose all of run $boot shown',
+        // Reads as a heading, not another row.
+        fill: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        onTap: () => _selection.toggleRun(boot),
+        child: Row(
+          children: [
+            Icon(
+              switch (choice) {
+                RunChoice.all => Icons.check_box_rounded,
+                RunChoice.some => Icons.indeterminate_check_box_rounded,
+                RunChoice.none => Icons.check_box_outline_blank_rounded,
+              },
+              key: ValueKey('rec-run-box-$boot-${choice.name}'),
+              size: 22,
+              color: !choosable ? p.border : (choice == RunChoice.none ? p.textDim : p.accent),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Run $boot · $when',
+                    key: ValueKey('rec-run-$boot'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: p.text),
+                  ),
+                  Text(
+                    '${run.length} ${run.length == 1 ? 'file' : 'files'} · ${formatSize(bytes)}',
+                    key: ValueKey('rec-run-size-$boot'),
+                    style: TextStyle(fontSize: 12, color: p.textDim),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -414,20 +484,37 @@ class _RecordingsScreenState extends State<RecordingsScreen> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: p.advisory),
                   ),
                 )
+              // Filled when it would start a copy; otherwise plain and dim,
+              // and a tap says why not.
               : TapTarget(
                   key: const ValueKey('rec-copy'),
                   label: why == null ? 'Copy the chosen recordings to the stick' : 'Copy: $why',
-                  selected: why == null,
+                  fill: why == null ? p.accent : null,
                   onTap: () => _copy(status, stick),
-                  child: Text(
-                    _selection.chosen.isEmpty
-                        ? 'Copy to stick'
-                        : 'Copy ${_selection.chosen.length} to stick',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: why == null ? p.text : p.textDim,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.download_rounded,
+                        size: 24,
+                        color: why == null ? TapTarget.onFill(p.accent) : p.textDim,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          _selection.chosen.isEmpty
+                              ? 'Copy to stick'
+                              : 'Copy ${_selection.chosen.length} to stick',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: why == null ? TapTarget.onFill(p.accent) : p.textDim,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
         ),
@@ -496,6 +583,15 @@ class _RecordingsScreenState extends State<RecordingsScreen> {
           '${formatSize(stick.freeBytes)} free of ${formatSize(stick.totalBytes)}',
           p.textDim,
         ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: StickBar(
+            key: const ValueKey('rec-stick-bar'),
+            totalBytes: stick.totalBytes,
+            freeBytes: stick.freeBytes,
+            chosenBytes: _selection.chosenBytes,
+          ),
+        ),
         if (stick.readOnly)
           text('rec-stick-detail', stick.detail.isEmpty ? 'Read-only.' : stick.detail, p.advisory),
       ],
@@ -523,7 +619,8 @@ class _RecordingsScreenState extends State<RecordingsScreen> {
         'rec-chosen',
         '$n chosen · ${formatSize(_selection.chosenBytes)}',
         p.text,
-        weight: FontWeight.w700,
+        size: 20,
+        weight: FontWeight.w800,
       ),
       if (fit == Fit.tooBig)
         text('rec-fit', 'Too big for the stick: ${formatSize(stick!.freeBytes)} free.', p.advisory),
@@ -533,7 +630,12 @@ class _RecordingsScreenState extends State<RecordingsScreen> {
           'A recording is over FAT\'s 4 GB file limit: use an exFAT stick.',
           p.advisory,
         ),
-      if (fit == Fit.fits) text('rec-fit', 'Fits on the stick.', p.ok),
+      if (fit == Fit.fits)
+        text(
+          'rec-fit',
+          'Fits: ${formatSize(stick!.freeBytes - _selection.chosenBytes)} left after the copy.',
+          p.ok,
+        ),
     ];
   }
 
@@ -590,6 +692,92 @@ class _RecordingsScreenState extends State<RecordingsScreen> {
           size: 17,
         ),
     ];
+  }
+}
+
+/// The stick's space: used, then what is chosen, then what stays free. The
+/// chosen part is at least a sliver, so a small choice still shows; it is
+/// orange, filling the free space, when it doesn't fit.
+class StickBar extends StatelessWidget {
+  const StickBar({
+    super.key,
+    required this.totalBytes,
+    required this.freeBytes,
+    required this.chosenBytes,
+  });
+
+  final int totalBytes, freeBytes, chosenBytes;
+
+  /// Used and chosen (no more than the free space) as fractions of the
+  /// stick, and whether the choice is too big for it.
+  static (double, double, bool) parts(int total, int free, int chosen) {
+    if (total <= 0) return (0, 0, chosen > 0);
+    final f = free.clamp(0, total);
+    return ((total - f) / total, chosen.clamp(0, f) / total, chosen > f);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    final (used, chosen, tooBig) = parts(totalBytes, freeBytes, chosenBytes);
+    final usedColor = p.textDim.withValues(alpha: 0.55);
+    final chosenColor = tooBig ? p.advisory : p.accent;
+    Widget legend(Color c, String t) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(2)),
+        ),
+        const SizedBox(width: 4),
+        Text(t, style: TextStyle(fontSize: 12, color: p.textDim)),
+      ],
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          height: 16,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: p.background,
+            border: Border.all(color: p.border),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final w = box.maxWidth;
+              final usedW = used * w;
+              final chosenW = chosenBytes > 0 ? (chosen * w).clamp(4.0, w - usedW) : 0.0;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    key: const ValueKey('stick-used'),
+                    width: usedW,
+                    child: ColoredBox(color: usedColor),
+                  ),
+                  SizedBox(
+                    key: const ValueKey('stick-chosen'),
+                    width: chosenW,
+                    child: ColoredBox(color: chosenColor),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 12,
+          children: [
+            legend(usedColor, 'Used ${formatSize(totalBytes - freeBytes)}'),
+            if (chosenBytes > 0) legend(chosenColor, 'Chosen ${formatSize(chosenBytes)}'),
+          ],
+        ),
+      ],
+    );
   }
 }
 

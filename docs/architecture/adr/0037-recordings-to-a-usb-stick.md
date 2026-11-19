@@ -145,3 +145,31 @@ Options considered for how the map stick and the export stick coexist:
   behave as decided, and the copy speed. Until then the feature is [SIM].
 - If camera-manager ever writes segments over 4 GiB, FAT sticks refuse them
   by name; exFAT has no such limit.
+
+## Amendment: the screen's layout (2026-11-19)
+
+From the design review (owner, 2026-11-19: "Do the next screen", after the
+To USB proposal). Copy only, nothing deleted, and the copy's progress and
+"safe to unplug" are unchanged; the screen changes:
+
+- **The filter buttons show how many recordings each would show**, and are
+  the same width.
+- **A run's header is a 60 px button**: its number and day, then how many
+  files it has shown and their size on a second line, and a checkbox. A tap
+  chooses every recording of it that is shown (the filter applies) and can
+  be copied; when all of them already are, it unchooses them. The box is
+  empty, part filled or ticked. The headers' height means fewer rows fit at
+  once.
+- **The stick gets a bar**: its used space, then what is chosen (at least a
+  sliver; orange, filling the free space, when it doesn't fit), with a
+  legend. "Fits" now says how much is left after the copy.
+- **The count chosen is larger**, and **Copy is filled** (with an icon)
+  when it would start a copy; otherwise plain and dim, and a tap says why
+  not, as before.
+
+[SIM]: `test/unit/recording_selection_test.dart` (each filter's count; a
+run chosen whole, through a filter, then none; a run of only the recording
+being written) and `test/widget/recordings_test.dart` (the counts, a run's
+header through none, all, some and none, the bar's used and chosen parts,
+the fit line, Copy filled only when it would copy) with the existing tests;
+checked in the browser at 800×480.

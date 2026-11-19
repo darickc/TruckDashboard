@@ -623,6 +623,10 @@ Settings › Cameras `[SIM]` ([ADR-0029](architecture/adr/0029-settings-screen.m
 (front and rear on top) with its port and whether it is plugged in, Record | Live only for front and rear, and Rescan,
 Undo and Apply in one bottom row, Apply filled once something changed. Not yet on the Pi's panel.
 
+To USB layout `[SIM]` ([ADR-0037](architecture/adr/0037-recordings-to-a-usb-stick.md) amendment, 2026-11-19): counts on the
+filters, a run's header that chooses all of it, a bar of the stick's used and chosen space with what is left after the
+copy, and Copy filled when it would copy. Not yet on the Pi's panel.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.
