@@ -93,7 +93,7 @@ at boot, active only after a clean listen with `CAN_AUTO_ACTIVE=1`.
 | 5.2 | A crash with the key on (H5) | With music playing, crash the Pi with the key on (a kernel panic, then a watchdog reset): silence or a short pop is acceptable, a sustained buzz is not ([power-states.md](../architecture/power-states.md#crash-and-reset-behaviour-to-be-verified-on-hardware)) | — |
 | 5.3 | The phone at key-on | The last phone reconnects by itself and its music resumes as the phone decides | Reconnecting `[BENCH]` 2026-11-12 |
 | 5.4 | Speakers | Fader, balance and sub level change what is heard; the crossover set by ear (examples) | — |
-| 5.5 | Volume | Starts no louder than the start cap; the knob follows without lag | No knob chosen yet |
+| 5.5 | Volume | Comes back at the level it had after the key is turned off and on; the knob follows without lag | No knob chosen yet |
 | 5.6 | Spoken directions over music | Heard over road noise; the music stops at once and resumes about a second after | The music's cork `[BENCH]` 2026-11-12; the phone's pause untested |
 | 5.7 | Phone calls, once enabled | Calls stay on the phone until a microphone is configured. When it is: ring, answer, both sides heard over road noise, no echo at the far end, the knob's push ([ADR-0045](../architecture/adr/0045-phone-calls.md)) | `[SIM]`; S2–S4 on the bench first |
 

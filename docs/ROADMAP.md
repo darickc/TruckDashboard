@@ -298,8 +298,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
 - [ ] 6.2 DAC mute sequencing (H6) and the crash test with the amps on (H5). The amps' remote is straight on ACC, no timer, not the Pi ([ADR-0014](architecture/adr/0014-multichannel-dac8x.md), 2026-11-09). Wiring design: [wiring/audio.md](wiring/audio.md)
 - [~] 6.3 Volume knob `[SIM]` ([ADR-0043](architecture/adr/0043-master-volume-and-the-volume-knob.md), owner 2026-11-13): one master
       volume in audio-manager, a gain on every output of the speakers' filter-chain (never above 0 dB), changed live with
-      `pw-cli`, one call at a time with the newest level. 30 steps of 2 dB, a cap and a start cap of 15 (examples,
-      `AUDIO_VOLUME_*`); mute keeps the level, up unmutes; saved to `volume.json` 2 s after the last change. `SetVolume`
+      `pw-cli`, one call at a time with the newest level. 30 steps of 2 dB and a cap (examples,
+      `AUDIO_VOLUME_*`); mute keeps the level, up unmutes; saved durably to `volume.json` 2 s after the last change and
+      restored as it was at start (owner 2026-11-18; a start cap only if `AUDIO_VOLUME_START_MAX` is set). `SetVolume`
       and `WatchAudioResponse.volume`. The knob is Linux input read by audio-manager (`crates/evdev`, shared with
       power-manager): `KEY_VOLUMEUP`/`KEY_VOLUMEDOWN`/`KEY_MUTE` and `REL_DIAL` from any device, never a mouse's axes,
       and `KEY_PLAYPAUSE` (a push or tap: pauses a playing phone, plays a paused one),

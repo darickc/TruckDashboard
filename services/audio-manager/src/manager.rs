@@ -238,6 +238,27 @@ pub fn settings_from_pb(s: &pb::SpeakerSettings) -> Settings {
     }
 }
 
+/// Replaces `path` with `text` so a power cut leaves the old file or the
+/// new one, never a part: written to a temporary file, flushed to the card,
+/// renamed over `path`, and the directory flushed so the rename is kept too.
+/// The key can go off right after a change (a reboot without a clean stop).
+/// The temporary file is `path` with `.new` added.
+pub fn write_durably(path: &std::path::Path, text: &str) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(".new");
+    let tmp = path.with_file_name(name);
+    let mut f = std::fs::File::create(&tmp)?;
+    f.write_all(text.as_bytes())?;
+    f.sync_all()?;
+    drop(f);
+    std::fs::rename(&tmp, path)?;
+    if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
+        std::fs::File::open(dir)?.sync_all()?;
+    }
+    Ok(())
+}
+
 /// The saved volume level, or None (and why, when the file is damaged).
 pub fn load_volume(path: Option<&std::path::Path>) -> (Option<u32>, Option<String>) {
     let Some(path) = path else {
@@ -298,16 +319,17 @@ impl Manager {
             eprintln!("[audio] last phone: {p}");
         }
         let (saved, problem) = load_volume(cfg.volume_file.as_deref());
-        if let Some(p) = problem {
-            eprintln!("[audio] volume: {p}; starting at {}", cfg.volume.start_max);
-        }
         let volume = volume::at_start(&cfg.volume, saved);
-        if saved.is_some_and(|n| n > volume.level) {
-            eprintln!(
-                "[audio] volume: saved {}, starting at {} (the start maximum)",
-                saved.unwrap_or(0),
+        if let Some(p) = problem {
+            eprintln!("[audio] volume: {p}; starting at {}", volume.level);
+        }
+        match saved {
+            Some(n) if n > volume.level => eprintln!(
+                "[audio] volume: saved {n}, starting at {} (the start maximum)",
                 volume.level
-            );
+            ),
+            Some(n) => eprintln!("[audio] volume: starting at {n}, as saved"),
+            None => {}
         }
         Arc::new(Manager {
             inner: Mutex::new(Inner {
@@ -456,10 +478,7 @@ impl Manager {
         let Some(path) = &self.cfg.volume_file else {
             return;
         };
-        let tmp = path.with_extension("json.new");
-        if let Err(e) = std::fs::write(&tmp, volume::saved_json(level))
-            .and_then(|()| std::fs::rename(&tmp, path))
-        {
+        if let Err(e) = write_durably(path, &volume::saved_json(level)) {
             eprintln!("[audio] volume: can't save {}: {e}", path.display());
         }
     }
@@ -841,10 +860,7 @@ impl Manager {
         let Some(path) = &self.cfg.last_phone_file else {
             return;
         };
-        let tmp = path.with_extension("new");
-        if let Err(e) =
-            std::fs::write(&tmp, format!("{address}\n")).and_then(|()| std::fs::rename(&tmp, path))
-        {
+        if let Err(e) = write_durably(path, &format!("{address}\n")) {
             eprintln!("[audio] last phone not saved ({}): {e}", path.display());
         }
     }
@@ -1739,9 +1755,7 @@ impl Manager {
     pub async fn set_settings(&self, s: Settings, source: &str) -> Result<String, String> {
         self.cfg.limits.validate(&s)?;
         if let Some(path) = &self.cfg.settings_file {
-            let tmp = path.with_extension("json.new");
-            std::fs::write(&tmp, dsp::settings_json(&s))
-                .and_then(|()| std::fs::rename(&tmp, path))
+            write_durably(path, &dsp::settings_json(&s))
                 .map_err(|e| format!("The settings can't be saved ({}): {e}", path.display()))?;
         }
         self.lock().settings = s;
@@ -1952,5 +1966,37 @@ impl Manager {
         drop(inner);
         // Every call is sent, even unchanged: it is the heartbeat.
         self.out.send_replace(msg);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_durably_replaces_the_file_and_leaves_no_temporary() {
+        let dir = std::env::temp_dir().join(format!("f250-durable-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("volume.json");
+        write_durably(&file, &volume::saved_json(21)).unwrap();
+        assert_eq!(load_volume(Some(&file)), (Some(21), None));
+        write_durably(&file, &volume::saved_json(7)).unwrap();
+        assert_eq!(load_volume(Some(&file)), (Some(7), None));
+        let phone = dir.join("last-phone");
+        write_durably(&phone, "AA:BB:CC:DD:EE:FF\n").unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&phone).unwrap(),
+            "AA:BB:CC:DD:EE:FF\n"
+        );
+        let mut left: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        left.sort();
+        assert_eq!(left, ["last-phone", "volume.json"], "no .new left behind");
+        // A directory that isn't there: an error, not a panic.
+        assert!(write_durably(&dir.join("gone/volume.json"), "{}").is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

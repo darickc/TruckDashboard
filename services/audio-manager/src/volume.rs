@@ -16,7 +16,9 @@ pub struct VolumeLimits {
     /// The driver can't go above this (speakers that can't take the
     /// amplifiers' full output).
     pub max: u32,
-    /// audio-manager starts no louder than this, whatever it saved.
+    /// audio-manager starts no louder than this, whatever it saved. Off
+    /// (equal to `max`) unless configured: the saved level comes back as it
+    /// was (owner, 2026-11-18).
     pub start_max: u32,
 }
 
@@ -26,7 +28,7 @@ impl Default for VolumeLimits {
             steps: 30,
             step_db: 2.0,
             max: 30,
-            start_max: 15,
+            start_max: 30,
         }
     }
 }
@@ -142,11 +144,20 @@ pub fn apply(l: &VolumeLimits, v: Volume, c: Change) -> (Volume, Option<String>)
     }
 }
 
-/// The volume at start: the saved level (the start maximum when there is
-/// none), no louder than the start maximum, unmuted.
+/// The level with nothing saved (a new install, a damaged file): half the
+/// steps, rounded up (15 of 30).
+pub fn first_level(l: &VolumeLimits) -> u32 {
+    l.steps.div_ceil(2)
+}
+
+/// The volume at start: the saved level ([`first_level`] when there is
+/// none), no louder than the start maximum or the cap, unmuted.
 pub fn at_start(l: &VolumeLimits, saved: Option<u32>) -> Volume {
     Volume {
-        level: saved.unwrap_or(l.start_max).min(l.start_max).min(l.max),
+        level: saved
+            .unwrap_or_else(|| first_level(l))
+            .min(l.start_max)
+            .min(l.max),
         muted: false,
     }
 }
@@ -285,18 +296,53 @@ mod tests {
     }
 
     #[test]
-    fn starts_no_louder_than_the_start_cap() {
+    fn starts_at_the_saved_level() {
         let l = VolumeLimits::default();
         assert_eq!(
             at_start(&l, Some(28)),
             Volume {
-                level: 15,
+                level: 28,
                 muted: false
-            }
+            },
+            "no start cap unless configured"
         );
+        assert_eq!(at_start(&l, Some(30)).level, 30);
+        assert_eq!(at_start(&l, Some(6)).level, 6);
+        assert_eq!(at_start(&l, Some(0)).level, 0);
+        assert_eq!(at_start(&l, None).level, 15, "nothing saved: half way");
+        assert_eq!(
+            first_level(&VolumeLimits {
+                steps: 1,
+                max: 1,
+                start_max: 1,
+                ..l
+            }),
+            1
+        );
+    }
+
+    #[test]
+    fn starts_no_louder_than_a_configured_start_cap_or_the_cap() {
+        let l = VolumeLimits {
+            max: 24,
+            start_max: 15,
+            ..VolumeLimits::default()
+        };
+        l.check().unwrap();
+        assert_eq!(at_start(&l, Some(28)).level, 15);
         assert_eq!(at_start(&l, Some(6)).level, 6);
         assert_eq!(at_start(&l, None).level, 15);
-        assert_eq!(at_start(&l, Some(0)).level, 0);
+        let capped = VolumeLimits {
+            max: 10,
+            start_max: 10,
+            ..VolumeLimits::default()
+        };
+        assert_eq!(
+            at_start(&capped, Some(28)).level,
+            10,
+            "a saved level above the cap"
+        );
+        assert_eq!(at_start(&capped, None).level, 10);
     }
 
     #[test]

@@ -309,7 +309,8 @@ AUDIO_RECONNECT_FOR_S=
 # AUDIO_VOLUME_STEP_DB  dB a step (2).
 # AUDIO_VOLUME_MAX  the highest level the driver may set (the top step):
 #                lower it for speakers that can't take the amps' full output.
-# AUDIO_VOLUME_START_MAX  starts no louder than this, whatever was saved (15).
+# AUDIO_VOLUME_START_MAX  starts no louder than this, whatever was saved
+#                (none: the saved level comes back as it was).
 AUDIO_VOLUME_STEPS=
 AUDIO_VOLUME_STEP_DB=
 AUDIO_VOLUME_MAX=

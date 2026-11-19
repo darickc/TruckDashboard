@@ -57,7 +57,8 @@
 #                       top step; an example: lower it for speakers that
 #                       can't take the amplifiers' full output.
 #   AUDIO_VOLUME_START_MAX  audio-manager starts no louder than this,
-#                       whatever it saved. Default 15, an example.
+#                       whatever it saved. Default: none, the saved level
+#                       comes back as it was (owner, 2026-11-18).
 #   AUDIO_KNOB          1: the volume knob from /dev/input (any device with
 #                       the volume keys, play/pause or REL_DIAL). Default 1;
 #                       0: none.

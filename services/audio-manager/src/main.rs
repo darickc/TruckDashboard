@@ -136,10 +136,11 @@ struct Args {
     /// full output.
     #[arg(long)]
     volume_max: Option<u32>,
-    /// audio-manager starts no louder than this, whatever it saved. An
-    /// example value.
-    #[arg(long, default_value_t = 15)]
-    volume_start_max: u32,
+    /// audio-manager starts no louder than this, whatever it saved.
+    /// Default: no start cap (the volume maximum), so the saved level comes
+    /// back as it was.
+    #[arg(long)]
+    volume_start_max: Option<u32>,
     /// Where the volume level is kept (JSON). Empty: in memory only.
     #[arg(long, default_value = "")]
     volume_file: String,
@@ -214,11 +215,12 @@ async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         .validate(&defaults)
         .map_err(|e| format!("--crossover-hz: {e}"))?;
     let map = ChannelMap::parse(&args.dac_positions, &args.front, &args.rear, &args.sub)?;
+    let volume_max = args.volume_max.unwrap_or(args.volume_steps);
     let volume_limits = VolumeLimits {
         steps: args.volume_steps,
         step_db: args.volume_step_db,
-        max: args.volume_max.unwrap_or(args.volume_steps),
-        start_max: args.volume_start_max,
+        max: volume_max,
+        start_max: args.volume_start_max.unwrap_or(volume_max),
     };
     volume_limits.check()?;
     let settings_file =

@@ -46,15 +46,19 @@ The knob's hardware isn't chosen. PROJECT_PLAN 6.3 says "on the ESP32
    `AUDIO_VOLUME_*`): 30 steps of 2 dB (step 1 is −58 dB).
    - **The cap** (`max`, example 30, i.e. none): the driver can't go above
      it; for speakers that can't take the amplifiers' full output.
-   - **The start cap** (`start_max`, example 15): audio-manager starts at the
-     level it saved, but no louder than this, so the truck never starts at
-     full volume.
+   - **The start cap** (`start_max`, `AUDIO_VOLUME_START_MAX`): audio-manager
+     starts at the level it saved, but no louder than this. **Off by
+     default** since 2026-11-18 (amended below): the saved level comes back
+     as it was. With nothing saved it starts half way (15 of 30).
 3. **Mute** is its own state; the level is kept. Turning the volume up
    unmutes. Mute silences everything the speakers play, spoken directions
    included. audio-manager starts unmuted.
 4. **Saved** in `volume.json` (its state directory) 2 s after the last
    change, so a knob turn doesn't write the SD card at every detent; at
-   shutdown if a change is waiting.
+   shutdown if a change is waiting. Written durably (amended 2026-11-18):
+   a temporary file flushed to disk, renamed over the old one, the
+   directory flushed, so a power cut leaves the old level or the new one.
+   The speaker settings and the last phone are written the same way.
 5. **Coalesced.** Changes are applied by one task: one `pw-cli` at a time,
    always the newest level (a fast turn sends the last one, not every step).
    The speaker settings and the volume are applied under one lock, each with
@@ -97,6 +101,18 @@ The knob's hardware isn't chosen. PROJECT_PLAN 6.3 says "on the ESP32
    the bar would cover its buttons), and not in camera mode (the camera's
    window is over that part of the screen).
 
+## Amendment 2026-11-18: the level is remembered across reboots
+
+The owner asked for the volume to be remembered across reboots. With the
+start cap at 15 of 30, any level above 15 came back at 15, so it wasn't.
+The start cap is now off unless `AUDIO_VOLUME_START_MAX` is set: the level
+comes back as saved, still no higher than the cap (`AUDIO_VOLUME_MAX`).
+Mute is not remembered: audio-manager always starts unmuted, so a muted
+head unit never looks broken after a restart. The save is also flushed to
+disk (decision 4), because the key can go off a moment after a change.
+[SIM] only (`make rust-test`): not seen across a reboot on the Pi yet
+(bench check 24).
+
 ## Alternatives considered
 
 - **The DAC's own volume** (`wpctl set-volume` on the sink, or ALSA): a
@@ -127,8 +143,10 @@ The knob's hardware isn't chosen. PROJECT_PLAN 6.3 says "on the ESP32
 1. Media: Volume + and − change the level; the speakers follow (a phone
    playing); Mute silences them, Volume + unmutes. `journalctl -u
    f250-audio-manager` shows no `pw-cli` failures.
-2. `systemctl restart f250-audio-manager` at a level above the start cap: it
-   comes back at the start cap. `cat /var/lib/f250-audio/volume.json`.
+2. Set a level (say 22), wait 3 s, `reboot`: it comes back at 22; the log
+   says "volume: starting at 22, as saved". `cat
+   /var/lib/f250-audio/volume.json`. With `AUDIO_VOLUME_START_MAX=15`, a
+   level above 15 comes back at 15.
 3. With the chosen knob: its events show `KEY_VOLUMEUP`… or `REL_DIAL`
    ([agl.md, input events](../../setup/agl.md#input-events): the image has no
    `evtest`); audio-manager's log names the device ("volume knob: …"); a

@@ -1184,7 +1184,7 @@ async fn volume_level_cap_mute_and_saving() {
     use pb::set_volume_request::Change as C;
     let mut r = start("volume", SimConfig::default()).await;
     let mut s = watch(&mut r.client).await;
-    // No file yet: the start maximum (15), unmuted; the cap and the steps
+    // No file yet: half way (15), unmuted; the cap and the steps
     // published; not applied (no PipeWire here), and said so.
     let m = until(&mut s, "the volume", |m| m.volume.is_some()).await;
     let v = m.volume.unwrap();
@@ -1246,11 +1246,45 @@ async fn volume_level_cap_mute_and_saving() {
     r.manager.stop();
     assert_eq!(std::fs::read_to_string(&file).unwrap(), "{\"level\":21}");
 
-    // A restart comes back no louder than the start maximum.
+    // A restart comes back at the saved level (owner, 2026-11-18), unless
+    // a start maximum is configured.
     let (saved, problem) = audio_manager::manager::load_volume(Some(&file));
     assert_eq!((saved, problem), (Some(21), None));
     let l = VolumeLimits::default();
-    assert_eq!(audio_manager::volume::at_start(&l, saved).level, 15);
+    assert_eq!(
+        audio_manager::volume::at_start(&l, saved),
+        audio_manager::volume::Volume {
+            level: 21,
+            muted: false
+        },
+        "the level as saved; never muted at start"
+    );
+    let capped = VolumeLimits {
+        start_max: 15,
+        ..VolumeLimits::default()
+    };
+    assert_eq!(audio_manager::volume::at_start(&capped, saved).level, 15);
+}
+
+#[tokio::test]
+async fn a_restart_comes_back_at_the_saved_volume() {
+    use pb::set_volume_request::Change as C;
+    let mut r = start("volume-restart", SimConfig::default()).await;
+    let a = set_volume(&mut r.client, C::Level(22)).await;
+    assert_eq!(a.volume.unwrap().level, 22);
+    r.manager.stop();
+    let file = r.dir.join("volume.json");
+    drop(r);
+
+    // A second audio-manager on the same file, as after a reboot.
+    let mut r = start_with("volume-restart-2", SimConfig::default(), |c, _| {
+        c.volume_file = Some(file);
+    })
+    .await;
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "the volume", |m| m.volume.is_some()).await;
+    let v = m.volume.unwrap();
+    assert_eq!((v.level, v.muted), (22, false));
 }
 
 #[tokio::test]
