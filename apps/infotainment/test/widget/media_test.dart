@@ -4,6 +4,7 @@ import 'package:f250_infotainment/audio/audio_state.dart';
 import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/theme.dart';
+import 'package:f250_infotainment/ui/widgets/speaker_settings.dart';
 import 'package:f250_infotainment/ui/widgets/tap_target.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -782,10 +783,53 @@ void main() {
     for (final k in ['fader', 'balance', 'sub']) {
       final r = tester.getRect(key('spk-$k-slider'));
       expect(r.height, greaterThanOrEqualTo(kMinTouch - 0.01), reason: '$k: a 60 px touch target');
-      expect(r.width, greaterThan(400), reason: '$k: the full width, no column beside it');
+      // Beside the cab since the 2026-11-19 redesign: shorter, with − and +
+      // for single steps.
+      expect(r.width, greaterThan(250), reason: '$k: room to drag');
+      final down = tester.getRect(key('spk-$k-down')), up = tester.getRect(key('spk-$k-up'));
+      expect(down.right, lessThanOrEqualTo(r.left + 0.01), reason: '$k: − before the slider');
+      expect(up.left, greaterThanOrEqualTo(r.right - 0.01), reason: '$k: + after it');
     }
-    // Defaults below everything, at the bottom.
+    // The cab beside the rows, inside the screen; Defaults below everything.
+    final cab = tester.getRect(key('spk-cab'));
+    expect(cab.left, greaterThan(tester.getRect(key('spk-fader-up')).right));
+    expect(cab.right, lessThanOrEqualTo(800));
     expect(tester.getRect(key('spk-reset')).top, greaterThan(tester.getRect(key('spk-crossover-up')).bottom));
+    expect(tester.getRect(key('spk-reset')).top, greaterThan(cab.bottom));
+    expect(tester.getRect(key('spk-reset')).bottom, lessThanOrEqualTo(480));
+    expect(text(tester, 'spk-dsp'), startsWith('Crossover not running'));
+
+    // − and + move one step each and stop at the ends.
+    Future<void> tap(String k) async {
+      await tester.tap(key(k));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    await tap('spk-balance-up');
+    expect(text(tester, 'spk-balance'), 'Right 1 (Left −2 dB)');
+    await tap('spk-balance-down');
+    await tap('spk-balance-down');
+    expect(text(tester, 'spk-balance'), 'Left 1 (Right −2 dB)');
+    await tap('spk-balance-up');
+    expect(text(tester, 'spk-balance'), 'Centre');
+    await tap('spk-sub-down');
+    expect(text(tester, 'spk-sub'), '-1 dB');
+    await tap('spk-sub-up');
+    expect(text(tester, 'spk-sub'), '0 dB');
+    expect((await audio.getSpeakers()).settings, const SpeakerSettings());
+    // Two taps before the screen redraws are two steps, not one.
+    await tester.tap(key('spk-fader-up'));
+    await tester.tap(key('spk-fader-up'));
+    await tester.pump();
+    await tester.pump();
+    expect(text(tester, 'spk-fader'), 'Front 2 (Rear −4 dB)');
+    expect((await audio.getSpeakers()).settings.fader, 2);
+    await tester.tap(key('spk-fader-down'));
+    await tester.tap(key('spk-fader-down'));
+    await tester.pump();
+    await tester.pump();
+    expect((await audio.getSpeakers()).settings.fader, 0);
 
     // A real drag on the fader moves it to the front.
     await tester.drag(key('spk-fader-slider'), const Offset(400, 0));
@@ -825,12 +869,32 @@ void main() {
       await tester.pump();
     }
     expect(text(tester, 'spk-crossover'), '120 Hz');
+    expect(tester.widget<TapTarget>(key('spk-crossover-up')).label, contains('unavailable'));
     await tester.tap(key('spk-reset'));
     await tester.pump();
     await tester.pump();
     expect(text(tester, 'spk-fader'), 'Centre');
     expect(text(tester, 'spk-crossover'), '80 Hz');
     expect((await audio.getSpeakers()).settings, const SpeakerSettings());
+  });
+
+  test('the cab dot: centre, front up, right right, clamped to the ends', () {
+    expect(SpeakerCab.dot(0, 0, 10), const Offset(0.5, 0.5));
+    expect(SpeakerCab.dot(10, 0, 10), const Offset(0.5, 0));
+    expect(SpeakerCab.dot(-10, 0, 10), const Offset(0.5, 1));
+    expect(SpeakerCab.dot(0, 5, 10), const Offset(0.75, 0.5));
+    expect(SpeakerCab.dot(0, -20, 10), const Offset(0, 0.5));
+    expect(SpeakerCab.dot(3, 3, 0), const Offset(0.5, 0.5), reason: 'no steps: the middle');
+  });
+
+  testWidgets('the cab says where the sound is centred', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(MaterialApp(
+        theme: ThemeData(extensions: const [Palette.night]),
+        home: const Scaffold(body: SizedBox(height: 260, child: SpeakerCab(fader: 2, balance: -3, steps: 10)))));
+    expect(find.bySemanticsLabel('Sound centred: front 2, left 3'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 
   testWidgets('Settings → Speakers with an alert banner: scrolls, nothing squeezed', (tester) async {

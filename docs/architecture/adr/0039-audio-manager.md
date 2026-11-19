@@ -386,3 +386,35 @@ screen says is unchanged; how it is laid out changes:
 sizes, Phones' two forms, the volume bar, every badge under an alert in
 both themes) and the existing Media tests; checked in the browser at
 800×480.
+
+## Amendment: Settings → Speakers' layout (2026-11-19)
+
+From the design review (owner, 2026-11-19: "Settings Speakers"). Decision 7
+stands (sliders sent while dragged, the crossover in steps, Defaults at the
+bottom, the limits called examples); the layout changes:
+
+- **Each row is laid out like Display's** (ADR-0029 amendment 2026-11-18):
+  the name and its value on the left.
+- **− and + (60 px) at both ends of every row**, one step a tap, dimmed at
+  the end of the range; the fader, balance and sub sliders stay between
+  them for dragging. A tap reads the value when it lands, not when the row
+  was drawn, so two taps quicker than a redraw are two steps (they were
+  one for the crossover before).
+- **The crossover is a stepped bar** between its − and +, like Brightness,
+  with its limits under its ends; the sub level's limits are under its
+  slider's ends too.
+- **A cab beside the rows** (150 px), seen from above with the four door
+  speakers and the sub, shows where fader and balance put the sound. It is
+  not a control. The sliders are shorter for it (about 260 px instead of
+  the full width); − and + make single steps easy anyway.
+- **One status line** at the bottom: whether the settings reach the speakers
+  (applied, starting, or the crossover not running and why), then the last
+  change's result over one line saying the limits and defaults are
+  examples from audio-manager's configuration, then Defaults.
+
+[SIM]: `test/widget/media_test.dart` (the Speakers tests: −/+ beside every
+slider, single and quick double steps, the end of the range, the cab beside
+the rows and Defaults below them inside 800×480, the status line; where the
+cab's dot sits; the cab's spoken description) and the existing Speakers
+tests under an alert and without audio-manager; checked in the browser at
+800×480.

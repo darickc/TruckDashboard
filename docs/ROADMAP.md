@@ -615,6 +615,10 @@ Ringing call sheet `[SIM]` ([ADR-0045](architecture/adr/0045-phone-calls.md) ame
 ringing shows a 236 px sheet with 80 px Decline and Answer over the top of any screen (not blocking it); answered, the bar.
 Not yet on the Pi's panel.
 
+Settings › Speakers `[SIM]` ([ADR-0039](architecture/adr/0039-audio-manager.md) amendment, 2026-11-19): Display's row style,
+− and + at both ends of every row (one step a tap, taps faster than a redraw each count), the crossover as a stepped bar,
+a cab beside the rows showing where the sound is centred, and one status line. Not yet on the Pi's panel.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.
