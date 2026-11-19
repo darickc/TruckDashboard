@@ -94,3 +94,28 @@ Two findings on 2026-11-11:
 - power-manager still takes its location from `DISPLAY_LATITUDE` and
   `DISPLAY_LONGITUDE`. Feeding it the GPS position and time (ADR-0028) is a
   follow-up.
+
+
+## Amendment: the speed and a media strip on the Nav screen (2026-11-18)
+
+From the design review (owner, 2026-11-18: "Do the Nav page"). At the end of
+the bottom row of buttons (Places, or the route's buttons):
+
+- **The truck's speed** from the vehicle's speed signal (SAE `01 0D`), in
+  the driver's units. Not a speedometer (the cluster is one): a glance while
+  the map has the eyes. "—" when the signal isn't current (CLAUDE.md
+  rule 4). No speed limit: the map data gives none we have checked.
+- **A one-row media strip** while a connected phone has a player
+  ([ADR-0039](0039-audio-manager.md)): the picture, the track (a tap opens
+  Media), Play/Pause and Next, each a full touch target. Nothing otherwise.
+
+Both sit beside the buttons, never above them: a row above them made the
+bottom-left column taller, and it pushed a notice over the truck at the
+map's centre (found in testing). They take only the width the buttons
+leave: the speed and the strip, the speed alone, or nothing; they never
+push a button or overflow. Not while a chosen point's panel shows.
+
+[SIM]: `test/widget/nav_extras_test.dart` (the speed in both unit systems
+and while the link is lost, the strip's buttons and Media, no phone, the
+row's place and the truck in sight, under an alert in both themes) and the
+existing Nav tests; checked in the browser at 800×480 (without a map file).

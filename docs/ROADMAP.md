@@ -597,6 +597,10 @@ Settings › System `[SIM]` ([ADR-0029](architecture/adr/0029-settings-screen.md
 the OS, uptime, CPU temperature and the data drive, each saying why when it can't be read, and every service's link.
 Not yet on the Pi: whether the dashboard can read those files under its sandbox is to be checked.
 
+Nav speed and media strip `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-position-and-raster-map.md) amendment, 2026-11-18):
+the truck's speed ("—" when not current) and a one-row player beside the bottom buttons, in the width they leave. Not
+yet on the Pi's panel, and not yet seen over a real map.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.

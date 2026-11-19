@@ -18,6 +18,7 @@ import '../../nav/vector_map.dart';
 import '../app_scope.dart';
 import '../theme.dart';
 import '../widgets/tap_target.dart';
+import 'nav_extras.dart';
 import 'nav_places.dart';
 import 'nav_search.dart';
 
@@ -389,13 +390,19 @@ class _NavigationScreenState extends State<NavigationScreen> {
               const SizedBox(width: kGap),
             ],
             _textButton('nav-end-route', 'End route', Icons.close, () => s.route.clearRoute()),
+            // Beside the buttons, never above them: a taller column would
+            // reach the truck at the map's centre.
+            const Flexible(child: NavGlance()),
           ],
         )
       else
         // Saved places (ADR-0040). In a Row so it keeps its own width.
         Row(
           mainAxisSize: MainAxisSize.min,
-          children: [_textButton('nav-places-open', 'Places', Icons.star, () => setState(() => _placesOpen = true))],
+          children: [
+            _textButton('nav-places-open', 'Places', Icons.star, () => setState(() => _placesOpen = true)),
+            const Flexible(child: NavGlance()),
+          ],
         ),
     ];
     final routingHint = switch ((route.link, routeState)) {
