@@ -617,15 +617,15 @@ Not yet on the Pi's panel.
 
 Settings › Speakers `[SIM]` ([ADR-0039](architecture/adr/0039-audio-manager.md) amendment, 2026-11-19): Display's row style,
 − and + at both ends of every row (one step a tap, taps faster than a redraw each count), the crossover as a stepped bar,
-a cab beside the rows showing where the sound is centred, and one status line. Not yet on the Pi's panel.
+a cab beside the rows showing where the sound is centred, and one status line. On the bench Pi's panel 2026-11-19 (simulated data; To USB on its real data drive).
 
 Settings › Cameras `[SIM]` ([ADR-0029](architecture/adr/0029-settings-screen.md) amendment, 2026-11-19): a card per camera
 (front and rear on top) with its port and whether it is plugged in, Record | Live only for front and rear, and Rescan,
-Undo and Apply in one bottom row, Apply filled once something changed. Not yet on the Pi's panel.
+Undo and Apply in one bottom row, Apply filled once something changed. On the bench Pi's panel 2026-11-19 (simulated data; To USB on its real data drive).
 
 To USB layout `[SIM]` ([ADR-0037](architecture/adr/0037-recordings-to-a-usb-stick.md) amendment, 2026-11-19): counts on the
 filters, a run's header that chooses all of it, a bar of the stick's used and chosen space with what is left after the
-copy, and Copy filled when it would copy. Not yet on the Pi's panel.
+copy, and Copy filled when it would copy. On the bench Pi's panel 2026-11-19 (simulated data; To USB on its real data drive).
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 

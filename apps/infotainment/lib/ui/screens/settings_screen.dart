@@ -244,12 +244,15 @@ class _CameraSettingsViewState extends State<CameraSettingsView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    // Up to three lines: camera-manager's answers can be
+                    // long, and the panel's DejaVu Sans is wide.
                     Text(detail,
                         key: const ValueKey('cam-settings-detail'),
-                        maxLines: 2,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
+                            height: 1.15,
                             fontWeight: FontWeight.w600,
                             color: _message == null && !changed ? p.textDim : p.text)),
                     Text(
@@ -267,13 +270,13 @@ class _CameraSettingsViewState extends State<CameraSettingsView> {
               _button('cam-defaults', 'Use /etc/default/f250', _busy ? null : () => _apply(null), width: 170),
             ],
             const SizedBox(width: kGap),
-            _button('cam-rescan', 'Rescan', _busy ? null : () => _read(), width: 104),
+            _button('cam-rescan', 'Rescan', _busy ? null : () => _read(), width: 96),
             const SizedBox(width: kGap),
             _button('cam-revert', 'Undo', changed && !_busy ? () => setState(() => _draft = snap.settings) : null,
-                width: 96),
+                width: 84),
             const SizedBox(width: kGap),
             _button('cam-apply', 'Apply', changed && !_busy ? () => _apply(draft) : null,
-                width: 130, primary: true),
+                width: 116, primary: true),
           ]),
         );
         return LayoutBuilder(
@@ -516,12 +519,17 @@ class _CameraSettingsViewState extends State<CameraSettingsView> {
           fill: fill,
           padding: const EdgeInsets.symmetric(horizontal: 4),
           onTap: onTap ?? () {},
-          child: Text(text,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: fill == null ? p.text : TapTarget.onFill(fill))),
+          // One line, smaller rather than wrapped ("Use /etc/default/f250"
+          // in the panel's wide font).
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(text,
+                maxLines: 1,
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: fill == null ? p.text : TapTarget.onFill(fill))),
+          ),
         ),
       ),
     );

@@ -355,7 +355,7 @@ class _RecordingsScreenState extends State<RecordingsScreen> {
           ),
           const SizedBox(width: 10),
           SizedBox(
-            width: 52,
+            width: 60,
             child: Text(
               r.camera == 'front' ? 'Front' : (r.camera == 'rear' ? 'Rear' : r.camera),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color),
