@@ -619,6 +619,10 @@ Settings › Speakers `[SIM]` ([ADR-0039](architecture/adr/0039-audio-manager.md
 − and + at both ends of every row (one step a tap, taps faster than a redraw each count), the crossover as a stepped bar,
 a cab beside the rows showing where the sound is centred, and one status line. Not yet on the Pi's panel.
 
+Settings › Cameras `[SIM]` ([ADR-0029](architecture/adr/0029-settings-screen.md) amendment, 2026-11-19): a card per camera
+(front and rear on top) with its port and whether it is plugged in, Record | Live only for front and rear, and Rescan,
+Undo and Apply in one bottom row, Apply filled once something changed. Not yet on the Pi's panel.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.

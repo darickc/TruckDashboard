@@ -155,3 +155,34 @@ and recording off (now "not reported while recording is off").
 present, a missing or garbled file) and `test/widget/system_settings_test.dart`
 (the facts in both unit systems, unknown facts, the data drive, every
 service, under an alert in both themes); checked in the browser at 800×480.
+
+## Amendment: the Cameras section as cards (2026-11-19)
+
+From the design review (owner, 2026-11-19: "Do the next screen", after the
+Settings › Cameras proposal). Decisions 3–6 stand (a draft until Apply,
+which restarts camera-manager; the source shown; Use /etc/default/f250;
+only front and rear record); the layout changes:
+
+- **A card per camera**, front and rear (the two that can record, ADR-0027
+  decision 1) on top, left and right under them. Each says whether its
+  device is plugged in ("plugged in", "not plugged in", "no camera").
+- **The USB port is a 150 px button** with the port on one line and the
+  camera's model (or "not plugged in") under it; it opens the picker as
+  before.
+- **Record | Live only** for front and rear, two 60 px buttons like
+  Display's choices, instead of one "Record: on/off" toggle. Left and right
+  say "Live only · only front and rear record" where the choice would be.
+- **Why nothing records** (decision 5) sits under the cards, across the
+  width.
+- **One bottom row**: what Apply would do (or what it did) and where the
+  settings come from on the left, then Use /etc/default/f250 (when set on
+  this screen), Rescan, Undo and Apply. Apply is filled once something
+  changed, dim and unfilled until then.
+- Under an alert banner the section scrolls instead of squeezing the 60 px
+  controls.
+
+[SIM]: `test/widget/settings_test.dart` (the cameras tests through the new
+controls; the layout: front and rear on top, Record | Live only, every
+button ≥ 60 px inside 800×480, the reason under the cards, Apply filled once
+changed) and the 800×480 states in both themes; checked in the browser at
+800×480.

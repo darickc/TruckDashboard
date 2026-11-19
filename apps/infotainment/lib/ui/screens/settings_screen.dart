@@ -206,7 +206,6 @@ class _CameraSettingsViewState extends State<CameraSettingsView> {
     return ValueListenableBuilder<CameraStatus>(
       valueListenable: _cameras.status,
       builder: (context, status, _) {
-        final note = TextStyle(fontSize: 14, color: p.textDim);
         if (status.link != CameraLink.up) {
           return Text(
               'camera-manager not connected${status.detail == null ? '' : ' (${status.detail})'}: '
@@ -224,108 +223,225 @@ class _CameraSettingsViewState extends State<CameraSettingsView> {
         final picking = _picking;
         if (picking != null) return _picker(picking, snap, draft, p);
         final changed = !draft.sameChoices(snap.settings);
-        // Left: the four cameras (they fit at 800×480 without scrolling).
-        // Right: what applies, Apply and what it did, then the rest.
-        return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-            child: ListView(children: [
-              for (final c in CameraId.values) ...[
-                _row(c, snap, draft, p),
-                const SizedBox(height: 6),
-              ],
-            ]),
+        final detail = _message ??
+            (changed
+                ? 'Apply restarts camera-manager: the cameras are off for a few seconds.'
+                : 'Plug a camera in, Rescan, then give its USB port a camera.');
+        // A card per camera, front and rear (the two that record) on top;
+        // under them why nothing records, if so; then what applies and the
+        // buttons in one row. Under an alert banner it scrolls instead of
+        // squeezing the 60 px controls (design review, 2026-11-19).
+        Widget pair(CameraId a, CameraId b) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: _card(a, snap, draft, p)),
+              const SizedBox(width: kGap),
+              Expanded(child: _card(b, snap, draft, p)),
+            ]);
+        final bottom = SizedBox(
+          height: kMinTouch,
+          child: Row(children: [
+            Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(detail,
+                        key: const ValueKey('cam-settings-detail'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: _message == null && !changed ? p.textDim : p.text)),
+                    Text(
+                        snap.settings.source == SettingsSource.screen
+                            ? 'Set on this screen.'
+                            : 'From /etc/default/f250.',
+                        key: const ValueKey('cam-source'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: p.textDim)),
+                  ]),
+            ),
+            if (snap.settings.source == SettingsSource.screen) ...[
+              const SizedBox(width: kGap),
+              _button('cam-defaults', 'Use /etc/default/f250', _busy ? null : () => _apply(null), width: 170),
+            ],
+            const SizedBox(width: kGap),
+            _button('cam-rescan', 'Rescan', _busy ? null : () => _read(), width: 104),
+            const SizedBox(width: kGap),
+            _button('cam-revert', 'Undo', changed && !_busy ? () => setState(() => _draft = snap.settings) : null,
+                width: 96),
+            const SizedBox(width: kGap),
+            _button('cam-apply', 'Apply', changed && !_busy ? () => _apply(draft) : null,
+                width: 130, primary: true),
+          ]),
+        );
+        return LayoutBuilder(
+          builder: (context, box) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: box.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  pair(CameraId.front, CameraId.rear),
+                  const SizedBox(height: kGap),
+                  pair(CameraId.left, CameraId.right),
+                  if (!draft.canRecord) ...[
+                    const SizedBox(height: 6),
+                    Text('Recording: ${draft.recordingUnavailable}',
+                        key: const ValueKey('cam-recording-unavailable'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: p.advisory)),
+                  ],
+                  const Spacer(),
+                  const SizedBox(height: kGap),
+                  bottom,
+                ]),
+              ),
+            ),
           ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 230,
-            child: ListView(children: [
-              Text(
-                  snap.settings.source == SettingsSource.screen
-                      ? 'Set on this screen.'
-                      : 'From /etc/default/f250.',
-                  key: const ValueKey('cam-source'),
-                  style: note),
-              const SizedBox(height: 6),
-              _button('cam-apply', 'Apply', changed && !_busy ? () => _apply(draft) : null,
-                  width: 230, emphasis: changed),
-              const SizedBox(height: 4),
-              Text(
-                  _message ??
-                      (changed
-                          ? 'Apply restarts camera-manager: the cameras are off for a few seconds.'
-                          : 'Plug a camera in, Rescan, then give its USB port a camera.'),
-                  key: const ValueKey('cam-settings-detail'),
-                  style: TextStyle(fontSize: 14, color: _message == null ? p.textDim : p.text)),
-              const SizedBox(height: 6),
-              Row(children: [
-                _button('cam-revert', 'Undo',
-                    changed && !_busy ? () => setState(() => _draft = snap.settings) : null,
-                    width: 111),
-                const SizedBox(width: kGap),
-                _button('cam-rescan', 'Rescan', _busy ? null : () => _read(), width: 111),
-              ]),
-              if (snap.settings.source == SettingsSource.screen) ...[
-                const SizedBox(height: 6),
-                _button('cam-defaults', 'Use /etc/default/f250', _busy ? null : () => _apply(null),
-                    width: 230),
-              ],
-              if (!draft.canRecord) ...[
-                const SizedBox(height: 6),
-                Text('Recording: ${draft.recordingUnavailable}',
-                    key: const ValueKey('cam-recording-unavailable'),
-                    style: TextStyle(fontSize: 14, color: p.advisory)),
-              ],
-            ]),
-          ),
-        ]);
+        );
       },
     );
   }
 
-  /// One camera: its device (tap to change) and, for front and rear, Record.
-  Widget _row(CameraId c, CameraSettingsSnapshot snap, CameraSettings draft, Palette p) {
+  /// One camera: its name and whether its device is plugged in; its USB
+  /// port (tap to change); for front and rear, Record or Live only, and
+  /// for left and right why they don't record.
+  Widget _card(CameraId c, CameraSettingsSnapshot snap, CameraSettings draft, Palette p) {
     final device = draft.devices[c];
     final plugged = snap.plugged.where((d) => d.path == device).firstOrNull;
-    final text = device == null
-        ? 'None'
-        : plugged != null
-            ? _describe(plugged)
-            : '${CameraDevice(path: device).port}: not plugged in';
     final missing = device != null && plugged == null;
-    return Row(children: [
-      SizedBox(
-          width: 70,
-          child: Text(cameraShortName(c),
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.text))),
-      Expanded(
-        child: TapTarget(
-          key: ValueKey('cam-device-${c.name}'),
-          label: '${cameraName(c)} device: $text. Change',
-          onTap: () => setState(() => _picking = c),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(text,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 15, color: missing ? p.advisory : p.text)),
+    final (state, stateColor) = device == null
+        ? ('no camera', p.textDim)
+        : missing
+            ? ('not plugged in', p.advisory)
+            : ('plugged in', p.ok);
+    final port = device == null ? 'None' : (plugged ?? CameraDevice(path: device)).port;
+    final second = device == null
+        ? null
+        : missing
+            ? 'not plugged in'
+            : (plugged!.label.isEmpty ? null : plugged.label);
+    final text = second == null ? port : '$port · $second';
+    final recording = draft.record.contains(c);
+    final name = cameraName(c).toLowerCase();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+      decoration: BoxDecoration(
+        color: Color.lerp(p.surface, p.surfaceHigh, 0.5),
+        border: Border.all(color: p.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Text(cameraShortName(c), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: p.text)),
+          const SizedBox(width: 8),
+          Container(
+              width: 8, height: 8, decoration: BoxDecoration(color: stateColor, shape: BoxShape.circle)),
+          const SizedBox(width: 5),
+          Text(state,
+              key: ValueKey('cam-state-${c.name}'), style: TextStyle(fontSize: 12, color: stateColor)),
+        ]),
+        const SizedBox(height: 6),
+        Row(children: [
+          SizedBox(
+            width: 150,
+            child: TapTarget(
+              key: ValueKey('cam-device-${c.name}'),
+              label: '${cameraName(c)} device: $text. Change',
+              padding: const EdgeInsets.only(left: 10, right: 4),
+              onTap: () => setState(() => _picking = c),
+              child: Row(children: [
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(port,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: p.text)),
+                        if (second != null)
+                          Text(second,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: missing ? p.advisory : p.textDim)),
+                      ]),
+                ),
+                Icon(Icons.chevron_right, size: 20, color: p.textDim),
+              ]),
+            ),
           ),
-        ),
-      ),
-      const SizedBox(width: kGap),
-      SizedBox(
-        width: 130,
-        child: recordable.contains(c)
-            ? TapTarget(
-                key: ValueKey('cam-record-${c.name}'),
-                label: 'Record the ${cameraName(c).toLowerCase()}',
-                selected: draft.record.contains(c),
-                onTap: () => setState(() => _draft = draft.withRecord(c, !draft.record.contains(c))),
-                child: Text(draft.record.contains(c) ? 'Record: on' : 'Record: off',
-                    style: const TextStyle(fontSize: 15)),
-              )
-            : Center(child: Text('Not recorded', style: TextStyle(fontSize: 13, color: p.textDim))),
-      ),
-    ]);
+          const SizedBox(width: kGap),
+          Expanded(
+            child: recordable.contains(c)
+                ? Row(children: [
+                    Expanded(
+                      child: TapTarget(
+                        key: ValueKey('cam-record-${c.name}'),
+                        label: 'Record the $name',
+                        selected: recording,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        onTap: () => setState(() => _draft = draft.withRecord(c, true)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                  color: recording ? p.critical : p.textDim, shape: BoxShape.circle)),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text('Record',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: recording ? p.text : p.textDim)),
+                          ),
+                        ]),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: TapTarget(
+                        key: ValueKey('cam-live-${c.name}'),
+                        label: 'Don\'t record the $name: live only',
+                        selected: !recording,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        onTap: () => setState(() => _draft = draft.withRecord(c, false)),
+                        child: Text('Live only',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: recording ? p.textDim : p.text)),
+                      ),
+                    ),
+                  ])
+                : Container(
+                    key: ValueKey('cam-live-${c.name}'),
+                    height: kMinTouch,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: p.border),
+                    ),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Text('Live only',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: p.textDim)),
+                      Text('only front and rear record',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: p.textDim)),
+                    ]),
+                  ),
+          ),
+        ]),
+      ]),
+    );
   }
 
   /// None and Cancel, then the devices plugged in now.
@@ -386,9 +502,10 @@ class _CameraSettingsViewState extends State<CameraSettingsView> {
 
   String _describe(CameraDevice d) => d.label.isEmpty ? d.port : '${d.port} · ${d.label}';
 
-  Widget _button(String key, String text, VoidCallback? onTap,
-      {required double width, bool emphasis = false}) {
+  /// [primary]: filled while it can be tapped (Apply once something changed).
+  Widget _button(String key, String text, VoidCallback? onTap, {required double width, bool primary = false}) {
     final p = Palette.of(context);
+    final fill = primary && onTap != null ? p.accent : null;
     return SizedBox(
       width: width,
       child: Opacity(
@@ -396,10 +513,15 @@ class _CameraSettingsViewState extends State<CameraSettingsView> {
         child: TapTarget(
           key: ValueKey(key),
           label: onTap == null ? '$text (unavailable)' : text,
-          selected: emphasis,
-          padding: EdgeInsets.zero,
+          fill: fill,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           onTap: onTap ?? () {},
-          child: Text(text, style: TextStyle(fontSize: 15, color: p.text)),
+          child: Text(text,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: fill == null ? p.text : TapTarget.onFill(fill))),
         ),
       ),
     );

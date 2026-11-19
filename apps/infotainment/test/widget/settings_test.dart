@@ -4,6 +4,8 @@ import 'package:f250_infotainment/cameras/simulated_camera_source.dart';
 import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/model/units.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
+import 'package:f250_infotainment/ui/theme.dart';
+import 'package:f250_infotainment/ui/widgets/tap_target.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,10 +25,12 @@ Future<void> tap(WidgetTester tester, String key) async {
   await tester.pumpAndSettle();
 }
 
+/// The port and, under it, the camera's model or "not plugged in".
 String deviceText(WidgetTester tester, CameraId c) => tester
-    .widget<Text>(find.descendant(
+    .widgetList<Text>(find.descendant(
         of: find.byKey(ValueKey('cam-device-${c.name}')), matching: find.byType(Text)))
-    .data!;
+    .map((t) => t.data!)
+    .join(' · ');
 
 const port1 = '/dev/v4l/by-path/platform-x-usb-0:1.2:1.0-video-index0';
 const port2 = '/dev/v4l/by-path/platform-x-usb-0:2:1.0-video-index0';
@@ -96,7 +100,7 @@ void main() {
     expect(deviceText(tester, CameraId.left), 'USB 1.1 · SIM_front');
     expect(deviceText(tester, CameraId.front), 'None');
 
-    await tap(tester, 'cam-record-front');
+    await tap(tester, 'cam-live-front');
     await tap(tester, 'cam-apply');
     expect(h.textOf('cam-source'), contains('Set on this screen'));
     expect(h.textOf('cam-settings-detail'), contains('Saved'));
@@ -123,7 +127,10 @@ void main() {
     );
     final h = await Harness.start(tester, cameras: fake);
     await openSection(tester, h, 'cameras');
-    expect(deviceText(tester, CameraId.front), 'USB 3: not plugged in');
+    expect(deviceText(tester, CameraId.front), 'USB 3 · not plugged in');
+    expect(h.textOf('cam-state-front'), 'not plugged in');
+    expect(h.textOf('cam-state-rear'), 'plugged in');
+    expect(h.textOf('cam-state-left'), 'no camera');
     expect(deviceText(tester, CameraId.rear), 'USB 1.2 · 046d_0825_ABC');
     expect(h.textOf('cam-recording-unavailable'), contains('DATA_DRIVE=1'));
 
@@ -142,7 +149,7 @@ void main() {
         applied: false, detail: 'Close the camera first: applying settings restarts camera-manager.');
     final h = await Harness.start(tester, cameras: fake);
     await openSection(tester, h, 'cameras');
-    await tap(tester, 'cam-record-rear');
+    await tap(tester, 'cam-live-rear');
     await tap(tester, 'cam-apply');
     expect(h.textOf('cam-settings-detail'), contains('Close the camera first'));
     expect(fake.applied.single!.record, isEmpty);
@@ -158,6 +165,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(h.textOf('cam-source'), contains('Set on this screen'));
     expect(deviceText(tester, CameraId.front), 'USB 2');
+  });
+
+  testWidgets('cameras layout: front and rear on top, 60 px controls, Apply filled once changed', (tester) async {
+    final fake = connectedFake(recordingUnavailable: 'Recording needs the data drive: DATA_DRIVE=1.');
+    final h = await Harness.start(tester, cameras: fake);
+    await openSection(tester, h, 'cameras');
+    Rect r(String k) => tester.getRect(find.byKey(ValueKey(k)));
+    // Front and rear (the two that record) side by side above left and right.
+    expect(r('cam-device-front').top, closeTo(r('cam-device-rear').top, 0.01));
+    expect(r('cam-device-rear').left, greaterThan(r('cam-device-front').right));
+    expect(r('cam-device-left').top, greaterThan(r('cam-device-front').bottom));
+    expect(r('cam-device-right').top, closeTo(r('cam-device-left').top, 0.01));
+    // Record | Live only for front and rear; left and right say they don't record.
+    expect(find.byKey(const ValueKey('cam-record-left')), findsNothing);
+    expect(find.descendant(of: find.byKey(const ValueKey('cam-live-left')), matching: find.text('only front and rear record')),
+        findsOneWidget);
+    expect(tester.widget<TapTarget>(find.byKey(const ValueKey('cam-record-rear'))).selected, isTrue);
+    expect(tester.widget<TapTarget>(find.byKey(const ValueKey('cam-live-front'))).selected, isTrue);
+    // Every button at least 60 px, everything on the screen, the bottom row last.
+    for (final e in find.byType(TapTarget).evaluate()) {
+      final size = (e.renderObject! as RenderBox).size;
+      final label = (e.widget as TapTarget).label;
+      expect(size.width, greaterThanOrEqualTo(kMinTouch - 0.01), reason: label);
+      expect(size.height, greaterThanOrEqualTo(kMinTouch - 0.01), reason: label);
+    }
+    for (final k in ['cam-apply', 'cam-revert', 'cam-rescan']) {
+      expect(r(k).top, greaterThan(r('cam-device-left').bottom), reason: k);
+      expect(r(k).bottom, lessThanOrEqualTo(480), reason: k);
+      expect(r(k).right, lessThanOrEqualTo(800), reason: k);
+    }
+    expect(r('cam-recording-unavailable').top, greaterThan(r('cam-device-left').bottom));
+    expect(r('cam-recording-unavailable').bottom, lessThanOrEqualTo(r('cam-apply').top));
+    // Apply: dim and unfilled until something changes, then filled.
+    TapTarget apply() => tester.widget<TapTarget>(find.byKey(const ValueKey('cam-apply')));
+    expect(apply().fill, isNull);
+    expect(apply().label, contains('unavailable'));
+    await tap(tester, 'cam-live-rear');
+    expect(tester.widget<TapTarget>(find.byKey(const ValueKey('cam-live-rear'))).selected, isTrue);
+    expect(apply().fill, isNotNull);
+    expect(h.textOf('cam-settings-detail'), contains('restarts camera-manager'));
+    expect(tester.takeException(), isNull);
   });
 
   // 800×480, both themes, every Cameras state: nothing overflows.
