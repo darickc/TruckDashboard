@@ -383,3 +383,28 @@ MJPEG bitrates depend heavily on the scene and the camera's quality setting.
   camera sharing the image supports.
 - A camera's H.264 can't be shown without an expensive software decode: use
   its MJPEG stream for display, or record MJPEG.
+
+
+## Amendment: the Cameras screen's layout (2026-11-18)
+
+From the design review (owner, 2026-11-18: "Cameras truck picker"). What
+the screen says is unchanged; how it is laid out changes:
+
+- **A camera is picked on a top-down truck**: Front above it, Rear below,
+  Left and Right beside it, each a full touch target sending the same move
+  as the 5-way switch. The drawing places the buttons; it makes no claim
+  about where the cameras are mounted.
+- **Recording is its own card** on the right: each camera's line as before,
+  then the drive and the saved clips as bars. The drive's bar is video
+  against video plus free space (the room left for it; other data shares
+  the drive), the clips' bar is against their cap and turns amber at 90 %.
+- **Save clip and Recordings to USB sit side by side** under it; Save clip
+  uses its compact form (one detail line). Without camera-manager the right
+  side keeps only Recordings to USB, which doesn't need it.
+- The reverse line (and the speed-limit line when it applies) stays under
+  the picker; the line about the camera switch is dropped. "Not a safety
+  system. Always use the mirrors." stays on the screen in every state.
+
+[SIM]: `test/widget/cameras_screen_test.dart` (the buttons' places and
+moves, the bars, offline, under an alert in both themes) and the existing
+recording and camera-mode tests; checked in the browser at 800×480.

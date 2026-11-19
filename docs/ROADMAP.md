@@ -581,6 +581,10 @@ with a warning rule show a bar with its example advisory and critical zones and 
 it isn't current), and this drive's max (or min) on the status line, kept in the telemetry store from valid values only.
 Not yet on the Pi's panel.
 
+Cameras screen layout `[SIM]` ([ADR-0027](architecture/adr/0027-front-and-rear-recording.md) amendment, 2026-11-18): cameras
+are picked on a top-down truck (Front above, Rear below, Left and Right beside it); recording is a card with the drive
+and saved clips as bars, Save clip and Recordings to USB side by side. Not yet on the Pi's panel.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.
