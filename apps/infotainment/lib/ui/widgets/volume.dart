@@ -6,7 +6,8 @@ import '../../audio/audio_state.dart';
 import '../theme.dart';
 import 'tap_target.dart';
 
-/// Volume −, the level, Volume + and Mute, on the Media screen (ADR-0043).
+/// Volume −, the level as a bar and a number, Volume + and Mute, on the
+/// Media screen (ADR-0043).
 /// Each tap goes to audio-manager; the level shown is what it reports.
 class VolumeControls extends StatelessWidget {
   const VolumeControls({super.key, required this.audio, required this.volume, this.onNote});
@@ -44,41 +45,84 @@ class VolumeControls extends StatelessWidget {
         child: Icon(icon, size: 30, color: p.text),
       ),
     );
+    final fraction = v == null || v.steps == 0 ? 0.0 : (v.level / v.steps).clamp(0.0, 1.0);
+    final cap = v == null || v.steps == 0 ? 1.0 : (v.max / v.steps).clamp(0.0, 1.0);
+    final atCap = v != null && v.level >= v.max && v.max < v.steps;
+    Widget square(Widget child) => SizedBox(width: kMinTouch, height: kMinTouch, child: child);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        button('media-volume-down', 'Volume down', Icons.volume_down_rounded, const VolumeChange.steps(-1)),
+        square(button('media-volume-down', 'Volume down', Icons.volume_down_rounded, const VolumeChange.steps(-1))),
+        const SizedBox(width: 10),
+        // The level as a bar (the cap marked when it is below the top), and
+        // the number under it.
         SizedBox(
-          width: 64,
+          width: 120,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                v == null ? '—' : (v.muted ? 'Muted' : '${v.level}'),
-                key: const ValueKey('media-volume-level'),
-                maxLines: 1,
-                style: TextStyle(
-                  fontSize: v != null && v.muted ? 17 : 24,
-                  fontWeight: FontWeight.w800,
-                  color: v != null && v.muted ? p.advisory : p.text,
+              SizedBox(
+                height: 10,
+                child: LayoutBuilder(
+                  builder: (context, c) => Stack(children: [
+                    Container(decoration: BoxDecoration(color: p.border, borderRadius: BorderRadius.circular(5))),
+                    FractionallySizedBox(
+                      widthFactor: fraction,
+                      child: Container(
+                        key: const ValueKey('media-volume-bar'),
+                        decoration: BoxDecoration(
+                          color: v != null && v.muted ? p.textDim : p.accent,
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                      ),
+                    ),
+                    if (v != null && cap < 1)
+                      Positioned(
+                        left: (c.maxWidth * cap - 1).clamp(0.0, c.maxWidth - 2),
+                        top: 0,
+                        bottom: 0,
+                        child: Container(width: 2, color: p.text),
+                      ),
+                  ]),
                 ),
               ),
-              Text(
-                v == null ? 'volume' : (v.level >= v.max && v.max < v.steps ? 'max' : 'volume'),
-                style: TextStyle(fontSize: 12, color: p.textDim),
+              const SizedBox(height: 4),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    v == null ? '—' : (v.muted ? 'Muted' : '${v.level}'),
+                    key: const ValueKey('media-volume-level'),
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: tabular,
+                      color: v != null && v.muted ? p.advisory : p.text,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(atCap ? 'max' : 'volume',
+                        maxLines: 1, overflow: TextOverflow.clip, style: TextStyle(fontSize: 12, color: p.textDim)),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        button('media-volume-up', 'Volume up', Icons.volume_up_rounded, const VolumeChange.steps(1)),
+        const SizedBox(width: 10),
+        square(button('media-volume-up', 'Volume up', Icons.volume_up_rounded, const VolumeChange.steps(1))),
         const SizedBox(width: kGap),
-        button(
+        square(button(
           'media-volume-mute',
           v != null && v.muted ? 'Unmute' : 'Mute',
           Icons.volume_off_rounded,
           const VolumeChange.toggleMute(),
           selected: v != null && v.muted,
-        ),
+        )),
       ],
     );
   }

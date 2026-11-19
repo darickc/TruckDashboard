@@ -359,3 +359,30 @@ from the AGL Vimba 22.0.1 tree and its downloads in the build VM
    1 s later. Press Pause on the screen during a prompt: it stays paused.
    Record how the voice sounds through the speakers and how long Flite takes
    for a typical prompt.
+
+
+## Amendment: the Media screen's layout (2026-11-18)
+
+From the design review (owner, 2026-11-18: "Do the media page"). What the
+screen says is unchanged; how it is laid out changes:
+
+- **The source and the track sit beside the picture** (up to 240 px), so
+  the room under the title is no longer empty. The title is larger and the
+  track is centred in the room left above the progress bar.
+- **The source's badges** (directions, streaming, no crossover, simulated)
+  are on their own line under its name and wrap, instead of sharing its
+  line and cutting it short in the narrower column.
+- **Phones is an icon button** at the top right, and becomes a worded button
+  ("Phones · pairing request", "· connecting…", "· pairing open") when
+  something needs the driver.
+- **Transport: Previous, Play/Pause, Next as large icon buttons** (72 px
+  high; Play/Pause the widest and marked), their words as the buttons'
+  labels for accessibility.
+- **The volume** ([ADR-0043](0043-master-volume-and-the-volume-knob.md)):
+  − and + around a bar of the level with its cap marked, the number under
+  it, Mute at the right edge.
+
+[SIM]: `test/widget/media_test.dart` (the layout group: positions, button
+sizes, Phones' two forms, the volume bar, every badge under an alert in
+both themes) and the existing Media tests; checked in the browser at
+800×480.

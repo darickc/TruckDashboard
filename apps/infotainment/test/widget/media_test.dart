@@ -326,10 +326,9 @@ void main() {
     final h = await Harness.start(tester, audio: audio);
     await h.goTo(AppScreen.media);
     expect(text(tester, 'media-headline'), 'Connected to Pixel 8');
-    // The badges follow the name: no empty room is kept between them (which
-    // used to cut the name short with space to spare).
-    expect(tester.getRect(key('media-streaming')).left - tester.getRect(key('media-source')).right,
-        closeTo(6, 0.5));
+    // The badges sit on their own line under the name, so they never cut it
+    // short (redesign 2026-11-18; they once kept empty room beside it).
+    expect(tester.getRect(key('media-streaming')).top, greaterThan(tester.getRect(key('media-source')).bottom));
     expect(text(tester, 'media-explain'), contains('no AVRCP player'));
     await tester.tap(key('media-play-pause'));
     await tester.pump();
@@ -860,5 +859,97 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(text(tester, 'spk-fader'), 'Centre');
+  });
+  group('layout (redesign 2026-11-18)', () {
+    const playingReport = AudioReport(
+      phone: phone,
+      streaming: true,
+      simulated: true,
+      pausedForPrompt: true,
+      volume: VolumeStatus(level: 15, max: 24, steps: 30, applied: true),
+      nowPlaying: NowPlaying(
+        title: 'A song with quite a long title that has to wrap onto two lines',
+        artist: 'Band',
+        album: 'Album',
+        state: PlayState.playing,
+        position: Duration(seconds: 18),
+        duration: Duration(seconds: 185),
+      ),
+    );
+
+    testWidgets('the source and track sit beside the picture; badges under the name', (tester) async {
+      final audio = FakeAudio()..value = up(playingReport);
+      final h = await Harness.start(tester, audio: audio);
+      await h.goTo(AppScreen.media);
+      final art = tester.getRect(key('media-cover-none'));
+      expect(tester.getRect(key('media-source')).left, greaterThan(art.right));
+      expect(tester.getRect(key('media-title')).left, greaterThan(art.right));
+      expect(
+        tester.getRect(key('media-directions')).top,
+        greaterThan(tester.getRect(key('media-source')).bottom),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('transport: large buttons, play/pause the widest and marked', (tester) async {
+      final audio = FakeAudio()..value = up(playingReport);
+      final h = await Harness.start(tester, audio: audio);
+      await h.goTo(AppScreen.media);
+      expectTouchTargets(tester, 'media');
+      final play = tester.getSize(key('media-play-pause'));
+      expect(play.width, greaterThan(tester.getSize(key('media-next')).width));
+      expect(play.height, greaterThanOrEqualTo(72));
+      expect(tester.widget<TapTarget>(key('media-play-pause')).selected, isTrue);
+      expect(tester.widget<TapTarget>(key('media-play-pause')).label, 'Pause');
+    });
+
+    testWidgets('Phones is an icon until something needs the driver', (tester) async {
+      final audio = FakeAudio()..value = up(playingReport);
+      final h = await Harness.start(tester, audio: audio);
+      await h.goTo(AppScreen.media);
+      expect(tester.getSize(key('media-phones')), const Size(kMinTouch, kMinTouch));
+      expect(find.descendant(of: key('media-phones'), matching: find.byType(Text)), findsNothing);
+      expect(tester.widget<TapTarget>(key('media-phones')).label, 'Phones');
+      audio.value = up(
+        const AudioReport(
+          phone: phone,
+          connect: ConnectStatus(address: 'b', name: 'Old'),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Phones · connecting…'), findsOneWidget);
+    });
+
+    testWidgets('the volume bar follows the level', (tester) async {
+      final audio = FakeAudio()..value = up(playingReport);
+      final h = await Harness.start(tester, audio: audio);
+      await h.goTo(AppScreen.media);
+      final track = tester.getSize(
+        find.ancestor(of: key('media-volume-bar'), matching: find.byType(Stack)).first,
+      );
+      expect(tester.getSize(key('media-volume-bar')).width, closeTo(track.width * 15 / 30, 0.5));
+    });
+
+    for (final theme in DayNight.values) {
+      testWidgets('lays out under an alert with every badge, ${theme.name}', (tester) async {
+        final audio = FakeAudio()
+          ..value = up(
+            const AudioReport(
+              phone: Phone(address: 'x', name: 'A phone with a very long name indeed', connected: true),
+              streaming: true,
+              pausedForPrompt: true,
+              pairing: PairingStatus(phase: PairingPhase.open, secondsLeft: 90),
+              volume: VolumeStatus(level: 0, max: 30, steps: 30, muted: true),
+              nowPlaying: NowPlaying(title: 'T', state: PlayState.paused),
+            ),
+          );
+        final h = await Harness.start(tester, scenario: 'link_loss', theme: theme, audio: audio);
+        await h.advance(const Duration(seconds: 100));
+        await h.goTo(AppScreen.media);
+        expect(find.byKey(const ValueKey('alert-banner')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expectTouchTargets(tester, 'media under an alert');
+      });
+    }
   });
 }

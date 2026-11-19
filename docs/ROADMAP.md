@@ -589,6 +589,10 @@ Settings › Display `[SIM]` ([ADR-0029](architecture/adr/0029-settings-screen.m
 Display (three sections now); Theme is Auto, Day, Night with Auto shown dim when power-manager can't run it; brightness is
 a ten-step bar between − and +. Not yet on the Pi's panel.
 
+Media screen layout `[SIM]` ([ADR-0039](architecture/adr/0039-audio-manager.md) amendment, 2026-11-18): the source and
+track beside the picture, badges on their own line, Phones as an icon (worded when it needs the driver), large transport
+buttons, the volume as a bar between − and +. Not yet on the Pi's panel.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.

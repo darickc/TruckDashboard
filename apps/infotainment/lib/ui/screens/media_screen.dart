@@ -8,14 +8,15 @@ import '../theme.dart';
 import '../widgets/badges.dart';
 import '../widgets/panel.dart';
 import '../widgets/audio_button.dart';
+import '../widgets/tap_target.dart';
 import '../widgets/volume.dart';
 
-/// Bluetooth audio from a phone (ADR-0039), the full width: what is
-/// playing, with the track's picture when the phone sends one (ADR-0042),
-/// and the transport controls with the volume beside them (ADR-0043).
-/// Phones (paired phones, connecting
-/// one, pairing a new one) is a screen of its own, opened from the button at
-/// the top right. Everything comes from services/audio-manager; nothing is
+/// Bluetooth audio from a phone (ADR-0039), the full width: the track's
+/// picture when the phone sends one (ADR-0042) with the source and the
+/// track beside it, then the transport buttons and the volume (ADR-0043).
+/// Phones (paired phones, connecting one, pairing a new one) is a screen of
+/// its own, opened from the button at the top right: an icon, worded when
+/// something needs the driver. Everything comes from services/audio-manager; nothing is
 /// shown as current without it, and a phone that has gone takes its track
 /// with it.
 class MediaScreen extends StatefulWidget {
@@ -80,11 +81,12 @@ class _MediaScreenState extends State<MediaScreen> {
     );
   }
 
-  /// Phones, at the top right: the connected phone's name, or what needs
-  /// the driver (a phone asking to pair, a connection being tried).
+  /// Phones, at the top right: an icon, or a worded button when something
+  /// needs the driver (a phone asking to pair, a connection being tried,
+  /// pairing open).
   Widget _phonesButton(AudioReport r) {
     final screens = AppScope.of(context).screens;
-    final String label;
+    final String? label;
     if (r.pairing.question != null) {
       label = 'Phones · pairing request';
     } else if (r.connect.busy) {
@@ -92,18 +94,34 @@ class _MediaScreenState extends State<MediaScreen> {
     } else if (r.pairing.open) {
       label = 'Phones · pairing open';
     } else {
-      label = 'Phones';
+      label = null;
+    }
+    void open() {
+      AppScope.of(context).phoneTab.value = PhoneTab.phones;
+      screens.open(AppScreen.phones);
+    }
+
+    if (label == null) {
+      return SizedBox(
+        width: kMinTouch,
+        height: kMinTouch,
+        child: TapTarget(
+          key: const ValueKey('media-phones'),
+          label: 'Phones',
+          padding: EdgeInsets.zero,
+          onTap: open,
+          child: Icon(Icons.smartphone_rounded, size: 26, color: Palette.of(context).text),
+        ),
+      );
     }
     return SizedBox(
-      width: 250,
+      width: 230,
+      height: kMinTouch,
       child: AudioButton(
         key: const ValueKey('media-phones'),
         text: label,
         icon: Icons.smartphone_rounded,
-        onTap: () {
-          AppScope.of(context).phoneTab.value = PhoneTab.phones;
-          screens.open(AppScreen.phones);
-        },
+        onTap: open,
         emphasis: r.pairing.question != null,
       ),
     );
@@ -113,38 +131,37 @@ class _MediaScreenState extends State<MediaScreen> {
     final p = Palette.of(context);
     final phone = r.phone;
     final np = r.nowPlaying;
-    // The source and its badges at the left, taking the room they need
-    // (the name ellipsized only when it must be), Phones at the right.
-    Widget header() => Row(children: [
-          Icon(Icons.bluetooth_audio_rounded, size: 22, color: phone == null ? p.textDim : p.accent),
-          const SizedBox(width: 6),
+    // The source's state as badges, on their own line under its name so
+    // they never crowd it (or the Phones button) in the column beside the
+    // picture; they wrap rather than overflow.
+    final badges = <Widget>[
+      if (r.pausedForPrompt || r.speaking)
+        Pill(r.pausedForPrompt ? 'PAUSED FOR DIRECTIONS' : 'DIRECTIONS',
+            key: const ValueKey('media-directions'), color: p.accent),
+      if (r.streaming) Pill('STREAMING', key: const ValueKey('media-streaming'), color: p.ok),
+      // Without the filter-chain the speakers get the plain stereo mix:
+      // said, except in the simulation (which never has one).
+      if (r.dsp == DspPhase.notRunning && !r.simulated)
+        Pill('NO CROSSOVER', key: const ValueKey('media-dsp'), color: p.advisory),
+      if (r.simulated) Pill('SIMULATED', key: const ValueKey('media-simulated'), color: p.simulated),
+    ];
+    Widget header() => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
-            child: Row(children: [
-              Flexible(
-                child: Text(phone == null ? 'Bluetooth' : 'Bluetooth · ${phone.name}',
-                    key: const ValueKey('media-source'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.textDim)),
-              ),
-              if (r.pausedForPrompt || r.speaking) ...[
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(Icons.bluetooth_audio_rounded, size: 22, color: phone == null ? p.textDim : p.accent),
                 const SizedBox(width: 6),
-                Pill(r.pausedForPrompt ? 'PAUSED FOR DIRECTIONS' : 'DIRECTIONS',
-                    key: const ValueKey('media-directions'), color: p.accent),
-              ],
-              if (r.streaming) ...[
-                const SizedBox(width: 6),
-                Pill('STREAMING', key: const ValueKey('media-streaming'), color: p.ok),
-              ],
-              // Without the filter-chain the speakers get the plain stereo
-              // mix: said, except in the simulation (which never has one).
-              if (r.dsp == DspPhase.notRunning && !r.simulated) ...[
-                const SizedBox(width: 6),
-                Pill('NO CROSSOVER', key: const ValueKey('media-dsp'), color: p.advisory),
-              ],
-              if (r.simulated) ...[
-                const SizedBox(width: 6),
-                Pill('SIMULATED', key: const ValueKey('media-simulated'), color: p.simulated),
+                Flexible(
+                  child: Text(phone == null ? 'Bluetooth' : 'Bluetooth · ${phone.name}',
+                      key: const ValueKey('media-source'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.textDim)),
+                ),
+              ]),
+              if (badges.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 4, children: badges),
               ],
             ]),
           ),
@@ -180,90 +197,100 @@ class _MediaScreenState extends State<MediaScreen> {
 
     final controlsEnabled = np != null && !_busy;
     final playing = np?.state == PlayState.playing;
+    final info = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      header(),
+      const SizedBox(height: 6),
+      Expanded(
+        child: np == null
+            ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const SizedBox(height: 4),
+                Text(headline,
+                    key: const ValueKey('media-headline'),
+                    style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: p.text)),
+                const SizedBox(height: 6),
+                Text(explain,
+                    key: const ValueKey('media-explain'),
+                    style: TextStyle(
+                        fontSize: 17,
+                        color: !r.bluetoothReady || (phone == null && c.detail.isNotEmpty && !c.busy)
+                            ? p.advisory
+                            : p.textDim)),
+              ])
+            : _trackText(np),
+      ),
+    ]);
     return Panel(
       padding: const EdgeInsets.all(12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        header(),
-        const SizedBox(height: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Expanded(
           child: np == null
-              ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(headline,
-                      key: const ValueKey('media-headline'),
-                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: p.text)),
-                  const SizedBox(height: 6),
-                  Text(explain,
-                      key: const ValueKey('media-explain'),
-                      style: TextStyle(
-                          fontSize: 17,
-                          color: !r.bluetoothReady || (phone == null && c.detail.isNotEmpty && !c.busy)
-                              ? p.advisory
-                              : p.textDim)),
-                ])
-              : _track(np, audio),
+              ? info
+              // The picture at the left, as big as the room allows, the
+              // source and the track beside it.
+              : LayoutBuilder(builder: (context, box) {
+                  final side = math.min(box.maxHeight, 240.0);
+                  return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    SizedBox(
+                      width: side,
+                      height: side,
+                      child: CoverArt(audio: audio, id: np.coverArtId, detail: np.coverArtDetail),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(child: info),
+                  ]);
+                }),
         ),
         if (_message != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.only(top: 4),
             child: Text(_message!,
                 key: const ValueKey('media-message'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 14, color: p.advisory)),
           ),
-        Row(children: [
-          Expanded(
-              child: AudioButton(
-                  key: const ValueKey('media-previous'),
-                  text: 'Previous',
-                  icon: Icons.skip_previous_rounded,
-                  onTap: controlsEnabled ? () => _run(() => audio.control(MediaCommand.previous)) : null)),
-          const SizedBox(width: kGap),
-          Expanded(
-              child: AudioButton(
-                  key: const ValueKey('media-play-pause'),
-                  text: playing ? 'Pause' : 'Play',
-                  icon: playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  onTap: controlsEnabled
-                      ? () => _run(() => audio.control(playing ? MediaCommand.pause : MediaCommand.play))
-                      : null,
-                  emphasis: true)),
-          const SizedBox(width: kGap),
-          Expanded(
-              child: AudioButton(
-                  key: const ValueKey('media-next'),
-                  text: 'Next',
-                  icon: Icons.skip_next_rounded,
-                  onTap: controlsEnabled ? () => _run(() => audio.control(MediaCommand.next)) : null)),
-          const SizedBox(width: kGap * 2),
-          // With or without a phone: the volume is the speakers'.
-          VolumeControls(
-            audio: audio,
-            volume: r.volume,
-            onNote: (note) {
-              if (mounted) setState(() => _message = note);
-            },
-          ),
-        ]),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 72,
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            _TransportButton(
+                keyName: 'media-previous',
+                label: 'Previous',
+                icon: Icons.skip_previous_rounded,
+                width: 88,
+                onTap: controlsEnabled ? () => _run(() => audio.control(MediaCommand.previous)) : null),
+            const SizedBox(width: kGap),
+            _TransportButton(
+                keyName: 'media-play-pause',
+                label: playing ? 'Pause' : 'Play',
+                icon: playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                width: 120,
+                emphasis: true,
+                onTap: controlsEnabled
+                    ? () => _run(() => audio.control(playing ? MediaCommand.pause : MediaCommand.play))
+                    : null),
+            const SizedBox(width: kGap),
+            _TransportButton(
+                keyName: 'media-next',
+                label: 'Next',
+                icon: Icons.skip_next_rounded,
+                width: 88,
+                onTap: controlsEnabled ? () => _run(() => audio.control(MediaCommand.next)) : null),
+            const Spacer(),
+            // With or without a phone: the volume is the speakers'.
+            Center(
+              child: VolumeControls(
+                audio: audio,
+                volume: r.volume,
+                onNote: (note) {
+                  if (mounted) setState(() => _message = note);
+                },
+              ),
+            ),
+          ]),
+        ),
       ]),
     );
-  }
-
-  /// The picture at the left, as big as the room allows, and the track
-  /// beside it.
-  Widget _track(NowPlaying np, AudioSource audio) {
-    return LayoutBuilder(builder: (context, c) {
-      final side = math.min(c.maxHeight, 220.0);
-      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(
-          width: side,
-          height: side,
-          child: CoverArt(audio: audio, id: np.coverArtId, detail: np.coverArtDetail),
-        ),
-        const SizedBox(width: 16),
-        Expanded(child: _trackText(np)),
-      ]);
-    });
   }
 
   Widget _trackText(NowPlaying np) {
@@ -283,23 +310,30 @@ class _MediaScreenState extends State<MediaScreen> {
       PlayState.unknown => 'State unknown',
     };
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(np.title.isEmpty ? 'Untitled (the phone sent no title)' : np.title,
-          key: const ValueKey('media-title'),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: p.text)),
-      const SizedBox(height: 4),
-      Text(np.artist,
-          key: const ValueKey('media-artist'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 19, color: p.text)),
-      Text(np.album,
-          key: const ValueKey('media-album'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 15, color: p.textDim)),
-      const Spacer(),
+      // The track in the middle of the room left, not pushed to the top.
+      Expanded(
+        child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(np.title.isEmpty ? 'Untitled (the phone sent no title)' : np.title,
+                  key: const ValueKey('media-title'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 30, height: 1.15, fontWeight: FontWeight.w800, color: p.text)),
+              const SizedBox(height: 4),
+              Text(np.artist,
+                  key: const ValueKey('media-artist'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 20, color: p.text)),
+              Text(np.album,
+                  key: const ValueKey('media-album'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 15, color: p.textDim)),
+            ]),
+      ),
       ClipRRect(
         borderRadius: BorderRadius.circular(4),
         child: LinearProgressIndicator(
@@ -328,10 +362,48 @@ class _MediaScreenState extends State<MediaScreen> {
                     ? formatTrackTime(pos)
                     : '${formatTrackTime(pos)} / ${formatTrackTime(d)}',
             key: const ValueKey('media-time'),
-            style: TextStyle(fontSize: 14, color: p.textDim)),
+            style: TextStyle(fontSize: 14, fontFeatures: tabular, color: p.textDim)),
       ]),
-      const SizedBox(height: 8),
     ]);
+  }
+}
+
+/// A transport button: a large icon, its word as the semantic label (the
+/// icons are the usual ones). Dim and inert without a player.
+class _TransportButton extends StatelessWidget {
+  const _TransportButton({
+    required this.keyName,
+    required this.label,
+    required this.icon,
+    required this.width,
+    required this.onTap,
+    this.emphasis = false,
+  });
+
+  final String keyName;
+  final String label;
+  final IconData icon;
+  final double width;
+  final VoidCallback? onTap;
+  final bool emphasis;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Palette.of(context);
+    return SizedBox(
+      width: width,
+      child: Opacity(
+        opacity: onTap == null ? 0.45 : 1,
+        child: TapTarget(
+          key: ValueKey(keyName),
+          label: onTap == null ? '$label (unavailable)' : label,
+          selected: emphasis && onTap != null,
+          padding: EdgeInsets.zero,
+          onTap: onTap ?? () {},
+          child: Icon(icon, size: emphasis ? 40 : 34, color: p.text),
+        ),
+      ),
+    );
   }
 }
 
