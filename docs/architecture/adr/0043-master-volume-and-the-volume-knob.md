@@ -110,8 +110,9 @@ comes back as saved, still no higher than the cap (`AUDIO_VOLUME_MAX`).
 Mute is not remembered: audio-manager always starts unmuted, so a muted
 head unit never looks broken after a restart. The save is also flushed to
 disk (decision 4), because the key can go off a moment after a change.
-[SIM] only (`make rust-test`): not seen across a reboot on the Pi yet
-(bench check 24).
+[BENCH] 2026-11-18 (bench-log): two reboots of the bench Pi came back at
+the saved level (19, then 22 set with a volume key). A power cut right
+after a change is not tested.
 
 ## Alternatives considered
 

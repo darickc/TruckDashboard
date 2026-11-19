@@ -3217,3 +3217,25 @@ gps-clock now uses those options, `util-linux-hwclock` is no longer added
 to the image, and the fixed build is deployed and running (01:53:34 UTC).
 
 Not tested: a real receiver (H11), so no step or confirmation from GPS yet.
+
+## 2026-11-18 — The volume across reboots (25c6526, ADR-0043 amendment) [BENCH]
+
+Before the deploy, image 58beac2's audio-manager had logged "volume: saved 24,
+starting at 15 (the start maximum)" at its last boot: the start cap the
+owner's request removes. Deployed 25c6526 with `make deploy`; `stage1-setup.sh
+--check`: all checks passed; `/etc/default/f250` unchanged
+(`AUDIO_VOLUME_START_MAX` empty, so no start cap).
+
+1. `volume.json` held 19 (set from the dashboard before the deploy).
+   `systemctl reboot`: "volume: starting at 19, as saved"; the speakers'
+   filter-chain started after it with no `pw-cli` errors.
+2. Three `KEY_VOLUMEUP` presses from a temporary uinput keyboard
+   (audio-manager found it on its 5 s rescan, as it would a USB knob):
+   "knob: volume 22 (-16 dB)", `volume.json` `{"level":22}` and no
+   `volume.json.new` left in `/var/lib/f250-audio/`. `systemctl reboot`:
+   "volume: starting at 22, as saved".
+
+Not tested: a power cut (key off without a clean shutdown) within seconds of
+a change, which is what the new fsync is for; nothing listened to (no
+phone playing during the checks); the dashboard's level after the reboot
+wasn't looked at on the panel.
