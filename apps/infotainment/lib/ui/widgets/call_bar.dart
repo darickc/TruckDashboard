@@ -7,6 +7,17 @@ import '../theme.dart';
 import 'badges.dart';
 import 'tap_target.dart';
 
+/// Up to two initials from a caller's name, for the Phone screen's call
+/// view; none for a number or a withheld caller (a person icon instead).
+abstract final class CallBarInitials {
+  static String of(PhoneCall call) {
+    if (call.withheld || call.name.trim().isEmpty) return '';
+    final words =
+        call.name.trim().split(RegExp(r'\s+')).where((w) => RegExp(r'^\p{L}', unicode: true).hasMatch(w));
+    return words.take(2).map((w) => w.characters.first.toUpperCase()).join();
+  }
+}
+
 /// A phone call (ADR-0045 decision 5), over the top of whatever screen shows:
 /// below the status bar and the alert banner (vehicle alerts stay above it),
 /// on every screen. Ringing: who is calling, Answer and Decline (a waiting
@@ -108,11 +119,16 @@ class _CallBarState extends State<CallBar> {
         CallPhase.dialing => 'Calling…',
         CallPhase.alerting => 'Ringing…',
         CallPhase.held => 'On hold',
-        CallPhase.active => 'In call · ${formatTrackTime(call.active)}',
+        // The time is the large figure under the caller.
+        CallPhase.active => 'In call',
         CallPhase.unknown => 'Call',
       };
 
-  /// The Phone screen: the caller large in the middle, the buttons below.
+
+
+  /// The Phone screen (redesign 2026-11-18): what is happening at the top,
+  /// the caller's initials, name and details in the middle with the call's
+  /// time large, and a full-width row of large buttons at the bottom.
   Widget _large(BuildContext context, AudioReport report, CallsStatus calls, PhoneCall call) {
     final p = Palette.of(context);
     final note = _noteCall == call.id ? _note : '';
@@ -123,50 +139,137 @@ class _CallBarState extends State<CallBar> {
       if (calls.otherCalls > 0) '${calls.otherCalls} more on the phone',
       if (calls.phoneName.isNotEmpty) 'on ${calls.phoneName}',
     ].join(' · ');
+    final letters = CallBarInitials.of(call);
     return Container(
       key: const ValueKey('call-view'),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: p.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: accent, width: 2),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
-          Icon(icon, size: 30, color: accent),
+          Icon(icon, size: 26, color: accent),
           const SizedBox(width: 10),
           Expanded(
             child: Text(_status(call),
                 key: const ValueKey('call-status'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: accent)),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: accent)),
           ),
           if (report.simulated) Pill('SIMULATED', color: p.simulated),
         ]),
         Expanded(
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(call.caller,
-                  key: const ValueKey('call-caller'),
-                  maxLines: 1,
-                  style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: p.text)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(
+              key: const ValueKey('call-avatar'),
+              width: 96,
+              height: 96,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: accent.withValues(alpha: 0.22), shape: BoxShape.circle),
+              child: letters.isEmpty
+                  ? Icon(Icons.person_rounded, size: 52, color: accent)
+                  : Text(letters,
+                      key: const ValueKey('call-initials'),
+                      style: TextStyle(fontSize: 36, fontWeight: FontWeight.w800, color: p.text)),
             ),
-            if (note.isNotEmpty || details.isNotEmpty)
-              Text(
-                note.isNotEmpty ? note : details,
-                key: const ValueKey('call-detail'),
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 18, color: note.isNotEmpty ? p.critical : p.textDim),
-              ),
+            const SizedBox(width: 22),
+            Flexible(
+              child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(call.caller,
+                          key: const ValueKey('call-caller'),
+                          maxLines: 1,
+                          style: TextStyle(fontSize: 38, height: 1.1, fontWeight: FontWeight.w800, color: p.text)),
+                    ),
+                    if (note.isNotEmpty || details.isNotEmpty)
+                      Text(
+                        note.isNotEmpty ? note : details,
+                        key: const ValueKey('call-detail'),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 16, color: note.isNotEmpty ? p.critical : p.textDim),
+                      ),
+                    if (call.phase == CallPhase.active)
+                      Text(formatTrackTime(call.active),
+                          key: const ValueKey('call-timer'),
+                          style: TextStyle(
+                              fontSize: 44, height: 1.15, fontWeight: FontWeight.w300, fontFeatures: tabular, color: p.text)),
+                  ]),
+            ),
           ]),
         ),
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: _buttons(context, calls, call)),
+        SizedBox(height: 80, child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: _largeButtons(context, calls, call))),
       ]),
     );
+  }
+
+  /// The Phone screen's buttons: 80 px high, side by side across the full
+  /// width. Hang up and Decline are filled red, Answer filled green; Mute
+  /// takes less room than Hang up.
+  List<Widget> _largeButtons(BuildContext context, CallsStatus calls, PhoneCall call) {
+    final p = Palette.of(context);
+    Widget button(String key, String text, IconData icon, VoidCallback onTap,
+        {Color? fill, Color? color, bool selected = false, String? label, int flex = 1}) {
+      final fg = fill != null ? TapTarget.onFill(fill) : (color ?? p.text);
+      return Expanded(
+        flex: flex,
+        child: TapTarget(
+          key: ValueKey(key),
+          label: label ?? '$text: ${call.caller}',
+          selected: selected,
+          fill: fill,
+          onTap: onTap,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 30, color: fg),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: fg)),
+            ),
+          ]),
+        ),
+      );
+    }
+
+    final hangUp = button('call-hang-up', call.rings ? 'Decline' : 'Hang up', Icons.call_end_rounded,
+        () => _ask(call.id, () => widget.audio.hangUp(call.id)),
+        fill: p.critical, flex: call.phase == CallPhase.active ? 8 : 5);
+    const gap = SizedBox(width: kGap + 2);
+    return switch (call.phase) {
+      CallPhase.incoming => [
+          hangUp,
+          gap,
+          button('call-answer', 'Answer', Icons.call_rounded,
+              () => _ask(call.id, () => widget.audio.answerCall(call.id)),
+              fill: p.ok, flex: 5),
+        ],
+      CallPhase.active => [
+          button(
+            'call-mute',
+            calls.micMuted ? 'Muted' : 'Mute',
+            calls.micMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+            () => _ask(call.id, () => widget.audio.setMicMuted(!calls.micMuted)),
+            color: calls.micMuted ? p.advisory : p.text,
+            selected: calls.micMuted,
+            label: calls.micMuted ? 'Unmute the microphone' : 'Mute the microphone',
+            flex: 5,
+          ),
+          gap,
+          hangUp,
+        ],
+      // Dialling, ringing out, on hold, waiting: Hang up alone, centred.
+      _ => [const Spacer(flex: 2), hangUp, const Spacer(flex: 2)],
+    };
   }
 
   /// Camera mode: the caller over two lines, the buttons side by side.
@@ -276,14 +379,13 @@ class _CallBarState extends State<CallBar> {
   List<Widget> _buttons(BuildContext context, CallsStatus calls, PhoneCall call) {
     final p = Palette.of(context);
     final compact = widget.compact;
-    final large = widget.large;
     Widget button(String key, String text, IconData icon, Color color, VoidCallback onTap,
             {bool selected = false, String? label}) =>
         Padding(
           padding: EdgeInsets.only(left: compact ? 0 : kGap, right: compact ? 3 : 0),
           child: SizedBox(
-            width: compact ? double.infinity : (large ? 200 : 140),
-            height: large ? 76 : kMinTouch,
+            width: compact ? double.infinity : 140,
+            height: kMinTouch,
             child: TapTarget(
               key: ValueKey(key),
               label: label ?? '$text: ${call.caller}',
@@ -291,14 +393,14 @@ class _CallBarState extends State<CallBar> {
               padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 8),
               onTap: onTap,
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(icon, size: compact ? 22 : (large ? 32 : 26), color: color),
+                Icon(icon, size: compact ? 22 : 26, color: color),
                 SizedBox(width: compact ? 3 : 6),
                 Flexible(
                   child: Text(text,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: compact ? 15 : (large ? 20 : 17), fontWeight: FontWeight.w800, color: color)),
+                          fontSize: compact ? 15 : 17, fontWeight: FontWeight.w800, color: color)),
                 ),
               ]),
             ),

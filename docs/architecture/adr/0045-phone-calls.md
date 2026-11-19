@@ -478,3 +478,29 @@ microphone and a powered speaker on the front jack (bench-log 2026-11-15).
 5. **Not tested yet:** muting `f250.call-aec` from the screen, a volume
    change during a call, a louder speaker or a real amplifier, the truck's
    cab and microphone (S4).
+
+
+## Amendment, 2026-11-18: the Phone screen's call view `[SIM]`
+
+From the design review (owner, 2026-11-18: "In-call screen"). The call
+shown large on the Phone screen (phase 2) changes layout only; the bar
+over other screens and camera mode's panel are unchanged.
+
+- **The middle:** the caller's initials in a circle (up to two, from
+  words that start with a letter; a person icon for a number or a
+  withheld caller), the caller, the details line as before, and, while the
+  call is active, its time large under them. The status line at the top
+  then reads "In call" without the time.
+- **The bottom:** a full-width row of 80 px buttons. Active: Mute, and a
+  wider, filled red Hang up. Incoming: filled red Decline and filled green
+  Answer, equal. Dialling, ringing out, on hold, waiting: Hang up alone,
+  centred. `TapTarget` gains an optional fill colour; the label on it is
+  white or near-black, whichever reads.
+- Not added: a line saying the call's audio is on the truck's speakers
+  (the mockup had one); the dashboard doesn't know where the phone sends
+  a call's audio.
+
+[SIM]: `test/widget/phone_test.dart` (the initials and the person icon,
+the timer, the buttons' sizes, fills and span, an incoming call's two
+filled buttons, under an alert in both themes) and `call_test.dart`;
+checked in the browser at 800×480.

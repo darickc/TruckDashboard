@@ -13,6 +13,7 @@ class TapTarget extends StatelessWidget {
     required this.child,
     this.selected = false,
     this.padding = const EdgeInsets.symmetric(horizontal: 12),
+    this.fill,
   });
 
   final String label;
@@ -20,6 +21,14 @@ class TapTarget extends StatelessWidget {
   final Widget child;
   final bool selected;
   final EdgeInsets padding;
+
+  /// A filled button in this colour (Hang up, Answer) instead of the usual
+  /// surface; its child chooses a readable colour on it ([onFill]).
+  final Color? fill;
+
+  /// White or near-black, whichever reads on [fill].
+  static Color onFill(Color fill) =>
+      ThemeData.estimateBrightnessForColor(fill) == Brightness.dark ? Colors.white : const Color(0xFF0B0D10);
 
   @override
   Widget build(BuildContext context) {
@@ -29,10 +38,11 @@ class TapTarget extends StatelessWidget {
       selected: selected,
       label: label,
       child: Material(
-        color: selected ? p.accent.withValues(alpha: 0.18) : p.surfaceHigh,
+        color: fill ?? (selected ? p.accent.withValues(alpha: 0.18) : p.surfaceHigh),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: selected ? p.accent : p.border, width: selected ? 2 : 1),
+          side: BorderSide(
+              color: fill ?? (selected ? p.accent : p.border), width: selected && fill == null ? 2 : 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(

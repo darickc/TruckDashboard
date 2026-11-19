@@ -601,6 +601,9 @@ Nav speed and media strip `[SIM]` ([ADR-0030](architecture/adr/0030-navigation-p
 the truck's speed ("—" when not current) and a one-row player beside the bottom buttons, in the width they leave. Not
 yet on the Pi's panel, and not yet seen over a real map.
 
+Phone call view `[SIM]` ([ADR-0045](architecture/adr/0045-phone-calls.md) amendment, 2026-11-18): the caller's initials, a large
+timer, and a full-width row of 80 px buttons (a filled red Hang up or Decline, a filled green Answer). Not yet on the Pi's panel.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.

@@ -3,6 +3,8 @@ import 'package:f250_infotainment/core/settings.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
 import 'package:f250_infotainment/ui/screens/phone_lists.dart';
 import 'package:f250_infotainment/ui/theme.dart';
+import 'package:f250_infotainment/ui/widgets/call_bar.dart';
+import 'package:f250_infotainment/ui/widgets/tap_target.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -59,7 +61,8 @@ void main() {
       ..tick()
       ..tick();
     await tester.pump();
-    expect(h.textOf('call-status'), startsWith('In call · 0:0'));
+    expect(h.textOf('call-status'), 'In call');
+    expect(h.textOf('call-timer'), matches(RegExp(r'^0:0\d$')), reason: 'the time, large, under the caller');
     expect(key('call-mute'), findsOneWidget);
     expect(tester.getSize(key('call-hang-up')).height, greaterThanOrEqualTo(kMinTouch));
     expectTouchTargets(tester, 'call view');
@@ -222,5 +225,85 @@ void main() {
     expect(recentTime(DateTime(2026, 11, 14, 8, 5), now), 'Today 8:05 AM');
     expect(recentTime(DateTime(2026, 11, 13, 17, 10), now), 'Yesterday 5:10 PM');
     expect(recentTime(DateTime(2026, 11, 2, 0, 30), now), 'Nov 2 12:30 AM');
+  });
+
+  group('the call view (redesign 2026-11-18)', () {
+    Future<Harness> inCall(WidgetTester tester, SimulatedAudioSource sim, {DayNight theme = DayNight.night}) async {
+      final h = await onPhone(tester, sim, theme: theme);
+      await tester.tap(key('contact-call-0'));
+      await tester.pump();
+      for (var i = 0; i < 6; i++) {
+        sim.tick();
+      }
+      await tester.pump();
+      return h;
+    }
+
+    testWidgets('the caller\'s initials, a large timer, Mute and a filled Hang up across the width', (tester) async {
+      final sim = SimulatedAudioSource(autoRun: false);
+      final h = await inCall(tester, sim);
+      expect(h.textOf('call-initials'), 'AR');
+      expect(h.textOf('call-timer'), isNotNull);
+      final view = tester.getRect(key('call-view'));
+      final mute = tester.getRect(key('call-mute'));
+      final hang = tester.getRect(key('call-hang-up'));
+      expect(mute.height, greaterThanOrEqualTo(80));
+      expect(hang.height, greaterThanOrEqualTo(80));
+      expect(hang.width, greaterThan(mute.width), reason: 'Hang up is the larger');
+      expect(hang.right, closeTo(view.right - 16, 2), reason: 'the row spans the view');
+      expect(mute.left, closeTo(view.left + 16, 2));
+      final fill = tester.widget<TapTarget>(key('call-hang-up')).fill;
+      expect(fill, Palette.night.critical);
+      expect(tester.widget<TapTarget>(key('call-mute')).fill, isNull);
+    });
+
+    testWidgets('a caller with no name: a person icon, no initials', (tester) async {
+      final sim = SimulatedAudioSource(autoRun: false);
+      await onPhone(tester, sim);
+      sim.ring(number: '5550100', name: '');
+      await tester.pump();
+      expect(key('call-avatar'), findsOneWidget);
+      expect(key('call-initials'), findsNothing);
+      // Ringing: Decline and Answer, both filled.
+      expect(tester.widget<TapTarget>(key('call-hang-up')).fill, Palette.night.critical);
+      expect(tester.widget<TapTarget>(key('call-answer')).fill, Palette.night.ok);
+      expect(tester.getSize(key('call-answer')).height, greaterThanOrEqualTo(80));
+    });
+
+    test('initials: up to two, from words that start with a letter', () {
+      PhoneCall c(String name, {bool withheld = false}) =>
+          PhoneCall(id: 1, phase: CallPhase.active, number: '1', name: name, withheld: withheld, active: Duration.zero);
+      expect(CallBarInitials.of(c('Alex Rivera')), 'AR');
+      expect(CallBarInitials.of(c('Taylor Diesel Repair')), 'TD');
+      expect(CallBarInitials.of(c('cher')), 'C');
+      expect(CallBarInitials.of(c('  ')), '');
+      expect(CallBarInitials.of(c('Alex', withheld: true)), '');
+      expect(CallBarInitials.of(c('555 Towing')), 'T');
+    });
+
+    test('text on a filled button reads: white on dark, near-black on light', () {
+      expect(TapTarget.onFill(Palette.day.critical), Colors.white);
+      expect(TapTarget.onFill(Palette.night.ok), isNot(Colors.white));
+    });
+
+    for (final theme in DayNight.values) {
+      testWidgets('lays out under an alert, ${theme.name}', (tester) async {
+        final sim = SimulatedAudioSource(autoRun: false);
+        final h = await Harness.start(tester, audio: sim, theme: theme, scenario: 'link_loss');
+        await h.advance(const Duration(seconds: 100));
+        h.services.phoneTab.value = PhoneTab.contacts;
+        await h.goTo(AppScreen.phones);
+        await tester.pump();
+        await tester.tap(key('contact-call-0'));
+        await tester.pump();
+        for (var i = 0; i < 6; i++) {
+          sim.tick();
+        }
+        await tester.pump();
+        expect(find.byKey(const ValueKey('alert-banner')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expectTouchTargets(tester, 'call view under an alert');
+      });
+    }
   });
 }
