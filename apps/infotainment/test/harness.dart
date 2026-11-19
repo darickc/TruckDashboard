@@ -5,6 +5,7 @@ import 'package:f250_infotainment/config/app_config.dart';
 import 'package:f250_infotainment/core/clock.dart';
 import 'package:f250_infotainment/core/power.dart';
 import 'package:f250_infotainment/core/settings.dart';
+import 'package:f250_infotainment/core/system_info.dart';
 import 'package:f250_infotainment/data/simulation_controller.dart';
 import 'package:f250_infotainment/display/display_state.dart';
 import 'package:f250_infotainment/export/export_state.dart';
@@ -55,7 +56,8 @@ class Harness {
       PlacesSource? places,
       OfflineMap? map,
       ExportSource? exports,
-      AudioSource? audio}) async {
+      AudioSource? audio,
+      SystemInfo? systemInfo}) async {
     tester.view.physicalSize = const Size(800, 480);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -84,6 +86,7 @@ class Harness {
       map: map,
       exports: exports,
       audio: audio,
+      systemInfo: systemInfo ?? FixedSystemInfo(SystemFacts.unavailable('not set by the test')),
       power: power,
       refreshPeriod: null,
     );

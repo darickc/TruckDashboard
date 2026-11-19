@@ -593,6 +593,10 @@ Media screen layout `[SIM]` ([ADR-0039](architecture/adr/0039-audio-manager.md) 
 track beside the picture, badges on their own line, Phones as an icon (worded when it needs the driver), large transport
 buttons, the volume as a bar between − and +. Not yet on the Pi's panel.
 
+Settings › System `[SIM]` ([ADR-0029](architecture/adr/0029-settings-screen.md) amendment, 2026-11-18): the image's commit,
+the OS, uptime, CPU temperature and the data drive, each saying why when it can't be read, and every service's link.
+Not yet on the Pi: whether the dashboard can read those files under its sandbox is to be checked.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.

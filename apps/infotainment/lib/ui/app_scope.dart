@@ -7,6 +7,7 @@ import '../cameras/simulated_camera_source.dart';
 import '../config/app_config.dart';
 import '../core/power.dart';
 import '../core/settings.dart';
+import '../core/system_info.dart';
 import '../data/gateway_connection.dart';
 import '../data/simulation_controller.dart';
 import '../display/display_state.dart';
@@ -94,6 +95,7 @@ class AppServices {
     OfflineMap? map,
     ExportSource? exports,
     AudioSource? audio,
+    SystemInfo? systemInfo,
     this.power = const NoPowerControl(),
     this.refreshPeriod = const Duration(milliseconds: 250),
   })  : cameras = cameras ?? SimulatedCameraSource(),
@@ -105,6 +107,7 @@ class AppServices {
         map = map ?? OfflineMap.none(),
         exports = exports ?? SimulatedExportSource(),
         audio = audio ?? SimulatedAudioSource(autoRun: false),
+        systemInfo = systemInfo ?? SystemInfo.forPlatform(),
         assert((simulation == null) != (gateway == null), 'exactly one data source');
 
   final TelemetryStore store;
@@ -149,6 +152,9 @@ class AppServices {
   /// Bluetooth audio and the speakers: services/audio-manager (ADR-0039), or
   /// a simulation of it.
   final AudioSource audio;
+
+  /// What the head unit says about itself (Settings › System).
+  final SystemInfo systemInfo;
 
   /// Whether, and how, the screen can shut the head unit down.
   final PowerControl power;

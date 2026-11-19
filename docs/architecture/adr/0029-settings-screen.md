@@ -110,3 +110,42 @@ Units were both mostly empty sections, so decision 1 changes:
 [SIM]: `test/widget/display_test.dart` (Auto unavailable and connected, the
 bar's steps, the section under an alert in both themes) and
 `settings_test.dart`; checked in the browser at 800×480.
+
+
+## Amendment: a System section (2026-11-18)
+
+From the design review (owner, 2026-11-18: "Do the System page"). Settings
+gains a fourth section, **System**: what the head unit says about itself on
+the left, every service's link on the right. Nothing on it is vehicle data,
+and nothing is checked anew: it gathers what the dashboard already reads.
+
+| Line | From | When it can't be read |
+|---|---|---|
+| Software | `F250_SRCREV` in `/etc/f250-release` (f250-system writes it at image build), shown as the short commit | "not available: no /etc/f250-release" (the Mac window, a Raspberry Pi OS install) |
+| Image | `PRETTY_NAME` in `/etc/os-release` | "not available: …", naming the file |
+| Up for | `/proc/uptime` | "not available: …", naming the file |
+| CPU temperature | `/sys/class/thermal/thermal_zone0/temp` (and its `type`), in the driver's units; a zone whose type isn't a CPU's is named | "not available: …", naming the file |
+| Data drive | camera-manager's recording report (free space and video) | "not reported (needs camera-manager)" |
+
+The facts are read when the section opens and every 5 s while it shows
+(`lib/core/system_info.dart`; the browser preview has none and says so:
+"not available: the browser preview has none").
+No temperature limit is shown or warned about: that would be a threshold,
+and thresholds are configuration (CLAUDE.md rule 10).
+
+Services, each a dot and a word or two from the link the dashboard already
+follows: vehicle data, cameras, audio and phone, power manager, GPS
+position, routing, saved places, USB export, map. Simulated sources say
+"simulated" (vehicle data: "in-app simulator").
+
+Restart and Power stay at the right of the section row (ADR-0034); the
+mockup's place for them on this page wasn't taken.
+
+**To verify on the Pi** (UNVERIFIED): that the dashboard's service can read
+`/etc/f250-release`, `/proc/uptime` and `/sys/class/thermal/thermal_zone0`
+under its sandbox, and that zone 0's type is `cpu-thermal` on the Pi 5.
+
+[SIM]: `test/unit/system_info_test.dart` (each file's parser, every file
+present, a missing or garbled file) and `test/widget/system_settings_test.dart`
+(the facts in both unit systems, unknown facts, the data drive, every
+service, under an alert in both themes); checked in the browser at 800×480.

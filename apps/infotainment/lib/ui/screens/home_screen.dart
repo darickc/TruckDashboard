@@ -16,6 +16,9 @@ import '../shell/nav_buttons.dart';
 import '../theme.dart';
 import '../widgets/badges.dart';
 import '../widgets/tap_target.dart';
+import '../tone.dart';
+
+export '../tone.dart' show HomeTone, homeToneColor;
 
 /// The screens Home opens, in the order its buttons show them.
 const homeButtons = [
@@ -26,21 +29,6 @@ const homeButtons = [
   AppScreen.phones,
   AppScreen.settings,
 ];
-
-/// What a status says about itself, mapped to a palette colour by the
-/// widget so the derivations below stay plain data (and testable).
-enum HomeTone { ok, advisory, critical, stale, accent, simulated, text, dim }
-
-Color homeToneColor(HomeTone t, Palette p) => switch (t) {
-  HomeTone.ok => p.ok,
-  HomeTone.advisory => p.advisory,
-  HomeTone.critical => p.critical,
-  HomeTone.stale => p.stale,
-  HomeTone.accent => p.accent,
-  HomeTone.simulated => p.simulated,
-  HomeTone.text => p.text,
-  HomeTone.dim => p.textDim,
-};
 
 /// One Home button's live state: a chip at its top right (optional) and one
 /// or two lines under its name. Only what the screen it opens would show:

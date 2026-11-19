@@ -170,7 +170,7 @@ void main() {
     // section, about 85 px. Beside worded Restart and Power both were scaled
     // down until Diagnostics was unreadable (bench Pi, 2026-11-14).
     expect(r.width, greaterThanOrEqualTo(145), reason: 'icon and word at full size');
-    for (final section in ['display', 'cameras', 'speakers']) {
+    for (final section in ['display', 'cameras', 'speakers', 'system']) {
       expect(tester.getSize(find.byKey(ValueKey('settings-$section'))).width, greaterThanOrEqualTo(100),
           reason: '$section\'s word at full size');
     }

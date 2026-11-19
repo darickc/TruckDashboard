@@ -9,16 +9,19 @@ import '../widgets/display_settings.dart';
 import '../widgets/panel.dart';
 import '../widgets/power_buttons.dart';
 import '../widgets/speaker_settings.dart';
+import '../widgets/system_settings.dart';
 import '../widgets/tap_target.dart';
 
 /// The driver's settings (ADR-0029): Display (power-manager, ADR-0028),
 /// Cameras (camera-manager: which USB port is which camera, and which
 /// record), Speakers (audio-manager: fader, balance, sub level, crossover;
-/// ADR-0039). Display also holds Units (the dashboard's own, kept in its
-/// settings file; its own section until 2026-11-18). After the sections,
-/// Diagnostics (a screen of its own, opened from here rather than Home).
-/// Restart and Power, when the launcher offers them, at the right.
-enum SettingsSection { display, cameras, speakers }
+/// ADR-0039), System (what the head unit says about itself and every
+/// service's link, 2026-11-18). Display also holds Units (the dashboard's
+/// own, kept in its settings file; its own section until 2026-11-18). After
+/// the sections, Diagnostics (a screen of its own, opened from here rather
+/// than Home). Restart and Power, when the launcher offers them, at the
+/// right.
+enum SettingsSection { display, cameras, speakers, system }
 
 /// The Diagnostics button's width in the section row.
 const kDiagnosticsButtonWidth = 150.0;
@@ -27,6 +30,7 @@ const _labels = {
   SettingsSection.display: 'Display',
   SettingsSection.cameras: 'Cameras',
   SettingsSection.speakers: 'Speakers',
+  SettingsSection.system: 'System',
 };
 
 class SettingsScreen extends StatefulWidget {
@@ -98,6 +102,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ]),
             SettingsSection.cameras => const CameraSettingsView(),
             SettingsSection.speakers => const SpeakerSettingsView(),
+            SettingsSection.system => const SystemSettings(),
           },
         ),
       ),
