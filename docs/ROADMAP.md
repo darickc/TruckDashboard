@@ -608,6 +608,9 @@ Call bar 68 px `[SIM]` ([ADR-0045](architecture/adr/0045-phone-calls.md) amendme
 one line, icon buttons (filled red Hang up and Decline, green Answer); still over the screen, 16 px less of it. Not yet on
 the Pi's panel.
 
+Phone lists `[SIM]` ([ADR-0045](architecture/adr/0045-phone-calls.md) amendment 2026-11-18c): contacts' initials, Call as a green
+phone icon in Contacts and Recent. Not yet on the Pi's panel.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.

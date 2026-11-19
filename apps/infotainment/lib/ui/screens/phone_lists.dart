@@ -4,6 +4,7 @@ import '../../audio/audio_state.dart';
 import '../app_scope.dart';
 import '../theme.dart';
 import '../widgets/audio_button.dart';
+import '../widgets/call_bar.dart' show nameInitials;
 import '../widgets/panel.dart';
 import '../widgets/tap_target.dart';
 
@@ -115,11 +116,12 @@ String? _listNote(AudioReport r, String note) {
   return null;
 }
 
-/// A row: an icon, two lines of text, and a Call button.
+/// A row: something to tell it by (initials, or an icon), two lines of text,
+/// and Call: a green phone icon, its own 60 px touch target (a tap on the
+/// row itself never dials), labelled with who it calls.
 Widget _callRow(BuildContext context,
     {required Key key,
-    required IconData icon,
-    required Color iconColor,
+    required Widget leading,
     required String title,
     required String subtitle,
     required String callKey,
@@ -130,7 +132,7 @@ Widget _callRow(BuildContext context,
     key: key,
     height: kMinTouch + 6,
     child: Row(children: [
-      Icon(icon, size: 26, color: iconColor),
+      SizedBox(width: 44, child: Center(child: leading)),
       const SizedBox(width: 10),
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -144,13 +146,40 @@ Widget _callRow(BuildContext context,
         ]),
       ),
       const SizedBox(width: kGap),
-      SizedBox(
-        width: 130,
-        child: AudioButton(key: ValueKey(callKey), text: 'Call', icon: Icons.call_rounded, onTap: onCall),
+      Opacity(
+        opacity: onCall == null ? 0.45 : 1,
+        child: SizedBox(
+          width: 72,
+          height: kMinTouch,
+          child: TapTarget(
+            key: ValueKey(callKey),
+            label: onCall == null ? '$callLabel (unavailable)' : callLabel,
+            fill: p.ok.withValues(alpha: 0.16),
+            padding: EdgeInsets.zero,
+            onTap: onCall ?? () {},
+            child: Icon(Icons.call_rounded, size: 28, color: p.ok),
+          ),
+        ),
       ),
       // Keeps the button off the scroll bar.
       const SizedBox(width: 6),
     ]),
+  );
+}
+
+/// A contact's initials in a circle; a person icon when the name has none.
+Widget contactAvatar(BuildContext context, String name, {Key? key}) {
+  final p = Palette.of(context);
+  final letters = nameInitials(name);
+  return Container(
+    key: key,
+    width: 44,
+    height: 44,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(color: p.accent.withValues(alpha: 0.22), shape: BoxShape.circle),
+    child: letters.isEmpty
+        ? Icon(Icons.person_rounded, size: 26, color: p.accent)
+        : Text(letters, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: p.text)),
   );
 }
 
@@ -235,12 +264,15 @@ class _ContactsViewState extends State<ContactsView> {
                   _callRow(
                     context,
                     key: ValueKey('contact-$i'),
-                    icon: same ? Icons.subdirectory_arrow_right_rounded : Icons.person_rounded,
-                    iconColor: p.textDim,
+                    // The contact's initials once; its further numbers
+                    // are marked as more of the same person.
+                    leading: same
+                        ? Icon(Icons.subdirectory_arrow_right_rounded, size: 26, color: p.textDim)
+                        : contactAvatar(context, c.name, key: ValueKey('contact-avatar-$i')),
                     title: c.title,
                     subtitle: [if (n.label.isNotEmpty) n.label, n.number].join(' · '),
                     callKey: 'contact-call-$i',
-                    callLabel: 'Call ${c.title}',
+                    callLabel: 'Call ${c.title}${n.label.isEmpty ? '' : ', ${n.label.toLowerCase()}'}',
                     onCall: canCall ? () => widget.onDial(n.number) : null,
                   ),
                 ]);
@@ -326,8 +358,7 @@ class RecentView extends StatelessWidget {
               return _callRow(
                 context,
                 key: ValueKey('recent-$i'),
-                icon: icon,
-                iconColor: color,
+                leading: Icon(icon, size: 26, color: color),
                 title: c.title,
                 subtitle: [
                   if (kind.isNotEmpty) kind,

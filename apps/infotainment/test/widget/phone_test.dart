@@ -306,4 +306,51 @@ void main() {
       });
     }
   });
+
+  group('the lists (redesign 2026-11-18)', () {
+    testWidgets('contacts: initials once per person, an arrow for further numbers, Call a green icon', (tester) async {
+      final sim = SimulatedAudioSource(autoRun: false);
+      await onPhone(tester, sim);
+      // Alex Rivera has two numbers: rows 0 and 1.
+      expect(find.descendant(of: key('contact-avatar-0'), matching: find.text('AR')), findsOneWidget);
+      expect(key('contact-avatar-1'), findsNothing, reason: 'the same person\'s next number');
+      expect(find.descendant(of: key('contact-1'), matching: find.byIcon(Icons.subdirectory_arrow_right_rounded)),
+          findsOneWidget);
+      final call = tester.widget<TapTarget>(key('contact-call-1'));
+      expect(call.label, 'Call Alex Rivera, work');
+      expect(find.descendant(of: key('contact-call-1'), matching: find.byType(Text)), findsNothing, reason: 'an icon');
+      final r = tester.getRect(key('contact-call-1'));
+      expect(r.height, greaterThanOrEqualTo(kMinTouch));
+      expect(r.width, greaterThanOrEqualTo(kMinTouch));
+      expectTouchTargets(tester, 'contacts');
+    });
+
+    testWidgets('recent calls keep their missed / incoming / outgoing icons', (tester) async {
+      final sim = SimulatedAudioSource(autoRun: false);
+      await onPhone(tester, sim, tab: PhoneTab.recent);
+      expect(find.descendant(of: key('recent-0'), matching: find.byIcon(Icons.call_missed_rounded)), findsOneWidget);
+      expect(tester.widget<TapTarget>(key('recent-call-0')).label, startsWith('Call '));
+    });
+
+    test('initials from a name: words that start with a letter, two at most', () {
+      expect(nameInitials('Alex Rivera'), 'AR');
+      expect(nameInitials('Taylor Diesel Repair'), 'TD');
+      expect(nameInitials('+1 555 010 1001'), '');
+      expect(nameInitials('Émile Zola'), 'ÉZ');
+    });
+
+    for (final theme in DayNight.values) {
+      testWidgets('contacts lay out under an alert, ${theme.name}', (tester) async {
+        final sim = SimulatedAudioSource(autoRun: false);
+        final h = await Harness.start(tester, audio: sim, theme: theme, scenario: 'link_loss');
+        await h.advance(const Duration(seconds: 100));
+        h.services.phoneTab.value = PhoneTab.contacts;
+        await h.goTo(AppScreen.phones);
+        await tester.pump();
+        expect(find.byKey(const ValueKey('alert-banner')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expectTouchTargets(tester, 'contacts under an alert');
+      });
+    }
+  });
 }

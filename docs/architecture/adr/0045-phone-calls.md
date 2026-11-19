@@ -529,3 +529,22 @@ the panel's title and half of the Front button).
 size, fill and place inside it, the time beside the caller, the details
 without it, a refusal) and the existing call and phone tests; checked in
 the browser at 800×480.
+
+
+## Amendment, 2026-11-18c: the Phone screen's lists `[SIM]`
+
+From the design review (owner, 2026-11-18: "Work on the next screen", the
+contacts). Contacts and Recent share their row:
+
+- **Call is a green phone icon** (72 × 60, a light green fill), its own
+  touch target as before: a tap on the row never dials. Its label says
+  whom it calls ("Call Alex Rivera, work"), and it dims, as before, when
+  calls stay on the phone.
+- **Contacts:** the contact's initials in a circle on its first number's
+  row (a person icon for a name without letters); its further numbers keep
+  the arrow that marks them as the same person.
+- **Recent** keeps its missed / incoming / outgoing icons.
+
+[SIM]: `test/widget/phone_test.dart` (initials once per person, the arrow,
+the button's label and size, Recent's icons, the initials rule, under an
+alert in both themes); checked in the browser at 800×480.

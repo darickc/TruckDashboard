@@ -7,15 +7,18 @@ import '../theme.dart';
 import 'badges.dart';
 import 'tap_target.dart';
 
-/// Up to two initials from a caller's name, for the Phone screen's call
-/// view; none for a number or a withheld caller (a person icon instead).
+/// Up to two initials from a name (words that start with a letter); empty
+/// for a name with none ("555 0100"): a person icon goes there instead. The
+/// call view and the contacts list.
+String nameInitials(String name) {
+  final words = name.trim().split(RegExp(r'\s+')).where((w) => RegExp(r'^\p{L}', unicode: true).hasMatch(w));
+  return words.take(2).map((w) => w.characters.first.toUpperCase()).join();
+}
+
+/// A caller's initials for the Phone screen's call view; none for a number
+/// or a withheld caller.
 abstract final class CallBarInitials {
-  static String of(PhoneCall call) {
-    if (call.withheld || call.name.trim().isEmpty) return '';
-    final words =
-        call.name.trim().split(RegExp(r'\s+')).where((w) => RegExp(r'^\p{L}', unicode: true).hasMatch(w));
-    return words.take(2).map((w) => w.characters.first.toUpperCase()).join();
-  }
+  static String of(PhoneCall call) => call.withheld || call.name.trim().isEmpty ? '' : nameInitials(call.name);
 }
 
 /// A phone call (ADR-0045 decision 5), over the top of whatever screen shows:
