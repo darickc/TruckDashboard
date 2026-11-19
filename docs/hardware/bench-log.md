@@ -3303,3 +3303,49 @@ drive_cycle`. On the panel at 3d816d2: Home's Gauges button "NORMAL · Trans
 139 °F · EOT 200 °F"; Gauges (towing) with markers on the range bars and
 this drive's peaks ("max 200 °F" EOT, "min 47.8 V" FICM) [BENCH, simulated
 data].
+
+## 2026-11-19 — Faint music during navigation: undervoltage, and the gateway's reverse stream spinning [BENCH]
+
+Hardware: the bench Pi 5 (no fan since 2026-11-15), RaspiAudio 8xOUT, the
+owner's phone playing over A2DP. Image 58beac2, dashboard 3d816d2 sideloaded,
+simulated vehicle data since 06:20 (entry above).
+
+The owner heard the phone's music go faint, still audible, while a route
+was running (around 06:24–06:30).
+
+What it wasn't (PipeWire): the prompts paused and resumed the music as
+ADR-0040 decision 16 says (audio-manager: "Pause the phone's music", the
+prompt, "Play the phone's music" 1 s after the last one). A 200 ms trace
+through one test prompt: the phone→Multimedia role link corked during the
+voice and came back; the Multimedia loopback, Speech-High loopback and
+phone stream volumes stayed 1.0; the A2DP transport volume stayed 94/127.
+60 s from `f250.speakers`' monitor across four route prompts: music at
+about −24 dBFS before and after. AGL's config gives Speech-High "cork"
+(never "duck") over Multimedia.
+
+What was: `kernel: hwmon hwmon3: Undervoltage detected!` from 06:25:48
+(none in the 2 h 25 min before), 1–7 a minute, and the CPU at 84 °C.
+vehicle-gateway and camera-manager each used over a full core (`top`: 111%
+each; four tokio workers busy). `perf`: the gateway in
+`Api::watch_reverse` (a watch notify), camera-manager in
+`reverse_link::follow`. With no reverse reader (`Feed::absent`: the
+simulator; also the MX+ alone), `changes.changed()` failed, the stream
+swapped in `watch::channel(0).1` (its sender dropped at once), so it failed
+again at once and the loop sent reverse messages as fast as camera-manager
+read them. In CAN mode before 06:20 the reader existed and the gateway was
+idle (2.7 s of CPU in 10 min).
+
+Fix: stop waiting on a feed that can't change; the 100 ms ticks go on.
+`tests/reverse_api.rs` now also checks that four messages take at least
+250 ms (it failed on the old code: "4 messages in 118.875µs: a flood").
+
+After deploying it (06:47): over 3 min, gateway 0.53 s of CPU, camera-
+manager 0.13 s, the Pi 98 % idle (load 0.22), CPU 72 °C and falling, no
+undervoltage.
+
+Verdict: the spin is fixed [BENCH]. The faint music lines up in time with
+the undervoltage, which the spin's load made worse; that it caused the
+faint music is likely, not proven (no faint music was heard while
+measuring; the owner said it had come back). Still open: the bench Pi's
+supply (undervoltage with the cores busy means little margin; the Pi 5
+wants 5 V 5 A) and no cooler (84 °C with two cores busy).

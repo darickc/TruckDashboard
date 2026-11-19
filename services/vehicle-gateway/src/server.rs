@@ -155,13 +155,20 @@ impl VehicleService for Api {
         let stream = async_stream(move |tx| async move {
             let mut tick = tokio::time::interval(REVERSE_EVERY);
             tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            // False once the feed can't change: no reader (the simulator, the
+            // MX+ alone) or one that ended. Then only the ticks send. (This
+            // once swapped in a fresh receiver whose sender was dropped at
+            // once, so `changed()` failed straight away again and the loop
+            // sent as fast as the client read: a core each in the gateway
+            // and camera-manager on the bench Pi in simulation, 2026-11-19.)
+            let mut can_change = true;
             loop {
                 tokio::select! {
                     _ = tick.tick() => {}
-                    r = changes.changed() => {
+                    r = changes.changed(), if can_change => {
                         if r.is_err() {
-                            // No reader (or it ended): the ticks go on.
-                            changes = watch::channel(0).1;
+                            can_change = false;
+                            continue;
                         }
                         tick.reset();
                     }

@@ -87,8 +87,16 @@ async fn messages_keep_coming_while_nothing_changes() {
     let feed = Feed::absent("--transport sim: no CAN broadcast to read");
     let start = tokio::time::Instant::now();
     let got = states(&api(feed), 4).await;
-    // One at once, then one every 100 ms.
-    assert!(start.elapsed() < Duration::from_millis(1000));
+    // One at once, then one every 100 ms: not sooner. With no reader the
+    // stream once sent as fast as it was read (a core each in the gateway
+    // and camera-manager, bench Pi 2026-11-19), which only a lower bound
+    // catches.
+    let took = start.elapsed();
+    assert!(
+        took >= Duration::from_millis(250),
+        "4 messages in {took:?}: a flood"
+    );
+    assert!(took < Duration::from_millis(1000), "{took:?}");
     for (state, detail) in got {
         assert_eq!(state, pb::ReverseState::Unknown as i32);
         assert_eq!(detail, "--transport sim: no CAN broadcast to read");
