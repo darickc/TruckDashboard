@@ -113,3 +113,46 @@ Decision 2 changes:
 
 [SIM]: widget tests at 800×480 (`navigation_test.dart`). [BENCH]: on the
 bench Pi's panel, see the bench log (2026-11-14).
+
+
+## Amendment: a live line on each Home button (2026-11-18)
+
+The owner approved Home "live tiles" from a design review (a Claude Design
+canvas, 2026-11-18). Decision 2's grid stays 3 × 2 with the same six buttons;
+each button now says what the screen it opens would show, so a glance at Home
+answers the usual question without opening it. Each whole button is still one
+touch target that opens its screen; nothing inside it is tappable.
+
+Each button has an icon in a tinted square, its name, a status line (and a
+second, dimmer one where useful), and a chip at the top right:
+
+| Button | Chip | Line(s) |
+|---|---|---|
+| Gauges | NORMAL / ADVISORY / CRITICAL / CONNECTING / NO DATA | the first alert's title when there is one, then the selected gauge profile's first two tiles ("EOT 198 °F · ECT 190 °F") |
+| Media | PLAYING / PAUSED / STOPPED / OFFLINE | track and artist, or why nothing plays |
+| Nav | ROUTE / ROUTING / ARRIVED / NO ROUTE, else GPS FIX / NO FIX / GPS STALE / NO GPS | "To <destination>"; no route: "No route · Places, Search" |
+| Cameras | REC / NOT REC (SIM in front with the simulated camera-manager) / OFFLINE | which cameras record, or which set to record don't |
+| Phone | CONNECTED / CALL / BLUETOOTH OFF / OFFLINE | the connected phone, or why there is none |
+| Settings | — | the theme and its brightness, and "Diagnostics" |
+
+Rules it keeps:
+
+- **No value that isn't current** (CLAUDE.md rule 4): a gauge readout that
+  isn't current shows as "—" on Home, not its last reading; Home has no room
+  for the age and hatch the Gauges screen shows. Nav shows the destination
+  only, never distances: whether guidance is current is the Nav screen's to
+  judge.
+- **Simulated stays marked**: SIM on the camera and GPS chips with simulated
+  sources; the status bar's SIMULATED badge covers the vehicle data.
+- **Alerts still show in the banner above Home**; the Gauges chip repeats
+  only the worst level, so the banner stays the one place to read and clear
+  them.
+- Which two readouts Gauges shows follows `gauge_profiles.json` (the
+  selected profile's first two tiles), so no signal is chosen in code.
+
+The derivations are plain functions (`gaugesStatus`, `mediaStatus`,
+`navStatus`, `camerasStatus`, `phoneStatus`, `settingsStatus` in
+`lib/ui/screens/home_screen.dart`). [SIM]: `test/widget/home_test.dart` (each
+state of each button; Gauges through the simulator, including the EOT/ECT
+freeze) and the existing layout and touch-target tests at 800×480, with and
+without an alert. Not yet on the bench Pi's panel.

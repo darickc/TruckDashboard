@@ -573,6 +573,8 @@ Restart (exit status 43: `dashboard-stopped` and `run.sh` reboot). The status ba
 `Flexible` beside a `Spacer` had left blank space after it, worst with no scenario name, as on the truck). Widget
 tests for each; `make agl-test` checks the exit codes agree. Not yet on the Pi's panel. Amended 2026-11-14 `[SIM]`:
 a Phone button replaces Diagnostics on Home (before Settings), and Diagnostics opens from a button in Settings' section row.
+Amended 2026-11-18 `[SIM]`: each Home button has a live line and chip (vehicle state and two readouts, track, route or
+GPS, recording, phone, theme); a value that isn't current shows as "—". Not yet on the Pi's panel.
 
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
