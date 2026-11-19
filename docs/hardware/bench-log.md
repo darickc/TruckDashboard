@@ -3294,3 +3294,12 @@ System shows Dashboard (`F250_COMMIT`, set by `make deploy`) apart from
 is off"; Display's line reads "Night · min 10 %". The System page's label
 column got a gap after "Image built from" ran into its value in this font.
 
+
+Then switched to simulated data at the owner's request (`/etc/default/f250`:
+TRANSPORT=sim, TRANSMIT=0, CAN_AUTO_ACTIVE=0, CAN_AUTO_CAPTURE=0, ENABLE=;
+backup `f250.pre-sim-20261119`; f250-can-auto and f250-gateway restarted;
+can0 stays listen-only). The gateway runs `--transport sim --scenario
+drive_cycle`. On the panel at 3d816d2: Home's Gauges button "NORMAL · Trans
+139 °F · EOT 200 °F"; Gauges (towing) with markers on the range bars and
+this drive's peaks ("max 200 °F" EOT, "min 47.8 V" FICM) [BENCH, simulated
+data].
