@@ -548,3 +548,30 @@ contacts). Contacts and Recent share their row:
 [SIM]: `test/widget/phone_test.dart` (initials once per person, the arrow,
 the button's label and size, Recent's icons, the initials rule, under an
 alert in both themes); checked in the browser at 800×480.
+
+
+## Amendment, 2026-11-18d: a sheet for a ringing call `[SIM]`
+
+**Owner's decision** (2026-11-18: "Do the next screen", after the design
+review named this one as the owner's call). It replaces decision 6's bar
+for one state only: **a phone ringing** (`incoming`).
+
+- Over the top of whatever screen shows, below the status bar and the
+  alert banner (vehicle alerts stay above it): a sheet 236 px high with
+  "Incoming call", the caller's initials (a person icon for a number or a
+  withheld caller), the caller large, the details, and **Decline and
+  Answer as 80 px filled buttons** (red and green), the Phone screen's.
+  Easier to hit at a glance than the bar's 60 px icons.
+- **Nothing behind it is dimmed or blocked:** the screen below the sheet
+  still works, as decision 6 wanted (no screen's layout changes during a
+  call; the sheet covers, it doesn't push).
+- Answered, it becomes the 68 px bar (amendment 2026-11-18b); declined or
+  ended, it goes. A **waiting** call (one ringing during another) stays a
+  bar: it is answered on the phone.
+- Camera mode (the left column) and the Phone screen (its own large view)
+  are unchanged.
+
+[SIM]: `test/widget/call_test.dart` (the sheet on every screen but Phone,
+below the alert banner; its height and 80 px filled buttons; the screen
+under it still tappable; answered becomes the bar; the longest texts in
+both themes); checked in the browser at 800×480.

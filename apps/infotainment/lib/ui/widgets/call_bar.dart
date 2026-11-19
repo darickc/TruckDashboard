@@ -23,9 +23,10 @@ abstract final class CallBarInitials {
 
 /// A phone call (ADR-0045 decision 5), over the top of whatever screen shows:
 /// below the status bar and the alert banner (vehicle alerts stay above it),
-/// on every screen. Ringing: who is calling, Answer and Decline (a waiting
-/// call is answered on the phone). During a call: who, how long, Mute and
-/// Hang up. Nothing to type. Gone with the call, the phone or audio-manager:
+/// on every screen. Ringing: a larger sheet, who is calling and 80 px
+/// Answer and Decline (owner, 2026-11-18; a waiting call is answered on the
+/// phone and stays a bar). During a call: who, how long, Mute and Hang up.
+/// Nothing to type. Gone with the call, the phone or audio-manager:
 /// a call is never shown from a report that isn't current.
 ///
 /// [compact]: camera mode's left column (220 px wide), where the camera's
@@ -44,6 +45,9 @@ class CallBar extends StatefulWidget {
   /// A touch target and 4 px above and below it (84 until 2026-11-18: the
   /// bar covered the top of every screen more than it needed to).
   static const height = kMinTouch + kGap;
+
+  /// The incoming call's sheet over the top of the screen.
+  static const sheetHeight = 236.0;
 
   @override
   State<CallBar> createState() => _CallBarState();
@@ -96,7 +100,12 @@ class _CallBarState extends State<CallBar> {
         final call = calls?.call;
         if (report == null || calls == null || call == null) return const SizedBox.shrink();
         if (widget.large) return _large(context, report, calls, call);
-        return widget.compact ? _panel(context, report, calls, call) : _bar(context, report, calls, call);
+        if (widget.compact) return _panel(context, report, calls, call);
+        // A phone ringing gets the larger sheet, easier to answer or decline
+        // at a glance (owner, 2026-11-18); everything else the bar.
+        return call.phase == CallPhase.incoming
+            ? _sheet(context, report, calls, call)
+            : _bar(context, report, calls, call);
       },
     );
   }
@@ -326,6 +335,74 @@ class _CallBarState extends State<CallBar> {
             for (final b in _buttons(context, calls, call)) Expanded(child: b),
           ]),
         ),
+      ]),
+    );
+  }
+
+  /// A phone ringing, over the top of whatever screen shows (owner,
+  /// 2026-11-18, replacing ADR-0045 decision 6's bar for this one state):
+  /// who is calling, large, and Decline and Answer as 80 px filled buttons.
+  /// Nothing behind it is dimmed or blocked; the rest of the screen still
+  /// works. Gone when the call is answered (the bar then) or ends.
+  Widget _sheet(BuildContext context, AudioReport report, CallsStatus calls, PhoneCall call) {
+    final p = Palette.of(context);
+    final note = _noteCall == call.id ? _note : '';
+    final details = _details(calls, call, time: false);
+    final letters = CallBarInitials.of(call);
+    return Container(
+      key: const ValueKey('call-sheet'),
+      height: CallBar.sheetHeight,
+      margin: const EdgeInsets.symmetric(horizontal: kGap),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(p.ok.withValues(alpha: 0.08), p.surface),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+        border: Border.all(color: p.ok, width: 2),
+        boxShadow: const [BoxShadow(blurRadius: 16, color: Color(0x88000000))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Icon(Icons.ring_volume_rounded, size: 24, color: p.ok),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('Incoming call',
+                key: const ValueKey('call-status'),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: p.ok)),
+          ),
+          if (report.simulated) Pill('SIM', color: p.simulated),
+        ]),
+        Expanded(
+          child: Row(children: [
+            Container(
+              width: 64,
+              height: 64,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: p.ok.withValues(alpha: 0.22), shape: BoxShape.circle),
+              child: letters.isEmpty
+                  ? Icon(Icons.person_rounded, size: 36, color: p.ok)
+                  : Text(letters, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: p.text)),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(call.caller,
+                    key: const ValueKey('call-caller'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 30, height: 1.1, fontWeight: FontWeight.w800, color: p.text)),
+                if (note.isNotEmpty || details.isNotEmpty)
+                  Text(note.isNotEmpty ? note : details,
+                      key: const ValueKey('call-detail'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 15, color: note.isNotEmpty ? p.critical : p.textDim)),
+              ]),
+            ),
+          ]),
+        ),
+        SizedBox(
+            height: 80,
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: _largeButtons(context, calls, call))),
       ]),
     );
   }

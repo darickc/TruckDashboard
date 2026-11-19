@@ -23,7 +23,7 @@ void main() {
 
   String callText(WidgetTester tester) {
     final t = tester.widget<Text>(key('call-caller'));
-    return t.textSpan!.toPlainText();
+    return t.data ?? t.textSpan!.toPlainText();
   }
 
   testWidgets('ringing, answered, muted, hung up; the music pauses and resumes', (tester) async {
@@ -34,8 +34,11 @@ void main() {
 
     final id = sim.ring();
     await tester.pump();
-    expect(key('call-bar'), findsOneWidget);
-    expect(callText(tester), 'Incoming call  Simulated Caller');
+    // Ringing: the sheet (owner, 2026-11-18), not the bar.
+    expect(key('call-sheet'), findsOneWidget);
+    expect(key('call-bar'), findsNothing);
+    expect(h.textOf('call-status'), 'Incoming call');
+    expect(callText(tester), 'Simulated Caller');
     expect(h.textOf('call-detail'), '+15550100 · on Simulated phone');
     expect(key('call-answer'), findsOneWidget);
     expect(key('call-hang-up'), findsOneWidget);
@@ -45,6 +48,7 @@ void main() {
     await tester.tap(key('call-answer'));
     await tester.pump();
     expect(sim.status.value.report!.call!.id, id);
+    expect(key('call-sheet'), findsNothing, reason: 'answered: the bar');
     expect(callText(tester), 'Call  Simulated Caller');
     for (var i = 0; i < 65; i++) {
       sim.tick();
@@ -74,7 +78,7 @@ void main() {
     await Harness.start(tester, audio: sim);
     sim.ring(number: '', name: '');
     await tester.pump();
-    expect(callText(tester), 'Incoming call  Number withheld');
+    expect(callText(tester), 'Number withheld');
     expect(tester.widget<TapTarget>(key('call-hang-up')).label, 'Decline: Number withheld');
     await tester.tap(key('call-hang-up'));
     await tester.pump();
@@ -105,7 +109,7 @@ void main() {
       await h.goTo(screen);
       // The Phone screen shows the call itself, large, and no bar.
       final phone = screen == AppScreen.phones;
-      expect(key('call-bar'), phone ? findsNothing : findsOneWidget, reason: screen.name);
+      expect(key('call-sheet'), phone ? findsNothing : findsOneWidget, reason: screen.name);
       expect(key('call-view'), phone ? findsOneWidget : findsNothing, reason: screen.name);
       expect(key('call-answer'), findsOneWidget, reason: screen.name);
     }
@@ -113,29 +117,40 @@ void main() {
     await h.advance(const Duration(seconds: 100));
     expect(key('alert-banner'), findsOneWidget);
     final banner = tester.getRect(key('alert-banner'));
-    final bar = tester.getRect(key('call-bar'));
-    expect(bar.top, greaterThanOrEqualTo(banner.bottom), reason: 'vehicle alerts stay on top');
+    final sheet = tester.getRect(key('call-sheet'));
+    expect(sheet.top, greaterThanOrEqualTo(banner.bottom), reason: 'vehicle alerts stay on top');
     expect(tester.getSize(key('call-answer')).height, greaterThanOrEqualTo(kMinTouch));
     expect(tester.getSize(key('call-hang-up')).height, greaterThanOrEqualTo(kMinTouch));
   });
 
-  testWidgets('the bar is 68 px (redesign 2026-11-18): icon buttons, Hang up and Answer filled', (tester) async {
+  testWidgets('ringing: a sheet with 80 px Decline and Answer; answered: the 68 px bar with icons', (tester) async {
     final sim = SimulatedAudioSource(autoRun: false);
     await Harness.start(tester, audio: sim);
     sim.ring();
     await tester.pump();
-    expect(tester.getSize(key('call-bar')).height, 68);
+    final sheet = tester.getRect(key('call-sheet'));
+    expect(sheet.height, CallBar.sheetHeight);
     expect(tester.widget<TapTarget>(key('call-hang-up')).fill, Palette.night.critical);
     expect(tester.widget<TapTarget>(key('call-answer')).fill, Palette.night.ok);
+    expect(tester.widget<TapTarget>(key('call-hang-up')).label, 'Decline: Simulated Caller');
     for (final k in ['call-hang-up', 'call-answer']) {
-      expect(find.descendant(of: key(k), matching: find.byType(Text)), findsNothing, reason: '$k: an icon');
       final r = tester.getRect(key(k));
-      expect(r.height, greaterThanOrEqualTo(kMinTouch), reason: k);
-      expect(r.top, greaterThanOrEqualTo(tester.getRect(key('call-bar')).top), reason: k);
-      expect(r.bottom, lessThanOrEqualTo(tester.getRect(key('call-bar')).bottom), reason: k);
+      expect(r.height, greaterThanOrEqualTo(80), reason: k);
+      expect(r.bottom, lessThanOrEqualTo(sheet.bottom), reason: k);
     }
+    // Nothing behind it is blocked: the screen below still answers taps.
+    expect(find.byKey(const ValueKey('home-settings')).hitTestable(), findsOneWidget);
+
     await tester.tap(key('call-answer'));
     await tester.pump();
+    expect(key('call-sheet'), findsNothing);
+    expect(tester.getSize(key('call-bar')).height, 68);
+    expect(tester.widget<TapTarget>(key('call-hang-up')).fill, Palette.night.critical);
+    final r = tester.getRect(key('call-hang-up'));
+    expect(r.height, greaterThanOrEqualTo(kMinTouch));
+    expect(r.top, greaterThanOrEqualTo(tester.getRect(key('call-bar')).top));
+    expect(r.bottom, lessThanOrEqualTo(tester.getRect(key('call-bar')).bottom));
+    expect(find.descendant(of: key('call-hang-up'), matching: find.byType(Text)), findsNothing, reason: 'an icon');
     expect(tester.getSize(key('call-mute')).width, greaterThanOrEqualTo(kMinTouch));
     expect(tester.widget<TapTarget>(key('call-mute')).fill, isNull);
   });
@@ -218,9 +233,14 @@ void main() {
           );
         await Harness.start(tester, theme: theme, audio: fake);
         expect(tester.takeException(), isNull);
-        expect(key('call-bar'), findsOneWidget);
-        expect(tester.getSize(key('call-bar')), const Size(800, CallBar.height));
-        expect(Palette.of(tester.element(key('call-bar'))).background,
+        if (name == 'incoming') {
+          expect(key('call-sheet'), findsOneWidget);
+          expect(tester.getSize(key('call-sheet')), const Size(800, CallBar.sheetHeight), reason: 'with its 8 px margins');
+        } else {
+          expect(key('call-bar'), findsOneWidget);
+          expect(tester.getSize(key('call-bar')), const Size(800, CallBar.height));
+        }
+        expect(Palette.of(tester.element(key(name == 'incoming' ? 'call-sheet' : 'call-bar'))).background,
             theme == DayNight.day ? Palette.day.background : Palette.night.background);
       });
     }

@@ -611,6 +611,10 @@ the Pi's panel.
 Phone lists `[SIM]` ([ADR-0045](architecture/adr/0045-phone-calls.md) amendment 2026-11-18c): contacts' initials, Call as a green
 phone icon in Contacts and Recent. Not yet on the Pi's panel.
 
+Ringing call sheet `[SIM]` ([ADR-0045](architecture/adr/0045-phone-calls.md) amendment 2026-11-18d, owner's decision): a phone
+ringing shows a 236 px sheet with 80 px Decline and Answer over the top of any screen (not blocking it); answered, the bar.
+Not yet on the Pi's panel.
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.
