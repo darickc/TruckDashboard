@@ -184,7 +184,12 @@ void main() {
     for (final id in [1, 2, 3, 4]) {
       expect(find.byKey(ValueKey('nav-place-$id')), findsOneWidget);
     }
-    expect(find.text('39.8100, -98.5000'), findsOneWidget, reason: 'an unnamed recent shows where it is');
+    expect(
+      find.descendant(of: find.byKey(const ValueKey('nav-place-4')), matching: find.text('Dropped pin')),
+      findsOneWidget,
+      reason: 'an unnamed recent is a dropped pin',
+    );
+    expect(find.text('39.8100, -98.5000'), findsOneWidget, reason: 'with where it is underneath');
     await reveal(tester, 'nav-places-footer');
     expect(textOf('nav-places-footer'), 'Kept on the data drive.');
 
@@ -193,6 +198,77 @@ void main() {
     expect(route.destinations, [feed.location]);
     expect(route.names, ['Feed store'], reason: 'named, so it shows with the route and in recents');
     expect(find.byKey(const ValueKey('nav-places')), findsNothing, reason: 'back to the map');
+  });
+
+  String? inRowText(int id, String key) => (find
+      .descendant(of: find.byKey(ValueKey('nav-place-$id')), matching: find.byKey(ValueKey(key)))
+      .evaluate()
+      .map((e) => (e.widget as Text).data)
+      .firstOrNull);
+
+  testWidgets('each place shows its straight-line distance and direction from the truck', (tester) async {
+    await open(tester);
+    await tapKey(tester, 'nav-places-open');
+    expect(textOf('nav-places-distances'), 'Distances in a straight line from the truck');
+    // Parked at 39.83, -98.53: Home is about 1.4 km north-west.
+    expect(inRowText(1, 'nav-place-distance'), '0.9 mi');
+    expect(inRowText(1, 'nav-place-direction'), 'NW');
+    // The feed store is about 256 km east: whole miles from 10 up.
+    expect(inRowText(2, 'nav-place-distance'), matches(RegExp(r'^1[56]\d mi$')));
+    expect(inRowText(2, 'nav-place-direction'), 'E');
+    // Casey's is where the truck is.
+    expect(inRowText(3, 'nav-place-direction'), 'here');
+    expect(find.text('RECENT · 2'), findsOneWidget);
+  });
+
+  testWidgets('no current position: a dash, never a distance from an old fix', (tester) async {
+    final clock = FakeMonotonicClock();
+    final position = FakePositionSource(
+      clock,
+      PositionState(
+        link: PositionLink.lost,
+        detail: 'navigation stopped',
+        report: PositionReport(
+          status: FixStatus.fix3d,
+          receivedAt: clock.now(),
+          current: true,
+          staleAfter: const Duration(seconds: 3),
+          fix: const FixReport(lat: 39.83, lon: -98.53, ageAtReceipt: Duration.zero, speedMps: 0),
+        ),
+      ),
+    );
+    await open(tester, position: position);
+    await tapKey(tester, 'nav-places-open');
+    expect(textOf('nav-places-distances'), 'No current position: no distances');
+    for (final id in [1, 2, 3, 4]) {
+      expect(inRowText(id, 'nav-place-distance'), '—', reason: 'place $id');
+      expect(inRowText(id, 'nav-place-direction'), isNull, reason: 'place $id');
+    }
+  });
+
+  testWidgets('a fix that goes stale with the list open turns the distances to dashes', (tester) async {
+    final position = parked();
+    await open(tester, position: position);
+    await tapKey(tester, 'nav-places-open');
+    expect(inRowText(1, 'nav-place-distance'), '0.9 mi');
+    (position.clock as FakeMonotonicClock).advance(const Duration(seconds: 4));
+    await tester.pump(const Duration(seconds: 1));
+    expect(textOf('nav-places-distances'), 'No current position: no distances');
+    expect(inRowText(1, 'nav-place-distance'), '—');
+  });
+
+  testWidgets('Route is the one filled button on a row; Home sits on a tinted card', (tester) async {
+    await open(tester);
+    await tapKey(tester, 'nav-places-open');
+    final route = tester.widget<TapTarget>(inRow(2, 'nav-place-route'));
+    expect(route.fill, isNotNull);
+    expect(route.label, 'Route here: Feed store');
+    expect(tester.widget<TapTarget>(inRow(2, 'nav-place-edit')).fill, isNull);
+    expect(tester.widget<TapTarget>(inRow(4, 'nav-place-route')).label, 'Route here: Dropped pin');
+    final home = tester.widget<Container>(find.byKey(const ValueKey('nav-place-1')));
+    expect((home.decoration! as BoxDecoration).color, isNotNull);
+    final feedRow = tester.widget<Container>(find.byKey(const ValueKey('nav-place-2')));
+    expect((feedRow.decoration! as BoxDecoration).color, isNull);
   });
 
   testWidgets('delete in two taps: Edit, Delete', (tester) async {

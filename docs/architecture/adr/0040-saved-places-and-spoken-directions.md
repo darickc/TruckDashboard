@@ -256,3 +256,33 @@ on 2026-11-12). Asked in miles, the same words come in feet and miles
 - No sync of places between devices, no import, no places with opening
   hours or categories, no reordering of favourites. Spoken street names are
   Valhalla's English text; no lane guidance or speed-camera prompts.
+
+## Amendment: the Places list's layout (2026-11-19)
+
+From the design review (owner, 2026-11-19: "Review Nav › Places", then
+"Build it"). What is saved, where, and how a place is routed to, renamed or
+deleted are unchanged; the list changes:
+
+- **Each place shows its straight-line distance and compass direction from
+  the truck** ("161 mi", "E"): whole miles or km from 10 up, below that the
+  guidance banner's format, and "here" within 50 m. Only while the position
+  is current; without a current fix every row shows a dash and the header
+  says "No current position: no distances", never a distance from an old
+  position (CLAUDE.md rule 4). The header says the distances are in a
+  straight line, so they aren't read as road distances.
+- **Route is one filled 72 px button** with the directions icon (labelled
+  "Route here: <name>" for screen readers) instead of a "Route here" text
+  button on every row. Edit stays its own button; a tap on the row itself
+  still does nothing.
+- **Home sits on a tinted card** at the top.
+- **An unnamed place reads "Dropped pin"**, with a pin icon and its
+  coordinates underneath, instead of the coordinates as its name.
+- **Recent shows its count.**
+
+[SIM]: `test/unit/place_distance_test.dart` (the eight directions, whole
+units from 10 up in miles and km, "here" within 50 m, the dropped pin's
+lines) and `test/widget/navigation_places_test.dart` (distances and
+directions with a current fix, dashes with the link lost and when a fix
+goes stale with the list open, Route filled and Edit not, Home's card, the
+recent count) with the existing tests; checked in the browser at 800×480
+with made-up places.

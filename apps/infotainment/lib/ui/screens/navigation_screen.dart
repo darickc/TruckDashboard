@@ -688,6 +688,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
             child: NavPlacesPanel(
               source: s.places,
               canRoute: canRoute,
+              here: current && fix != null ? LatLng(fix.lat, fix.lon) : null,
+              units: s.settings.units,
               onClose: () => setState(() => _placesOpen = false),
               onSearch: () => setState(() {
                 _placesOpen = false;

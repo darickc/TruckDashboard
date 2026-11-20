@@ -627,6 +627,11 @@ To USB layout `[SIM]` ([ADR-0037](architecture/adr/0037-recordings-to-a-usb-stic
 filters, a run's header that chooses all of it, a bar of the stick's used and chosen space with what is left after the
 copy, and Copy filled when it would copy. On the bench Pi's panel 2026-11-19 (simulated data; To USB on its real data drive).
 
+Nav › Places layout `[SIM]` ([ADR-0040](architecture/adr/0040-saved-places-and-spoken-directions.md) amendment, 2026-11-19):
+each place's straight-line distance and direction from the truck (a dash without a current fix), Route as one filled
+button, Home on a tinted card, an unnamed place as "Dropped pin", and Recent's count. Deployed to the bench Pi 2026-11-19, but
+the list not yet looked at on its panel (the places there may be the owner's own).
+
 ## Phase 7 — Installation and reliability [HW] [HUMAN]
 
 - [~] 7.1 Wiring diagrams: drafted 2026-11-16, **none signed off** except the temporary DLC hookup.

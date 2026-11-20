@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../model/units.dart';
 import '../../nav/places_state.dart';
+import '../../nav/route_state.dart' show formatDistance;
 import '../theme.dart';
 import '../widgets/on_screen_keyboard.dart';
 import '../widgets/tap_target.dart';
@@ -11,6 +13,10 @@ import '../widgets/tap_target.dart';
 /// and Edit (rename or delete: two taps). services/navigation keeps them;
 /// the panel asks it again each time it opens, since every route adds a
 /// recent one.
+///
+/// Each place shows its straight-line distance and direction from the truck
+/// while the position is current ([here]); without one, a dash, never a
+/// distance from an old position (CLAUDE.md rule 4).
 class NavPlacesPanel extends StatefulWidget {
   const NavPlacesPanel({
     super.key,
@@ -20,9 +26,15 @@ class NavPlacesPanel extends StatefulWidget {
     required this.onEdit,
     required this.onSearch,
     required this.onClose,
+    this.here,
+    this.units = UnitSystem.imperial,
   });
 
   final PlacesSource source;
+
+  /// The truck's position while it is current; null without a current fix.
+  final LatLng? here;
+  final UnitSystem units;
 
   /// Routing is up: Route here is offered.
   final bool canRoute;
@@ -63,9 +75,24 @@ class _NavPlacesPanelState extends State<NavPlacesPanel> {
                 Icon(Icons.star, size: 28, color: p.accent),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Saved places',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.text),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Saved places',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.text),
+                      ),
+                      Text(
+                        widget.here == null
+                            ? 'No current position: no distances'
+                            : 'Distances in a straight line from the truck',
+                        key: const ValueKey('nav-places-distances'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: p.textDim),
+                      ),
+                    ],
                   ),
                 ),
                 _labelled('nav-places-search', 'Search', Icons.search, widget.onSearch),
@@ -108,7 +135,7 @@ class _NavPlacesPanelState extends State<NavPlacesPanel> {
     }
     final home = v.home;
     if (home != null) {
-      items.add(_row(home, p));
+      items.add(_row(home, p, home: true));
     } else {
       items.add(
         placesLine(
@@ -125,7 +152,7 @@ class _NavPlacesPanelState extends State<NavPlacesPanel> {
       items.add(placesLine('nav-places-no-favourites', Icons.star_border, 'None yet', p.textDim, p));
     }
     items.addAll(v.favourites.map((f) => _row(f, p)));
-    items.add(_heading('RECENT', p));
+    items.add(_heading(v.recents.isEmpty ? 'RECENT' : 'RECENT · ${v.recents.length}', p));
     if (v.recents.isEmpty) {
       items.add(placesLine('nav-places-no-recents', Icons.history, 'Destinations you route to appear here', p.textDim, p));
     }
@@ -155,16 +182,25 @@ class _NavPlacesPanelState extends State<NavPlacesPanel> {
     ),
   );
 
-  Widget _row(Place place, Palette p) {
+  Widget _row(Place place, Palette p, {bool home = false}) {
+    final (title, detail) = placeLines(place);
+    final here = widget.here;
+    final (dist, dir) = here == null ? ('—', '') : placeDistance(here, place.location, widget.units);
     return Container(
       key: ValueKey('nav-place-${place.id}'),
       constraints: const BoxConstraints(minHeight: kMinTouch + 6),
       padding: const EdgeInsets.symmetric(vertical: 3),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: p.border))),
+      decoration: home
+          ? BoxDecoration(
+              color: p.accent.withValues(alpha: 0.10),
+              border: Border.all(color: p.accent.withValues(alpha: 0.35)),
+              borderRadius: BorderRadius.circular(10),
+            )
+          : BoxDecoration(border: Border(bottom: BorderSide(color: p.border))),
       child: Row(
         children: [
-          const SizedBox(width: 4),
-          Icon(placeIcon(place.kind), size: 28, color: p.accent),
+          const SizedBox(width: 6),
+          Icon(placeIcon(place), size: 28, color: p.accent),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -172,14 +208,14 @@ class _NavPlacesPanelState extends State<NavPlacesPanel> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  place.title,
+                  title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: p.text),
                 ),
-                if (place.detail.isNotEmpty)
+                if (detail.isNotEmpty)
                   Text(
-                    place.detail,
+                    detail,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 14, color: p.textDim),
@@ -188,27 +224,90 @@ class _NavPlacesPanelState extends State<NavPlacesPanel> {
             ),
           ),
           const SizedBox(width: kGap),
+          SizedBox(
+            width: 84,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  dist,
+                  key: const ValueKey('nav-place-distance'),
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: here == null ? p.textDim : p.text,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                if (dir.isNotEmpty)
+                  Text(
+                    dir,
+                    key: const ValueKey('nav-place-direction'),
+                    style: TextStyle(fontSize: 13, color: p.textDim),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: kGap),
           TapTarget(
             key: const ValueKey('nav-place-edit'),
-            label: 'Edit ${place.title}',
+            label: 'Edit $title',
             onTap: () => widget.onEdit(place),
             padding: EdgeInsets.zero,
-            child: const Icon(Icons.edit_outlined, size: 28),
+            child: const Icon(Icons.edit_outlined, size: 26),
           ),
           if (widget.canRoute) ...[
             const SizedBox(width: kGap),
-            _labelled('nav-place-route', 'Route here', Icons.directions, () => widget.onRoute(place)),
+            SizedBox(
+              width: 72,
+              child: TapTarget(
+                key: const ValueKey('nav-place-route'),
+                label: 'Route here: $title',
+                onTap: () => widget.onRoute(place),
+                padding: EdgeInsets.zero,
+                fill: p.accent,
+                child: Icon(Icons.directions, size: 30, color: TapTarget.onFill(p.accent)),
+              ),
+            ),
           ],
+          if (home) const SizedBox(width: 3),
         ],
       ),
     );
   }
 }
 
-IconData placeIcon(PlaceKind k) => switch (k) {
+/// The row's two lines: an unnamed point is a dropped pin, with where it is
+/// underneath.
+(String, String) placeLines(Place place) {
+  if (place.name.isNotEmpty) return (place.name, place.detail);
+  final at = '${place.location.latitude.toStringAsFixed(4)}, ${place.location.longitude.toStringAsFixed(4)}';
+  return ('Dropped pin', place.detail.isEmpty ? at : '${place.detail} · $at');
+}
+
+const _distance = Distance();
+const _compass = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+/// Straight-line distance and compass direction from [from] to [to]: whole
+/// miles or km from 10 up, else as the guidance banner gives it; "here"
+/// within 50 m, where a direction means nothing.
+(String, String) placeDistance(LatLng from, LatLng to, UnitSystem units) {
+  final m = _distance.as(LengthUnit.Meter, from, to);
+  final unit = units == UnitSystem.imperial ? 1609.344 : 1000.0;
+  final text = m / unit >= 10
+      ? '${(m / unit).round()} ${units == UnitSystem.imperial ? 'mi' : 'km'}'
+      : formatDistance(m, units);
+  if (m < 50) return (text, 'here');
+  final bearing = (_distance.bearing(from, to) + 360) % 360;
+  return (text, _compass[(bearing / 45).round() % 8]);
+}
+
+IconData placeIcon(Place place) => switch (place.kind) {
   PlaceKind.home => Icons.home,
   PlaceKind.favourite => Icons.star,
-  PlaceKind.recent => Icons.history,
+  PlaceKind.recent => place.name.isEmpty ? Icons.place_outlined : Icons.history,
 };
 
 Widget _labelled(String key, String label, IconData icon, VoidCallback onTap, {Color? color}) => TapTarget(
