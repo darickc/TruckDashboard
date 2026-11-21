@@ -96,6 +96,12 @@ service AudioService {
   // Reads the connected phone's lists again. Returns at once; progress is in
   // WatchAudioResponse.phonebook.
   rpc RefreshPhonebook(RefreshPhonebookRequest) returns (RefreshPhonebookResponse);
+  // A media key from a control in the cab: the 5-way switch's short press,
+  // sent by power-manager (ADR-0051). PLAY_PAUSE does what the knob's push
+  // does: answers a ringing call, hangs up the call in progress, and without
+  // a call plays or pauses. NEXT and PREVIOUS are refused during a call.
+  // VOLUME_UP and VOLUME_DOWN are one step of the master volume, as the knob.
+  rpc PressMediaKey(PressMediaKeyRequest) returns (PressMediaKeyResponse);
 }
 
 message WatchAudioRequest {}
@@ -662,5 +668,26 @@ message RefreshPhonebookRequest {
 
 message RefreshPhonebookResponse {
   bool accepted = 1;
+  string detail = 2;
+}
+
+enum MediaKey {
+  MEDIA_KEY_UNSPECIFIED = 0;
+  MEDIA_KEY_PLAY_PAUSE = 1;
+  MEDIA_KEY_NEXT = 2;
+  MEDIA_KEY_PREVIOUS = 3;
+  MEDIA_KEY_VOLUME_UP = 4;
+  MEDIA_KEY_VOLUME_DOWN = 5;
+}
+
+message PressMediaKeyRequest {
+  MediaKey key = 1;
+  // Who asked ("power-manager (5-way switch)"), for the log.
+  string source = 2;
+}
+
+message PressMediaKeyResponse {
+  bool accepted = 1;
+  // What it did ("pause", "answered"), or why not, in words for the screen.
   string detail = 2;
 }

@@ -8,6 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "f250/vehicle/v1/diagnostics.proto",
         "f250/camera/v1/camera.proto",
         "f250/power/v1/display.proto",
+        "f250/power/v1/switch.proto",
         "f250/nav/v1/position.proto",
         "f250/nav/v1/route.proto",
         "f250/nav/v1/search.proto",

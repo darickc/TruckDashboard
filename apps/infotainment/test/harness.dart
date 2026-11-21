@@ -15,6 +15,7 @@ import 'package:f250_infotainment/nav/places_state.dart';
 import 'package:f250_infotainment/nav/position_state.dart';
 import 'package:f250_infotainment/nav/route_state.dart';
 import 'package:f250_infotainment/nav/search_state.dart';
+import 'package:f250_infotainment/switch/switch_state.dart';
 import 'package:f250_infotainment/telemetry/telemetry_store.dart';
 import 'package:f250_infotainment/ui/app.dart';
 import 'package:f250_infotainment/ui/app_scope.dart';
@@ -50,6 +51,7 @@ class Harness {
       PowerControl power = const NoPowerControl(),
       CameraSource? cameras,
       DisplaySource? display,
+      SwitchSource? switchSource,
       PositionSource? position,
       RouteSource? route,
       SearchSource? search,
@@ -79,6 +81,7 @@ class Harness {
       simulation: sim,
       cameras: cameras ?? SimulatedCameraSource(),
       display: display ?? SimulatedDisplaySource(mode: theme),
+      switchSource: switchSource,
       position: position ?? (SimulatedPositionSource(clock: clock, autoRun: false)..start()),
       route: route ?? UnavailableRouteSource('needs services/navigation (make sim)', clock),
       search: search,

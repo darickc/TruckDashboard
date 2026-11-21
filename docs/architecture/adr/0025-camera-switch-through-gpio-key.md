@@ -4,6 +4,10 @@
   and the reader runs end to end on a Mac with events written into a FIFO.
   The overlay lines haven't booted on the Pi 5 yet
 - **Date:** 2026-11-09
+- **Amended by:** [ADR-0051](0051-five-way-switch-media-and-cameras.md)
+  (2026-11-21): decisions 4–5. A press is short or long; a long one goes to
+  camera-manager's `Move`, a short one to audio-manager's `PressMediaKey`.
+  The overlay labels name the pin (`SW_BCM12`), not a direction
 - **Refines:** [ADR-0024](0024-camera-selection-switch-and-can-reverse.md)
   decision 3 (power-manager reads the switch) and
   [ADR-0013](0013-dcdc-usb-power-supply.md) (power-manager owns the GPIO)
@@ -11,7 +15,7 @@
 ## Context
 
 The 5-way camera switch closes one of five contacts to ground, each on its
-own GPIO ([wiring](../../wiring/power-and-inputs.md#camera-switch)).
+own GPIO ([wiring](../../wiring/power-and-inputs.md#5-way-switch)).
 power-manager has to see those closures and pass them on. It already reads
 the power key from a Linux input device, with no C library: the workspace
 forbids `unsafe` code, and it has no `libc` dependency.

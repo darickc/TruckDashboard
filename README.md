@@ -83,7 +83,7 @@ flowchart LR
     UI[Flutter UI<br/>800×480]
   end
   DLC -- SocketCAN / OBDLink --> GW
-  IN -- 5-way camera switch --> PWR
+  IN -- 5-way switch --> PWR
   ACC -- DCDC-USB: power, PSW pulse --> PWR
   GW -- gRPC f250.vehicle.v1 --> UI
   GW --> REC
@@ -140,8 +140,8 @@ x86_64 PC. See
 | [`tools/dev/`](tools/dev/) | Development scripts: macOS setup, link checker |
 | [`apps/infotainment/`](apps/infotainment/README.md) | Flutter touchscreen UI |
 | [`simulator/powerstroke/`](simulator/powerstroke/README.md) | Scenario simulator and scenario files |
-| `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto`, `sd-notify` (systemd readiness and watchdog), `camera-policy` (which camera shows), `recording` (dashcam retention and saved clips), `daylight` (the sun, day/night and brightness), `clock-sync` (is the clock trustworthy), `gpsd` (gpsd's reports and an honest position tracker), `geocode` (the offline search index and its ranking), `evdev` (Linux input events: the power key, the camera switch, the volume knob) |
-| `services/` | `vehicle-gateway`, `recorder`, `power-manager` (power key, camera switch, day/night and the backlight, `f250.power.v1`), `camera-manager` (the camera on screen, front and rear recording, `f250.camera.v1`), `navigation` (the position from gpsd, routes from Valhalla, offline address search, saved places and spoken directions, `f250.nav.v1`), `usb-export` (dashcam recordings to a USB stick, `f250.export.v1`), `knob-link` (the knob display's frames from the gateway), `tts` (the spoken directions' voice: Piper kept loaded, ADR-0048) |
+| `crates/` | Rust libraries: `elm` (MX+ client), `telemetry` (registry, validity, warnings), `powerstroke-sim`, `proto`, `sd-notify` (systemd readiness and watchdog), `camera-policy` (which camera shows), `recording` (dashcam retention and saved clips), `daylight` (the sun, day/night and brightness), `clock-sync` (is the clock trustworthy), `gpsd` (gpsd's reports and an honest position tracker), `geocode` (the offline search index and its ranking), `evdev` (Linux input events: the power key, the 5-way switch, the volume knob) |
+| `services/` | `vehicle-gateway`, `recorder`, `power-manager` (power key, the 5-way switch for media and cameras, day/night and the backlight, `f250.power.v1`), `camera-manager` (the camera on screen, front and rear recording, `f250.camera.v1`), `navigation` (the position from gpsd, routes from Valhalla, offline address search, saved places and spoken directions, `f250.nav.v1`), `usb-export` (dashcam recordings to a USB stick, `f250.export.v1`), `knob-link` (the knob display's frames from the gateway), `tts` (the spoken directions' voice: Piper kept loaded, ADR-0048) |
 | `tools/obd-console/` | Diagnostics console for the gateway |
 | `tools/pid-importer/` | The Torque PID export against the signal registry: candidates, rejections, drift check |
 | `tools/search-index/` | Builds navigation's offline address search index from OpenStreetMap extracts (`make search-region`) |

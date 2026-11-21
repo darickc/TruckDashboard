@@ -9,6 +9,7 @@ import '../widgets/display_settings.dart';
 import '../widgets/panel.dart';
 import '../widgets/power_buttons.dart';
 import '../widgets/speaker_settings.dart';
+import '../widgets/switch_settings.dart';
 import '../widgets/system_settings.dart';
 import '../widgets/tap_target.dart';
 
@@ -16,7 +17,8 @@ import '../widgets/tap_target.dart';
 /// Cameras (camera-manager: which USB port is which camera, and which
 /// record), Speakers (audio-manager: fader, balance, sub level, crossover;
 /// ADR-0039), System (what the head unit says about itself and every
-/// service's link, 2026-11-18). Display also holds Units (the dashboard's
+/// service's link, 2026-11-18; and the 5-way switch's directions, opened
+/// from it, ADR-0051). Display also holds Units (the dashboard's
 /// own, kept in its settings file; its own section until 2026-11-18). After
 /// the sections, Diagnostics (a screen of its own, opened from here rather
 /// than Home). Restart and Power, when the launcher offers them, at the
@@ -102,7 +104,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ]),
             SettingsSection.cameras => const CameraSettingsView(),
             SettingsSection.speakers => const SpeakerSettingsView(),
-            SettingsSection.system => const SystemSettings(),
+            SettingsSection.system => const SystemSection(),
           },
         ),
       ),
@@ -530,6 +532,38 @@ class _CameraSettingsViewState extends State<CameraSettingsView> {
                     fontWeight: FontWeight.w700,
                     color: fill == null ? p.text : TapTarget.onFill(fill))),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Settings › System, and the 5-way switch's directions opened from it
+/// (ADR-0051): a fifth section button would squeeze every section's word
+/// below its size in the panel's font.
+class SystemSection extends StatefulWidget {
+  const SystemSection({super.key});
+
+  @override
+  State<SystemSection> createState() => _SystemSectionState();
+}
+
+class _SystemSectionState extends State<SystemSection> {
+  var _switch = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_switch) return SystemSettings(onSwitch: () => setState(() => _switch = true));
+    final p = Palette.of(context);
+    return SwitchSettingsView(
+      leading: SizedBox(
+        width: 130,
+        child: TapTarget(
+          key: const ValueKey('sw-back'),
+          label: 'Back to System',
+          padding: EdgeInsets.zero,
+          onTap: () => setState(() => _switch = false),
+          child: Text('‹ System', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.text)),
         ),
       ),
     );

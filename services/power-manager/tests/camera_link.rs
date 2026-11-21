@@ -1,5 +1,5 @@
-//! The camera-switch link against a fake camera-manager on a unix socket:
-//! moves arrive, a missing or slow camera-manager never blocks the sender,
+//! The 5-way switch's camera link (long presses) against a fake
+//! camera-manager on a unix socket: moves arrive, a missing or slow camera-manager never blocks the sender,
 //! old moves are dropped, and the link finds camera-manager after it starts
 //! or restarts. `[SIM]`.
 
@@ -9,9 +9,12 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use f250_proto::camera::v1 as pb;
+use f250_proto::power::v1 as power;
 use pb::camera_service_server::{CameraService, CameraServiceServer};
-use power_manager::camera_link::{Link, LinkConfig, NotQueued, Outcome, SOURCE};
-use power_manager::camera_switch::Direction;
+use power_manager::camera_link::{self, SOURCE};
+use power_manager::link::{Link, LinkConfig, NotQueued, Outcome};
+use power_manager::switch::Role;
+use power_manager::switch_control::Sent;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{Instant, timeout};
 use tokio_stream::Stream;
@@ -148,36 +151,46 @@ fn socket(test: &str) -> PathBuf {
     dir.join("camera.sock")
 }
 
-fn link(
-    path: &Path,
-    call_ms: u64,
-    max_age_ms: u64,
-) -> (Link, mpsc::UnboundedReceiver<(Direction, Outcome)>) {
+type Outcomes = mpsc::UnboundedReceiver<(Role, Outcome)>;
+
+fn link(path: &Path, call_ms: u64, max_age_ms: u64) -> (Link<Sent>, Outcomes) {
     let (tx, rx) = mpsc::unbounded_channel();
-    let link = Link::spawn(
-        LinkConfig {
+    let link = camera_link::spawn(
+        &LinkConfig {
             endpoint: format!("unix:{}", path.display()),
             call_timeout: Duration::from_millis(call_ms),
             max_age: Duration::from_millis(max_age_ms),
         },
-        move |d, o| {
-            let _ = tx.send((d, o));
+        move |s: Sent, o| {
+            let _ = tx.send((s.role, o));
         },
     )
     .expect("link");
     (link, rx)
 }
 
-async fn next(rx: &mut mpsc::UnboundedReceiver<(Direction, Outcome)>) -> (Direction, Outcome) {
+/// A long press of `role`, as the main loop sends it.
+fn held(role: Role) -> Sent {
+    Sent {
+        role,
+        press: power::Press {
+            result: role.long_action().to_string(),
+            ..Default::default()
+        },
+    }
+}
+
+async fn next(rx: &mut Outcomes) -> (Role, Outcome) {
     timeout(Duration::from_secs(5), rx.recv())
         .await
         .expect("an outcome in 5 s")
         .expect("link task alive")
 }
 
-fn camera_of(outcome: &Outcome) -> Option<pb::Camera> {
+/// The camera camera-manager answered with, as the link describes it.
+fn camera_of(outcome: &Outcome) -> Option<&str> {
     match outcome {
-        Outcome::Delivered(v) => pb::Camera::try_from(v.camera).ok(),
+        Outcome::Delivered(v) => v.split(" (").next(),
         _ => None,
     }
 }
@@ -188,15 +201,15 @@ async fn moves_reach_camera_manager_with_the_source() {
     let server = Server::start(&path, Duration::ZERO);
     let (link, mut rx) = link(&path, 1000, 1000);
 
-    link.send(Direction::Back).expect("queued");
+    link.send(held(Role::Down)).expect("queued");
     let (d, o) = next(&mut rx).await;
-    assert_eq!(d, Direction::Back);
-    assert_eq!(camera_of(&o), Some(pb::Camera::Rear), "{o:?}");
+    assert_eq!(d, Role::Down);
+    assert_eq!(camera_of(&o), Some("rear camera"), "{o:?}");
 
-    link.send(Direction::Left).expect("queued");
-    link.send(Direction::Press).expect("queued");
-    assert_eq!(camera_of(&next(&mut rx).await.1), Some(pb::Camera::Left));
-    assert_eq!(next(&mut rx).await.0, Direction::Press);
+    link.send(held(Role::Left)).expect("queued");
+    link.send(held(Role::Press)).expect("queued");
+    assert_eq!(camera_of(&next(&mut rx).await.1), Some("left camera"));
+    assert_eq!(next(&mut rx).await.0, Role::Press);
 
     let seen = server.seen();
     assert_eq!(
@@ -218,9 +231,9 @@ async fn without_camera_manager_a_move_fails_fast_and_the_link_finds_it_later() 
     let (link, mut rx) = link(&path, 500, 1000);
 
     let started = Instant::now();
-    link.send(Direction::Right).expect("queued");
+    link.send(held(Role::Right)).expect("queued");
     let (d, o) = next(&mut rx).await;
-    assert_eq!(d, Direction::Right);
+    assert_eq!(d, Role::Right);
     assert!(matches!(o, Outcome::Failed(_)), "{o:?}");
     assert!(
         started.elapsed() < Duration::from_millis(1500),
@@ -230,9 +243,9 @@ async fn without_camera_manager_a_move_fails_fast_and_the_link_finds_it_later() 
 
     // camera-manager starts: the next move gets through on the same link.
     let server = Server::start(&path, Duration::ZERO);
-    link.send(Direction::Right).expect("queued");
+    link.send(held(Role::Right)).expect("queued");
     let (_, o) = next(&mut rx).await;
-    assert_eq!(camera_of(&o), Some(pb::Camera::Right), "{o:?}");
+    assert_eq!(camera_of(&o), Some("right camera"), "{o:?}");
     server.stop(&path).await;
 }
 
@@ -241,12 +254,12 @@ async fn the_link_survives_a_camera_manager_restart() {
     let path = socket("restart");
     let server = Server::start(&path, Duration::ZERO);
     let (link, mut rx) = link(&path, 500, 1000);
-    link.send(Direction::Back).expect("queued");
+    link.send(held(Role::Down)).expect("queued");
     assert!(matches!(next(&mut rx).await.1, Outcome::Delivered(_)));
     server.stop(&path).await;
 
     // Down: the move fails, nothing hangs.
-    link.send(Direction::Back).expect("queued");
+    link.send(held(Role::Down)).expect("queued");
     assert!(matches!(next(&mut rx).await.1, Outcome::Failed(_)));
 
     // Back on the same path: delivered again. The first call after a
@@ -255,7 +268,7 @@ async fn the_link_survives_a_camera_manager_restart() {
     let server = Server::start(&path, Duration::ZERO);
     let mut delivered = false;
     for _ in 0..2 {
-        link.send(Direction::Forward).expect("queued");
+        link.send(held(Role::Up)).expect("queued");
         if matches!(next(&mut rx).await.1, Outcome::Delivered(_)) {
             delivered = true;
             break;
@@ -277,7 +290,7 @@ async fn a_slow_camera_manager_times_out() {
     let server = Server::start(&path, Duration::from_millis(800));
     let (link, mut rx) = link(&path, 150, 5000);
     let started = Instant::now();
-    link.send(Direction::Left).expect("queued");
+    link.send(held(Role::Left)).expect("queued");
     let (_, o) = next(&mut rx).await;
     match o {
         Outcome::Failed(why) => assert!(why.contains("no answer in 150 ms"), "{why}"),
@@ -297,13 +310,13 @@ async fn moves_that_waited_too_long_are_dropped_not_sent() {
     // Each call takes 300 ms; moves may wait 100 ms.
     let server = Server::start(&path, Duration::from_millis(300));
     let (link, mut rx) = link(&path, 2000, 100);
-    for d in [Direction::Left, Direction::Right, Direction::Back] {
-        link.send(d).expect("queued");
+    for d in [Role::Left, Role::Right, Role::Down] {
+        link.send(held(d)).expect("queued");
     }
     let (d, o) = next(&mut rx).await;
-    assert_eq!(d, Direction::Left);
+    assert_eq!(d, Role::Left);
     assert!(matches!(o, Outcome::Delivered(_)), "{o:?}");
-    for want in [Direction::Right, Direction::Back] {
+    for want in [Role::Right, Role::Down] {
         let (d, o) = next(&mut rx).await;
         assert_eq!(d, want);
         assert!(
@@ -327,7 +340,7 @@ async fn sending_never_waits_and_a_full_queue_drops_moves() {
 
     let started = Instant::now();
     let results: Vec<Result<(), NotQueued>> =
-        (0..20).map(|_| link.send(Direction::Press)).collect();
+        (0..20).map(|_| link.send(held(Role::Press))).collect();
     assert!(
         started.elapsed() < Duration::from_millis(50),
         "send waited {:?}",

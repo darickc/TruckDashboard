@@ -38,7 +38,7 @@ flowchart TB
     CAN[CAN controller<br/>USB gs_usb adapter]
     MX[OBDLink MX+<br/>Bluetooth SPP]
     PSU[mini-box DCDC-USB<br/>ignition · PSW → J2]
-    GPIO[5-way camera switch → GPIO]
+    GPIO[5-way switch → GPIO]
     V4L[USB/UVC cameras]
     GNSS[USB GNSS]
     BT[Bluetooth radio]
@@ -120,7 +120,7 @@ in Phase 5.
 
 | Unit | User | Notes |
 |---|---|---|
-| `f250-power-manager.service` | `f250`, plus the `input` group (and `gpio` with the camera switch) | Handles the power key (logind `HandlePowerKey=ignore`), pulse-only. Powers off by exiting 42 to a root `ExecStopPost`. `WatchdogSec` |
+| `f250-power-manager.service` | `f250`, plus the `input` group (and `gpio` with the 5-way switch) | Handles the power key (logind `HandlePowerKey=ignore`), pulse-only. Powers off by exiting 42 to a root `ExecStopPost`. `WatchdogSec` |
 | `f250-vehicle-gateway.service` | dedicated, CAN access | Socket at `/run/f250/vehicle.sock`. Transmit is disabled unless config opts in |
 | `f250-recorder.service` | dedicated | Writes `/var/lib/f250/` only |
 | `f250-camera-manager.service` | `agl-driver` (the compositor's Wayland socket), group `f250`, plus `video` | Socket at `/run/f250-camera/camera.sock`. One `gst-launch-1.0` window at a time in the dashboard's activation area (ADR-0009, ADR-0026). `WatchdogSec` |

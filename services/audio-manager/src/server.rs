@@ -9,7 +9,7 @@ use tokio_stream::{Stream, StreamExt, wrappers::WatchStream};
 use tonic::{Request, Response, Status};
 
 use crate::manager::{Manager, settings_from_pb, settings_pb};
-use crate::model::Command;
+use crate::model::{Command, MediaKey};
 use crate::volume::Change;
 
 #[derive(Clone)]
@@ -340,6 +340,33 @@ impl AudioService for Api {
             Err(d) => (false, d),
         };
         Ok(Response::new(pb::RefreshPhonebookResponse {
+            accepted,
+            detail,
+        }))
+    }
+
+    async fn press_media_key(
+        &self,
+        req: Request<pb::PressMediaKeyRequest>,
+    ) -> Result<Response<pb::PressMediaKeyResponse>, Status> {
+        let r = req.into_inner();
+        let key = match pb::MediaKey::try_from(r.key) {
+            Ok(pb::MediaKey::PlayPause) => MediaKey::PlayPause,
+            Ok(pb::MediaKey::Next) => MediaKey::Next,
+            Ok(pb::MediaKey::Previous) => MediaKey::Previous,
+            Ok(pb::MediaKey::VolumeUp) => MediaKey::VolumeUp,
+            Ok(pb::MediaKey::VolumeDown) => MediaKey::VolumeDown,
+            _ => {
+                return Err(Status::invalid_argument(
+                    "key must be play_pause, next, previous, volume_up or volume_down",
+                ));
+            }
+        };
+        let (accepted, detail) = match self.manager.media_key(key, &source_of(&r.source)).await {
+            Ok(d) => (true, d),
+            Err(d) => (false, d),
+        };
+        Ok(Response::new(pb::PressMediaKeyResponse {
             accepted,
             detail,
         }))

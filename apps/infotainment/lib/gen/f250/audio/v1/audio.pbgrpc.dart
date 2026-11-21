@@ -225,6 +225,18 @@ class AudioServiceClient extends $grpc.Client {
     return $createUnaryCall(_$refreshPhonebook, request, options: options);
   }
 
+  /// A media key from a control in the cab: the 5-way switch's short press,
+  /// sent by power-manager (ADR-0051). PLAY_PAUSE does what the knob's push
+  /// does: answers a ringing call, hangs up the call in progress, and without
+  /// a call plays or pauses. NEXT and PREVIOUS are refused during a call.
+  /// VOLUME_UP and VOLUME_DOWN are one step of the master volume, as the knob.
+  $grpc.ResponseFuture<$0.PressMediaKeyResponse> pressMediaKey(
+    $0.PressMediaKeyRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$pressMediaKey, request, options: options);
+  }
+
   // method descriptors
 
   static final _$watchAudio =
@@ -325,6 +337,11 @@ class AudioServiceClient extends $grpc.Client {
       '/f250.audio.v1.AudioService/RefreshPhonebook',
       ($0.RefreshPhonebookRequest value) => value.writeToBuffer(),
       $0.RefreshPhonebookResponse.fromBuffer);
+  static final _$pressMediaKey =
+      $grpc.ClientMethod<$0.PressMediaKeyRequest, $0.PressMediaKeyResponse>(
+          '/f250.audio.v1.AudioService/PressMediaKey',
+          ($0.PressMediaKeyRequest value) => value.writeToBuffer(),
+          $0.PressMediaKeyResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('f250.audio.v1.AudioService')
@@ -498,6 +515,15 @@ abstract class AudioServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.RefreshPhonebookRequest.fromBuffer(value),
         ($0.RefreshPhonebookResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.PressMediaKeyRequest, $0.PressMediaKeyResponse>(
+            'PressMediaKey',
+            pressMediaKey_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.PressMediaKeyRequest.fromBuffer(value),
+            ($0.PressMediaKeyResponse value) => value.writeToBuffer()));
   }
 
   $async.Stream<$0.WatchAudioResponse> watchAudio_Pre($grpc.ServiceCall $call,
@@ -668,4 +694,13 @@ abstract class AudioServiceBase extends $grpc.Service {
 
   $async.Future<$0.RefreshPhonebookResponse> refreshPhonebook(
       $grpc.ServiceCall call, $0.RefreshPhonebookRequest request);
+
+  $async.Future<$0.PressMediaKeyResponse> pressMediaKey_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.PressMediaKeyRequest> $request) async {
+    return pressMediaKey($call, await $request);
+  }
+
+  $async.Future<$0.PressMediaKeyResponse> pressMediaKey(
+      $grpc.ServiceCall call, $0.PressMediaKeyRequest request);
 }

@@ -536,16 +536,23 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       parsing). Dashboard: Cameras → **Recordings to USB**: recordings by run, camera and time, saved clips marked,
       filters, tap/range/all, size against free space, progress, Cancel, and the result with "Safe to unplug" only
       from the service (20 Flutter tests at 800×480). Not on the Pi with a stick yet ([agl.md](setup/agl.md) check 19)
-- [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the camera switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
+- [~] 6.7 power-manager: the DCDC-USB power key, pulse-only (no USB link, 2026-11-09), the 5-way switch ([ADR-0013](architecture/adr/0013-dcdc-usb-power-supply.md))
       Power key done `[SIM]`: `services/power-manager` reads every input device with `KEY_POWER`, ignores
       presses inside the boot window (`BOOT_KEY_IGNORE_S`, from the kernel's boot), and powers off on any later
       press (exit 42, `ExecStopPost` as root). Sandboxed unit, watchdog, in `make deploy` and both images.
       `[BENCH]` 2026-11-09 with the Pi's own button: power off after the window, a press at 12 s ignored.
-      Camera switch read `[SIM]` ([ADR-0025](architecture/adr/0025-camera-switch-through-gpio-key.md)): five `gpio-key`
+      5-way switch read `[SIM]` ([ADR-0025](architecture/adr/0025-camera-switch-through-gpio-key.md)): five `gpio-key`
       overlays (pull-ups, keys F13–F17) in `config-f250.txt`; power-manager finds them by key bitmap, debounces
       (`--switch-debounce-ms`, only one contact closed, once per closure) and sends each move to camera-manager
       (`CAMERA_MANAGER`, ADR-0026). `make agl-test` checks every line names its key (the overlay's default is
       `KEY_POWER`). Not yet on the Pi (wiring checks 8–9).
+      5-way switch for media and cameras `[SIM]` ([ADR-0051](architecture/adr/0051-five-way-switch-media-and-cameras.md),
+      2026-11-21): a short press is media and calls (up/down volume, left/right previous/next, press play/pause,
+      answer, hang up) through audio-manager's new `PressMediaKey`; held 600 ms (`SWITCH_LONG_PRESS_MS`, an
+      example) it is the camera move it always was. Which wire is which direction is learned on the dashboard
+      (Settings › System › 5-way switch: push each direction when asked; power-manager's `SwitchService` on the
+      power socket), saved in `/var/lib/f250-power/switch`. Tested end to end on the Mac with the real binary and
+      events in a FIFO; no switch wired yet.
       Day/night and the backlight `[SIM]` ([ADR-0028](architecture/adr/0028-day-night-and-backlight.md), 2026-11-11):
       `crates/daylight` (the sun's elevation, within 0.1° of an independent NOAA implementation; Auto/Day/Night with
       hysteresis; brightness levels and the ramp), Auto only on a configured location (`DISPLAY_LATITUDE/LONGITUDE`) and
@@ -639,7 +646,7 @@ the list not yet looked at on its panel (the places there may be the owner's own
       new sheets for the grounds and fuses (no external TVS: owner, 2026-11-16, ADR-0013 amendment) ([ground-and-protection.md](wiring/ground-and-protection.md)),
       the permanent CAN connection (adapter at the DLC on a Y-splitter, [can-permanent.md](wiring/can-permanent.md)) and
       USB and camera power (USB cameras, no 12 V feed, [usb-and-cameras.md](wiring/usb-and-cameras.md)), beside the
-      existing power, camera-switch and audio sheets. Open before sign-off: fuse ratings and the ACC wire (H22, H25),
+      existing power, 5-way switch and audio sheets. Open before sign-off: fuse ratings and the ACC wire (H22, H25),
       header pin 11 on the 8xOUT, header access with the DAC (H27), the parts (H10, H11, H32, H33),
       cable lengths and the amp's place (H37)
 - [ ] 7.2 Electrical validation

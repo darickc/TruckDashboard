@@ -311,5 +311,36 @@ class RecentKind extends $pb.ProtobufEnum {
   const RecentKind._(super.value, super.name);
 }
 
+class MediaKey extends $pb.ProtobufEnum {
+  static const MediaKey MEDIA_KEY_UNSPECIFIED =
+      MediaKey._(0, _omitEnumNames ? '' : 'MEDIA_KEY_UNSPECIFIED');
+  static const MediaKey MEDIA_KEY_PLAY_PAUSE =
+      MediaKey._(1, _omitEnumNames ? '' : 'MEDIA_KEY_PLAY_PAUSE');
+  static const MediaKey MEDIA_KEY_NEXT =
+      MediaKey._(2, _omitEnumNames ? '' : 'MEDIA_KEY_NEXT');
+  static const MediaKey MEDIA_KEY_PREVIOUS =
+      MediaKey._(3, _omitEnumNames ? '' : 'MEDIA_KEY_PREVIOUS');
+  static const MediaKey MEDIA_KEY_VOLUME_UP =
+      MediaKey._(4, _omitEnumNames ? '' : 'MEDIA_KEY_VOLUME_UP');
+  static const MediaKey MEDIA_KEY_VOLUME_DOWN =
+      MediaKey._(5, _omitEnumNames ? '' : 'MEDIA_KEY_VOLUME_DOWN');
+
+  static const $core.List<MediaKey> values = <MediaKey>[
+    MEDIA_KEY_UNSPECIFIED,
+    MEDIA_KEY_PLAY_PAUSE,
+    MEDIA_KEY_NEXT,
+    MEDIA_KEY_PREVIOUS,
+    MEDIA_KEY_VOLUME_UP,
+    MEDIA_KEY_VOLUME_DOWN,
+  ];
+
+  static final $core.List<MediaKey?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 5);
+  static MediaKey? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const MediaKey._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');

@@ -5,6 +5,9 @@
   screen against a simulated and a fake camera-manager. Nothing has been
   assigned on the Pi yet
 - **Date:** 2026-11-11
+- **Amended by:** [ADR-0051](0051-five-way-switch-media-and-cameras.md)
+  (2026-11-21): Settings › System › 5-way switch learns which of the
+  switch's wires is which direction, through power-manager
 - **Refines:** [ADR-0027](0027-front-and-rear-recording.md) decision 11
   ("a settings screen, through camera-manager's API, as camera assignment
   will, comes later"), [ADR-0026](0026-camera-manager-interfaces.md),

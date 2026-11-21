@@ -27,9 +27,9 @@ a person signs each off in the bench log before going ahead.
 
 | # | Check | Pass | Status |
 |---|---|---|---|
-| 0.1 | Wiring diagrams ([docs/wiring](../wiring/README.md), Phase 7.1): PSW to J2, VOUT to the Pi, the ground scheme (no external TVS, ADR-0013 amendment), the DLC tap, the amplifiers' signal, remote and fused power, the camera switch's cable, camera power | Each reviewed and signed by a person | Not drawn yet |
+| 0.1 | Wiring diagrams ([docs/wiring](../wiring/README.md), Phase 7.1): PSW to J2, VOUT to the Pi, the ground scheme (no external TVS, ADR-0013 amendment), the DLC tap, the amplifiers' signal, remote and fused power, the 5-way switch's cable, camera power | Each reviewed and signed by a person | Not drawn yet |
 | 0.2 | The DLC connection | Termination measured with the truck off, before anything is plugged in ([can.md](can.md)) | Measured 2026-11-06 `[TRUCK]` |
-| 0.3 | No 12 V signal reaches Pi GPIO | The only GPIO input is the camera switch on the Pi's own 3.3 V ([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md)); confirm on the wiring as installed | — |
+| 0.3 | No 12 V signal reaches Pi GPIO | The only GPIO input is the 5-way switch on the Pi's own 3.3 V ([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md)); confirm on the wiring as installed | — |
 | 0.4 | Bring-up checks 1–25 for the parts fitted | Each has a `[BENCH]` entry | Most done; see [agl.md](agl.md#5-bring-up-checks-phase-52) |
 | 0.5 | Settings for the truck | `/etc/default/f250` has the transport and options meant for driving (`TRANSPORT=can`, `CAN_AUTO_ACTIVE=1`, and so on), with a copy kept | — |
 
@@ -81,7 +81,7 @@ at boot, active only after a clean listen with `CAN_AUTO_ACTIVE=1`.
 | 4.1 | Reverse | Shift into R: the rear camera within about a second; out of R: gone after the hold (2 s, an example); through R into P: no flash ([ADR-0046](../architecture/adr/0046-automatic-reverse.md)) | 0.89–0.97 s on 2026-11-14 `[TRUCK]`; the 300 ms debounce not driven yet |
 | 4.2 | A cold start in R | Starting in reverse brings the rear camera up once the bus is heard | — |
 | 4.3 | No reverse signal | Unplug the CAN adapter: "reverse unknown"; the camera doesn't come up by itself | `[BENCH]` on vcan0 |
-| 4.4 | The camera switch | Each position shows its camera; press closes ([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md)) | Switch not wired |
+| 4.4 | The 5-way switch | Settings › System › 5-way switch learns each direction. Then held, each direction shows its camera and press closes; short, up/down step the volume, left/right skip, press plays/pauses, answers and hangs up ([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md), [ADR-0051](../architecture/adr/0051-five-way-switch-media-and-cameras.md)) | Switch not wired |
 | 4.5 | Recording | After a drive, `ls /var/lib/f250/storage/video/*` has continuous segments for each recorded camera; no "not recording" advisory; Save clip protects a clip | — |
 | 4.6 | Picture at night and in sun | Usable for reversing; the mirrors stay the authority ([safety](../safety/assumptions.md)) | — |
 

@@ -29,21 +29,23 @@ dtparam=rtc_bbat_vchg=3000000
 # without one). The overlay claims BCM18-27.
 #dtoverlay=hifiberry-dac8x
 
-# Camera switch (ADR-0024, ADR-0025): five contacts to ground, one gpio-key
-# overlay each. The kernel turns a contact into a key on its own input device;
-# power-manager reads and debounces them. gpio_pull=2 is the pull-up (per the
+# 5-way switch (ADR-0024, ADR-0025, ADR-0051): five contacts to ground, one
+# gpio-key overlay each. The kernel turns a contact into a key on its own
+# input device; power-manager reads and debounces them. Which wire is which
+# direction is set on the dashboard, since it depends on how the switch is
+# mounted, so the labels name the pin, not a direction. gpio_pull=2 is the pull-up (per the
 # overlay's source); active low is its default. Keys F13-F17, because nothing
 # in the UI acts on them (arrow keys would move its focus).
-# Pins: docs/wiring/power-and-inputs.md#camera-switch; clear of the DAC8x
+# Pins: docs/wiring/power-and-inputs.md#5-way-switch; clear of the DAC8x
 # (BCM5, BCM18-27). Never leave out keycode=: the overlay's default is
-# KEY_POWER (116), and a camera press would shut the Pi down. Unconnected
+# KEY_POWER (116), and a switch press would shut the Pi down. Unconnected
 # pins just sit pulled up. UNVERIFIED on the Pi 5: bench checks 8-9 in the
 # wiring doc, then `journalctl -u f250-power-manager`.
-dtoverlay=gpio-key,gpio=12,keycode=183,label=CAM_LEFT,gpio_pull=2
-dtoverlay=gpio-key,gpio=13,keycode=184,label=CAM_RIGHT,gpio_pull=2
-dtoverlay=gpio-key,gpio=16,keycode=185,label=CAM_BACK,gpio_pull=2
-dtoverlay=gpio-key,gpio=6,keycode=186,label=CAM_FORWARD,gpio_pull=2
-dtoverlay=gpio-key,gpio=17,keycode=187,label=CAM_PRESS,gpio_pull=2
+dtoverlay=gpio-key,gpio=12,keycode=183,label=SW_BCM12,gpio_pull=2
+dtoverlay=gpio-key,gpio=13,keycode=184,label=SW_BCM13,gpio_pull=2
+dtoverlay=gpio-key,gpio=16,keycode=185,label=SW_BCM16,gpio_pull=2
+dtoverlay=gpio-key,gpio=6,keycode=186,label=SW_BCM6,gpio_pull=2
+dtoverlay=gpio-key,gpio=17,keycode=187,label=SW_BCM17,gpio_pull=2
 
 # NVMe HAT on the Pi 5's external PCIe connector, fitted 2026-11-11. On the
 # bench Pi the drive was found with this line still commented out, and the

@@ -580,7 +580,7 @@ that decision chose.
    - states: `OFF, STARTING, RUNNING, SHUTTING_DOWN, FAULT`
    - the power key (the DCDC-USB's PSW pulse on J2): ignored during the boot window, otherwise it shuts down
    - ~~ignition and battery voltage over USB, reboot instead of halt, low-voltage shutdown~~: dropped, the DCDC-USB's USB isn't connected
-   - the camera switch (five GPIO contacts, debounced), passed to camera-manager (ADR-0024)
+   - the 5-way switch (five GPIO contacts, debounced), passed to camera-manager (ADR-0024)
    - day/night from sun position and a manual override (no illumination wire)
    - backlight dimming
    - systemd and hardware watchdogs
@@ -597,7 +597,7 @@ that decision chose.
    - ground scheme
    - DLC tap or Y-cable
    - amplifier signal, remote and separate fused power
-   - the camera switch's cable to the Pi's GPIO
+   - the 5-way switch's cable to the Pi's GPIO
    - camera power
 
    Each diagram must be reviewed by a person before installation.
@@ -696,7 +696,7 @@ already have if the display runs on the Pi 5.
 | Item | Note |
 |---|---|
 | mini-box DCDC-USB | Chosen 2026-11-04 instead of the CarPiHAT PRO 5 (ADR-0013) |
-| I2S DAC HAT (DAC8x), a 5-way camera switch | The CarPiHAT's other jobs (ADR-0013, ADR-0014, ADR-0024). No opto board and no amplifier-remote part since 2026-11-09 |
+| I2S DAC HAT (DAC8x), a 5-way switch | The CarPiHAT's other jobs (ADR-0013, ADR-0014, ADR-0024). No opto board and no amplifier-remote part since 2026-11-09 |
 | USB candleLight CAN adapter | Bought 2026-11-03 (ADR-0012) |
 | 22→15-way display FFC | Display type, **not** a camera cable |
 | OBD-II Y-splitter and DLC breakout | |

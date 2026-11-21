@@ -17,6 +17,7 @@ import '../nav/places_state.dart';
 import '../nav/position_state.dart';
 import '../nav/route_state.dart';
 import '../nav/search_state.dart';
+import '../switch/switch_state.dart';
 import '../telemetry/calibration.dart';
 import '../telemetry/telemetry_store.dart';
 import 'banner_alerts.dart';
@@ -88,6 +89,7 @@ class AppServices {
     this.gateway,
     CameraSource? cameras,
     DisplaySource? display,
+    SwitchSource? switchSource,
     PositionSource? position,
     RouteSource? route,
     SearchSource? search,
@@ -100,6 +102,7 @@ class AppServices {
     this.refreshPeriod = const Duration(milliseconds: 250),
   })  : cameras = cameras ?? SimulatedCameraSource(),
         display = display ?? SimulatedDisplaySource(),
+        switchSource = switchSource ?? SimulatedSwitchSource(),
         position = position ?? SimulatedPositionSource(autoRun: false),
         route = route ?? UnavailableRouteSource(),
         search = search ?? const UnavailableSearchSource(),
@@ -125,6 +128,10 @@ class AppServices {
   /// Day/night and the backlight: power-manager (Phase 6.7, ADR-0028), or a
   /// simulation of it. Its mode picks the palette.
   final DisplaySource display;
+
+  /// The 5-way switch's directions (Settings › Switch): power-manager
+  /// (ADR-0051), or a simulation of it.
+  final SwitchSource switchSource;
 
   /// The truck's position: services/navigation (Phase 6.4, ADR-0030), or a
   /// simulated receiver.

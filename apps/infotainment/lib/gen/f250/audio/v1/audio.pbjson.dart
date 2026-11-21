@@ -178,6 +178,25 @@ final $typed_data.Uint8List recentKindDescriptor = $convert.base64Decode(
     'RfUkVDRUlWRUQQARIWChJSRUNFTlRfS0lORF9ESUFMRUQQAhIWChJSRUNFTlRfS0lORF9NSVNT'
     'RUQQAw==');
 
+@$core.Deprecated('Use mediaKeyDescriptor instead')
+const MediaKey$json = {
+  '1': 'MediaKey',
+  '2': [
+    {'1': 'MEDIA_KEY_UNSPECIFIED', '2': 0},
+    {'1': 'MEDIA_KEY_PLAY_PAUSE', '2': 1},
+    {'1': 'MEDIA_KEY_NEXT', '2': 2},
+    {'1': 'MEDIA_KEY_PREVIOUS', '2': 3},
+    {'1': 'MEDIA_KEY_VOLUME_UP', '2': 4},
+    {'1': 'MEDIA_KEY_VOLUME_DOWN', '2': 5},
+  ],
+};
+
+/// Descriptor for `MediaKey`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List mediaKeyDescriptor = $convert.base64Decode(
+    'CghNZWRpYUtleRIZChVNRURJQV9LRVlfVU5TUEVDSUZJRUQQABIYChRNRURJQV9LRVlfUExBWV'
+    '9QQVVTRRABEhIKDk1FRElBX0tFWV9ORVhUEAISFgoSTUVESUFfS0VZX1BSRVZJT1VTEAMSFwoT'
+    'TUVESUFfS0VZX1ZPTFVNRV9VUBAEEhkKFU1FRElBX0tFWV9WT0xVTUVfRE9XThAF');
+
 @$core.Deprecated('Use watchAudioRequestDescriptor instead')
 const WatchAudioRequest$json = {
   '1': 'WatchAudioRequest',
@@ -1256,3 +1275,38 @@ final $typed_data.Uint8List refreshPhonebookResponseDescriptor =
     $convert.base64Decode(
         'ChhSZWZyZXNoUGhvbmVib29rUmVzcG9uc2USGgoIYWNjZXB0ZWQYASABKAhSCGFjY2VwdGVkEh'
         'YKBmRldGFpbBgCIAEoCVIGZGV0YWls');
+
+@$core.Deprecated('Use pressMediaKeyRequestDescriptor instead')
+const PressMediaKeyRequest$json = {
+  '1': 'PressMediaKeyRequest',
+  '2': [
+    {
+      '1': 'key',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.f250.audio.v1.MediaKey',
+      '10': 'key'
+    },
+    {'1': 'source', '3': 2, '4': 1, '5': 9, '10': 'source'},
+  ],
+};
+
+/// Descriptor for `PressMediaKeyRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List pressMediaKeyRequestDescriptor = $convert.base64Decode(
+    'ChRQcmVzc01lZGlhS2V5UmVxdWVzdBIpCgNrZXkYASABKA4yFy5mMjUwLmF1ZGlvLnYxLk1lZG'
+    'lhS2V5UgNrZXkSFgoGc291cmNlGAIgASgJUgZzb3VyY2U=');
+
+@$core.Deprecated('Use pressMediaKeyResponseDescriptor instead')
+const PressMediaKeyResponse$json = {
+  '1': 'PressMediaKeyResponse',
+  '2': [
+    {'1': 'accepted', '3': 1, '4': 1, '5': 8, '10': 'accepted'},
+    {'1': 'detail', '3': 2, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `PressMediaKeyResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List pressMediaKeyResponseDescriptor = $convert.base64Decode(
+    'ChVQcmVzc01lZGlhS2V5UmVzcG9uc2USGgoIYWNjZXB0ZWQYASABKAhSCGFjY2VwdGVkEhYKBm'
+    'RldGFpbBgCIAEoCVIGZGV0YWls');

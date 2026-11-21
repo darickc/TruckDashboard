@@ -1739,6 +1739,88 @@ async fn the_knobs_push_answers_and_hangs_up() {
     .await;
 }
 
+async fn media_key(c: &mut Client, key: pb::MediaKey) -> pb::PressMediaKeyResponse {
+    c.press_media_key(pb::PressMediaKeyRequest {
+        key: key as i32,
+        source: "test".into(),
+    })
+    .await
+    .expect("press_media_key")
+    .into_inner()
+}
+
+/// The 5-way switch's short presses (ADR-0051), over the API as
+/// power-manager sends them.
+#[tokio::test]
+async fn the_switchs_media_keys() {
+    use pb::MediaKey as K;
+    let mut r = start("media-keys", no_pairing()).await;
+    let mut s = watch(&mut r.client).await;
+    let m = until(&mut s, "playing, calls ready", |m| {
+        play_state_of(m) == pb::PlayState::Playing && calls(m).available
+    })
+    .await;
+    let level = m.volume.unwrap().level;
+
+    let up = media_key(&mut r.client, K::VolumeUp).await;
+    assert!(up.accepted, "{up:?}");
+    assert_eq!(up.detail, format!("Volume {}.", level + 1));
+    until(&mut s, "a step up", |m| {
+        m.volume.as_ref().is_some_and(|v| v.level == level + 1)
+    })
+    .await;
+    assert!(media_key(&mut r.client, K::VolumeDown).await.accepted);
+    until(&mut s, "back down", |m| {
+        m.volume.as_ref().is_some_and(|v| v.level == level)
+    })
+    .await;
+
+    let next = media_key(&mut r.client, K::Next).await;
+    assert_eq!((next.accepted, next.detail.as_str()), (true, "Next"));
+    until(&mut s, "track two", |m| title(m) == "Second Simulated Song").await;
+    assert!(media_key(&mut r.client, K::Previous).await.accepted);
+    until(&mut s, "back to one", |m| title(m) == "Simulated Track One").await;
+    let pause = media_key(&mut r.client, K::PlayPause).await;
+    assert_eq!(pause.detail, "Pause");
+    until(&mut s, "paused", |m| {
+        play_state_of(m) == pb::PlayState::Paused
+    })
+    .await;
+    assert!(media_key(&mut r.client, K::PlayPause).await.accepted);
+    until(&mut s, "playing", |m| {
+        play_state_of(m) == pb::PlayState::Playing
+    })
+    .await;
+
+    // A call: the press answers it and hangs it up; skips are refused.
+    r.calls.ring(SIM_NUMBER, SIM_CALLER);
+    until(&mut s, "ringing", |m| {
+        call_state(m) == pb::CallState::Incoming
+    })
+    .await;
+    let a = media_key(&mut r.client, K::PlayPause).await;
+    assert_eq!((a.accepted, a.detail.as_str()), (true, "Answered."));
+    until(&mut s, "active", |m| call_state(m) == pb::CallState::Active).await;
+    let skip = media_key(&mut r.client, K::Next).await;
+    assert_eq!(
+        (skip.accepted, skip.detail.as_str()),
+        (false, "A call is in progress.")
+    );
+    assert!(media_key(&mut r.client, K::VolumeUp).await.accepted);
+    let h = media_key(&mut r.client, K::PlayPause).await;
+    assert_eq!((h.accepted, h.detail.as_str()), (true, "Hung up."));
+    until(&mut s, "no call", |m| calls(m).call.is_none()).await;
+
+    let bad = r
+        .client
+        .press_media_key(pb::PressMediaKeyRequest {
+            key: 0,
+            source: String::new(),
+        })
+        .await;
+    assert_eq!(bad.unwrap_err().code(), tonic::Code::InvalidArgument);
+}
+
 #[tokio::test]
 async fn a_phone_without_its_own_ring_tone_is_rung_through_the_speakers() {
     let mut r = start("call-ring", no_pairing()).await;

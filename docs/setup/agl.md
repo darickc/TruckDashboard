@@ -171,7 +171,7 @@ Each line is a bench-log entry when it passes. Mark results **[BENCH]**.
 
 ### Input events
 
-For checks 24 and 25, and the camera switch: the image has no `evtest`, but
+For checks 24 and 25, and the 5-way switch: the image has no `evtest`, but
 libinput's recorder names each event the same way (checked on image cb62346,
 2026-11-14, bench-log). Find the device's `eventN` in
 `/proc/bus/input/devices` (its `N: Name=` line, then `H: Handlers=`), then:
@@ -407,8 +407,9 @@ known-good reference: the panel, touch and dashboard worked on it on
 - The rest of the power-manager: the hardware watchdog, and the dashboard's
   *Power* button becoming Restart. Day/night and the backlight are built
   [SIM] (check 15). It reads the
-  camera switch and passes moves to camera-manager [SIM], but the switch
-  isn't wired yet; `camera-ctl` stands in for it (check 14). Its first part
+  5-way switch and passes long presses to camera-manager and short ones to
+  audio-manager [SIM] (ADR-0051), but the switch isn't wired yet; `camera-ctl`
+  stands in for it (check 14). Its first part
   handles the power key: after the boot window
   (`BOOT_KEY_IGNORE_S`, 30 s), pressing the Pi's button powers it off, as the
   DCDC-USB's PSW pulse will. The dashboard's *Power* button still shuts down

@@ -4733,6 +4733,149 @@ class RefreshPhonebookResponse extends $pb.GeneratedMessage {
   void clearDetail() => $_clearField(2);
 }
 
+class PressMediaKeyRequest extends $pb.GeneratedMessage {
+  factory PressMediaKeyRequest({
+    MediaKey? key,
+    $core.String? source,
+  }) {
+    final result = PressMediaKeyRequest._();
+    if (key != null) result.key = key;
+    if (source != null) result.source = source;
+    return result;
+  }
+
+  PressMediaKeyRequest._();
+
+  factory PressMediaKeyRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PressMediaKeyRequest()..mergeFromBuffer(data, registry);
+  factory PressMediaKeyRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PressMediaKeyRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PressMediaKeyRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: PressMediaKeyRequest.$_createMessage)
+    ..aE<MediaKey>(1, _omitFieldNames ? '' : 'key', enumValues: MediaKey.values)
+    ..aOS(2, _omitFieldNames ? '' : 'source')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PressMediaKeyRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PressMediaKeyRequest copyWith(void Function(PressMediaKeyRequest) updates) =>
+      super.copyWith((message) => updates(message as PressMediaKeyRequest))
+          as PressMediaKeyRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use PressMediaKeyRequest() / PressMediaKeyRequest.new instead')
+  static PressMediaKeyRequest create() => PressMediaKeyRequest._();
+  static $pb.GeneratedMessage $_createMessage() => PressMediaKeyRequest._();
+  @$core.override
+  PressMediaKeyRequest createEmptyInstance() => PressMediaKeyRequest._();
+  @$core.pragma('dart2js:noInline')
+  static PressMediaKeyRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PressMediaKeyRequest>(
+          PressMediaKeyRequest.$_createMessage);
+  static PressMediaKeyRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  MediaKey get key => $_getN(0);
+  @$pb.TagNumber(1)
+  set key(MediaKey value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKey() => $_clearField(1);
+
+  /// Who asked ("power-manager (5-way switch)"), for the log.
+  @$pb.TagNumber(2)
+  $core.String get source => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set source($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSource() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSource() => $_clearField(2);
+}
+
+class PressMediaKeyResponse extends $pb.GeneratedMessage {
+  factory PressMediaKeyResponse({
+    $core.bool? accepted,
+    $core.String? detail,
+  }) {
+    final result = PressMediaKeyResponse._();
+    if (accepted != null) result.accepted = accepted;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  PressMediaKeyResponse._();
+
+  factory PressMediaKeyResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PressMediaKeyResponse()..mergeFromBuffer(data, registry);
+  factory PressMediaKeyResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PressMediaKeyResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PressMediaKeyResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.audio.v1'),
+      createEmptyInstance: PressMediaKeyResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'accepted')
+    ..aOS(2, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PressMediaKeyResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PressMediaKeyResponse copyWith(
+          void Function(PressMediaKeyResponse) updates) =>
+      super.copyWith((message) => updates(message as PressMediaKeyResponse))
+          as PressMediaKeyResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use PressMediaKeyResponse() / PressMediaKeyResponse.new instead')
+  static PressMediaKeyResponse create() => PressMediaKeyResponse._();
+  static $pb.GeneratedMessage $_createMessage() => PressMediaKeyResponse._();
+  @$core.override
+  PressMediaKeyResponse createEmptyInstance() => PressMediaKeyResponse._();
+  @$core.pragma('dart2js:noInline')
+  static PressMediaKeyResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PressMediaKeyResponse>(
+          PressMediaKeyResponse.$_createMessage);
+  static PressMediaKeyResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get accepted => $_getBF(0);
+  @$pb.TagNumber(1)
+  set accepted($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAccepted() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAccepted() => $_clearField(1);
+
+  /// What it did ("pause", "answered"), or why not, in words for the screen.
+  @$pb.TagNumber(2)
+  $core.String get detail => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set detail($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDetail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDetail() => $_clearField(2);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

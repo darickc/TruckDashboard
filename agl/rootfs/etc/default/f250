@@ -87,9 +87,20 @@ DISPLAY_FALLBACK=
 DISPLAY_TRUST_CLOCK=
 DISPLAY_MIN_BRIGHTNESS_PCT=
 DISPLAY_BACKLIGHT=
-# CAMERA_MANAGER  power-manager: where camera-switch moves go (camera-manager's
-#            f250.camera.v1 API). Default unix:/run/f250-camera/camera.sock,
-#            set in the unit. Set it empty to only log the moves.
+# CAMERA_MANAGER  power-manager: where the 5-way switch's long presses go
+#            (camera-manager's f250.camera.v1 API). Default
+#            unix:/run/f250-camera/camera.sock, set in the unit. Set it empty
+#            to only log them.
+# AUDIO_MANAGER  power-manager: where the 5-way switch's short presses go
+#            (audio-manager's PressMediaKey: volume, skip, play/pause, answer
+#            and hang up; ADR-0051). Default unix:/run/f250-audio/audio.sock,
+#            set in the unit. Set it empty to only log them.
+# SWITCH_LONG_PRESS_MS  power-manager: a press held this long is a long press
+#            (a camera). Empty: 600, an example value. Which wire is which
+#            direction is set on the dashboard (Settings › System › 5-way
+#            switch), not here.
+#            After editing: systemctl restart f250-power-manager
+SWITCH_LONG_PRESS_MS=
 # CAMERA_FRONT, CAMERA_LEFT, CAMERA_RIGHT, CAMERA_REAR  camera-manager: each
 #            camera's V4L2 device. The dashboard's Settings tab sets these too
 #            (ADR-0029): once saved there, /var/lib/f250-camera/settings
@@ -99,8 +110,8 @@ DISPLAY_BACKLIGHT=
 #            role follows the port it is plugged into, and identical cameras
 #            (which share a by-id name) stay apart. Not /dev/videoN, which
 #            can change between boots. Empty: the camera shows as unavailable
-#            when chosen. The switch: forward front, left, right, back rear,
-#            press closes. The bench webcam (a stand-in, not a truck camera)
+#            when chosen. The 5-way switch, held: up front, left, right, down
+#            rear, press closes (ADR-0051). The bench webcam (a stand-in, not a truck camera)
 #            was /dev/video0 (bench-log 2026-11-09).
 #            After editing: systemctl restart f250-camera-manager
 CAMERA_FRONT=

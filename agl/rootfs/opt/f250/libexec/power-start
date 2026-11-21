@@ -4,7 +4,13 @@
 #
 #   BOOT_KEY_IGNORE_S   seconds after boot in which the power key is ignored
 #       (the DCDC-USB's ON pulse). Default 30 (the unit), an example value.
-#   CAMERA_MANAGER      where camera-switch moves go. Empty: only logged.
+#   CAMERA_MANAGER      where the 5-way switch's long presses go (a camera).
+#       Empty: only logged.
+#   AUDIO_MANAGER       where its short presses go (media and calls,
+#       ADR-0051). Empty: only logged.
+#   SWITCH_LONG_PRESS_MS  how long a press is held to be long. Passed on only
+#       when it is a whole number: a bad value is logged and left out, so a
+#       typo here never stops the power key from working.
 #   DISPLAY_LATITUDE, DISPLAY_LONGITUDE   where the truck is, for the sun
 #       (degrees; north and east positive), until there is a GPS position.
 #       Both, or neither: with neither and no GPS, Auto day/night uses the
@@ -17,9 +23,12 @@
 #       leniently: a bad one is logged and its default used, so a typo here
 #       never stops the power key from working.
 #
-# The display API is on /run/f250-power/power.sock (RuntimeDirectory), the
-# driver's display settings in /var/lib/f250-power/display and the last GPS
-# position in /var/lib/f250-power/location (StateDirectory).
+# The power API (the display and the switch) is on
+# /run/f250-power/power.sock (RuntimeDirectory), the driver's display
+# settings in /var/lib/f250-power/display, the switch's directions (set on
+# the dashboard's Settings › System › 5-way switch) in
+# /var/lib/f250-power/switch and the last GPS position in
+# /var/lib/f250-power/location (StateDirectory).
 #
 # Status: [SIM] (make agl-test).
 set -euo pipefail
@@ -28,12 +37,23 @@ BIN="${F250_POWER_BIN:-/opt/f250/bin/power-manager}"
 SOCK="${F250_POWER_SOCK:-/run/f250-power/power.sock}"
 STATE="${F250_POWER_STATE:-/var/lib/f250-power/display}"
 LOCATION="${F250_POWER_LOCATION:-/var/lib/f250-power/location}"
+SWITCH="${F250_POWER_SWITCH:-/var/lib/f250-power/switch}"
 
 args=(--boot-key-ignore-s "${BOOT_KEY_IGNORE_S:-30}")
 if [[ -n "${CAMERA_MANAGER:-}" ]]; then
   args+=(--camera-manager "$CAMERA_MANAGER")
 fi
-args+=(--display-listen "unix:$SOCK" --display-state "$STATE")
+if [[ -n "${AUDIO_MANAGER:-}" ]]; then
+  args+=(--audio-manager "$AUDIO_MANAGER")
+fi
+args+=(--display-listen "unix:$SOCK" --display-state "$STATE" --switch-state "$SWITCH")
+if [[ -n "${SWITCH_LONG_PRESS_MS:-}" ]]; then
+  if [[ "$SWITCH_LONG_PRESS_MS" =~ ^[0-9]+$ ]]; then
+    args+=("--switch-long-press-ms=$SWITCH_LONG_PRESS_MS")
+  else
+    echo "power-start: SWITCH_LONG_PRESS_MS=$SWITCH_LONG_PRESS_MS isn't a whole number of ms: the default" >&2
+  fi
+fi
 if [[ -n "${DISPLAY_NAVIGATION:-}" ]]; then
   args+=(--navigation "$DISPLAY_NAVIGATION" --location-state "$LOCATION")
 fi

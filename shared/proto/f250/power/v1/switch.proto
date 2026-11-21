@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+// The 5-way switch in the cab, served by services/power-manager
+// (docs/architecture/adr/0051-five-way-switch-media-and-cameras.md).
+// power-manager reads its five wires (gpio-key, ADR-0025), tells a short
+// press from a long one, and sends it: a short press to audio-manager (media
+// and calls), a long press to camera-manager (a camera). Which wire is Up,
+// Down, Left, Right or Press is the driver's setting, learned on the
+// dashboard's Settings › Switch: the switch's mounting direction isn't known
+// until it is fitted. While learning, presses are only reported here, never
+// sent.
+package f250.power.v1;
+
+service SwitchService {
+  // The switch's state now, then again on each change, and each press as it
+  // happens. A client that loses the stream must not show the state as
+  // current.
+  rpc WatchSwitch(WatchSwitchRequest) returns (stream WatchSwitchResponse);
+  // Turns learning on or off. While on, presses are reported and not sent.
+  // It turns itself off after `learning_timeout_s` without a press, so a
+  // screen that went away can't leave the switch doing nothing.
+  rpc SetLearning(SetLearningRequest) returns (SetLearningResponse);
+  // Saves which wire is which role, and turns learning off. Refused, with a
+  // reason, unless every wire has a different role.
+  rpc SetMapping(SetMappingRequest) returns (SetMappingResponse);
+  // Back to the default mapping (the wiring doc's), saved, learning off.
+  rpc ResetMapping(ResetMappingRequest) returns (ResetMappingResponse);
+}
+
+// One of the switch's five wires: a contact to ground on its own GPIO, which
+// the gpio-key overlay (agl/boot/config-f250.txt) makes a key. Named by the
+// key, which never changes; `WireInfo.pin` says which GPIO it is on.
+enum Wire {
+  WIRE_UNSPECIFIED = 0;
+  WIRE_F13 = 1;
+  WIRE_F14 = 2;
+  WIRE_F15 = 3;
+  WIRE_F16 = 4;
+  WIRE_F17 = 5;
+}
+
+// What a wire does: its short and long press follow from the role (ADR-0051).
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  // Short: volume up a step. Long: front camera.
+  ROLE_UP = 1;
+  // Short: volume down a step. Long: rear camera.
+  ROLE_DOWN = 2;
+  // Short: previous track. Long: left camera.
+  ROLE_LEFT = 3;
+  // Short: next track. Long: right camera.
+  ROLE_RIGHT = 4;
+  // Short: play/pause, answer a ringing call, hang up a call. Long: close the
+  // camera.
+  ROLE_PRESS = 5;
+}
+
+enum PressKind {
+  PRESS_KIND_UNSPECIFIED = 0;
+  PRESS_KIND_SHORT = 1;
+  PRESS_KIND_LONG = 2;
+}
+
+message WireInfo {
+  Wire wire = 1;
+  // The GPIO, for the screen ("BCM12, pin 32").
+  string pin = 2;
+  Role role = 3;
+  // An input device with this wire's key is open.
+  bool present = 4;
+}
+
+message SwitchState {
+  // All five wires, in Wire order.
+  repeated WireInfo wires = 1;
+  // Presses are reported, not sent.
+  bool learning = 2;
+  // Learning ends after this long without a press.
+  uint32 learning_timeout_s = 3;
+  // A press held this long is a long press.
+  uint32 long_press_ms = 4;
+  // The mapping is the default (none saved, or reset).
+  bool default_mapping = 5;
+  // Why the switch can't be read or the mapping wasn't loaded; empty when
+  // all is well.
+  string problem = 6;
+}
+
+message Press {
+  Wire wire = 1;
+  // The role the wire had when pressed.
+  Role role = 2;
+  PressKind kind = 3;
+  // What it did, for the screen ("volume up", "rear camera",
+  // "learning: not sent", "audio-manager didn't answer").
+  string result = 4;
+  // Counts up with each press since power-manager started, so a client can
+  // tell two presses of the same wire apart.
+  uint64 seq = 5;
+}
+
+message WatchSwitchRequest {}
+
+message WatchSwitchResponse {
+  oneof event {
+    SwitchState state = 1;
+    Press press = 2;
+  }
+}
+
+message SetLearningRequest {
+  bool on = 1;
+  // Who asked ("dashboard"), for the log.
+  string source = 2;
+}
+
+message SetLearningResponse {
+  SwitchState state = 1;
+}
+
+message WireRole {
+  Wire wire = 1;
+  Role role = 2;
+}
+
+message SetMappingRequest {
+  // All five wires, each with a different role.
+  repeated WireRole wires = 1;
+  string source = 2;
+}
+
+message SetMappingResponse {
+  bool saved = 1;
+  // Why not, in words for the screen.
+  string detail = 2;
+  SwitchState state = 3;
+}
+
+message ResetMappingRequest {
+  string source = 1;
+}
+
+message ResetMappingResponse {
+  bool saved = 1;
+  string detail = 2;
+  SwitchState state = 3;
+}

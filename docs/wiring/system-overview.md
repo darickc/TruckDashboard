@@ -40,7 +40,7 @@ flowchart LR
 ```mermaid
 flowchart LR
   DLC[DLC pins 6, 14, 5] -- W11 · CAN, short --> CANA[RH-02 Pro<br/>isolated, terminator OFF]
-  SW[5-way camera switch<br/>H32] -- W10 · 3.3 V logic --> PI
+  SW[5-way switch<br/>H32] -- W10 · 3.3 V logic --> PI
   CANA -- W12 · USB --> PI[Raspberry Pi 5]
   CAMS[USB cameras<br/>H33] -- W13 · USB --> PI
   GPS[GNSS, H11] -- W14 · USB --> HUB[USB 2.0 hub<br/>with >1 camera]
@@ -75,7 +75,7 @@ the amplifier is on its own bracket (H37).
 | W7 | Pi PCIe connector | NVMe board | PCIe | — (the board's own FFC) | H4 (stacks with the DAC?), H31 |
 | W8 | Pi DSI connector | Display | Video, touch | — | The display-type 22-to-15-way FFC ([shopping list](../hardware/shopping-list.md)) |
 | W9 | Pi 5 V and GND header pins | Display 5 V/GND | Display power | [usb-and-cameras](usb-and-cameras.md#display-power) | H27: header access with the DAC fitted |
-| W10 | Camera switch, 5 contacts + common | Pi BCM6, 12, 13, 16, 17 and GND | 3.3 V logic | [power-and-inputs](power-and-inputs.md#camera-switch) | H32 (the part), H27 (header access), the 8xOUT's pin 11 (below) |
+| W10 | 5-way switch, 5 contacts + common | Pi BCM6, 12, 13, 16, 17 and GND | 3.3 V logic | [power-and-inputs](power-and-inputs.md#5-way-switch) | H32 (the part), H27 (header access), the 8xOUT's pin 11 (below) |
 | W11 | DLC pins 6, 14, 5 | RH-02 Pro CAN H, CAN L, GND | HS-CAN | [can-permanent](can-permanent.md) | The adapter's mounting place and USB run length |
 | W12 | RH-02 Pro | Pi USB | USB | [usb-and-cameras](usb-and-cameras.md#port-plan) | — |
 | W13 | Cameras | Pi USB (and hub) | Video and the cameras' 5 V | [usb-and-cameras](usb-and-cameras.md#camera-power) | H10, H33, H25 |
@@ -95,7 +95,7 @@ cables, which radiate in the 2.4 GHz band ([ADR-0047](../architecture/adr/0047-h
 
 ## Conflicts to settle before wiring
 
-- **Header pin 11 (BCM17).** The camera switch's Press contact is proposed
+- **Header pin 11 (BCM17).** The 5-way switch's Press contact is proposed
   on BCM17. RaspiAudio's pinout lists a data line on GPIO17 for the 8xOUT,
   although all four jacks play with the overlay's pins
   ([ADR-0014](../architecture/adr/0014-multichannel-dac8x.md), H27). Check

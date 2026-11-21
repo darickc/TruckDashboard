@@ -2,12 +2,15 @@
 # Reads the power key (the DCDC-USB's PSW pulse on J2, or the Pi 5's own
 # button): a press inside the boot window is the supply's ON pulse and is
 # ignored; any later press powers the Pi off. logind ignores the key
-# (logind.conf.d/50-f250-power-key.conf). It also reads the camera switch:
-# the gpio-key overlays in config.txt make its contacts keys F13-F17 on input
-# devices (ADR-0025); each debounced move goes to camera-manager's Move call
-# on CAMERA_MANAGER (ADR-0026), and what became of it is logged. Calls time
-# out; a missing camera-manager never holds up the power key. [SIM] only so
-# far.
+# (logind.conf.d/50-f250-power-key.conf). It also reads the 5-way switch:
+# the gpio-key overlays in config.txt make its wires keys F13-F17 on input
+# devices (ADR-0025). A short press goes to audio-manager's PressMediaKey on
+# AUDIO_MANAGER (media and calls), a long one to camera-manager's Move on
+# CAMERA_MANAGER (ADR-0026, ADR-0051), and what became of each is logged.
+# Which wire is which direction is set on the dashboard and kept in
+# /var/lib/f250-power/switch. Calls time out; a missing service never holds
+# up the power key. Both sockets are group f250, mode 0770, so this
+# service's user reaches them. [SIM] only so far.
 #
 # Day/night and the backlight (ADR-0028): from the sun at DISPLAY_LATITUDE /
 # DISPLAY_LONGITUDE on a synchronized clock, or the driver's Day/Night; the
@@ -33,7 +36,7 @@
 # Status: [BENCH] on image 288d091 with the Pi's own button (bench-log
 # 2026-11-09). The DCDC-USB's PSW on J2 isn't wired yet.
 [Unit]
-Description=F-250 power manager (power key, pulse-only; camera switch; day/night and backlight)
+Description=F-250 power manager (power key, pulse-only; 5-way switch; day/night and backlight)
 
 [Service]
 Type=notify
@@ -46,6 +49,7 @@ Group=f250
 SupplementaryGroups=input
 Environment=BOOT_KEY_IGNORE_S=30
 Environment=CAMERA_MANAGER=unix:/run/f250-camera/camera.sock
+Environment=AUDIO_MANAGER=unix:/run/f250-audio/audio.sock
 Environment=DISPLAY_NAVIGATION=unix:/run/f250-nav/nav.sock
 EnvironmentFile=-/etc/default/f250
 ExecStart=/opt/f250/libexec/power-start
@@ -66,7 +70,7 @@ StateDirectoryMode=0750
 # - no ProtectKernelTunables: it would make all of /sys read-only, and the
 #   backlight's `brightness` is written there (ADR-0028 decision 6). File
 #   permissions still confine it: udev gives group f250 that one file
-# AF_UNIX is enough for camera-manager's and navigation's sockets. Connecting needs no write
+# AF_UNIX is enough for camera-manager's, audio-manager's and navigation's sockets. Connecting needs no write
 # access under ProtectSystem=strict: the recorder reaches the gateway's
 # socket the same way.
 NoNewPrivileges=yes

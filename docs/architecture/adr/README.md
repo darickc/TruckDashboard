@@ -59,5 +59,6 @@ consequences, and what would make it worth revisiting. Statuses:
 | [0048](0048-piper-voice.md) | A natural voice for spoken directions: Piper (en_US-ljspeech-medium) kept loaded in `f250-tts.service`, libpiper loaded at run time, Flite as the fallback | Accepted ([BENCH]; in the image's recipes, its packages tested on the Pi) |
 | [0049](0049-clock-from-gps.md) | The clock from GPS: `gps-clock` (CAP_SYS_TIME only) sets the system clock and the RTC from a real, current fix when there is no network time and it is more than 1 s off, and leaves a flag `clock-sync` counts as synchronized | Accepted ([SIM]; no receiver yet) |
 | [0050](0050-gauge-range-bars-and-peaks.md) | Range bars on digital gauges, their zones from the warning rules' example triggers and a marker only for a current value; this drive's max (or min) kept in the telemetry store from valid values, gated like the rule | Accepted (owner asked; [SIM] only; not on the Pi) |
+| [0051](0051-five-way-switch-media-and-cameras.md) | The 5-way switch: a short press is media and calls through audio-manager's `PressMediaKey`, a long press (600 ms, an example) the camera move; which wire is which direction learned on Settings › System › 5-way switch (power-manager's `SwitchService`) | Accepted (owner; [SIM] only; no switch wired) |
 
 New ADRs use the next number and the same headings.

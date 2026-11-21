@@ -13,6 +13,9 @@
   DAC: no echo at the far end once WirePlumber honoured audio-manager's
   pins (amendment 2026-11-15b).
 - **Date:** 2026-11-14
+- **Refined by:** [ADR-0051](0051-five-way-switch-media-and-cameras.md)
+  (2026-11-21): the 5-way switch's short centre press does what the knob's
+  push does (answer, hang up, play/pause)
 - **Refines:** [ADR-0039](0039-audio-manager.md) (audio-manager; A2DP sink
   only, "HFP: not part of release 1"), [ADR-0043](0043-master-volume-and-the-volume-knob.md)
   (volume, the knob), [ADR-0044](0044-knob-display.md) (the knob display).

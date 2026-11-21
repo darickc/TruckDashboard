@@ -408,16 +408,18 @@ echo "power-start"
 PSTUB="$T/power-manager"
 printf '#!/bin/sh\necho "$@"\n' >"$PSTUB"; chmod +x "$PSTUB"
 pm() { env -i PATH="$PATH" F250_POWER_BIN="$PSTUB" "$@" bash agl/rootfs/opt/f250/libexec/power-start 2>/dev/null; }
-PBASE='--display-listen unix:/run/f250-power/power.sock --display-state /var/lib/f250-power/display'
+PBASE='--display-listen unix:/run/f250-power/power.sock --display-state /var/lib/f250-power/display --switch-state /var/lib/f250-power/switch'
 check "nothing set: the boot window default, the display API" "[[ \"\$(pm)\" == \"--boot-key-ignore-s 30 $PBASE\" ]]"
 check "empty display settings: none passed" "[[ \"\$(pm BOOT_KEY_IGNORE_S=30 CAMERA_MANAGER=unix:/run/f250-camera/camera.sock DISPLAY_LATITUDE= DISPLAY_LONGITUDE= DISPLAY_FALLBACK= DISPLAY_BACKLIGHT=)\" == \"--boot-key-ignore-s 30 --camera-manager unix:/run/f250-camera/camera.sock $PBASE\" ]]"
 check "display settings passed as --name=value (negatives safe)" "[[ \"\$(pm DISPLAY_LATITUDE=39.74 DISPLAY_LONGITUDE=-104.99 DISPLAY_NIGHT_BELOW_DEG=-4 DISPLAY_HYSTERESIS_DEG=1 DISPLAY_FALLBACK=night DISPLAY_TRUST_CLOCK=always DISPLAY_MIN_BRIGHTNESS_PCT=15 DISPLAY_BACKLIGHT=10-0045)\" == \"--boot-key-ignore-s 30 $PBASE --latitude=39.74 --longitude=-104.99 --night-below-deg=-4 --hysteresis-deg=1 --fallback=night --trust-clock=always --min-brightness-pct=15 --backlight=10-0045\" ]]"
 check "no camera-manager: moves only logged" "! pm CAMERA_MANAGER= | grep -q -- --camera-manager"
+check "5-way switch: short presses to audio-manager (ADR-0051)" "[[ \"\$(pm AUDIO_MANAGER=unix:/run/f250-audio/audio.sock)\" == \"--boot-key-ignore-s 30 --audio-manager unix:/run/f250-audio/audio.sock $PBASE\" ]] && ! pm AUDIO_MANAGER= | grep -q -- --audio-manager"
+check "5-way switch: a whole-number long press passed, anything else left out" "[[ \"\$(pm SWITCH_LONG_PRESS_MS=700)\" == \"--boot-key-ignore-s 30 $PBASE --switch-long-press-ms=700\" ]] && [[ \"\$(pm SWITCH_LONG_PRESS_MS=0.7s)\" == \"--boot-key-ignore-s 30 $PBASE\" ]]"
 check "navigation: GPS position and the kept location (ADR-0028 amendment)" "[[ \"\$(pm DISPLAY_NAVIGATION=unix:/run/f250-nav/nav.sock)\" == \"--boot-key-ignore-s 30 $PBASE --navigation unix:/run/f250-nav/nav.sock --location-state /var/lib/f250-power/location\" ]]"
 check "no navigation: no GPS, nothing kept" "! pm DISPLAY_NAVIGATION= | grep -q -- '--navigation\\|--location-state'"
 DF=agl/rootfs/etc/default/f250
 check "display settings empty by default (no location shipped)" "has_line $DF 'DISPLAY_LATITUDE=' && has_line $DF 'DISPLAY_LONGITUDE=' && has_line $DF 'DISPLAY_TRUST_CLOCK=' && has_line $DF 'DISPLAY_MIN_BRIGHTNESS_PCT='"
-check "the wrapper's options exist in power-manager" "for o in latitude longitude night_below_deg hysteresis_deg fallback trust_clock min_brightness_pct backlight display_listen display_state navigation location_state; do grep -q \"^    \$o: Option<\" services/power-manager/src/main.rs || exit 1; done"
+check "the wrapper's options exist in power-manager" "for o in latitude longitude night_below_deg hysteresis_deg fallback trust_clock min_brightness_pct backlight display_listen display_state navigation location_state camera_manager audio_manager switch_state; do grep -q \"^    \$o: Option<\" services/power-manager/src/main.rs || exit 1; done && grep -q '^    switch_long_press_ms: u64,' services/power-manager/src/main.rs"
 
 echo "navigation-start"
 NSTUB="$T/navigation"
@@ -718,6 +720,7 @@ check "power-manager: only the backlight in /sys (no ProtectKernelTunables, udev
 check "power-manager: display socket and settings directories (group f250)" "grep -qx 'RuntimeDirectory=f250-power' $PM && grep -qx 'StateDirectory=f250-power' $PM && grep -qx 'UMask=0007' $PM && grep -qx 'RuntimeDirectoryMode=0750' $PM && grep -q 'F250_POWER_SOCK:-/run/f250-power/power.sock' agl/rootfs/opt/f250/libexec/power-start && grep -q 'F250_POWER_STATE:-/var/lib/f250-power/display' agl/rootfs/opt/f250/libexec/power-start"
 check "dashboard: power-manager's socket in deploy.sh and the image" "grep -q -- '-DPOWER=unix:/run/f250-power/power.sock' agl/meta-f250/recipes-f250/f250-dashboard/f250-dashboard.bb && grep -q -- '--dart-define=POWER=unix:\$POWER_SOCK' tools/dev/deploy.sh && grep -q '^POWER_SOCK=/run/f250-power/power.sock$' tools/dev/deploy.sh"
 check "power-manager: switch moves go to camera-manager's socket (ADR-0026)" "grep -qx 'Environment=CAMERA_MANAGER=unix:/run/f250-camera/camera.sock' $PM"
+check "power-manager: short presses go to audio-manager's socket (ADR-0051)" "grep -qx 'Environment=AUDIO_MANAGER=unix:/run/f250-audio/audio.sock' $PM && grep -qx 'RuntimeDirectory=f250-audio' $U/f250-audio-manager.service && grep -qx 'Group=f250' $U/f250-audio-manager.service && grep -qx 'UMask=0007' $U/f250-audio-manager.service"
 check "power-manager: GPS from navigation's socket, named the same in both units" "grep -qx 'Environment=DISPLAY_NAVIGATION=unix:/run/f250-nav/nav.sock' $PM && grep -q 'F250_NAV_SOCK:-/run/f250-nav/nav.sock' agl/rootfs/opt/f250/libexec/navigation-start && ! grep -q '^DISPLAY_NAVIGATION=' agl/rootfs/etc/default/f250"
 check "power-manager: deployed and built into the image" "grep -q -- '-p power-manager' tools/dev/deploy.sh && grep -q '/target/release/power-manager' tools/dev/deploy.sh && grep -q -- '-p power-manager' agl/meta-f250/recipes-f250/f250-services/f250-services.bb && grep -q 'obd-console power-manager camera-manager camera-ctl navigation usb-export audio-manager knob-link tts gps-clock; do' agl/meta-f250/recipes-f250/f250-services/f250-services.bb"
 NV=$U/f250-navigation.service
@@ -840,15 +843,17 @@ check "flutter-auto's HOME is the state directory" "grep -qx 'Environment=HOME=/
 check "dashboard leaves the compositor's IPC alone" "! grep -q '^RemoveIPC=' $U/f250-dashboard.service"
 check "power off runs outside the sandbox" "grep -qx 'ExecStopPost=+/opt/f250/libexec/dashboard-stopped' $U/f250-dashboard.service"
 check "config block is marked"         "[[ \"\$(head -1 agl/boot/config-f250.txt)\" == '# >>> f250'* && \"\$(tail -1 agl/boot/config-f250.txt)\" == '# <<< f250' ]]"
-# Camera switch (ADR-0025): the gpio-key overlay's default key is KEY_POWER, so
-# every line must name its own; the five keys are power-manager's F13-F17, on
-# the wiring doc's pins, none of them the DAC8x's (BCM5, BCM18-27).
+# 5-way switch (ADR-0025, ADR-0051): the gpio-key overlay's default key is
+# KEY_POWER, so every line must name its own; the five keys are
+# power-manager's F13-F17, each on the pin power-manager shows for it, the
+# wiring doc's pins, none of them the DAC8x's (BCM5, BCM18-27).
 GK="$(grep '^dtoverlay=gpio-key' agl/boot/config-f250.txt)"
-check "camera switch: five gpio-key lines" "[[ \"\$(grep -c . <<<\"\$GK\")\" == 5 ]]"
-check "camera switch: every line sets keycode" "! grep -v ',keycode=' <<<\"\$GK\" | grep -q . && ! grep -q 'keycode=116' <<<\"\$GK\""
-check "camera switch: keys match power-manager" "[[ \"\$(sed -n 's/.*keycode=\\([0-9]*\\).*/\\1/p' <<<\"\$GK\" | sort | tr '\\n' ' ')\" == '183 184 185 186 187 ' ]] && grep -q 'Direction::Left => 183' services/power-manager/src/camera_switch.rs && grep -q 'Direction::Press => 187' services/power-manager/src/camera_switch.rs"
-check "camera switch: pins as wired" "[[ \"\$(sed -n 's/.*gpio=\\([0-9]*\\),.*/\\1/p' <<<\"\$GK\" | sort -n | tr '\\n' ' ')\" == '6 12 13 16 17 ' ]]"
-check "camera switch: pull-ups on" "! grep -v ',gpio_pull=2' <<<\"\$GK\" | grep -q ."
+check "5-way switch: five gpio-key lines" "[[ \"\$(grep -c . <<<\"\$GK\")\" == 5 ]]"
+check "5-way switch: every line sets keycode" "! grep -v ',keycode=' <<<\"\$GK\" | grep -q . && ! grep -q 'keycode=116' <<<\"\$GK\""
+check "5-way switch: keys match power-manager" "[[ \"\$(sed -n 's/.*keycode=\\([0-9]*\\).*/\\1/p' <<<\"\$GK\" | sort | tr '\\n' ' ')\" == '183 184 185 186 187 ' ]] && grep -q 'Wire::F13 => 183' services/power-manager/src/switch.rs && grep -q 'Wire::F17 => 187' services/power-manager/src/switch.rs"
+check "5-way switch: each key's pin is the one power-manager shows" "while read -r gpio key; do grep -q \"Wire::F\$((key - 170)) => \\\"BCM\$gpio, \" services/power-manager/src/switch.rs || exit 1; done < <(sed -n 's/.*gpio=\\([0-9]*\\),keycode=\\([0-9]*\\).*/\\1 \\2/p' <<<\"\$GK\")"
+check "5-way switch: pins as wired" "[[ \"\$(sed -n 's/.*gpio=\\([0-9]*\\),.*/\\1/p' <<<\"\$GK\" | sort -n | tr '\\n' ' ')\" == '6 12 13 16 17 ' ]]"
+check "5-way switch: pull-ups on" "! grep -v ',gpio_pull=2' <<<\"\$GK\" | grep -q ."
 check "engine pin matches .fvmrc"      "grep -q \"AGL_FLUTTER_VERSION=\$(sed -n 's/.*\"flutter\": *\"\\([^\"]*\\)\".*/\\1/p' .fvmrc)\" agl/configurations/vimba.env"
 
 # Build host (Phase 5.4): the build scripts only run on Linux, and the

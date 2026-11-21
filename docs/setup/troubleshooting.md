@@ -32,7 +32,7 @@ what happened before a power-off or crash). The services:
 | `f250-can-auto` | Puts `can0` listen-only at boot, then active after a clean listen (`CAN_AUTO_ACTIVE=1`) |
 | `f250-recorder` | Records the vehicle data and its health |
 | `f250-dashboard` | The screen (never restart it alone: see below) |
-| `f250-power-manager` | The power key, the camera switch, day/night and the backlight |
+| `f250-power-manager` | The power key, the 5-way switch, day/night and the backlight |
 | `f250-camera-manager` | The cameras on screen, recording, automatic reverse |
 | `f250-navigation` | GPS position, routing, search, saved places, spoken directions |
 | `f250-audio-manager` | Phones, music, the speakers, the volume, calls |

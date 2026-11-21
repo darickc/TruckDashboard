@@ -21,10 +21,13 @@
 //! `ExecStopPost` (run as root) calls `systemctl poweroff`. The service itself
 //! needs no privileges.
 //!
-//! It also reads the camera switch ([`camera_switch`]; ADR-0024, ADR-0025):
-//! five contacts the kernel turns into keys, debounced here, and passed to
-//! camera-manager's `Move` call ([`camera_link`]; ADR-0026). A slow or
-//! missing camera-manager never holds up the power key.
+//! It also reads the 5-way switch ([`switch`]; ADR-0024, ADR-0025, ADR-0051):
+//! five wires the kernel turns into keys, debounced here into short and long
+//! presses. Which wire is which direction is the driver's setting
+//! ([`switch_control`], served by [`switch_server`] for the dashboard's
+//! Settings › Switch). A short press goes to audio-manager's `PressMediaKey`
+//! ([`audio_link`]), a long one to camera-manager's `Move` ([`camera_link`];
+//! ADR-0026). A slow or missing service never holds up the power key.
 //!
 //! Day/night and the backlight ([`display`], ADR-0028): the sun's elevation
 //! from the wall clock and a configured location, or navigation's GPS
@@ -43,15 +46,19 @@
 //! on the Pi, and the link to camera-manager is tested against a fake server.
 //! Day/night and the backlight are `[SIM]`: unit-tested against a fake sysfs.
 
+pub mod audio_link;
 pub mod backlight;
 pub mod camera_link;
-pub mod camera_switch;
 pub mod display;
 pub mod display_server;
 pub mod gps;
+pub mod link;
 /// Moved to `crates/evdev` (shared with audio-manager's volume knob).
 pub use f250_evdev as evdev;
 pub mod policy;
+pub mod switch;
+pub mod switch_control;
+pub mod switch_server;
 pub mod uptime;
 
 /// Exit status that makes the unit's `ExecStopPost` power the Pi off

@@ -17,7 +17,7 @@ flowchart TB
   BNEG[Battery −] === CH[Truck chassis / body]
   CH --- G1((G1: cab, near the radio))
   CH --- G2((G2: amplifiers))
-  G1 --- DCDCG[DCDC-USB GND] --- PIG[Pi ground<br/>DAC, display, USB devices, camera switch]
+  G1 --- DCDCG[DCDC-USB GND] --- PIG[Pi ground<br/>DAC, display, USB devices, 5-way switch]
   G1 --- FANG[Fan −]
   G2 --- A4G[TS 400x4 GND]
   G2 --- RG[R150-2 GND]

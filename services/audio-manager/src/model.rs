@@ -200,6 +200,18 @@ impl Command {
     }
 }
 
+/// A media key from a control in the cab: the 5-way switch's short press,
+/// sent by power-manager (ADR-0051).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaKey {
+    /// The knob's push: answer, hang up, or play/pause.
+    PlayPause,
+    Next,
+    Previous,
+    VolumeUp,
+    VolumeDown,
+}
+
 /// What a phone asks of the pairing agent (BlueZ `Agent1`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AgentAsk {

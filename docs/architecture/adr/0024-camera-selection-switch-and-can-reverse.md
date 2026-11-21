@@ -5,6 +5,10 @@
   built: [ADR-0046](0046-automatic-reverse.md) (2026-11-14, [SIM]). The
   switch isn't chosen
 - **Date:** 2026-11-09
+- **Amended by:** [ADR-0051](0051-five-way-switch-media-and-cameras.md)
+  (2026-11-21): decision 1's moves are now **long** presses (held 600 ms,
+  an example); a short press is media and calls. Forward and Back are the
+  switch's Up and Down, and which wire is which is learned on the dashboard
 - **Supersedes:** the "Reverse input" and "Turn signals" rows of
   [ADR-0013](0013-dcdc-usb-power-supply.md) decision 4, and the GPIO plan in
   [ADR-0014](0014-multichannel-dac8x.md) decision 7

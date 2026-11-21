@@ -4,7 +4,7 @@ Status: the power-key part is implemented in `services/power-manager`
 (Phase 6.7): the state machine below, unit-tested transition by transition,
 and **[BENCH]** on the Pi 5 with its own button (bench-log 2026-11-09). The
 DCDC-USB's PSW on J2 isn't wired yet. The
-camera switch is read and debounced, **[SIM]** only
+5-way switch is read and debounced, **[SIM]** only
 ([ADR-0025](adr/0025-camera-switch-through-gpio-key.md)). Day/night and the
 backlight are built and **[SIM]** only
 ([ADR-0028](adr/0028-day-night-and-backlight.md)): nothing has dimmed the
@@ -26,7 +26,7 @@ The wiring is in [power-and-inputs.md](../wiring/power-and-inputs.md).
 | Power to the Pi | DCDC-USB **VOUT** at about 5 V → Pi 5 | Output is switched by the DCDC-USB's timers |
 | Shutdown request | DCDC-USB **PSW** → Pi 5 **J2** pads | A momentary closure, the same as pressing the Pi's power button. Electrical form to be confirmed (H21) |
 | Battery voltage | Not measured | The supply cuts power below 11.2 V during HARDOFF. No running measurement (H16) |
-| Camera switch | 5-way switch → Pi GPIO | Read by power-manager (the GPIO owner), passed to camera-manager ([camera policy](camera-policy.md), [ADR-0024](adr/0024-camera-selection-switch-and-can-reverse.md)). Reverse itself comes from the gateway (HS-CAN), not from a wire |
+| 5-way switch | 5-way switch → Pi GPIO | Read by power-manager (the GPIO owner): a long press goes to camera-manager, a short one to audio-manager ([camera policy](camera-policy.md), [ADR-0024](adr/0024-camera-selection-switch-and-can-reverse.md), [ADR-0051](adr/0051-five-way-switch-media-and-cameras.md)). Reverse itself comes from the gateway (HS-CAN), not from a wire |
 | Amplifier remote | Radio-harness ACC → both amps' REM, no timer. **Not on the Pi** ([ADR-0014](adr/0014-multichannel-dac8x.md)) | Key-on turns the amps on while the Pi boots; key-off cuts them at once, before the Pi shuts down ([wiring](../wiring/audio.md#remote-turn-on-acc-straight-to-rem)) |
 | Illumination | None | Day/night from sun position, see below |
 

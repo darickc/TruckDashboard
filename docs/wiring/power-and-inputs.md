@@ -1,7 +1,7 @@
-# Power (DCDC-USB) and the camera switch
+# Power (DCDC-USB) and the 5-way switch
 
 **Status: DESIGN, NOT VERIFIED. Nothing here has been connected yet.** A person
-must check every line against the truck, the DCDC-USB and the camera switch, and
+must check every line against the truck, the DCDC-USB and the 5-way switch, and
 sign it off in [bench-log.md](../hardware/bench-log.md), before it is installed
 ([safety gates](../safety/assumptions.md#human-verification-gates)).
 
@@ -33,7 +33,7 @@ flowchart LR
   end
   VOUT -- USB-C lead --> PI[Pi 5 USB-C]
   PSW -- H21 first --> J2[Pi 5 J2 pads]
-  SW[5-way camera switch<br/>part TBD, H32] -- 5 contacts to GND --> GPIO[Pi BCM6, 12, 13, 16, 17]
+  SW[5-way switch<br/>part TBD, H32] -- 5 contacts to GND --> GPIO[Pi BCM6, 12, 13, 16, 17]
 ```
 
 ## Connections
@@ -46,26 +46,31 @@ flowchart LR
 | DCDC-USB **VOUT** (yellow) and GND (black) | USB-C lead → Pi 5 USB-C | Not into the GPIO header. Short and heavy enough for 5 A. VOUT is set by the 5 V jumper; measure it **at the Pi** under load |
 | DCDC-USB **PSW** | Pi 5 **J2** pads | **Only after H21.** J2 wants a normally-open momentary closure. If PSW is a driven voltage, put a reed relay or optocoupler between them. Which pad is ground: TODO, by continuity to a GPIO ground pin |
 | DCDC-USB mini-USB | Nothing | Not connected: the system is pulse-only ([ADR-0013](../architecture/adr/0013-dcdc-usb-power-supply.md), 2026-11-09) |
-| Camera switch | Pi GPIO, see [below](#camera-switch) | 3.3 V logic only |
+| 5-way switch | Pi GPIO, see [below](#5-way-switch) | 3.3 V logic only |
 
-## Camera switch
+## 5-way switch
 
-A 5-way switch in the cab picks the camera
-([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md)).
+A 5-way switch in the cab: a short press is media and calls, a long press
+picks the camera
+([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md),
+[ADR-0051](../architecture/adr/0051-five-way-switch-media-and-cameras.md)).
+**Which wire is which direction is set on the dashboard** (Settings › System
+› 5-way switch: push each direction when asked), so the switch can be
+mounted any way round and wired to any of the five pins.
 It must be a **digital** switch, one contact per direction and one for the
 press, each closing to ground: a navigation switch, a microswitch joystick or
 five buttons. An analog joystick module (two potentiometers) needs an ADC,
 which the Pi 5 doesn't have. Part, mounting place and cable length: **TODO**
 ([H32](../hardware/open-questions.md)).
 
-| Contact | Pi GPIO (proposed) | Header pin | Default action |
-|---|---|---|---|
-| Left | BCM12 | 32 | Left camera |
-| Right | BCM13 | 33 | Right camera |
-| Back | BCM16 | 36 | Rear camera |
-| Forward | BCM6 | 31 | No camera |
-| Press | BCM17 | 11 | No camera |
-| Common | GND | 34 or 39 | — |
+| Pi GPIO (proposed) | Header pin | Key | Default direction | Short press | Long press |
+|---|---|---|---|---|---|
+| BCM6 | 31 | F16 | Up | Volume up | Front camera |
+| BCM16 | 36 | F15 | Down | Volume down | Rear camera |
+| BCM12 | 32 | F13 | Left | Previous track | Left camera |
+| BCM13 | 33 | F14 | Right | Next track | Right camera |
+| BCM17 | 11 | F17 | Press | Play/pause; answer a ringing call; hang up | Close the camera |
+| GND | 34 or 39 | — | Common | — | — |
 
 - The pins are proposed, and set in `agl/boot/config-f250.txt`: one
   `gpio-key` overlay per contact, with the internal pull-up, keys F13–F17
@@ -85,8 +90,9 @@ which the Pi 5 doesn't have. Part, mounting place and cable length: **TODO**
 
 **Bench candidate:** a 5-way navigation button module
 ([matrix](../hardware/compatibility-matrix.md#5-way-navigation-button-module-camera-switch-candidate)).
-Its pins map as UP → Forward, DWN → Back, LFT → Left, RHT → Right, MID →
-Press, COM → GND. Any SET and RST buttons stay unconnected. If the board has a
+Wired by the default directions: UP → BCM6, DWN → BCM16, LFT → BCM12,
+RHT → BCM13, MID → BCM17, COM → GND. Any order works once the directions are
+learned on the dashboard. Any SET and RST buttons stay unconnected. If the board has a
 VCC pin (its own pull-ups), VCC goes to the Pi's **3.3 V**, never 5 V. Check
 the labels on the board before wiring; listings differ. The amplifier remote
 is not on the Pi; ACC goes straight to it
@@ -121,7 +127,7 @@ limit is to be checked (H25).
 | 6 | Pi at full load: `vcgencmd get_throttled` | `0x0` | |
 | 7 | ACC wire on the truck: key on, crank, run, key off, door open | Record the voltage at each step (H22) | |
 | 8 | Each switch line with a meter, Pi powered, switch at rest | 3.3 V on each GPIO, nothing above 3.3 V | |
-| 9 | Each switch direction in turn | Only its own line reads 0 V, and `journalctl -u f250-power-manager` logs one `camera switch: left` line (`right`, `back`, `forward`, `press`) per press, followed by the view camera-manager answered with, or why it didn't take the move (camera-manager not running is fine for this check). At start-up it logs `camera switch contacts readable: left, right, back, forward, press` | |
+| 9 | Each switch direction in turn | Only its own line reads 0 V, and `journalctl -u f250-power-manager` logs one `5-way switch: left` line (`right`, `back`, `forward`, `press`) per press, followed by the view camera-manager answered with, or why it didn't take the move (camera-manager not running is fine for this check). At start-up it logs `5-way switch contacts readable: left, right, back, forward, press` | |
 | 10 | Parked draw after HARDOFF | Well under 1 mA (documented claim) | |
 
 Signed off by: _____ Date: _____

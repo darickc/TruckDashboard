@@ -21,7 +21,9 @@ use crate::backend::Bluetooth;
 use crate::call_audio::CallAudio;
 use crate::calls::{self, Availability, Call, CallSnapshot, CallState};
 use crate::dsp::{self, Limits, Mix, Settings};
-use crate::model::{Adapter, AgentAsk, AgentRequest, Command, Picture, PlayState, Snapshot};
+use crate::model::{
+    Adapter, AgentAsk, AgentRequest, Command, MediaKey, Picture, PlayState, Snapshot,
+};
 use crate::pairing::{self, Action, Outcome, State, Window};
 use crate::phonebook::{self, BookState, Phonebook, RecentKind};
 use crate::prompts::{Act, PromptPause};
@@ -1445,6 +1447,33 @@ impl Manager {
                 )
             }
             Some((id, _)) => self.hang_up(id, source).await,
+        }
+    }
+
+    /// A media key (the 5-way switch's short press, ADR-0051). PlayPause is
+    /// [`Self::knob_push`]; Next and Previous are refused during a call (a
+    /// skip mid-call would reach the phone's player, not the call); the
+    /// volume keys are one step, as the knob. Ok: what it did.
+    pub async fn media_key(&self, key: MediaKey, source: &str) -> Result<String, String> {
+        let skip = |cmd: Command| async move {
+            if self.lock().in_call {
+                eprintln!("[audio] {source}: {}: refused during a call", cmd.method());
+                return Err("A call is in progress.".to_string());
+            }
+            self.control(cmd, source)
+                .await
+                .map(|()| cmd.method().to_string())
+        };
+        let step = |steps: i32| {
+            let (v, note) = self.set_volume(Change::Steps(steps), source);
+            Ok(note.unwrap_or_else(|| format!("Volume {}.", v.level)))
+        };
+        match key {
+            MediaKey::PlayPause => self.knob_push(source).await,
+            MediaKey::Next => skip(Command::Next).await,
+            MediaKey::Previous => skip(Command::Previous).await,
+            MediaKey::VolumeUp => step(1),
+            MediaKey::VolumeDown => step(-1),
         }
     }
 

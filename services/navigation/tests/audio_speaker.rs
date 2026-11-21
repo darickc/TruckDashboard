@@ -125,6 +125,13 @@ impl AudioService for Fake {
         Err(Status::unimplemented("fake"))
     }
 
+    async fn press_media_key(
+        &self,
+        _: Request<pb::PressMediaKeyRequest>,
+    ) -> Result<Response<pb::PressMediaKeyResponse>, Status> {
+        Err(Status::unimplemented("fake"))
+    }
+
     async fn control(
         &self,
         _: Request<pb::ControlRequest>,

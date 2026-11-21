@@ -30,6 +30,8 @@ import 'nav/places_state.dart';
 import 'nav/search_connection.dart';
 import 'nav/search_state.dart';
 import 'nav/vector_map.dart';
+import 'switch/switch_connection.dart';
+import 'switch/switch_state.dart';
 import 'telemetry/telemetry_store.dart';
 import 'ui/app.dart';
 import 'ui/app_scope.dart';
@@ -139,6 +141,11 @@ Future<AppServices> createServices(
       ? SimulatedDisplaySource()
       : connectPowerManager(GatewayEndpoint.parse(power));
   display.start();
+  // The switch is power-manager's too (ADR-0051).
+  final SwitchSource switchSource = power == 'sim'
+      ? SimulatedSwitchSource()
+      : connectSwitch(GatewayEndpoint.parse(power));
+  switchSource.start();
   final PositionSource position =
       nav == 'sim' ? SimulatedPositionSource() : connectNavigation(GatewayEndpoint.parse(nav));
   position.start();
@@ -174,6 +181,7 @@ Future<AppServices> createServices(
           gateway: connection,
           cameras: cameraSource,
           display: display,
+          switchSource: switchSource,
           position: position,
           route: route,
           search: search,
@@ -195,6 +203,7 @@ Future<AppServices> createServices(
           simulation: simulation,
           cameras: cameraSource,
           display: display,
+          switchSource: switchSource,
           position: position,
           route: route,
           search: search,

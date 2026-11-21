@@ -210,7 +210,7 @@ against its own pin labels when it arrives.
 | On-board pull-ups | Unknown. If the board has a VCC pin it probably has them: then VCC goes to the Pi's **3.3 V**, never 5 V | U | — |
 | Mounting | Bare PCB with pin headers, for breadboards. Needs an enclosure or panel mount and a cap for the dash; Dupont leads work loose with vibration | V (by its form) / U (in a truck) | listings |
 | Temperature, durability | Not stated | U | — |
-| Bench check | Pin labels, a meter on each line at the Pi (wiring checks 8–9), feel by hand | — | [wiring](../wiring/power-and-inputs.md#camera-switch) |
+| Bench check | Pin labels, a meter on each line at the Pi (wiring checks 8–9), feel by hand | — | [wiring](../wiring/power-and-inputs.md#5-way-switch) |
 
 How the Pi reads it ([ADR-0025](../architecture/adr/0025-camera-switch-through-gpio-key.md)):
 

@@ -18,7 +18,7 @@ How the view is chosen: [ADR-0024](adr/0024-camera-selection-switch-and-can-reve
 
 | Input | Source | Never |
 |---|---|---|
-| Camera switch | A 5-way switch in the cab (left, right, back, forward, press) on Pi GPIO, read by the power-manager ([wiring](../wiring/power-and-inputs.md#camera-switch)). Part TBD ([H32](../hardware/open-questions.md)) | — |
+| 5-way switch | A 5-way switch in the cab (up, down, left, right, press) on Pi GPIO, read by the power-manager ([wiring](../wiring/power-and-inputs.md#5-way-switch)). A **long** press picks a camera; a short press is media and calls ([ADR-0051](adr/0051-five-way-switch-media-and-cameras.md)). Part TBD ([H32](../hardware/open-questions.md)) | — |
 | Reverse | The gateway, from HS-CAN broadcast `230` byte 0 (`10` in R), listen-only. A **candidate** decoder until its truck check ([CAN_CENSUS](../diagnostics/CAN_CENSUS.md#reverse-found-event-matched-candidates)) | A reverse-lamp tap; asking the gateway to transmit |
 | Speed | Gateway signal, only if the optional `manual_max_speed` is set | — |
 
@@ -53,14 +53,19 @@ Priority, highest first:
      over at once. Dropping the rear camera mid-reverse on a CAN glitch would
      be worse than keeping it, and the switch is the way out. If the last
      sample said reverse had ended, the hold runs out as usual.
-2. **The switch's choice**, latched until the next move:
+2. **The switch's choice**, latched until the next move. A move is a
+   **long press** (held `switch_long_press_ms`, 600 ms by default, an
+   example); a short press goes to audio-manager instead (ADR-0051).
+   Which wire is Up, Down, Left, Right or Press is set on the dashboard,
+   since it depends on how the switch is mounted. The move names are the
+   API's (`f250.camera.v1` `SwitchMove`):
 
-   | Switch | Default (configuration) |
-   |---|---|
-   | Left / Right | That side's camera |
-   | Back | Rear camera |
-   | Forward | Front camera (owner, 2026-11-10; until then no camera) |
-   | Press | No camera: back to the previous screen |
+   | Held | Move | Default (configuration) |
+   |---|---|---|
+   | Left / Right | Left / Right | That side's camera |
+   | Down | Back | Rear camera |
+   | Up | Forward | Front camera (owner, 2026-11-10; until then no camera) |
+   | Press | Press | No camera: back to the previous screen |
 
    - Allowed at any speed (owner). `manual_max_speed` is an optional limit,
      off by default. Set, it hides a chosen camera while the speed is above
@@ -68,7 +73,8 @@ Priority, highest first:
      shows again when slow. It never hides reverse, and never blocks "no
      camera".
    - A contact must be the only one closed for `switch_debounce_ms` (default
-     30 ms, an example) to count, once per closure. power-manager does this
+     30 ms, an example) to start a press, and held for the long-press time to
+     be a move, reported once while still held. power-manager does this
      before passing the move to camera-manager's `Move` call
      ([ADR-0025](adr/0025-camera-switch-through-gpio-key.md),
      [ADR-0026](adr/0026-camera-manager-interfaces.md) decision 6), which maps

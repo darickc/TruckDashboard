@@ -29,7 +29,7 @@ owner's explicit agreement.
   correct bitrate, correct termination, and listen-only until verified.
 - **Electrical isolation from vehicle signals.** No 12 V signal ever reaches Pi
   GPIO. Today none is wired to it at all: reverse comes from HS-CAN, and the
-  only GPIO input is the camera switch on the Pi's own 3.3 V
+  only GPIO input is the 5-way switch on the Pi's own 3.3 V
   ([ADR-0024](../architecture/adr/0024-camera-selection-switch-and-can-reverse.md)).
   Any future vehicle input goes through a protected opto-isolated input.
 - **Failure-safe audio.** Key-off always cuts the amplifiers: their remote

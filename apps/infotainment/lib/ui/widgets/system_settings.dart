@@ -13,10 +13,12 @@ import '../../nav/offline_map.dart';
 import '../../nav/places_state.dart';
 import '../../nav/position_state.dart';
 import '../../nav/route_state.dart';
+import '../../switch/switch_state.dart';
 import '../../telemetry/telemetry_store.dart';
 import '../app_scope.dart';
 import '../theme.dart';
 import '../tone.dart';
+import 'tap_target.dart';
 
 /// One service's line: its name, its state in a word or two, and a tone.
 @immutable
@@ -113,13 +115,24 @@ List<ServiceRow> serviceRows(AppServices s) {
   ];
 }
 
+/// What Settings › System's switch row says about the directions.
+String switchState(SwitchStatus s) {
+  final r = s.report;
+  if (!s.usable || r == null) return 'power-manager not connected';
+  if (r.learning) return 'setting up';
+  return r.defaultMapping ? 'default directions' : 'directions set';
+}
+
 /// Settings › System: what the head unit says about itself on the left,
 /// every service's link on the right. Read again every few seconds while it
 /// shows; nothing is kept.
 class SystemSettings extends StatefulWidget {
-  const SystemSettings({super.key, this.refresh = const Duration(seconds: 5)});
+  const SystemSettings({super.key, this.refresh = const Duration(seconds: 5), this.onSwitch});
 
   final Duration refresh;
+
+  /// Opens the 5-way switch's directions (ADR-0051); no button without it.
+  final VoidCallback? onSwitch;
 
   @override
   State<SystemSettings> createState() => _SystemSettingsState();
@@ -158,6 +171,7 @@ class _SystemSettingsState extends State<SystemSettings> {
         s.cameras.status,
         s.audio.status,
         s.display.status,
+        s.switchSource.status,
         s.position.status,
         s.route.state,
         s.places.state,
@@ -218,6 +232,30 @@ class _SystemSettingsState extends State<SystemSettings> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(6),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              // The switch's directions open from here (ADR-0051): a row
+              // that says where it leads and whether they are set, not a
+              // fifth section button (it wouldn't fit the section row).
+              if (widget.onSwitch != null) ...[
+                TapTarget(
+                  key: const ValueKey('system-switch'),
+                  label: 'Set up the 5-way switch',
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  onTap: widget.onSwitch!,
+                  child: Row(children: [
+                    Text('5-way switch', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.text)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(switchState(s.switchSource.status.value),
+                          key: const ValueKey('system-switch-state'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 14, color: p.textDim)),
+                    ),
+                    Icon(Icons.chevron_right, size: 24, color: p.textDim),
+                  ]),
+                ),
+                const SizedBox(height: 10),
+              ],
               heading('THIS HEAD UNIT'),
               fact('dashboard', 'Dashboard', show(f?.dashboard, (v) => v), known: f?.dashboard.known ?? false),
               fact('image', 'Image', show(f?.image, (v) => v), known: f?.image.known ?? false),
