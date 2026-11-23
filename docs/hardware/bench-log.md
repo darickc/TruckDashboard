@@ -3425,6 +3425,6 @@ Result:
 Verdict: works for what was seen. Not seen: the turn arrow (needs a route),
 the call screen (the simulated call comes every 90 s; not confirmed by eye),
 the NO DATA ring and tag by eye (the log shows the state), alerts (the
-simulated values stayed in range). Flashed last, not yet looked at: swipes
-going round (last page to first and back; host-tested) and the slot named
+simulated values stayed in range). Flashed last and seen by the owner:
+swipes going round (last page to first and back) and the slot named
 "DELTA". Not on the Pi yet; bench check 25 stays open.
