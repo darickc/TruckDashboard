@@ -3437,3 +3437,29 @@ U-turns, ferry, destination) with the distance counting down in miles then
 feet, and "Arrived". The dial counted every frame (0 bad checksums, 0
 malformed), and the owner saw the arrows and the page as drawn. This shows
 the dial's drawing, not knob-link's frames from a real Valhalla route.
+
+## 2026-11-22 — The knob board's second ESP32 reflashed: no Bluetooth (ADR-0044 decision 1) [BENCH]
+
+Hardware: the knob display board, USB-C plug turned over (the S3's USB the
+other way), into the Mac.
+Firmware: `firmware/knob-display` env `esp32-off` 1.0.0 (this commit),
+arduino-esp32 3.3.11.
+
+Result:
+    - The Mac sees a WCH CH340 (1a86:7523) at /dev/cu.usbserial-2140.
+      esptool: ESP32-U4WDH rev v3.1, dual core, 240 MHz, embedded 4 MB flash,
+      MAC 58:2a:bd:5e:26:68.
+    - Backup: reads at 921600 and 460800 baud failed ("chip stopped
+      responding", "serial noise"); at 115200 all 4 MB in 385 s,
+      verify-flash digest matched; SHA-256 f890813f…c386c00a. Its strings
+      include TAIJI_KNOB_32, TAIJI_KNOB_AUDIO and TAIJI_KNOB_HID. Kept on
+      the Mac only, build/knob/, with a restore command.
+    - `make knob-esp32-off PORT=/dev/cu.usbserial-2140`: written at 115200,
+      hashes verified. After a reset through the CH340: the ROM's boot lines
+      and "knob-esp32-off 1.0.0: no Wi-Fi, no Bluetooth; deep sleep, no wake
+      source (ADR-0044)".
+    - The owner's phone no longer lists TAIJI_KNOB_AUDIO or TAIJI_KNOB_HID.
+
+Verdict: works. The second ESP32 no longer advertises Bluetooth. Not
+measured: its current in deep sleep.
+Closes: ADR-0044 "to verify" 2.

@@ -36,6 +36,7 @@ arduino-esp32 **3.x** (pioarduino 55.03.311), not the 2.x of
 | `include/lv_conf.h` | LVGL's settings: the package's template, changed where its header says |
 | `src/fonts/`, `tools/make_fonts.sh` | Montserrat Medium and SemiBold in eight sizes, generated with `lv_font_conv` (`make knob-fonts`; don't edit by hand) |
 | `src/main.cpp` | USB (TinyUSB composite: CDC + HID Consumer Control), the frame reader, the knob and touch, the log |
+| `esp32-off/main.cpp` | The board's second ESP32 (env `esp32-off`): no Wi-Fi, no Bluetooth, deep sleep. `make knob-esp32-off PORT=/dev/cu.usbserial-…` with the USB-C plug turned over |
 | `test/` | Host tests (Unity); `test_frame` parses the exact lines knob-link's tests produce (gauges, nav, media, call) |
 
 ```bash
@@ -55,7 +56,6 @@ into its loader at 1200 baud; if the first try says the port is busy, run it
 again. Hold BOOT at power-on if nothing else works. The stock firmware's
 backup and restore command are in `build/knob/` on the Mac that read it.
 
-Still to do: reflash the second ESP32 so it stops advertising Bluetooth (the plug turned over), and
-bench check 25 on the Pi in [docs/setup/agl.md](../../docs/setup/agl.md).
+Still to do: bench check 25 on the Pi in [docs/setup/agl.md](../../docs/setup/agl.md).
 The knob has no push switch (schematic), so answering a call from the knob
 needs another gesture (ADR-0044 amendment, open).

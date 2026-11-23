@@ -88,7 +88,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
               --dart-define=SIM_CALL_S=$(SIM_CALL)
 
 .PHONY: help setup doctor test lint \
-        fw-test fw-build knob-test knob-build knob-fonts \
+        fw-test fw-build knob-test knob-build knob-fonts knob-esp32-off \
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
@@ -134,6 +134,10 @@ knob-test: ## Knob display host tests (ADR-0044; no hardware)
 
 knob-build: ## Build the knob display's ESP32-S3 firmware (ADR-0044)
 	cd $(KNOB_DIR) && $(PIO) run -e knob
+
+knob-esp32-off: ## Flash the knob board's second ESP32 with a firmware that does nothing (no Bluetooth; USB-C turned over; PORT=/dev/cu.usbserial-...)
+	@test -n "$(PORT)" || { echo "usage: make knob-esp32-off PORT=/dev/cu.usbserial-XXXX (the knob's CH340: USB-C plug turned over)"; exit 2; }
+	cd $(KNOB_DIR) && $(PIO) run -e esp32-off -t upload --upload-port $(PORT)
 
 knob-fonts: ## Regenerate the knob dial's fonts (src/fonts) from LVGL's Montserrat; needs Node
 	cd $(KNOB_DIR) && $(PIO) pkg install -e knob && sh tools/make_fonts.sh

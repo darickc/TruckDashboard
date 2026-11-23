@@ -157,7 +157,10 @@ valid only while both are.
    on the screen during a call, which decision 9 now ignores, or the 5-way
    switch only).
 6. The stock S3 flash was backed up whole before the first flash (bench
-   log). The second ESP32 is not backed up or reflashed yet.
+   log). The second ESP32 was backed up whole too, then reflashed with
+   `esp32-off` (`make knob-esp32-off`): no Wi-Fi, no Bluetooth, deep sleep
+   with no wake source. It is an ESP32-U4WDH rev v3.1, dual core, 4 MB,
+   behind a CH340 that loses data above 115200 baud.
 
 ## Amendment 2026-11-22 (2): the dial drawn
 
@@ -220,7 +223,8 @@ valid only while both are.
    shows "F-250 knob" with a CDC and a HID interface; its HID device's events
    ([agl.md, input events](../../setup/agl.md#input-events))
    shows `KEY_VOLUMEUP`/`KEY_VOLUMEDOWN` a detent and `KEY_PLAYPAUSE`.
-2. The second ESP32 reflashed: no `TAIJI_*` in a phone's Bluetooth list.
+2. The second ESP32 reflashed: no `TAIJI_*` in a phone's Bluetooth list
+   (done, bench log 2026-11-22).
 3. `journalctl -u f250-knob-link`: "dial: knob-display …" hello lines.
    The dial shows the simulated gateway's speed and temperatures, SIMULATED;
    unplug the gateway (stop it): everything goes stale within 2 s.
