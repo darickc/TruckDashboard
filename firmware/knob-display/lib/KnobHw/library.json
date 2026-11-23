@@ -1,0 +1,7 @@
+{
+  "name": "KnobHw",
+  "version": "0.1.0",
+  "description": "The knob board's display, touch and pins (ESP32-S3 only; ADR-0044)",
+  "frameworks": "arduino",
+  "platforms": "espressif32"
+}

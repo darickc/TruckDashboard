@@ -3,24 +3,39 @@
 // receives knob-link's frames, and a HID knob (Consumer Control) that
 // audio-manager reads as volume, mute and play/pause (ADR-0043).
 //
-// Status: builds; never run (no board yet). The display, touch and encoder
-// drivers aren't written: their pins and the ST77916 panel's start-up come
-// from Waveshare's demo, which hasn't been read. Until then this runs the
-// link and the model, draws nothing, and says so in its log ("# ..." lines on
-// the same serial port, which knob-link logs).
+// Status: the board is on the bench. The display, touch and knob drivers
+// (lib/KnobHw, from Waveshare's schematic and demo) start, but the dial isn't
+// drawn yet: the screen shows a test pattern (colour squares and the arcs'
+// tracks), and the model goes to the log ("# ..." lines on the same serial
+// port, which knob-link logs). The knob and touch already drive the HID
+// knob, the taps and the pages.
 
 #include <Arduino.h>
 #include <USB.h>
 #include <USBHIDConsumerControl.h>
+#include <esp_heap_caps.h>
+#include <esp_timer.h>
+
+#include <atomic>
+#include <cmath>
 
 #include "Dial.h"
 #include "Frame.h"
+#include "Layout.h"
 #include "Pages.h"
+#include "Panel.h"
+#include "Pins.h"
+#include "PulseKnob.h"
 #include "Tap.h"
+#include "Touch.h"
 
 #ifndef KNOB_VERSION
-#define KNOB_VERSION "0.1.0"
+#define KNOB_VERSION "0.2.0"
 #endif
+
+// Below; the board's drivers call them.
+void onKnobDetents(int steps);
+void onTouch(bool down, bool move, int x, int y);
 
 namespace {
 
@@ -34,19 +49,135 @@ size_t lineLen = 0;
 bool lineTooLong = false;
 
 struct Counts {
-    uint32_t config = 0, data = 0, nav = 0, media = 0, call = 0, badChecksum = 0, malformed = 0, unknown = 0,
+    unsigned config = 0, data = 0, nav = 0, media = 0, call = 0, badChecksum = 0, malformed = 0, unknown = 0,
              tooLong = 0;
 } counts;
 
 uint32_t lastHelloMs = 0;
 constexpr uint32_t kHelloEveryMs = 10000;
 
+// ---- The board (lib/KnobHw) ------------------------------------------------
+
+knob::Panel panel;
+knob::Touch touch;
+bool panelOk = false;
+bool touchOk = false;
+
+// The knob is sampled every 3 ms, as Waveshare's demo does (PulseKnob.h).
+knob::PulseKnob pulseKnob;
+std::atomic<int> knobSteps{0};
+uint32_t knobStepsTotal = 0;
+esp_timer_handle_t knobTimer = nullptr;
+
+void sampleKnob(void*)
+{
+    const int s = pulseKnob.sample(digitalRead(knob::pins::kKnobA) == HIGH, digitalRead(knob::pins::kKnobB) == HIGH);
+    if (s != 0) knobSteps.fetch_add(s);
+}
+
+bool startKnob()
+{
+    pinMode(knob::pins::kKnobA, INPUT_PULLUP);
+    pinMode(knob::pins::kKnobB, INPUT_PULLUP);
+    esp_timer_create_args_t args = {};
+    args.callback = sampleKnob;
+    args.name = "knob";
+    return esp_timer_create(&args, &knobTimer) == ESP_OK && esp_timer_start_periodic(knobTimer, 3000) == ESP_OK;
+}
+bool knobOk = false;
+
+// Degrees, 0 up, clockwise, as Layout.h.
+float angleOf(float dx, float dy) { return std::atan2(dx, -dy) * 180.0f / 3.14159265f; }
+
+bool inArc(const knob::Arc& a, float deg, float r)
+{
+    if (std::fabs(r - a.radius) > a.width / 2) return false;
+    if (deg < a.startDeg) deg += 360;
+    return deg <= a.endDeg;
+}
+
+// Not the dial: a pattern to check the panel. Red top-left, green top-right,
+// blue bottom-left, white bottom-right of the centre; the four arcs' tracks
+// in grey; a white ring just inside the edge.
+bool drawTestPattern()
+{
+    constexpr int kRows = 40;
+    uint16_t* buf = static_cast<uint16_t*>(
+        heap_caps_malloc(knob::Panel::kWidth * kRows * sizeof(uint16_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
+    if (!buf) return false;
+    const uint16_t black = knob::rgb565(0, 0, 0), grey = knob::rgb565(70, 70, 70), white = knob::rgb565(255, 255, 255),
+                   red = knob::rgb565(255, 0, 0), green = knob::rgb565(0, 255, 0), blue = knob::rgb565(0, 0, 255);
+    const knob::Slot arcs[] = {knob::Slot::Fuel, knob::Slot::Eot, knob::Slot::Ect, knob::Slot::Delta};
+    bool ok = true;
+    for (int y0 = 0; y0 < knob::Panel::kHeight && ok; y0 += kRows) {
+        for (int y = y0; y < y0 + kRows; ++y) {
+            for (int x = 0; x < knob::Panel::kWidth; ++x) {
+                const float dx = x + 0.5f - knob::kCentre, dy = y + 0.5f - knob::kCentre;
+                const float r = std::sqrt(dx * dx + dy * dy), deg = angleOf(dx, dy);
+                uint16_t c = black;
+                if (std::fabs(dx) <= 50 && std::fabs(dy) <= 50 && std::fabs(dx) >= 4 && std::fabs(dy) >= 4) {
+                    c = dy < 0 ? (dx < 0 ? red : green) : (dx < 0 ? blue : white);
+                } else if (r >= 174 && r <= 177) {
+                    c = white;
+                } else {
+                    for (knob::Slot s : arcs) {
+                        knob::Arc a;
+                        if (knob::arcFor(s, a) && inArc(a, deg, r)) c = grey;
+                    }
+                }
+                buf[(y - y0) * knob::Panel::kWidth + x] = c;
+            }
+        }
+        ok = panel.draw(0, y0, knob::Panel::kWidth, y0 + kRows, buf);
+    }
+    heap_caps_free(buf);
+    return ok;
+}
+
+// Touch, polled: down, moves while held, up.
+bool fingerDown = false;
+uint32_t lastTouchPollMs = 0;
+uint32_t touchesTotal = 0;
+
+void pollTouch(uint32_t now)
+{
+    if (!touchOk || now - lastTouchPollMs < 15) return;
+    lastTouchPollMs = now;
+    int x = 0, y = 0;
+    const bool down = touch.read(x, y);
+    if (down && !fingerDown) {
+        touchesTotal++;
+        onTouch(true, false, x, y);
+    } else if (down) {
+        onTouch(false, true, x, y);
+    } else if (fingerDown) {
+        onTouch(false, false, 0, 0);
+    }
+    fingerDown = down;
+}
+
+void pollKnob()
+{
+    const int s = knobSteps.exchange(0);
+    if (s != 0) {
+        knobStepsTotal += static_cast<uint32_t>(s < 0 ? -s : s);
+        onKnobDetents(s);
+    }
+}
+
+// ---- The link -----------------------------------------------------------
+
 void sendLine(const std::string& s) { Serial.print((s + "\n").c_str()); }
 
 void hello()
 {
     sendLine(knob::withChecksum("H1 knob-display " KNOB_VERSION));
-    Serial.printf("# no display, touch or encoder driver yet (ADR-0044): frames parsed, nothing drawn\n");
+    Serial.printf("# display %s%s; touch %s (%lu touches, %lu failed reads); knob %s (%lu steps); PSRAM %u bytes\n",
+                  panelOk ? "on" : "FAILED: ", panelOk ? "" : panel.lastError(), touchOk ? "on" : "FAILED",
+                  static_cast<unsigned long>(touchesTotal), static_cast<unsigned long>(touch.failedReads()),
+                  knobOk ? "on" : "FAILED", static_cast<unsigned long>(knobStepsTotal),
+                  static_cast<unsigned>(ESP.getPsramSize()));
+    Serial.printf("# the dial isn't drawn yet (ADR-0044): the screen shows a test pattern; the model is below\n");
 }
 
 // What the dial would show, as a log line, so the bench can see the model
@@ -124,7 +255,7 @@ void press(uint16_t usage)
 
 }  // namespace
 
-// For the board's drivers (TODO, ADR-0044): nothing calls these yet.
+// Called from loop() with the knob's steps since the last call.
 void onKnobDetents(int steps)
 {
     tap.onTurn(millis());
@@ -133,9 +264,11 @@ void onKnobDetents(int steps)
     }
 }
 
-// The Pi decides what the push does: during a call it answers or hangs up
-// (audio-manager, ADR-0045), otherwise it plays or pauses.
-void onKnobPush() { press(CONSUMER_CONTROL_PLAY_PAUSE); }
+// The Pi decides what a push would do: during a call answer or hang up
+// (audio-manager, ADR-0045), otherwise play or pause. Nothing calls this:
+// Waveshare's schematic shows no push switch on the knob (to confirm on the
+// bench, ADR-0044).
+[[maybe_unused]] void onKnobPush() { press(CONSUMER_CONTROL_PLAY_PAUSE); }
 
 // down: a finger touched; move: it moved; neither: it lifted.
 void onTouch(bool down, bool move, int x, int y)
@@ -155,11 +288,18 @@ void onTouch(bool down, bool move, int x, int y)
 
 void setup()
 {
-    USB.productName("F-250 knob");
-    USB.manufacturerName("TruckDashboard");
+    // The names come from USB_PRODUCT / USB_MANUFACTURER (platformio.ini):
+    // with CDC on boot, USB is up before setup().
     consumer.begin();
     USB.begin();
     Serial.begin(115200);
+
+    panelOk = panel.begin();
+    if (panelOk) panelOk = drawTestPattern();
+    // On only once there is something on the screen.
+    panel.backlight(panelOk ? 200 : 0);
+    touchOk = touch.begin();
+    knobOk = startKnob();
 }
 
 void loop()
@@ -182,6 +322,8 @@ void loop()
             lineTooLong = true;
         }
     }
+    pollKnob();
+    pollTouch(now);
     if (lastHelloMs == 0 || now - lastHelloMs >= kHelloEveryMs) {
         lastHelloMs = now == 0 ? 1 : now;
         hello();

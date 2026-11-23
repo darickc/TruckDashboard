@@ -1,14 +1,15 @@
 # ADR 0044 — The knob display: a round gauge and the volume knob on one USB cable
 
-- **Status:** Accepted (owner asked, 2026-11-13). [SIM] only:
-  - the frame format, the dial's staleness and layout, and the tap rules are
-    host-tested in `firmware/knob-display` (`pio test -e native`); the S3
-    firmware builds; `services/knob-link` is tested against the simulated gateway
-    and a pseudo-terminal;
-  - **no board yet** (not bought). The display, touch and encoder drivers are not
-    written: their pins and the ST77916 panel's start-up come from Waveshare's
-    demo, which hasn't been read. Until then the firmware runs the USB link and
-    the model only, and says so in its log. Bench check 25.
+- **Status:** Accepted (owner asked, 2026-11-13). Amended 2026-11-22 (the
+  board on the bench, below).
+  - [SIM]: the frame format, the dial's staleness and layout, the tap rules
+    and the knob's decoding are host-tested in `firmware/knob-display`
+    (`pio test -e native`); `services/knob-link` is tested against the
+    simulated gateway and a pseudo-terminal.
+  - [BENCH] (on the Mac, [bench log 2026-11-22](../../hardware/bench-log.md)):
+    the composite USB device, the display's start-up, touch and the knob run
+    on the board. The dial isn't drawn yet: the screen shows a test pattern
+    and the model goes to the log. Not yet on the Pi. Bench check 25.
 - **Date:** 2026-11-13
 - **Refines:** [ADR-0043](0043-master-volume-and-the-volume-knob.md) (the knob
   as Linux input). Phase 6.3.
@@ -24,11 +25,14 @@ pauses the phone (ADR-0043).
 |---|---|---|
 | 1.8″ round IPS, 360 × 360, 600 cd/m², QSPI ST77916, capacitive touch CST816 over I2C | Waveshare product page, read 2026-11-13 | From the maker |
 | ESP32-S3R8 (8 MB PSRAM, 16 MB flash) and a second ESP32 (ESP32-U4WDH); a knob encoder for each; vibration motor (DRV2605); PCM5100A DAC | product page | From the maker |
-| The USB-C connects the S3's own USB or the second ESP32's UART, by the plug's orientation | product page ("Switching ESP32-S3 USB or ESP32 UART based on Type-C plug orientation") | From the maker; how is UNVERIFIED (schematic not read) |
-| Waveshare's demo: Arduino (esp32 core ≥ 3.2.0) and ESP-IDF, LVGL 8.4, an encoder test | wiki, read 2026-11-13 | From the maker; not downloaded |
+| The USB-C connects the S3's own USB or the second ESP32's UART, by the plug's orientation | product page ("Switching ESP32-S3 USB or ESP32 UART based on Type-C plug orientation"); schematic: the S3's D+/D− (GPIO 20/19) and a USB-to-serial chip for the ESP32 go to a 10-pin internal connector separately; the USB-C socket isn't on the published sheets | One way round the Mac sees the S3's "USB JTAG/serial debug unit" (303a:1001) [BENCH]; the wiring between socket and connector is inferred |
+| Waveshare's demo: Arduino (esp32 core ≥ 3.2.0) and ESP-IDF, LVGL 8.4, an encoder test | wiki; demo and schematic downloaded 2026-11-22 (`ESP32-S3-Knob-Touch-LCD-1.8-Demo.zip` SHA-256 11e38244…015030, `-schematic.zip` baa5ac1b…cae5) | From the maker; read |
+| The S3's pins: display QSPI CLK 13, CS 14, D0–D3 15–18, RST 21; backlight 47 (PWM into a MOSFET); touch CST816 at 0x15 on SDA 11, SCL 12, INT 9, RST 10 (the DRV2605 shares the bus); knob A 8, B 7; a UART to the second ESP32 on 48 (RX) and 38 (TX) | schematic and demo, which agree | Display, touch and knob work with them [BENCH] |
+| The knob is not a quadrature encoder: A pulses low once per detent one way, B the other (the demo's "bidirectional switch" decoding, sampled every 3 ms); a second encoder footprint goes to the second ESP32 | schematic, demo `04_Encoder_Test` | A is clockwise [BENCH] |
+| The panel's start-up: 185 vendor commands, 32-bit command words (opcode 0x02, pixels 0x32), 40 MHz quad, RGB565 high byte first, even window edges. The demo's driver file is named `sh8601`; it doesn't name the panel's chip | demo `08_LVGL_Test` | Works [BENCH] |
 | As shipped, the second ESP32 advertises Bluetooth audio (`TAIJI_KNOB_AUDIO`) and a Bluetooth HID knob (`TAIJI_KNOB_HID`) | wiki | From the maker |
-| Whether the knob has a push switch | — | UNVERIFIED |
-| The S3's USB can be a composite device: CDC serial and HID Consumer Control at once (arduino-esp32's `USB`, `USBCDC`, `USBHIDConsumerControl`, TinyUSB) | arduino-esp32 2.x `libraries/USB` | Builds here; not run on a board |
+| Whether the knob has a push switch | schematic: the encoders have A, B and ground only; the demo reads no button | None on the schematic; not checked by hand |
+| The S3's USB can be a composite device: CDC serial and HID Consumer Control at once (arduino-esp32's `USB`, `USBCDC`, `USBHIDConsumerControl`, TinyUSB) | arduino-esp32 3.3.11 `libraries/USB` | Runs: "F-250 knob" with both [BENCH] |
 | The gateway's snapshots carry each sample's validity, last good value and its age, and the alerts by signal | `shared/proto/f250/vehicle/v1/vehicle.proto` | Verified (our API) |
 
 The signals' standing, from the registry (2026-11-13): `speed` SAE, its
@@ -92,8 +96,8 @@ valid only while both are.
    already raw, for testing on the Mac without the dial.
 8. **Firmware layout:** `firmware/knob-display/`, its own PlatformIO project
    (ESP32-S3, not the existing firmware's ESP32): `lib/KnobCore` is plain C++
-   (frames, the model, the layout, the tap rules), host-tested; the display,
-   touch and encoder drivers go in `lib/KnobHw` when the board is here.
+   (frames, the model, the layout, the tap rules, the knob's decoding),
+   host-tested; the display, touch and pins are in `lib/KnobHw`.
 
 9. **Pages** (owner, 2026-11-13): gauges, navigation, media, in that order.
    A swipe left goes to the next, right to the previous, stopping at the ends
@@ -126,6 +130,34 @@ valid only while both are.
    - Not decided: jumping to the navigation page by itself near a turn; cover
      art on the dial (too heavy for the line protocol).
 
+## Amendment 2026-11-22: the board on the bench
+
+1. **arduino-esp32 3.x for the knob firmware**, not the 2.x of
+   `firmware/esp32`. The panel is QSPI; IDF 4.4's `esp_lcd` (under core 2.x)
+   has no quad mode, and Waveshare's demo needs core ≥ 3.2.0. The platform is
+   pioarduino's, pinned to a release (55.03.311: core 3.3.11, IDF 5.5.5).
+   55.03.312 asks for PlatformIO Core ≥ 6.2.0, which Core 6.2.0 itself fails
+   (it reports 6.2.0.post1, a semver pre-release). Rejected: staying on 2.x
+   and writing the QSPI transfers on `spi_master` ourselves (more code to own
+   for no gain). `firmware/esp32` is unchanged.
+2. **The USB names are build flags** (`USB_PRODUCT`, `USB_MANUFACTURER`):
+   with CDC on boot, 3.x starts USB before `setup()`, so names set there
+   came too late (the first run enumerated as Espressif's board name).
+3. **Uploads after the first** go over the firmware's own port: open it at
+   1200 baud and the S3 restarts into its loader
+   (`board_upload.use_1200bps_touch`). BOOT held at power-on also works.
+4. **The knob's decoding** is `PulseKnob` in `lib/KnobCore` (host-tested),
+   sampled every 3 ms on a timer; each step is one HID volume key, A
+   clockwise (louder).
+5. **No push switch** on the schematic, so decision 6's push and ADR-0045's
+   "push to answer / push to hang up" have no button on this board. The
+   firmware keeps the push's HID key but nothing presses it. **Open, for the
+   owner:** how to answer and hang up from the knob (for example a long press
+   on the screen during a call, which decision 9 now ignores, or the 5-way
+   switch only).
+6. The stock S3 flash was backed up whole before the first flash (bench
+   log). The second ESP32 is not backed up or reflashed yet.
+
 ## Alternatives considered
 
 - **Wi-Fi or Bluetooth to the Pi:** pairing, another radio near the phone,
@@ -147,8 +179,8 @@ valid only while both are.
 
 ## To verify (bench check 25)
 
-1. The board: which way the USB-C plug connects the S3 (`lsusb` shows
-   "F-250 knob" with a CDC and a HID interface); its HID device's events
+1. The board on the Pi (on the Mac: done, bench log 2026-11-22): `lsusb`
+   shows "F-250 knob" with a CDC and a HID interface; its HID device's events
    ([agl.md, input events](../../setup/agl.md#input-events))
    shows `KEY_VOLUMEUP`/`KEY_VOLUMEDOWN` a detent and `KEY_PLAYPAUSE`.
 2. The second ESP32 reflashed: no `TAIJI_*` in a phone's Bluetooth list.

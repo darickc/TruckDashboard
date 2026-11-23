@@ -309,16 +309,18 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       Tests: the gains, every change and limit, saving, the knob's events from recorded bytes and a fake sysfs, end to end
       over gRPC, the real binary against the dashboard's client, the screens at 800×480. **Nothing heard; not on the Pi.**
       Which knob is the owner's choice: the candidate is Waveshare's ESP32-S3 knob display (round touch screen with the
-      gauges, the knob and push/tap as USB HID; not bought, not designed yet). A GPIO encoder's overlay is UNVERIFIED.
+      gauges, the knob and a tap as USB HID; bought, on the bench: below). A GPIO encoder's overlay is UNVERIFIED.
       Next: bench check 24 (agl.md)
-      Knob display `[SIM]` ([ADR-0044](architecture/adr/0044-knob-display.md), owner 2026-11-13): Waveshare's ESP32-S3 round
+      Knob display `[SIM]`, board `[BENCH]` ([ADR-0044](architecture/adr/0044-knob-display.md), owner 2026-11-13): Waveshare's ESP32-S3 round
       touch screen with a knob, on one USB cable. `services/knob-link` reads the gateway's snapshots and writes line frames
       (config, data with current/alert/stale-with-age/nothing, NMEA checksum) to its serial port; `firmware/knob-display`
       (ESP32-S3, its own PlatformIO project) parses them into the dial's model (everything stale after 2 s without a
       frame), with the layout (speed in the middle, fuel along the bottom, EOT/ECT/EOT − ECT along the top) and the tap
       rules, and is a USB HID knob for audio-manager. Tests: the frames on both sides (the same golden lines), the model,
       the layout, taps, the serial loop over a pipe; knob-link ran on the Mac against the simulated gateway into a
-      pseudo-terminal. The S3 firmware builds; **no board yet**: its display, touch and encoder drivers aren't written.
+      pseudo-terminal. The board is here (2026-11-22, bench log): on arduino-esp32 3.x, the USB device, display, touch
+      and knob (clockwise = volume up) work from the Mac; the dial isn't drawn yet (a test pattern); no push switch
+      on the schematic, so answering a call from the knob is open (ADR-0044 amendment).
       Swipe pages (owner, 2026-11-13): gauges, navigation (the next turn, its distance and street, what's left) and media
       (track, state, position, volume), from navigation's guidance and route and audio-manager over two more frame kinds;
       swipes stop at the ends, a page's data only while its frames keep coming. Ran on the Mac against all three

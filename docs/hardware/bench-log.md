@@ -3349,3 +3349,44 @@ faint music is likely, not proven (no faint music was heard while
 measuring; the owner said it had come back). Still open: the bench Pi's
 supply (undervoltage with the cores busy means little margin; the Pi 5
 wants 5 V 5 A) and no cooler (84 °C with two cores busy).
+
+## 2026-11-22 — The knob display's board on the Mac: USB, display, touch, knob (ADR-0044) [BENCH]
+
+Hardware: Waveshare ESP32-S3-Knob-Touch-LCD-1.8 (which variant, battery or
+not, not recorded), USB-C to USB-A cable into a USB 2.0 hub on the Mac.
+Firmware: `firmware/knob-display` 0.2.0 (this commit), arduino-esp32 3.3.11
+through pioarduino 55.03.311; flashed from the Mac with PlatformIO.
+
+Result:
+    - The first two cables were power-only: the screen lit, nothing
+      enumerated with the plug either way (no IOUSB device, no kernel USB
+      events). A cable that flashes an ESP32 worked.
+    - With the plug one way round the Mac shows Espressif's "USB JTAG/serial
+      debug unit" (303a:1001): the S3's own USB. esptool: ESP32-S3 (QFN56)
+      rev v0.2, embedded PSRAM 8 MB, 16 MB quad flash, MAC 28:84:85:4b:f0:40.
+      The other way round reaches the second ESP32 (not tried yet).
+    - The stock S3 flash was read whole (16 MB) and `verify_flash` matched;
+      kept on the Mac only, `build/knob/stock-s3-flash-16MB.bin`, SHA-256
+      148a0051…c309ae, with a README giving the restore command.
+    - With this firmware: `hidutil` and `system_profiler` show "F-250 knob"
+      by TruckDashboard (ioreg prints the dash as "_"), with a CDC port
+      (`/dev/cu.usbmodem2884854BF0402`) and a HID device. The serial port
+      gives the `H1` hello with a good checksum and the model's report.
+    - Log: "display on; touch on (10 touches, 0 failed reads); knob on (35
+      steps); PSRAM 8388608 bytes".
+    - The owner saw the test pattern as drawn: red, green, blue, white in the
+      right quadrants (colour order and orientation right), the four grey arc
+      tracks and the edge ring.
+    - Turning the knob clockwise raised the Mac's volume (HID Volume
+      Increment), anticlockwise lowered it.
+    - Uploads after the first: the 1200-baud reset on the TinyUSB port works
+      (`board_upload.use_1200bps_touch`); the first try sometimes races the
+      loader's port, and a second works.
+
+Verdict: works, for what it covers. The display's start-up commands (from
+Waveshare's demo), the panel's QSPI framing, touch, the knob's decoding and
+direction, PSRAM (`qio_opi`) and the composite USB device all run on the
+board. It doesn't prove: the dial's drawing (not written), the knob on the Pi
+(audio-manager's evdev reading, `KEY_VOLUMEUP`), knob-link's frames from a
+real gateway, the second ESP32's reflash, daylight readability. Swipes
+weren't tried. Bench check 25 stays open.
