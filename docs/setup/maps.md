@@ -288,6 +288,60 @@ unmeasured. Other settings in `/etc/default/f250`:
 | `NAV_COSTING` | `auto` | `auto` routes as a car; `truck` uses Valhalla's truck model |
 | `NAV_TRUCK_HEIGHT_M`, `_WIDTH_M`, `_LENGTH_M`, `_WEIGHT_T`, `_AXLE_LOAD_T` | empty | `truck` only. Empty is Valhalla's default, a large truck's. Set only what you have measured |
 
+## Online navigation (Mapbox)
+
+[ADR-0052](../architecture/adr/0052-online-navigation-with-mapbox-and-wifi-settings.md).
+While the Pi is on a network (Settings › System › Wi-Fi) and navigation has a
+Mapbox token, routes come from Mapbox's `driving-traffic` profile (live
+traffic) and the Nav screen shows Mapbox's map; the guidance banner says
+"Mapbox route · live traffic". Without a network, without a token, or when
+Mapbox doesn't answer, everything above works as before: Valhalla's
+"Offline route" and the offline map. Every route still says it isn't checked
+for heavy vehicles or trailers.
+
+Mapbox's Flutter SDK doesn't run on Linux, so the dashboard doesn't use it:
+navigation calls Mapbox's web APIs with curl and hands the dashboard routes
+and map tiles over its socket. While online, the truck's position and
+destinations go to Mapbox. Each route and each map tile counts against your
+Mapbox account's free allowance.
+
+Mapbox's terms ask for a separate licence for applications "related to
+vehicle usage". That is the owner's call, made for this one truck
+(ADR-0052).
+
+### On the Mac
+
+```bash
+MAPBOX_ACCESS_TOKEN=pk.… make sim
+```
+
+`make sim` also runs services/network with made-up networks, so the
+dashboard counts as on a network.
+
+### On the Pi
+
+The token is a systemd credential that only navigation can read, not a line
+in `/etc/default/f250` (which anyone on the Pi can read). As root, paste the
+token in place of `pk.…`:
+
+```bash
+install -d -m 0700 /etc/credstore && printf '%s' 'pk.…' > /etc/credstore/mapbox-token && chmod 0600 /etc/credstore/mapbox-token && systemctl restart f250-navigation
+```
+
+```bash
+journalctl -u f250-navigation -b | grep online
+```
+
+The second command should say "online: Mapbox routes (driving-traffic) and
+map". `MAPBOX_STYLE_DAY`/`MAPBOX_STYLE_NIGHT` in `/etc/default/f250` change
+the map's styles. Delete the file and restart navigation to go back to
+offline only.
+
+UNVERIFIED on the Pi: the credential import, curl under navigation's sandbox,
+and the default styles with Mapbox's Static Tiles API. To record a real
+Directions answer as a test vector:
+`MAPBOX_ACCESS_TOKEN=pk.… tools/dev/mapbox-record.sh`.
+
 ## Search
 
 **Search** (the magnifier under the map buttons) finds addresses, streets,

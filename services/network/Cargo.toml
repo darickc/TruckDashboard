@@ -1,0 +1,35 @@
+[package]
+name = "network"
+version = "0.1.0"
+description = "Wi-Fi through connman, served as f250.network.v1 for the dashboard's Settings › Wi-Fi and its online map (ADR-0052)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "network"
+path = "src/lib.rs"
+
+[[bin]]
+name = "network"
+path = "src/main.rs"
+
+[dependencies]
+f250-proto = { path = "../../crates/proto" }
+f250-sd-notify = { path = "../../crates/sd-notify", features = ["tokio"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal"] }
+tokio-stream = { version = "0.1", features = ["net", "sync"] }
+tonic = "0.14"
+clap = { version = "4", features = ["derive"] }
+# connman over the system D-Bus, as audio-manager reaches BlueZ: pure Rust,
+# so it builds and is linted on the Mac too; it only connects on Linux.
+zbus = { version = "5.19", default-features = false, features = ["tokio"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["test-util"] }
+tower = { version = "0.5", features = ["util"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+
+[lints]
+workspace = true

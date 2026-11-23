@@ -150,7 +150,12 @@ pub struct Route {
     pub has_toll: bool,
     pub has_highway: bool,
     pub has_ferry: bool,
+    /// What made it (ADR-0052): [`PROVIDER`] or `mapbox::PROVIDER`.
+    pub provider: &'static str,
 }
+
+/// [`Route::provider`] for Valhalla's routes.
+pub const PROVIDER: &str = "valhalla";
 
 impl Route {
     /// The shape's length.
@@ -273,6 +278,7 @@ pub fn parse_response(text: &str, destination: LatLon, costing: &str) -> Result<
         has_toll: flag("has_toll"),
         has_highway: flag("has_highway"),
         has_ferry: flag("has_ferry"),
+        provider: PROVIDER,
     })
 }
 
@@ -326,7 +332,7 @@ pub fn distance_m(a: LatLon, b: LatLon) -> f64 {
     2.0 * EARTH_RADIUS_M * h.sqrt().asin()
 }
 
-fn cumulative_m(shape: &[LatLon]) -> Vec<f64> {
+pub(crate) fn cumulative_m(shape: &[LatLon]) -> Vec<f64> {
     let mut d = 0.0;
     let mut out = Vec::with_capacity(shape.len());
     out.push(0.0);

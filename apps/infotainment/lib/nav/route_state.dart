@@ -133,6 +133,7 @@ class NavRoute {
     this.hasToll = false,
     this.hasHighway = false,
     this.hasFerry = false,
+    this.provider = '',
   });
 
   final int id;
@@ -147,6 +148,12 @@ class NavRoute {
   final bool hasToll;
   final bool hasHighway;
   final bool hasFerry;
+
+  /// What made it (ADR-0052): "mapbox" (online, with traffic) or
+  /// "valhalla" (offline); empty from an older service, which is Valhalla.
+  final String provider;
+
+  bool get online => provider == 'mapbox';
 }
 
 /// What the screen shows: the link to navigation, its last guidance, and

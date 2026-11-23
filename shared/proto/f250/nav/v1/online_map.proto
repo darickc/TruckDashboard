@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+// The online map (ADR-0052): Mapbox's raster tiles, fetched by
+// services/navigation (which has the token and the network; the dashboard
+// has neither) and handed to the dashboard. The Nav screen shows them while
+// the Pi is on a network, and the offline map otherwise.
+package f250.nav.v1;
+
+service OnlineMapService {
+  // Whether the online map can be used at all: a token is configured.
+  // Whether there is a network is the Wi-Fi service's to say.
+  rpc GetOnlineMapStatus(GetOnlineMapStatusRequest) returns (GetOnlineMapStatusResponse);
+  // One tile. FAILED_PRECONDITION without a token, UNAVAILABLE when Mapbox
+  // can't be reached or refuses (the message says why), INVALID_ARGUMENT
+  // for a tile outside the zooms.
+  rpc GetTile(GetTileRequest) returns (GetTileResponse);
+}
+
+enum MapStyle {
+  MAP_STYLE_UNSPECIFIED = 0;
+  MAP_STYLE_DAY = 1;
+  MAP_STYLE_NIGHT = 2;
+}
+
+message GetOnlineMapStatusRequest {}
+
+message GetOnlineMapStatusResponse {
+  // A Mapbox token is configured.
+  bool configured = 1;
+  // Why not, or which styles: for the screen and the log.
+  string detail = 2;
+  // To show with the map: "© Mapbox © OpenStreetMap".
+  string attribution = 3;
+  // The tiles' size in pixels (512): they are one zoom level behind
+  // 256-pixel tiles.
+  uint32 tile_size = 4;
+  // The highest tile zoom asked for.
+  uint32 max_zoom = 5;
+  // Routes go to Mapbox first now: false while it is skipped after a
+  // failure (ADR-0052 decision 3), or without a token.
+  bool routing_online = 6;
+}
+
+message GetTileRequest {
+  MapStyle style = 1;
+  uint32 z = 2;
+  uint32 x = 3;
+  uint32 y = 4;
+}
+
+message GetTileResponse {
+  // The image as Mapbox sent it (PNG or JPEG).
+  bytes data = 1;
+  string content_type = 2;
+}

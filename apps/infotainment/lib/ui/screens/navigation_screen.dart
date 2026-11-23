@@ -10,6 +10,7 @@ import '../../nav/data_licences.dart';
 import '../../nav/map_cache.dart';
 import '../../nav/map_update.dart';
 import '../../nav/offline_map.dart';
+import '../../nav/online_map.dart';
 import '../../model/units.dart';
 import '../../nav/position_state.dart';
 import '../../nav/route_state.dart';
@@ -37,6 +38,11 @@ import 'nav_search.dart';
 /// position says so, a missing map says why, guidance pauses (no distances)
 /// without a current position, and every route says it isn't checked for
 /// heavy vehicles or trailers (ADR-0010).
+///
+/// Online (ADR-0052): while the Pi is on a network and navigation has a
+/// Mapbox token, the map is Mapbox's (its tiles through navigation) and
+/// routes come from Mapbox with traffic; otherwise the offline map and
+/// Valhalla, as before. The screen says which.
 class NavigationScreen extends StatefulWidget {
   const NavigationScreen({super.key});
 
@@ -82,6 +88,10 @@ class NavigationScreen extends StatefulWidget {
 
 class _NavigationScreenState extends State<NavigationScreen> {
   final _map = MapController();
+
+  /// Online or offline map, and the online map set aside while its tiles
+  /// fail (ADR-0052 decision 7).
+  final _chooser = OnlineMapChooser();
   bool _ready = false;
   bool _follow = true;
   Timer? _tick;
@@ -118,6 +128,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
   @override
   void dispose() {
+    _chooser.dispose();
     _tick?.cancel();
     _source?.status.removeListener(_onPosition);
     _map.dispose();
@@ -191,7 +202,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 valueListenable: s.route.state,
                 // Distances follow the unit setting at once.
                 builder: (context, route, _) => ListenableBuilder(
-                  listenable: s.settings,
+                  // Also the network, the online map's status, and tile
+                  // failures (ADR-0052).
+                  listenable: Listenable.merge([s.settings, s.wifi.view, s.onlineMap.status, _chooser]),
                   builder: (context, _) => _build(
                     context,
                     p,
@@ -225,8 +238,16 @@ class _NavigationScreenState extends State<NavigationScreen> {
     final reader = mapState is MapReady ? mapState.reader : null;
     final vector = mapState is MapReady ? mapState.vector : null;
     final header = reader?.header;
-    final minZoom = math.max(2.0, (header?.minZoom ?? 2).toDouble());
-    final maxZoom = math.min(19.0, (header?.maxZoom ?? 17) + 2.0); // up to two zooms of overzoom
+    // Mapbox's map while on a network, with a token (ADR-0052).
+    final onlineStatus = s.onlineMap.status.value;
+    final online = _chooser.useOnline(
+      onNetwork: s.wifi.view.value.onNetwork,
+      configured: onlineStatus.configured,
+    );
+    final minZoom = online ? 2.0 : math.max(2.0, (header?.minZoom ?? 2).toDouble());
+    final maxZoom = online
+        ? 19.0
+        : math.min(19.0, (header?.maxZoom ?? 17) + 2.0); // up to two zooms of overzoom
     final report = position.report;
     final fix = report?.fix;
     final current = position.isCurrent(now);
@@ -261,7 +282,9 @@ class _NavigationScreenState extends State<NavigationScreen> {
     final routeFetched = navRoute != null && navRoute.id == route.guidance?.routeId;
     final guiding = progress != null && routeFetched;
     final destination = onRoute ? (route.guidance?.destination ?? navRoute?.destination) : null;
-    final attribution = reader != null
+    final attribution = online
+        ? 'Mapbox · ${onlineStatus.attribution.isEmpty ? '© Mapbox © OpenStreetMap' : onlineStatus.attribution}'
+        : reader != null
         ? [
             reader.attribution ?? kOsmCredit,
             if (reader.dataDate != null) 'data ${reader.dataDate}',
@@ -273,11 +296,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
         route.link == RouteLink.connected &&
         routeState != null &&
         routeState != RouteState.unavailable;
-    final mapProblem = switch (mapState) {
-      MapLoading() => 'Opening the offline map…',
-      MapUnavailable(:final why) => 'No map: $why. The position is still shown.',
-      MapReady() => null,
-    };
+    final mapProblem = online
+        ? null
+        : switch (mapState) {
+            MapLoading() => 'Opening the offline map…',
+            MapUnavailable(:final why) => 'No map: $why. The position is still shown.',
+            MapReady() => null,
+          };
+    final onlineSetAside = _chooser.backedOffBecause;
     final bottomNotices = <Widget>[
       // ADR-0030 decision 4: a simulated position is labelled as such,
       // down here rather than over the map and the route (owner,
@@ -319,6 +345,14 @@ class _NavigationScreenState extends State<NavigationScreen> {
             palette: p,
             color: _updateColor(update, p),
           ),
+      if (onlineSetAside.isNotEmpty && !onRoute)
+        _Notice(
+          key: const ValueKey('nav-online-failing'),
+          icon: Icons.cloud_off,
+          text: 'Online map not loading ($onlineSetAside): the offline map for now',
+          palette: p,
+          color: p.advisory,
+        ),
       if (route.commandError.isNotEmpty)
         _Notice(
           key: const ValueKey('nav-route-error'),
@@ -418,7 +452,8 @@ class _NavigationScreenState extends State<NavigationScreen> {
       children: [
         Positioned.fill(
           child: FlutterMap(
-            key: ValueKey(header), // a new tileset rebuilds the map with its zooms
+            // A new tileset, or online/offline, rebuilds the map with its zooms.
+            key: ValueKey((header, online)),
             mapController: _map,
             options: MapOptions(
               initialCenter: initialCenter,
@@ -445,7 +480,22 @@ class _NavigationScreenState extends State<NavigationScreen> {
                   : null,
             ),
             children: [
-              if (vector != null)
+              if (online)
+                TileLayer(
+                  // Day and night are two Mapbox styles, not darkened tiles.
+                  key: ValueKey(('online', night)),
+                  tileProvider: OnlineTileProvider(
+                    s.onlineMap,
+                    night: night,
+                    onResult: (ok, why) => _chooser.report(ok: ok, why: why),
+                  ),
+                  // Mapbox's 512-pixel tiles are one zoom behind 256-pixel ones.
+                  tileDimension: onlineStatus.tileSize,
+                  zoomOffset: onlineStatus.tileSize == 512 ? -1 : 0,
+                  maxNativeZoom: onlineStatus.maxZoom + (onlineStatus.tileSize == 512 ? 1 : 0),
+                  evictErrorTileStrategy: EvictErrorTileStrategy.notVisibleRespectMargin,
+                )
+              else if (vector != null)
                 VectorTileLayer(
                   // Day and night are two styles (ADR-0032), not darkened tiles.
                   key: ValueKey(('vector', night, vector.generation)),
@@ -1136,6 +1186,13 @@ class _GuidanceBanner extends StatelessWidget {
         children: [
           body,
           const SizedBox(height: 4),
+          // Where the route came from (ADR-0052).
+          if (route case final r?)
+            Text(
+              r.online ? 'Mapbox route · live traffic' : 'Offline route',
+              key: const ValueKey('nav-route-source'),
+              style: TextStyle(fontSize: 13, color: p.textDim),
+            ),
           // ADR-0010: OSM restriction data is incomplete.
           Text(
             'Not checked for heavy vehicles or trailers',

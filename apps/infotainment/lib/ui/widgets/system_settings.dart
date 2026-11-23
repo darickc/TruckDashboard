@@ -15,10 +15,23 @@ import '../../nav/position_state.dart';
 import '../../nav/route_state.dart';
 import '../../switch/switch_state.dart';
 import '../../telemetry/telemetry_store.dart';
+import '../../network/wifi_state.dart';
 import '../app_scope.dart';
 import '../theme.dart';
 import '../tone.dart';
 import 'tap_target.dart';
+
+/// Wi-Fi in a few words, for Settings › System's row (ADR-0052).
+String wifiState(WifiView v) => switch (v) {
+  WifiView(link: WifiLink.connecting) => 'connecting to the network service',
+  WifiView(link: WifiLink.lost) => 'not reachable',
+  WifiView(available: false) => 'unavailable',
+  WifiView(enabled: false) => 'off',
+  _ => [
+    if (v.current case final c?) 'on ${c.name}' else 'not on a network',
+    if (v.simulated) 'simulated',
+  ].join(' · '),
+};
 
 /// One service's line: its name, its state in a word or two, and a tone.
 @immutable
@@ -127,12 +140,15 @@ String switchState(SwitchStatus s) {
 /// every service's link on the right. Read again every few seconds while it
 /// shows; nothing is kept.
 class SystemSettings extends StatefulWidget {
-  const SystemSettings({super.key, this.refresh = const Duration(seconds: 5), this.onSwitch});
+  const SystemSettings({super.key, this.refresh = const Duration(seconds: 5), this.onSwitch, this.onWifi});
 
   final Duration refresh;
 
   /// Opens the 5-way switch's directions (ADR-0051); no button without it.
   final VoidCallback? onSwitch;
+
+  /// Opens Wi-Fi (ADR-0052).
+  final VoidCallback? onWifi;
 
   @override
   State<SystemSettings> createState() => _SystemSettingsState();
@@ -235,6 +251,31 @@ class _SystemSettingsState extends State<SystemSettings> {
               // The switch's directions open from here (ADR-0051): a row
               // that says where it leads and whether they are set, not a
               // fifth section button (it wouldn't fit the section row).
+              // Wi-Fi opens from here too (ADR-0052).
+              if (widget.onWifi != null) ...[
+                ValueListenableBuilder(
+                  valueListenable: s.wifi.view,
+                  builder: (context, wifi, _) => TapTarget(
+                    key: const ValueKey('system-wifi'),
+                    label: 'Set up Wi-Fi',
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    onTap: widget.onWifi!,
+                    child: Row(children: [
+                      Text('Wi-Fi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: p.text)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(wifiState(wifi),
+                            key: const ValueKey('system-wifi-state'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 14, color: p.textDim)),
+                      ),
+                      Icon(Icons.chevron_right, size: 24, color: p.textDim),
+                    ]),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               if (widget.onSwitch != null) ...[
                 TapTarget(
                   key: const ValueKey('system-switch'),

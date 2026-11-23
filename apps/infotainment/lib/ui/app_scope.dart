@@ -17,6 +17,8 @@ import '../nav/places_state.dart';
 import '../nav/position_state.dart';
 import '../nav/route_state.dart';
 import '../nav/search_state.dart';
+import '../nav/online_map.dart';
+import '../network/wifi_state.dart';
 import '../switch/switch_state.dart';
 import '../telemetry/calibration.dart';
 import '../telemetry/telemetry_store.dart';
@@ -97,6 +99,8 @@ class AppServices {
     OfflineMap? map,
     ExportSource? exports,
     AudioSource? audio,
+    WifiSource? wifi,
+    OnlineMapSource? onlineMap,
     SystemInfo? systemInfo,
     this.power = const NoPowerControl(),
     this.refreshPeriod = const Duration(milliseconds: 250),
@@ -110,6 +114,8 @@ class AppServices {
         map = map ?? OfflineMap.none(),
         exports = exports ?? SimulatedExportSource(),
         audio = audio ?? SimulatedAudioSource(autoRun: false),
+        wifi = wifi ?? UnavailableWifiSource(),
+        onlineMap = onlineMap ?? UnavailableOnlineMapSource(),
         systemInfo = systemInfo ?? SystemInfo.forPlatform(),
         assert((simulation == null) != (gateway == null), 'exactly one data source');
 
@@ -132,6 +138,14 @@ class AppServices {
   /// The 5-way switch's directions (Settings › Switch): power-manager
   /// (ADR-0051), or a simulation of it.
   final SwitchSource switchSource;
+
+  /// Wi-Fi: services/network over connman (ADR-0052), or a simulation of
+  /// it. Settings › Wi-Fi sets it; the Nav screen asks it whether the Pi is
+  /// on a network.
+  final WifiSource wifi;
+
+  /// The online map: Mapbox's tiles through services/navigation (ADR-0052).
+  final OnlineMapSource onlineMap;
 
   /// The truck's position: services/navigation (Phase 6.4, ADR-0030), or a
   /// simulated receiver.

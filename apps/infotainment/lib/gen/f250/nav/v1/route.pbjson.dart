@@ -112,6 +112,7 @@ const Route$json = {
     {'1': 'has_toll', '3': 8, '4': 1, '5': 8, '10': 'hasToll'},
     {'1': 'has_highway', '3': 9, '4': 1, '5': 8, '10': 'hasHighway'},
     {'1': 'has_ferry', '3': 10, '4': 1, '5': 8, '10': 'hasFerry'},
+    {'1': 'provider', '3': 11, '4': 1, '5': 9, '10': 'provider'},
   ],
 };
 
@@ -123,7 +124,7 @@ final $typed_data.Uint8List routeDescriptor = $convert.base64Decode(
     '1lUxI1CgtkZXN0aW5hdGlvbhgGIAEoCzITLmYyNTAubmF2LnYxLkxhdExvblILZGVzdGluYXRp'
     'b24SGAoHY29zdGluZxgHIAEoCVIHY29zdGluZxIZCghoYXNfdG9sbBgIIAEoCFIHaGFzVG9sbB'
     'IfCgtoYXNfaGlnaHdheRgJIAEoCFIKaGFzSGlnaHdheRIbCgloYXNfZmVycnkYCiABKAhSCGhh'
-    'c0ZlcnJ5');
+    'c0ZlcnJ5EhoKCHByb3ZpZGVyGAsgASgJUghwcm92aWRlcg==');
 
 @$core.Deprecated('Use progressDescriptor instead')
 const Progress$json = {

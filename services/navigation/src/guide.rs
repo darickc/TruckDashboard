@@ -440,6 +440,7 @@ pub fn route_to_pb(r: &Route) -> pb::Route {
         has_toll: r.has_toll,
         has_highway: r.has_highway,
         has_ferry: r.has_ferry,
+        provider: r.provider.to_string(),
     }
 }
 

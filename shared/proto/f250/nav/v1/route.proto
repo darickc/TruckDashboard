@@ -1,7 +1,8 @@
 syntax = "proto3";
 
 // Routing and turn-by-turn guidance, served by services/navigation with
-// Valhalla (Phase 6.5.2, docs/architecture/adr/0035-routing-with-valhalla.md).
+// Valhalla (Phase 6.5.2, docs/architecture/adr/0035-routing-with-valhalla.md),
+// and with Mapbox first when it has a token and a network (ADR-0052).
 // Routes are NOT checked for heavy vehicles or trailers (ADR-0010): the
 // screen says so with every route.
 package f250.nav.v1;
@@ -75,6 +76,9 @@ message Route {
   bool has_toll = 8;
   bool has_highway = 9;
   bool has_ferry = 10;
+  // What made it (ADR-0052): "mapbox" (online, with traffic) or "valhalla"
+  // (offline). Empty from a service older than ADR-0052: Valhalla.
+  string provider = 11;
 }
 
 // Where the truck is along the route. Only while the position is current:

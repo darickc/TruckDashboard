@@ -30,5 +30,9 @@ clap = { version = "4", features = ["derive"] }
 tower = { version = "0.5", features = ["util"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 
+[dev-dependencies]
+# Paused time for Mapbox's skip-after-failure and the tile cache's age.
+tokio = { version = "1", features = ["test-util"] }
+
 [lints]
 workspace = true

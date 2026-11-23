@@ -65,6 +65,8 @@ do_install() {
     f250_wants multi-user.target f250-knob-link.service
     # The clock from GPS while there is no network time (ADR-0049).
     f250_wants multi-user.target f250-gps-clock.service
+    # Wi-Fi from the dashboard (ADR-0052).
+    f250_wants multi-user.target f250-network.service
     f250_wants multi-user.target f250-can-auto.service
     # Hands-free on or off from AUDIO_CALL_MIC, before WirePlumber (ADR-0045).
     f250_wants multi-user.target f250-calls-config.service

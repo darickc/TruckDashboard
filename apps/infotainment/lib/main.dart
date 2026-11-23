@@ -28,6 +28,10 @@ import 'nav/route_state.dart';
 import 'nav/places_connection.dart';
 import 'nav/places_state.dart';
 import 'nav/search_connection.dart';
+import 'nav/online_map.dart';
+import 'nav/online_map_connection.dart';
+import 'network/wifi_connection.dart';
+import 'network/wifi_state.dart';
 import 'nav/search_state.dart';
 import 'nav/vector_map.dart';
 import 'switch/switch_connection.dart';
@@ -77,6 +81,11 @@ const _export = String.fromEnvironment('EXPORT', defaultValue: 'sim');
 /// (`unix:/run/f250-audio/audio.sock` on the Pi). Default: `sim`.
 const _audio = String.fromEnvironment('AUDIO', defaultValue: 'sim');
 
+/// Wi-Fi (ADR-0052): `sim` (no network service: made-up networks, labelled
+/// simulated) or services/network's endpoint
+/// (`unix:/run/f250-network/network.sock` on the Pi). Default: `sim`.
+const _network = String.fromEnvironment('NETWORK', defaultValue: 'sim');
+
 /// The simulated phone (AUDIO=sim) rings with a made-up call every this many
 /// seconds (`make ui-web SIM_CALL=30`); 0: never (ADR-0045).
 const _simCallSeconds = int.fromEnvironment('SIM_CALL_S');
@@ -101,6 +110,7 @@ Future<void> main() async {
             mapStatus: _mapStatus,
             export: _export,
             audio: _audio,
+            network: _network,
             scenario: _scenario,
             startAt: const Duration(seconds: _startSeconds))));
   } catch (e) {
@@ -119,6 +129,7 @@ Future<AppServices> createServices(
   String mapStatus = '',
   String export = 'sim',
   String audio = 'sim',
+  String network = 'sim',
   String scenario = 'drive_cycle',
   Duration startAt = Duration.zero,
 }) async {
@@ -169,6 +180,13 @@ Future<AppServices> createServices(
           ? SimulatedAudioSource(ringEveryTicks: _simCallSeconds > 0 ? _simCallSeconds : null)
           : connectAudioManager(GatewayEndpoint.parse(audio));
   audioSource.start();
+  final WifiSource wifi =
+      network == 'sim' ? SimulatedWifiSource() : connectWifi(GatewayEndpoint.parse(network));
+  wifi.start();
+  // The online map's tiles come from navigation too (ADR-0052).
+  final OnlineMapSource onlineMap =
+      nav == 'sim' ? UnavailableOnlineMapSource() : connectOnlineMap(GatewayEndpoint.parse(nav));
+  onlineMap.start();
   final map = OfflineMap(mapFile, statusPath: mapStatus);
   unawaited(map.load().then((_) => map.watch()));
   switch (source) {
@@ -189,6 +207,8 @@ Future<AppServices> createServices(
           map: map,
           exports: exports,
           audio: audioSource,
+          wifi: wifi,
+          onlineMap: onlineMap,
           power: PowerControl.forPlatform());
     case 'sim':
       final scenarios = await SimulationController.loadAll(bundle);
@@ -211,6 +231,8 @@ Future<AppServices> createServices(
           map: map,
           exports: exports,
           audio: audioSource,
+          wifi: wifi,
+          onlineMap: onlineMap,
           power: PowerControl.forPlatform());
     default:
       throw FormatException('VEHICLE_SOURCE must be sim or gateway, got "$source"');

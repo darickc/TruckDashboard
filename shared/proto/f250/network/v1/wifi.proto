@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+// Wi-Fi, served by services/network from connman (ADR-0052): the networks
+// seen, joining one with a passphrase, and whether the Pi is connected. The
+// dashboard's Settings › Wi-Fi uses it, and the Nav screen asks it whether
+// to show the online map. Passphrases go to connman, which keeps them; the
+// service keeps none.
+package f250.network.v1;
+
+service WifiService {
+  // The state now, then on every change.
+  rpc WatchWifi(WatchWifiRequest) returns (stream WatchWifiResponse);
+  // Turns the Wi-Fi radio on or off (connman's Powered).
+  rpc SetWifiEnabled(SetWifiEnabledRequest) returns (SetWifiEnabledResponse);
+  // Looks for networks; WatchWifi shows what it finds.
+  rpc ScanWifi(ScanWifiRequest) returns (ScanWifiResponse);
+  // Joins a network and returns when that succeeded or failed, so it can
+  // take tens of seconds. The passphrase is needed only for a secured
+  // network that isn't saved.
+  rpc ConnectWifi(ConnectWifiRequest) returns (ConnectWifiResponse);
+  // Leaves a network; it stays saved.
+  rpc DisconnectWifi(DisconnectWifiRequest) returns (DisconnectWifiResponse);
+  // Forgets a saved network (and leaves it).
+  rpc ForgetWifi(ForgetWifiRequest) returns (ForgetWifiResponse);
+}
+
+// How far the Pi's network reaches.
+enum Connectivity {
+  CONNECTIVITY_UNSPECIFIED = 0;
+  // No network.
+  CONNECTIVITY_OFFLINE = 1;
+  // On a network (connman's "ready"). The internet may or may not be
+  // there: connman's own check may be off, so this is not "offline".
+  CONNECTIVITY_CONNECTED = 2;
+  // connman's check reached the internet ("online").
+  CONNECTIVITY_ONLINE = 3;
+}
+
+enum Security {
+  SECURITY_UNSPECIFIED = 0;
+  SECURITY_OPEN = 1;
+  // WPA/WPA2/WPA3 personal: a passphrase.
+  SECURITY_PSK = 2;
+  SECURITY_WEP = 3;
+  // 802.1X: not joinable from the dashboard.
+  SECURITY_ENTERPRISE = 4;
+}
+
+enum NetworkState {
+  NETWORK_STATE_UNSPECIFIED = 0;
+  NETWORK_STATE_IDLE = 1;
+  // Associating or getting an address.
+  NETWORK_STATE_CONNECTING = 2;
+  NETWORK_STATE_CONNECTED = 3;
+  NETWORK_STATE_ONLINE = 4;
+  NETWORK_STATE_DISCONNECTING = 5;
+  // The last attempt failed; `error` says why.
+  NETWORK_STATE_FAILED = 6;
+}
+
+message WifiNetwork {
+  // connman's service id ("wifi_…_managed_psk"): what the calls take.
+  string id = 1;
+  // The SSID. Hidden networks aren't listed.
+  string name = 2;
+  // 0–100.
+  uint32 strength = 3;
+  Security security = 4;
+  // connman remembers it (and its passphrase), and joins it by itself.
+  bool saved = 5;
+  NetworkState state = 6;
+  // connman's error after a failure ("invalid-key", "connect-failed").
+  string error = 7;
+}
+
+message WifiStatus {
+  // The service reaches connman and there is a Wi-Fi device. `detail` says
+  // why not.
+  bool available = 1;
+  // The radio is on.
+  bool enabled = 2;
+  Connectivity connectivity = 3;
+  // The connected network first, then saved ones, then by strength.
+  repeated WifiNetwork networks = 4;
+  string detail = 5;
+  // Made-up networks (--simulate): the screen says so.
+  bool simulated = 6;
+  // The connected network's IPv4 address, if any.
+  string address = 7;
+  bool scanning = 8;
+}
+
+message WatchWifiRequest {}
+
+message WatchWifiResponse {
+  WifiStatus status = 1;
+}
+
+message SetWifiEnabledRequest {
+  bool enabled = 1;
+}
+
+message SetWifiEnabledResponse {}
+
+message ScanWifiRequest {}
+
+message ScanWifiResponse {}
+
+message ConnectWifiRequest {
+  string id = 1;
+  string passphrase = 2;
+}
+
+// The outcome of one attempt. A failure is an answer, not an RPC error:
+// `detail` says what to tell the driver ("Wrong passphrase").
+message ConnectWifiResponse {
+  bool connected = 1;
+  string detail = 2;
+}
+
+message DisconnectWifiRequest {
+  string id = 1;
+}
+
+message DisconnectWifiResponse {}
+
+message ForgetWifiRequest {
+  string id = 1;
+}
+
+message ForgetWifiResponse {}

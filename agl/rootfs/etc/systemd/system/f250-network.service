@@ -1,0 +1,65 @@
+# Wi-Fi for the dashboard (ADR-0052): services/network reads connman on the
+# system D-Bus and serves f250.network.v1 on
+# /run/f250-network/network.sock (group f250, mode 0770 from UMask;
+# agl-driver, which runs the dashboard, is in group f250). Settings › System
+# › Wi-Fi joins, leaves and forgets networks through it, and the Nav screen
+# asks it whether the Pi is on a network (for the online map). Passphrases
+# go to connman through the service's agent and are kept by connman, never
+# here. connman keeps Wi-Fi; Bluetooth is BlueZ's (ADR-0023).
+#
+# User f250 may talk to net.connman by /etc/dbus-1/system.d/f250-network.conf.
+#
+# Nothing here touches the vehicle bus (ADR-0007).
+#
+# Status: [SIM] (services/network's tests with its simulated radio, make
+# agl-test). UNVERIFIED on the Pi: connman 2.0's D-Bus API as the image
+# builds it, the policy, and the agent's passphrase hand-off.
+[Unit]
+Description=F-250 Wi-Fi (connman for the dashboard)
+After=dbus.service connman.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+WatchdogSec=30
+User=f250
+Group=f250
+ExecStart=/opt/f250/bin/network --listen unix:/run/f250-network/network.sock
+Restart=on-failure
+RestartSec=2
+UMask=0007
+RuntimeDirectory=f250-network
+RuntimeDirectoryMode=0750
+
+# Sandbox (ADR-0021), like audio-manager's: the system bus is a unix socket,
+# so no IP and no devices.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target

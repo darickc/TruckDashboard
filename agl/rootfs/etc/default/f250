@@ -211,6 +211,15 @@ RECORD_TRUST_CLOCK=
 #            argument, used instead of audio-manager. Not audible under the
 #            service's sandbox (no sound devices).
 # NAV_VOICE_UNITS  imperial (empty: imperial) or metric, for spoken distances.
+# Online navigation (ADR-0052) needs a Mapbox token, which is NOT kept in
+#              this file (it is world-readable): put it in
+#              /etc/credstore/mapbox-token, root's, mode 0600 (docs/setup/maps.md).
+#              With it, routes come from Mapbox (with traffic) and the Nav
+#              screen shows Mapbox's map while the Pi is on a network
+#              (Settings › System › Wi-Fi), and Valhalla and the offline map
+#              otherwise. Without it: offline only, nothing goes to Mapbox.
+# MAPBOX_STYLE_DAY / MAPBOX_STYLE_NIGHT  the online map's styles (empty:
+#              mapbox/navigation-day-v1 and mapbox/navigation-night-v1).
 NAV_GPSD=
 NAV_SIMULATE=0
 NAV_STALE_AFTER_MS=
@@ -220,6 +229,8 @@ NAV_SEARCH_INDEX=
 NAV_AUDIO_MANAGER=unix:/run/f250-audio/audio.sock
 NAV_VOICE_COMMAND=
 NAV_VOICE_UNITS=imperial
+MAPBOX_STYLE_DAY=
+MAPBOX_STYLE_NIGHT=
 NAV_COSTING=auto
 NAV_TRUCK_HEIGHT_M=
 NAV_TRUCK_WIDTH_M=

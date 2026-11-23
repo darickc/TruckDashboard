@@ -1,0 +1,187 @@
+{
+ "_comment": "HAND-WRITTEN to Mapbox's documented Directions schema (docs.mapbox.com/api/navigation/directions, read 2026-11-23); NOT a real answer from Mapbox. Replace with a recorded one (tools/dev/mapbox-record.sh). ADR-0052.",
+ "code": "Ok",
+ "uuid": "handwritten",
+ "waypoints": [
+  {
+   "name": "Main Street",
+   "location": [
+    -98.6,
+    39.8
+   ]
+  },
+  {
+   "name": "US 281",
+   "location": [
+    -98.5559,
+    39.8103
+   ]
+  }
+ ],
+ "routes": [
+  {
+   "distance": 4200.5,
+   "duration": 301.2,
+   "weight": 320.0,
+   "weight_name": "auto",
+   "duration_typical": 290.0,
+   "weight_typical": 305.0,
+   "geometry": "_ke|jA~baa{D?_af@?gan@wbS?",
+   "voiceLocale": "en-US",
+   "legs": [
+    {
+     "distance": 4200.5,
+     "duration": 301.2,
+     "weight": 320.0,
+     "summary": "Main Street, US 281",
+     "steps": [
+      {
+       "distance": 3060.0,
+       "duration": 200.0,
+       "weight": 210.0,
+       "name": "Main Street",
+       "mode": "driving",
+       "driving_side": "right",
+       "geometry": "_ke|jA~baa{D?_af@?gan@",
+       "maneuver": {
+        "type": "depart",
+        "instruction": "Drive east on Main Street.",
+        "location": [
+         -98.6,
+         39.8
+        ],
+        "bearing_before": 0,
+        "bearing_after": 90
+       },
+       "intersections": [
+        {
+         "location": [
+          -98.6,
+          39.8
+         ],
+         "bearings": [
+          90
+         ],
+         "entry": [
+          true
+         ],
+         "out": 0
+        }
+       ],
+       "voiceInstructions": [
+        {
+         "distanceAlongGeometry": 3060.0,
+         "announcement": "Drive east on Main Street. Then, in 2 miles, turn right onto US 281.",
+         "ssmlAnnouncement": "<speak>Drive east on Main Street. Then, in 2 miles, turn right onto US 281.</speak>"
+        },
+        {
+         "distanceAlongGeometry": 402.3,
+         "announcement": "In a quarter mile, turn right onto US 281.",
+         "ssmlAnnouncement": "<speak>In a quarter mile, turn right onto US 281.</speak>"
+        },
+        {
+         "distanceAlongGeometry": 60.0,
+         "announcement": "Turn right onto US 281.",
+         "ssmlAnnouncement": "<speak>Turn right onto US 281.</speak>"
+        }
+       ]
+      },
+      {
+       "distance": 1140.5,
+       "duration": 101.2,
+       "weight": 110.0,
+       "name": "North Street",
+       "ref": "US 281",
+       "mode": "driving",
+       "driving_side": "right",
+       "geometry": "_ke|jAv~j~zDwbS?",
+       "maneuver": {
+        "type": "turn",
+        "modifier": "right",
+        "instruction": "Turn right onto US 281.",
+        "location": [
+         -98.5559,
+         39.8
+        ],
+        "bearing_before": 90,
+        "bearing_after": 0
+       },
+       "intersections": [
+        {
+         "location": [
+          -98.5559,
+          39.8
+         ],
+         "bearings": [
+          0,
+          90,
+          270
+         ],
+         "entry": [
+          true,
+          true,
+          false
+         ],
+         "in": 2,
+         "out": 0,
+         "classes": [
+          "toll",
+          "motorway"
+         ]
+        }
+       ],
+       "voiceInstructions": [
+        {
+         "distanceAlongGeometry": 1140.5,
+         "announcement": "Continue on US 281 for a half mile.",
+         "ssmlAnnouncement": "<speak>Continue on US 281 for a half mile.</speak>"
+        },
+        {
+         "distanceAlongGeometry": 80.0,
+         "announcement": "You have arrived at your destination.",
+         "ssmlAnnouncement": "<speak>You have arrived at your destination.</speak>"
+        }
+       ]
+      },
+      {
+       "distance": 0.0,
+       "duration": 0.0,
+       "weight": 0.0,
+       "name": "North Street",
+       "ref": "US 281",
+       "mode": "driving",
+       "driving_side": "right",
+       "geometry": "wny|jAv~j~zD??",
+       "maneuver": {
+        "type": "arrive",
+        "instruction": "You have arrived at your destination.",
+        "location": [
+         -98.5559,
+         39.8103
+        ],
+        "bearing_before": 0,
+        "bearing_after": 0
+       },
+       "intersections": [
+        {
+         "location": [
+          -98.5559,
+          39.8103
+         ],
+         "bearings": [
+          180
+         ],
+         "entry": [
+          true
+         ],
+         "in": 0
+        }
+       ],
+       "voiceInstructions": []
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -17,6 +17,7 @@ use f250_proto::nav::v1 as pb;
 use f250_sd_notify::{Heartbeat, Notifier, run_watchdog};
 use navigation::audio_speaker::AudioManagerSpeaker;
 use navigation::guide::{self, GuideConfig};
+use navigation::mapbox::{self, Curl, Mapbox, OnlineFirst, Tiles};
 use navigation::places::{self, Places};
 use navigation::publisher::{self, PublisherConfig};
 use navigation::search::Searcher;
@@ -152,6 +153,12 @@ struct Args {
     voice_near_min_m: f64,
     #[arg(long, default_value_t = 300.0)]
     voice_near_max_m: f64,
+    /// curl, for Mapbox's requests (ADR-0052). Mapbox is used only with a
+    /// token: systemd's credential `mapbox-token` (the Pi), else
+    /// MAPBOX_ACCESS_TOKEN in the environment (development). MAPBOX_STYLE_DAY
+    /// and MAPBOX_STYLE_NIGHT pick the online map's styles.
+    #[arg(long, default_value = "curl", value_name = "PROGRAM")]
+    curl: PathBuf,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -203,12 +210,45 @@ async fn main() -> ExitCode {
         }),
         _ => Costing::Auto,
     };
-    let router = Arc::new(ValhallaCli {
+    let valhalla = ValhallaCli {
         program: args.valhalla.clone(),
         template: args.valhalla_config.clone(),
         tiles: args.routing_tiles.clone(),
         config: args.run_dir.join("valhalla.json"),
         timeout: valhalla::DEFAULT_TIMEOUT,
+    };
+    if let Err(why) = valhalla::Router::check(&valhalla) {
+        eprintln!("[navigation] offline routing unavailable for now: {why}");
+    }
+    // Mapbox while there is a network, with a token (ADR-0052). The token is
+    // never logged.
+    let env = |k: &str| std::env::var(k).ok().filter(|v| !v.trim().is_empty());
+    let token = mapbox::token_from(
+        std::env::var_os("CREDENTIALS_DIRECTORY").map(PathBuf::from),
+        env("MAPBOX_ACCESS_TOKEN"),
+    );
+    let online = Mapbox::new(
+        Curl {
+            program: args.curl.clone(),
+        },
+        &token,
+    )
+    .map(Arc::new);
+    let tiles = Arc::new(Tiles::new(
+        online.clone(),
+        &env("MAPBOX_STYLE_DAY").unwrap_or_else(|| mapbox::STYLE_DAY.to_string()),
+        &env("MAPBOX_STYLE_NIGHT").unwrap_or_else(|| mapbox::STYLE_NIGHT.to_string()),
+    ));
+    match &online {
+        Some(_) => eprintln!(
+            "[navigation] online: Mapbox routes (driving-traffic) and map ({}, {}) while there is a network",
+            tiles.style_day, tiles.style_night
+        ),
+        None => eprintln!("[navigation] online: off (no Mapbox token)"),
+    }
+    let router = Arc::new(OnlineFirst {
+        mapbox: online,
+        offline: valhalla,
     });
     match valhalla::Router::check(router.as_ref()) {
         Ok(()) => eprintln!(
@@ -312,7 +352,8 @@ async fn main() -> ExitCode {
             route: route_rx,
         })
         .with_search(Searcher::new(args.search_index.clone()))
-        .with_places(saved);
+        .with_places(saved)
+        .with_online_map(tiles);
 
     let listen = args.listen.clone();
     let serving = tokio::spawn(async move { server::serve(&listen, api).await });

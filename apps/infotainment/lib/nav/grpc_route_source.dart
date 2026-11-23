@@ -244,6 +244,7 @@ NavRoute routeFromPb(pb.Route r) => NavRoute(
   hasToll: r.hasToll,
   hasHighway: r.hasHighway,
   hasFerry: r.hasFerry,
+  provider: r.provider,
 );
 
 LatLng _latLng(pb.LatLon p) => LatLng(p.latitudeDeg, p.longitudeDeg);

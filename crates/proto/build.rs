@@ -13,8 +13,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "f250/nav/v1/route.proto",
         "f250/nav/v1/search.proto",
         "f250/nav/v1/places.proto",
+        "f250/nav/v1/online_map.proto",
         "f250/export/v1/export.proto",
         "f250/audio/v1/audio.proto",
+        "f250/network/v1/wifi.proto",
     ];
     for f in files {
         println!("cargo:rerun-if-changed={root}/{f}");

@@ -228,6 +228,7 @@ class Route extends $pb.GeneratedMessage {
     $core.bool? hasToll,
     $core.bool? hasHighway,
     $core.bool? hasFerry,
+    $core.String? provider,
   }) {
     final result = Route._();
     if (id != null) result.id = id;
@@ -240,6 +241,7 @@ class Route extends $pb.GeneratedMessage {
     if (hasToll != null) result.hasToll = hasToll;
     if (hasHighway != null) result.hasHighway = hasHighway;
     if (hasFerry != null) result.hasFerry = hasFerry;
+    if (provider != null) result.provider = provider;
     return result;
   }
 
@@ -270,6 +272,7 @@ class Route extends $pb.GeneratedMessage {
     ..aOB(8, _omitFieldNames ? '' : 'hasToll')
     ..aOB(9, _omitFieldNames ? '' : 'hasHighway')
     ..aOB(10, _omitFieldNames ? '' : 'hasFerry')
+    ..aOS(11, _omitFieldNames ? '' : 'provider')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -372,6 +375,17 @@ class Route extends $pb.GeneratedMessage {
   $core.bool hasHasFerry() => $_has(9);
   @$pb.TagNumber(10)
   void clearHasFerry() => $_clearField(10);
+
+  /// What made it (ADR-0052): "mapbox" (online, with traffic) or "valhalla"
+  /// (offline). Empty from a service older than ADR-0052: Valhalla.
+  @$pb.TagNumber(11)
+  $core.String get provider => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set provider($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasProvider() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearProvider() => $_clearField(11);
 }
 
 /// Where the truck is along the route. Only while the position is current:

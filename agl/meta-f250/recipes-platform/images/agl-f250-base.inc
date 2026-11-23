@@ -46,8 +46,13 @@ IMAGE_INSTALL += " \
     flite \
     piper \
     piper-voice-en-us-ljspeech \
+    curl \
+    ca-certificates \
 "
 
+# curl and ca-certificates: navigation's requests to Mapbox (ADR-0052), one
+# curl per request.
+#
 # weston-ini-conf-flutter: the compositor's configuration for flutter-auto
 # (agl-compositor-init needs some weston-ini; this is the one the Flutter
 # demo used). The dashboard has no fonts of its own, so the system's sans

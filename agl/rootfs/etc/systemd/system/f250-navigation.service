@@ -18,6 +18,15 @@
 # which says them and pauses the music; navigation itself has no sound
 # devices. Without audio-manager they go to the journal.
 #
+# Online (ADR-0052): with a Mapbox token in /etc/credstore/mapbox-token
+# (root's, 0600; imported below as a credential only this service can read),
+# navigation asks Mapbox for routes (driving-traffic) and the online map's
+# tiles while there is a network, one curl per request (the token on curl's
+# standard input, never its command line), and falls back to Valhalla. So
+# its IP isn't limited to the loopback any more. Without a token nothing
+# leaves the Pi. UNVERIFIED on the Pi: curl and its CA certificates under
+# this sandbox.
+#
 # gpsd owns the GNSS receiver; navigation is its client on 127.0.0.1:2947
 # (NAV_GPSD, navigation-start). gpsd's own socket unit is pulled in, so
 # it listens; a missing gpsd shows on the dashboard as "gpsd unavailable".
@@ -29,7 +38,7 @@
 # that the image's gpsd.socket listens on 127.0.0.1:2947 and that gpsd-udev
 # hands it a USB receiver when one is plugged in.
 [Unit]
-Description=F-250 navigation (position from gpsd, routes from Valhalla)
+Description=F-250 navigation (position from gpsd, routes from Mapbox or Valhalla)
 Wants=gpsd.socket
 After=gpsd.socket gpsd.service
 
@@ -41,6 +50,8 @@ User=f250
 Group=f250
 EnvironmentFile=-/etc/default/f250
 ExecStart=/opt/f250/libexec/navigation-start
+# The Mapbox token, if there is one (ADR-0052): $CREDENTIALS_DIRECTORY/mapbox-token.
+ImportCredential=mapbox-token
 Restart=on-failure
 RestartSec=2
 UMask=0007
@@ -77,9 +88,8 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
 SystemCallErrorNumber=EPERM
+# gpsd on the loopback, and Mapbox over the internet (ADR-0052).
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-IPAddressAllow=localhost
-IPAddressDeny=any
 
 [Install]
 WantedBy=multi-user.target

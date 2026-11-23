@@ -13,7 +13,7 @@
 #
 # What lands on the Pi:
 #   /opt/f250/bin/              vehicle-gateway, recorder, obd-console, power-manager, camera-manager,
-#                               camera-ctl, navigation, usb-export, audio-manager, knob-link, tts, gps-clock, f250-can, f250-storage
+#                               camera-ctl, navigation, usb-export, audio-manager, knob-link, tts, gps-clock, network, f250-can, f250-storage
 #   /opt/f250/share/agl/        this repo's agl/ (scripts, rootfs, boot config)
 #   /opt/f250/share/data/       signal registry, warning rules, scenarios, Valhalla's config
 #   /usr/share/flutter/f250_infotainment/<flutter>/release/
@@ -39,6 +39,7 @@ MAP_FILE=/var/lib/f250/storage/maps/map.pmtiles
 MAP_STATUS=/run/f250-maps/status.json
 EXPORT_SOCK=/run/f250-export/export.sock
 AUDIO_SOCK=/run/f250-audio/audio.sock
+NETWORK_SOCK=/run/f250-network/network.sock
 # The dashboard says which commit it was built from (Settings › System):
 # "+changes" when the build has uncommitted files.
 F250_COMMIT="$(git rev-parse --short=7 HEAD)$(git diff --quiet HEAD -- || echo '+changes')"
@@ -70,15 +71,15 @@ build() {
     -v "$PWD":/src:ro -v "$PWD/$OUT":/out \
     -v f250-arm64-cargo:/usr/local/cargo/registry -v f250-arm64-target:/target \
     -v f250-arm64-pub:/root/.pub-cache -v f250-arm64-work:/work \
-    -e CARGO_TARGET_DIR=/target -e FLUTTER_VERSION="$FLUTTER_VERSION" -e SOCK="$SOCK" -e CAMERA_SOCK="$CAMERA_SOCK" -e POWER_SOCK="$POWER_SOCK" -e NAV_SOCK="$NAV_SOCK" -e MAP_FILE="$MAP_FILE" -e MAP_STATUS="$MAP_STATUS" -e EXPORT_SOCK="$EXPORT_SOCK" -e AUDIO_SOCK="$AUDIO_SOCK" -e F250_COMMIT="$F250_COMMIT" \
+    -e CARGO_TARGET_DIR=/target -e FLUTTER_VERSION="$FLUTTER_VERSION" -e SOCK="$SOCK" -e CAMERA_SOCK="$CAMERA_SOCK" -e POWER_SOCK="$POWER_SOCK" -e NAV_SOCK="$NAV_SOCK" -e MAP_FILE="$MAP_FILE" -e MAP_STATUS="$MAP_STATUS" -e EXPORT_SOCK="$EXPORT_SOCK" -e AUDIO_SOCK="$AUDIO_SOCK" -e NETWORK_SOCK="$NETWORK_SOCK" -e F250_COMMIT="$F250_COMMIT" \
     "$IMAGE" bash -euo pipefail -c '
       cd /src
       cargo build -q --release --locked -p vehicle-gateway --features rfcomm
-      cargo build -q --release --locked -p recorder -p obd-console -p power-manager -p navigation -p usb-export -p audio-manager -p knob-link -p tts -p gps-clock
+      cargo build -q --release --locked -p recorder -p obd-console -p power-manager -p navigation -p usb-export -p audio-manager -p knob-link -p tts -p gps-clock -p network
       # In-process GStreamer, so it can record (ADR-0027 decision 2).
       cargo build -q --release --locked -p camera-manager --features gstreamer
       mkdir -p /out/bin
-      cp /target/release/vehicle-gateway /target/release/recorder /target/release/obd-console /target/release/power-manager /target/release/camera-manager /target/release/camera-ctl /target/release/navigation /target/release/usb-export /target/release/audio-manager /target/release/knob-link /target/release/tts /target/release/gps-clock /out/bin/
+      cp /target/release/vehicle-gateway /target/release/recorder /target/release/obd-console /target/release/power-manager /target/release/camera-manager /target/release/camera-ctl /target/release/navigation /target/release/usb-export /target/release/audio-manager /target/release/knob-link /target/release/tts /target/release/gps-clock /target/release/network /out/bin/
 
       for d in apps/infotainment simulator/powerstroke; do
         mkdir -p "/work/$d"
@@ -90,7 +91,7 @@ build() {
         --dart-define=VEHICLE_SOURCE=gateway --dart-define=GATEWAY=unix:$SOCK \
         --dart-define=CAMERAS=unix:$CAMERA_SOCK --dart-define=POWER=unix:$POWER_SOCK \
         --dart-define=NAV=unix:$NAV_SOCK --dart-define=MAP_FILE=$MAP_FILE --dart-define=MAP_STATUS=$MAP_STATUS \
-        --dart-define=EXPORT=unix:$EXPORT_SOCK --dart-define=AUDIO=unix:$AUDIO_SOCK \
+        --dart-define=EXPORT=unix:$EXPORT_SOCK --dart-define=AUDIO=unix:$AUDIO_SOCK --dart-define=NETWORK=unix:$NETWORK_SOCK \
         --dart-define=F250_COMMIT=$F250_COMMIT
       b=build/linux/arm64/release/bundle
       mkdir -p /out/bundle/lib /out/bundle/data

@@ -1,3 +1,5 @@
+import 'package:f250_infotainment/nav/online_map.dart';
+import 'package:f250_infotainment/network/wifi_state.dart';
 import 'package:f250_infotainment/audio/audio_state.dart';
 import 'package:f250_infotainment/cameras/camera_state.dart';
 import 'package:f250_infotainment/cameras/simulated_camera_source.dart';
@@ -59,6 +61,8 @@ class Harness {
       OfflineMap? map,
       ExportSource? exports,
       AudioSource? audio,
+      WifiSource? wifi,
+      OnlineMapSource? onlineMap,
       SystemInfo? systemInfo}) async {
     tester.view.physicalSize = const Size(800, 480);
     tester.view.devicePixelRatio = 1.0;
@@ -89,6 +93,8 @@ class Harness {
       map: map,
       exports: exports,
       audio: audio,
+      wifi: wifi,
+      onlineMap: onlineMap,
       systemInfo: systemInfo ?? FixedSystemInfo(SystemFacts.unavailable('not set by the test')),
       power: power,
       refreshPeriod: null,

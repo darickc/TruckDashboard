@@ -46,6 +46,12 @@ NAV_LISTEN ?= tcp:127.0.0.1:50253
 # simulated phone on AUDIO_LISTEN.
 AUDIO    ?= sim
 AUDIO_LISTEN ?= tcp:127.0.0.1:50254
+# Wi-Fi (ADR-0052): sim (the app's made-up networks) or services/network's
+# endpoint. `make sim` runs services/network's own simulated radio on
+# NETWORK_LISTEN. Online navigation also needs MAPBOX_ACCESS_TOKEN in the
+# environment of `make sim`/`make navigation`.
+NETWORK  ?= sim
+NETWORK_LISTEN ?= tcp:127.0.0.1:50255
 # A made-up phone call rings every SIM_CALL seconds on the simulated phone
 # (the app's, or audio-manager's with `make sim`/`make audio`); empty: never.
 # RING=afplay makes audio-manager's ring tone heard on the Mac.
@@ -85,6 +91,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
               --dart-define=VEHICLE_SOURCE=$(SOURCE) --dart-define=GATEWAY=$(GATEWAY) \
               --dart-define=NAV=$(NAV) --dart-define=MAP_FILE=$(MAP_FILE) \
               --dart-define=MAP_STATUS=$(MAP_STATUS) --dart-define=AUDIO=$(AUDIO) \
+              --dart-define=NETWORK=$(NETWORK) \
               --dart-define=SIM_CALL_S=$(SIM_CALL)
 
 .PHONY: help setup doctor test lint \
@@ -92,7 +99,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
-        sim gateway navigation audio route-region search-region map-test-pattern map-region map-assets map-stick map-import-dev map-check console docs-lint \
+        sim gateway navigation audio network route-region search-region map-test-pattern map-region map-assets map-stick map-import-dev map-check console docs-lint \
         pi-setup pi-build pi-run pi-start pi-stop pi-status pi-can \
         agl-test agl-image deploy deploy-build logs build-vm agl-build \
         mech-test mech-fusion mech-stl
@@ -268,11 +275,14 @@ pi-can: ## On the Pi: direct-CAN adapter, CMD=status|listen|active|down|capture|
 gateway: ## Run the vehicle gateway with the simulator (SCENARIO=, START=) on $(GATEWAY)
 	cargo run -q -p vehicle-gateway -- --listen $(GATEWAY) --scenario $(SCENARIO) --sim-start-s $(START)
 
-sim: ## Gateway, navigation and audio-manager (simulated) + the macOS app reading from them over gRPC
-	NAV_ROUTING="$(NAV_ROUTING)" VOICE="$(VOICE)" SIM_CALL="$(SIM_CALL)" RING="$(RING)" tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)" "$(AUDIO_LISTEN)"
+sim: ## Gateway, navigation, audio-manager and network (simulated) + the macOS app reading from them over gRPC
+	NAV_ROUTING="$(NAV_ROUTING)" VOICE="$(VOICE)" SIM_CALL="$(SIM_CALL)" RING="$(RING)" tools/dev/sim.sh "$(GATEWAY)" "$(SCENARIO)" "$(START)" "$(NAV_LISTEN)" "$(AUDIO_LISTEN)" "$(NETWORK_LISTEN)"
 
 navigation: ## Run services/navigation with a simulated receiver on $(NAV_LISTEN), routing with Valhalla in Docker (VOICE=say speaks)
 	cargo run -q -p navigation -- --listen $(NAV_LISTEN) --simulate $(NAV_ROUTING) $(if $(VOICE),--voice-command $(VOICE))
+
+network: ## Run services/network with a simulated radio (made-up networks, no connman) on $(NETWORK_LISTEN)
+	cargo run -q -p network -- --listen $(NETWORK_LISTEN) --simulate
 
 audio: ## Run services/audio-manager with a simulated phone (no Bluetooth, no PipeWire) on $(AUDIO_LISTEN)
 	mkdir -p /tmp/f250/audio && cargo run -q -p audio-manager -- --listen $(AUDIO_LISTEN) --simulate --settings-file /tmp/f250/audio/speakers.json $(if $(VOICE),--voice-command $(VOICE)) $(if $(SIM_CALL),--sim-call-every-s $(SIM_CALL)) $(if $(RING),--ring-command $(RING))

@@ -14,7 +14,12 @@ class OnScreenKeyboard extends StatefulWidget {
     required this.onBackspace,
     required this.onDone,
     this.doneLabel = 'Done',
+    this.caseSensitive = false,
   });
+
+  /// Capitals (a Shift key) and every printable symbol, for a Wi-Fi
+  /// passphrase (ADR-0052). Search doesn't need them.
+  final bool caseSensitive;
 
   /// A key's text, to add at the end.
   final ValueChanged<String> onText;
@@ -33,13 +38,25 @@ class OnScreenKeyboard extends StatefulWidget {
 
 class _OnScreenKeyboardState extends State<OnScreenKeyboard> {
   bool _digits = false;
+  bool _shift = false;
 
   static const _letters = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
   static const _symbols = ['1234567890', "-/#&.,'", '()@'];
 
+  /// With [OnScreenKeyboard.caseSensitive]: every printable ASCII symbol,
+  /// over two pages (Shift turns the page).
+  static const _allSymbols = ['1234567890', r'!@#$%^&*()', '-_=+.,?/'];
+  static const _moreSymbols = [r'~`|\[]{}<>', ';:"\'', ''];
+
+  List<String> get _rows {
+    if (!_digits) return _letters;
+    if (!widget.caseSensitive) return _symbols;
+    return _shift ? _moreSymbols : _allSymbols;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final rows = _digits ? _symbols : _letters;
+    final rows = _rows;
     return SizedBox(
       key: const ValueKey('osk'),
       height: OnScreenKeyboard.height,
@@ -50,8 +67,19 @@ class _OnScreenKeyboardState extends State<OnScreenKeyboard> {
           _row([const Spacer(flex: 1), for (final c in rows[1].split('')) _char(c), const Spacer(flex: 1)]),
           _gap(),
           _row([
+            if (widget.caseSensitive)
+              _key(
+                'osk-shift',
+                _digits ? 'More symbols' : 'Shift',
+                _digits
+                    ? Text(_shift ? '123' : '#+=', style: _labelStyle)
+                    : Icon(_shift ? Icons.keyboard_capslock : Icons.keyboard_arrow_up, size: 28),
+                () => setState(() => _shift = !_shift),
+                flex: 3,
+                selected: _shift && !_digits,
+              ),
             for (final c in rows[2].split('')) _char(c),
-            if (_digits) const Spacer(flex: 4),
+            if (_digits) Spacer(flex: widget.caseSensitive ? 2 : 4),
             _key(
               'osk-backspace',
               'Delete',
@@ -66,7 +94,10 @@ class _OnScreenKeyboardState extends State<OnScreenKeyboard> {
               'osk-layer',
               _digits ? 'Letters' : 'Numbers',
               Text(_digits ? 'ABC' : '123', style: _labelStyle),
-              () => setState(() => _digits = !_digits),
+              () => setState(() {
+                _digits = !_digits;
+                _shift = false;
+              }),
               flex: 3,
             ),
             _key('osk-space', 'Space', const Text('space', style: _labelStyle), () => widget.onText(' '), flex: 10),
@@ -93,16 +124,29 @@ class _OnScreenKeyboardState extends State<OnScreenKeyboard> {
     );
   }
 
-  Widget _char(String c) => _key(
-    'osk-key-$c',
-    c,
-    Text(c.toUpperCase(), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600)),
-    () => widget.onText(c),
-    flex: 2,
-  );
+  Widget _char(String raw) {
+    // Case-sensitive keys show and type what they are; the others show
+    // capitals and type lower case, as before.
+    final c = widget.caseSensitive && !_digits && _shift ? raw.toUpperCase() : raw;
+    return _key(
+      'osk-key-$c',
+      c,
+      Text(widget.caseSensitive ? c : c.toUpperCase(), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600)),
+      () => widget.onText(c),
+      flex: 2,
+    );
+  }
 
-  Widget _key(String key, String label, Widget child, VoidCallback onTap, {int flex = 2}) => Expanded(
-    flex: flex,
-    child: TapTarget(key: ValueKey(key), label: label, onTap: onTap, padding: EdgeInsets.zero, child: child),
-  );
+  Widget _key(String key, String label, Widget child, VoidCallback onTap, {int flex = 2, bool selected = false}) =>
+      Expanded(
+        flex: flex,
+        child: TapTarget(
+          key: ValueKey(key),
+          label: label,
+          onTap: onTap,
+          padding: EdgeInsets.zero,
+          selected: selected,
+          child: child,
+        ),
+      );
 }

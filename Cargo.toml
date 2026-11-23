@@ -24,6 +24,7 @@ members = [
     "services/audio-manager",
     "services/knob-link",
     "services/gps-clock",
+    "services/network",
     "services/tts",
     "tools/obd-console",
     "tools/can-monitor",

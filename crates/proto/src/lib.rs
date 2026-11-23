@@ -38,3 +38,9 @@ pub mod audio {
         tonic::include_proto!("f250.audio.v1");
     }
 }
+
+pub mod network {
+    pub mod v1 {
+        tonic::include_proto!("f250.network.v1");
+    }
+}

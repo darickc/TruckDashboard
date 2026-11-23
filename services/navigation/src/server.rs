@@ -3,6 +3,7 @@
 //! its current route. `SearchService`: the offline search index, ranked from
 //! the latest position (ADR-0038). `PlacesService`: Home, favourites and
 //! recent destinations (ADR-0040); every SetDestination adds a recent one.
+//! `OnlineMapService`: Mapbox's tiles for the online map (ADR-0052).
 
 use std::path::Path;
 use std::pin::Pin;
@@ -10,6 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use f250_proto::nav::v1 as pb;
+use pb::online_map_service_server::{OnlineMapService, OnlineMapServiceServer};
 use pb::places_service_server::{PlacesService, PlacesServiceServer};
 use pb::position_service_server::{PositionService, PositionServiceServer};
 use pb::route_service_server::{RouteService, RouteServiceServer};
@@ -19,6 +21,7 @@ use tokio_stream::{Stream, StreamExt, wrappers::WatchStream};
 use tonic::{Request, Response, Status};
 
 use crate::guide::{Command, route_to_pb};
+use crate::mapbox::{self, Curl, Tiles};
 use crate::places::{self, Places, Refused};
 use crate::search::{self, Searcher};
 use crate::valhalla::Route;
@@ -29,6 +32,7 @@ pub struct Api {
     routing: Option<RoutingApi>,
     search: Option<Arc<Searcher>>,
     places: Option<Arc<Mutex<Places>>>,
+    online_map: Option<Arc<Tiles<Curl>>>,
 }
 
 /// The guide's side of the API.
@@ -46,7 +50,15 @@ impl Api {
             routing: None,
             search: None,
             places: None,
+            online_map: None,
         }
+    }
+
+    /// The online map's tiles (ADR-0052); without, the map says it has no
+    /// token.
+    pub fn with_online_map(mut self, tiles: Arc<Tiles<Curl>>) -> Self {
+        self.online_map = Some(tiles);
+        self
     }
 
     pub fn with_places(mut self, places: Places) -> Self {
@@ -366,6 +378,57 @@ impl PlacesService for Api {
     }
 }
 
+#[tonic::async_trait]
+impl OnlineMapService for Api {
+    async fn get_online_map_status(
+        &self,
+        _: Request<pb::GetOnlineMapStatusRequest>,
+    ) -> Result<Response<pb::GetOnlineMapStatusResponse>, Status> {
+        let r = match self.online_map.as_ref().filter(|t| t.configured()) {
+            Some(t) => pb::GetOnlineMapStatusResponse {
+                configured: true,
+                detail: format!("Mapbox: {} by day, {} by night", t.style_day, t.style_night),
+                attribution: mapbox::ATTRIBUTION.to_string(),
+                tile_size: mapbox::TILE_SIZE,
+                max_zoom: mapbox::MAX_ZOOM,
+                routing_online: t.routing_online(),
+            },
+            None => pb::GetOnlineMapStatusResponse {
+                detail: "no Mapbox token (MAPBOX_ACCESS_TOKEN): offline only".to_string(),
+                ..Default::default()
+            },
+        };
+        Ok(Response::new(r))
+    }
+
+    async fn get_tile(
+        &self,
+        req: Request<pb::GetTileRequest>,
+    ) -> Result<Response<pb::GetTileResponse>, Status> {
+        let r = req.into_inner();
+        let tiles = self
+            .online_map
+            .as_ref()
+            .filter(|t| t.configured())
+            .ok_or_else(|| Status::failed_precondition("no Mapbox token"))?;
+        if r.z > mapbox::MAX_ZOOM || u64::from(r.x) >= 1 << r.z || u64::from(r.y) >= 1 << r.z {
+            return Err(Status::invalid_argument(format!(
+                "no tile {}/{}/{}",
+                r.z, r.x, r.y
+            )));
+        }
+        let night = r.style == pb::MapStyle::Night as i32;
+        match tiles.get(night, r.z, r.x, r.y).await {
+            Ok(t) => Ok(Response::new(pb::GetTileResponse {
+                data: t.body.clone(),
+                content_type: t.content_type.clone(),
+            })),
+            Err(None) => Err(Status::failed_precondition("no Mapbox token")),
+            Err(Some(why)) => Err(Status::unavailable(why)),
+        }
+    }
+}
+
 /// Serves on `unix:PATH` or `tcp:HOST:PORT` until the server fails.
 pub async fn serve(listen: &str, api: Api) -> Result<(), String> {
     let mut builder = tonic::transport::Server::builder();
@@ -373,7 +436,8 @@ pub async fn serve(listen: &str, api: Api) -> Result<(), String> {
         .add_service(PositionServiceServer::new(api.clone()))
         .add_service(RouteServiceServer::new(api.clone()))
         .add_service(SearchServiceServer::new(api.clone()))
-        .add_service(PlacesServiceServer::new(api));
+        .add_service(PlacesServiceServer::new(api.clone()))
+        .add_service(OnlineMapServiceServer::new(api));
     if let Some(path) = listen.strip_prefix("unix:") {
         let path = Path::new(path);
         if let Some(dir) = path.parent() {
