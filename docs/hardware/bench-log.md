@@ -3428,3 +3428,12 @@ the NO DATA ring and tag by eye (the log shows the state), alerts (the
 simulated values stayed in range). Flashed last and seen by the owner:
 swipes going round (last page to first and back) and the slot named
 "DELTA". Not on the Pi yet; bench check 25 stays open.
+
+Later the same day, the navigation page: no routing data on the Mac, so a
+script wrote knob-link's N1 frames to the dial's port every 250 ms (knob-link
+stopped meanwhile): routing, waiting, the 16 turn kinds (start, straight,
+slight/normal/sharp right and left, ramps, fork, merge, roundabout, both
+U-turns, ferry, destination) with the distance counting down in miles then
+feet, and "Arrived". The dial counted every frame (0 bad checksums, 0
+malformed), and the owner saw the arrows and the page as drawn. This shows
+the dial's drawing, not knob-link's frames from a real Valhalla route.
