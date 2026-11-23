@@ -219,7 +219,8 @@ RECORD_TRUST_CLOCK=
 #              (Settings › System › Wi-Fi), and Valhalla and the offline map
 #              otherwise. Without it: offline only, nothing goes to Mapbox.
 # MAPBOX_STYLE_DAY / MAPBOX_STYLE_NIGHT  the online map's styles (empty:
-#              mapbox/navigation-day-v1 and mapbox/navigation-night-v1).
+#              mapbox/navigation-day-v1 and mapbox/navigation-night-v1, both
+#              checked with Mapbox's Static Tiles API, 2026-11-23).
 NAV_GPSD=
 NAV_SIMULATE=0
 NAV_STALE_AFTER_MS=

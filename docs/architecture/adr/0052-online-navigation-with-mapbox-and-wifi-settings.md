@@ -1,9 +1,17 @@
 # ADR 0052 — Online navigation with Mapbox when there is a network; Wi-Fi set from the dashboard
 
-- **Status:** Accepted (owner asked, 2026-11-23). [SIM] only:
-  - navigation's Mapbox client is tested against a fake `curl` that replays
-    answers **hand-written to Mapbox's documented schema**, not real
-    answers. No request has reached Mapbox yet: no token was used.
+- **Status:** Accepted (owner asked, 2026-11-23). [SIM], and against the
+  real Mapbox from the Mac (2026-11-23, the owner's token):
+  - a real Directions answer is recorded (`tools/dev/mapbox-record.sh`) and
+    parsed in a test: the joined line within 1 % of Mapbox's length, every
+    maneuver within 2 % of where Mapbox puts it.
+  - the navigation program itself (`tests/mapbox_live.rs`, opt-in) got a
+    route marked `mapbox`, day and night tiles, and kept the token out of
+    its log.
+  - `mapbox/navigation-day-v1` and `navigation-night-v1` serve 512 px PNG
+    tiles from the Static Tiles API.
+  - the hand-written vector stays for a toll and a motorway, which the
+    recorded route lacks.
   - the network service's connman backend is not tested against connman.
     Its parsing is unit-tested; its D-Bus calls have not run on the Pi.
   - the dashboard's Wi-Fi settings and online map are tested against
@@ -51,9 +59,9 @@ Facts checked on 2026-11-23:
 - **Mapbox Static Tiles API** (docs.mapbox.com/api/maps/static-tiles):
   `GET /styles/v1/{user}/{style}/tiles/{512|256}/{z}/{x}/{y}`, 512 px tiles
   one zoom level behind 256 px ones, `Cache-Control: max-age=43200` (12 h).
-  The page names no navigation styles: `mapbox/navigation-day-v1` and
-  `mapbox/navigation-night-v1` as the defaults here are **UNVERIFIED**
-  with Static Tiles; both are configuration.
+  The page names no navigation styles; `mapbox/navigation-day-v1` and
+  `mapbox/navigation-night-v1` were checked by hand (2026-11-23): both
+  answer with 512 px PNG tiles. Both are configuration.
 - **Pricing** (mapbox.com/pricing, 2026-11-23): Directions free up to
   100,000 requests a month.
 - **Mapbox's Terms of Service** say: "If your Licensed Application is
@@ -101,8 +109,11 @@ Facts checked on 2026-11-23:
    directions (ADR-0040) take Mapbox's words: a maneuver's approaching
    prompt is its instruction, its at-the-maneuver prompt the previous
    step's last announcement (the one with the smallest
-   `distanceAlongGeometry`); Mapbox has no "continue for" words, so the
-   voice says its own. When to speak is still navigation's (ADR-0040), not
+   `distanceAlongGeometry`), and so is its approaching prompt, after
+   "In half a mile,": the announcements are written for speech ("U.S.
+   Highway 2 81"), the instructions for the eye ("US Highway 281/US 281.
+   Continue on US 281.", seen in a recorded answer). Mapbox has no
+   "continue for" words, so the voice says its own. When to speak is still navigation's (ADR-0040), not
    Mapbox's distances.
 6. **The online map is Mapbox's raster tiles**, 512 px, through
    navigation's new `f250.nav.v1.OnlineMapService` (`GetStatus`,
@@ -147,6 +158,5 @@ Facts checked on 2026-11-23:
   reroute then comes from Valhalla. Traffic isn't refreshed along a route
   (a later change, if wanted).
 - Until checked on the Pi: `ImportCredential=` with systemd 259 (and no
-  file: the unit must still start), the Static Tiles styles, Mapbox's real answers
-  (to record as test vectors: `tools/dev/mapbox-record.sh`), connman's
+  file: the unit must still start), connman's
   D-Bus API on the image, the D-Bus policy, and curl in the image.

@@ -472,9 +472,10 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       (the dashboard keeps no network); one curl per request, the token a systemd credential. Wi-Fi from
       Settings › System › Wi-Fi through a new `services/network` over connman (`f250.network.v1`, passphrases
       through its agent). Tested against a local stand-in for Mapbox with the real curl, hand-written answers to
-      Mapbox's documented schema, a simulated radio, and widget tests at 800×480. No request has reached Mapbox
-      and nothing has run on the Pi: record a real answer (`tools/dev/mapbox-record.sh`), then bench check the
-      credential, curl in the sandbox, connman's agent and the D-Bus policy.
+      Mapbox's documented schema, a simulated radio, and widget tests at 800×480. Against the real Mapbox from
+      the Mac (2026-11-23): a recorded route parses, the navigation program routes with Mapbox and serves day and
+      night tiles (`tests/mapbox_live.rs`, opt-in). Nothing has run on the Pi: bench check 26 (the credential,
+      curl in the sandbox, connman's agent and the D-Bus policy).
       Next: bench check 18 with a stick and the NVMe; bench check 22 (places and the voice on the Pi, by ear)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 29 unit tests (reverse priority and debounce, the hold, stale and

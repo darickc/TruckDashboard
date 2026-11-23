@@ -9,10 +9,11 @@
 //! standard input, never on its command line, and never into a log or an
 //! error ([`redact`]).
 //!
-//! The test vectors in `tests/data/mapbox-*.json` are **hand-written to
-//! Mapbox's documented schema** (docs.mapbox.com/api/navigation/directions,
-//! 2026-11-23), not real answers: the page has no complete example. Replace
-//! them with recorded answers (`tools/dev/mapbox-record.sh`).
+//! Test vectors: `tests/data/mapbox-directions-recorded.json` is a real
+//! answer (`tools/dev/mapbox-record.sh`, 2026-11-23);
+//! `mapbox-directions-handwritten.json` is **hand-written to Mapbox's
+//! documented schema**, for what the recorded one lacks (a toll, a
+//! motorway).
 
 use std::collections::{HashMap, VecDeque};
 use std::future::Future;
@@ -39,8 +40,9 @@ pub const API: &str = "https://api.mapbox.com";
 /// Shown with the online map (ADR-0052 decision 7).
 pub const ATTRIBUTION: &str = "© Mapbox © OpenStreetMap";
 
-/// The online map's styles by default. UNVERIFIED that the Static Tiles API
-/// serves them (its page names no navigation styles); both are configuration.
+/// The online map's styles by default. The Static Tiles API's page names no
+/// navigation styles; both answered with 512 px PNG tiles when checked by
+/// hand (2026-11-23). Both are configuration.
 pub const STYLE_DAY: &str = "mapbox/navigation-day-v1";
 pub const STYLE_NIGHT: &str = "mapbox/navigation-night-v1";
 
@@ -449,13 +451,17 @@ pub fn parse_directions(
         let begin = begins[i];
         maneuvers.push(Maneuver {
             kind: maneuver_kind(&s(m, "type"), &s(m, "modifier"), &mode),
-            instruction: instruction.clone(),
+            instruction,
             street_names,
             length_m: step.get("distance").and_then(Value::as_f64).unwrap_or(0.0),
             time_s: step.get("duration").and_then(Value::as_f64).unwrap_or(0.0),
             begin_shape_index: begin,
             start_m: along_m[begin],
-            verbal_alert: instruction,
+            // The approaching prompt ("In half a mile, …") takes the same
+            // words: Mapbox's announcements are written for speech ("U.S.
+            // Highway 2 81"), its instructions for the eye ("US Highway
+            // 281/US 281. Continue on US 281."; recorded 2026-11-23).
+            verbal_alert: String::new(),
             verbal_pre: pre,
             // Mapbox has no "continue for" words; the voice says its own.
             verbal_post: String::new(),
@@ -826,7 +832,10 @@ mod tests {
         assert_eq!(m.kind, 10);
         assert_eq!(m.instruction, "Turn right onto US 281.");
         assert_eq!(m.street_names, ["US 281", "North Street"]);
-        assert_eq!(m.verbal_alert, "Turn right onto US 281.");
+        assert_eq!(
+            m.verbal_alert, "",
+            "the voice uses verbal_pre for both prompts"
+        );
         // The previous step's nearest announcement.
         assert_eq!(m.verbal_pre, "Turn right onto US 281.");
         assert_eq!(m.verbal_post, "");
@@ -843,6 +852,60 @@ mod tests {
         assert!(r.has_toll);
         assert!(r.has_highway);
         assert!(!r.has_ferry);
+    }
+
+    /// A real answer, recorded with tools/dev/mapbox-record.sh on
+    /// 2026-11-23: from near Lebanon, Kansas to the destination the
+    /// simulator uses.
+    const RECORDED: &str = include_str!("../tests/data/mapbox-directions-recorded.json");
+
+    #[test]
+    fn reads_a_recorded_answer() {
+        let r = parse_directions(200, RECORDED, DEST, "auto").unwrap();
+        assert_eq!(r.provider, PROVIDER);
+        let kinds: Vec<u32> = r.maneuvers.iter().map(|m| m.kind).collect();
+        // depart, left onto US 281, right onto Chicago Avenue, left, arrive
+        // on the left.
+        assert_eq!(kinds, [1, 15, 10, 15, 6]);
+        assert_eq!(r.length_m, 5015.337);
+        assert_eq!(r.time_s, 326.566);
+        // The joined steps are the route: their length agrees with
+        // Mapbox's within 1 %.
+        assert!(
+            (r.shape_length_m() - r.length_m).abs() < r.length_m * 0.01,
+            "{} m drawn, {} m said",
+            r.shape_length_m(),
+            r.length_m
+        );
+        // Each maneuver starts where Mapbox says, in order, and the last at
+        // the end of the line.
+        for w in r.maneuvers.windows(2) {
+            assert!(w[0].begin_shape_index < w[1].begin_shape_index);
+        }
+        assert_eq!(r.maneuvers[4].begin_shape_index, r.shape.len() - 1);
+        for (w, len) in r
+            .maneuvers
+            .windows(2)
+            .zip([3376.238, 1193.251, 395.549, 50.299])
+        {
+            let drawn = w[1].start_m - w[0].start_m;
+            assert!((drawn - len).abs() < len * 0.02 + 2.0, "{drawn} vs {len}");
+        }
+        let left = &r.maneuvers[1];
+        assert_eq!(left.street_names, ["US 281", "US Highway 281"]);
+        assert_eq!(
+            left.verbal_pre,
+            "Turn left onto U.S. Highway 2 81, U.S. 2 81."
+        );
+        assert_eq!(
+            r.maneuvers[0].verbal_pre,
+            "Drive east on 1 50 Road for 2 miles."
+        );
+        assert_eq!(
+            r.maneuvers[4].verbal_pre,
+            "Your destination is on the left."
+        );
+        assert!(!r.has_toll && !r.has_highway && !r.has_ferry);
     }
 
     #[test]

@@ -337,10 +337,14 @@ map". `MAPBOX_STYLE_DAY`/`MAPBOX_STYLE_NIGHT` in `/etc/default/f250` change
 the map's styles. Delete the file and restart navigation to go back to
 offline only.
 
-UNVERIFIED on the Pi: the credential import, curl under navigation's sandbox,
-and the default styles with Mapbox's Static Tiles API. To record a real
-Directions answer as a test vector:
-`MAPBOX_ACCESS_TOKEN=pk.… tools/dev/mapbox-record.sh`.
+UNVERIFIED on the Pi: the credential import and curl under navigation's
+sandbox. Checked from the Mac (2026-11-23): Mapbox's routes and both
+default styles. To try navigation against Mapbox yourself (one route and two
+tiles on your account):
+
+```bash
+cargo test -p navigation --test mapbox_live -- --ignored --nocapture
+```
 
 ## Search
 
