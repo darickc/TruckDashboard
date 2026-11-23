@@ -8,14 +8,14 @@ cable to the Pi: the S3 is "F-250 knob", a serial port that receives
 `services/knob-link`'s frames and a USB HID knob (volume, mute, play/pause)
 that audio-manager reads ([ADR-0043](../../docs/architecture/adr/0043-master-volume-and-the-volume-knob.md)).
 
-**Status: on the bench, not drawing the dial yet.** The frames, the dial's
-model (stale data, a lost link), the layout, the tap rules and the knob's
-decoding are host-tested `[SIM]`. On the board, from the Mac `[BENCH]`
+**Status: on the bench.** The frames, the dial's model (stale data, a lost
+link), the layout, the tap rules and the knob's decoding are host-tested
+`[SIM]`. On the board, from the Mac `[BENCH]`
 ([bench log 2026-11-22](../../docs/hardware/bench-log.md)): the composite USB
-device, the display, touch and the knob work, and the knob sends volume keys.
-The dial itself isn't drawn: the screen shows a test pattern, and what the
-dial would show goes to the serial port as `# ...` lines (knob-link logs
-them). Not yet on the Pi.
+device, the display, touch and the knob work, the knob sends volume keys, and
+the dial (gauges, navigation, media, a call over them) is drawn with LVGL
+from knob-link's frames. What the dial shows also goes to the serial port as
+`# ...` lines (knob-link logs them). Not yet on the Pi.
 
 arduino-esp32 **3.x** (pioarduino 55.03.311), not the 2.x of
 `firmware/esp32`: the panel is QSPI, which 2.x's `esp_lcd` can't drive
@@ -32,7 +32,10 @@ arduino-esp32 **3.x** (pioarduino 55.03.311), not the 2.x of
 | `lib/KnobHw/src/Pins.h` | The S3's pins, from Waveshare's schematic and demo |
 | `lib/KnobHw/src/Panel.*`, `PanelInit.inc` | The 360 × 360 QSPI panel (esp_lcd, 40 MHz quad) and its backlight; the 185 start-up commands generated from the demo's `lcd_bsp.c` |
 | `lib/KnobHw/src/Touch.*` | The CST816, polled over I2C |
-| `src/main.cpp` | USB (TinyUSB composite: CDC + HID Consumer Control), the frame reader, the knob and touch, the test pattern, the log |
+| `src/DialUi.*` | The dial drawn with LVGL 8.4.0 from Dial and Pages: gauges, navigation, media, and a call over them ([ADR-0044 amendment 2](../../docs/architecture/adr/0044-knob-display.md#amendment-2026-11-22-2-the-dial-drawn)) |
+| `include/lv_conf.h` | LVGL's settings: the package's template, changed where its header says |
+| `src/fonts/`, `tools/make_fonts.sh` | Montserrat Medium and SemiBold in eight sizes, generated with `lv_font_conv` (`make knob-fonts`; don't edit by hand) |
+| `src/main.cpp` | USB (TinyUSB composite: CDC + HID Consumer Control), the frame reader, the knob and touch, the log |
 | `test/` | Host tests (Unity); `test_frame` parses the exact lines knob-link's tests produce (gauges, nav, media, call) |
 
 ```bash
@@ -52,8 +55,7 @@ into its loader at 1200 baud; if the first try says the port is busy, run it
 again. Hold BOOT at power-on if nothing else works. The stock firmware's
 backup and restore command are in `build/knob/` on the Mac that read it.
 
-Still to do: draw the dial (the model and layout are ready), reflash the
-second ESP32 so it stops advertising Bluetooth (the plug turned over), and
+Still to do: reflash the second ESP32 so it stops advertising Bluetooth (the plug turned over), and
 bench check 25 on the Pi in [docs/setup/agl.md](../../docs/setup/agl.md).
 The knob has no push switch (schematic), so answering a call from the knob
 needs another gesture (ADR-0044 amendment, open).

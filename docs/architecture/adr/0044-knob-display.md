@@ -8,8 +8,9 @@
     simulated gateway and a pseudo-terminal.
   - [BENCH] (on the Mac, [bench log 2026-11-22](../../hardware/bench-log.md)):
     the composite USB device, the display's start-up, touch and the knob run
-    on the board. The dial isn't drawn yet: the screen shows a test pattern
-    and the model goes to the log. Not yet on the Pi. Bench check 25.
+    on the board, and the dial is drawn with LVGL from the model (second
+    amendment); it ran on the Mac fed by knob-link and the simulated
+    gateway, navigation and phone. Not yet on the Pi. Bench check 25.
 - **Date:** 2026-11-13
 - **Refines:** [ADR-0043](0043-master-volume-and-the-volume-knob.md) (the knob
   as Linux input). Phase 6.3.
@@ -100,8 +101,8 @@ valid only while both are.
    host-tested; the display, touch and pins are in `lib/KnobHw`.
 
 9. **Pages** (owner, 2026-11-13): gauges, navigation, media, in that order.
-   A swipe left goes to the next, right to the previous, stopping at the ends
-   (at least 60 px sideways, twice as far sideways as up or down, within
+   A swipe left goes to the next, right to the previous, round from the last
+   to the first and back (amendment 2; it stopped at the ends before) (at least 60 px sideways, twice as far sideways as up or down, within
    800 ms: examples). The knob is the volume and a tap play/pause on every
    page, so neither changes meaning under the driver's thumb.
    - `N1` (navigation's guidance and its route): `go <turn> <dist> <dunit>
@@ -157,6 +158,42 @@ valid only while both are.
    switch only).
 6. The stock S3 flash was backed up whole before the first flash (bench
    log). The second ESP32 is not backed up or reflashed yet.
+
+## Amendment 2026-11-22 (2): the dial drawn
+
+1. **LVGL 8.4.0** draws the dial (`src/DialUi.cpp`), the version in
+   Waveshare's demo for this board; settings in `include/lv_conf.h`, a
+   40-row draw buffer flushed through `Panel::draw`. Only the page on screen
+   is updated, every 100 ms, and only what changed is redrawn.
+2. **Fonts** (`src/fonts/`, `make knob-fonts`): LVGL's built-in fonts lack
+   "°" and "—" and stop at 48 px. Montserrat Medium (inside the LVGL
+   package) and SemiBold (the Montserrat project's v7.222, checked by
+   SHA-256), SIL OFL 1.1, converted by `lv_font_conv` 1.5.3: eight sizes,
+   ASCII and Latin-1.
+3. **The look** (owner, 2026-11-22, from the design canvas's proposed row,
+   https://claude.ai/artifact/PUuD2fi999iA2N4X2Grhah): thin tracks with
+   thick rounded fills; names in small letter-spaced capitals; page dots;
+   SIMULATED and NO DATA as outlined tags; an alert's name reads
+   "<NAME> ALERT" in its colour (the dial knows advisory or critical, not
+   which way), and a critical one tints its track; a stale value is dim
+   amber with "14 S AGO" and a faded fill; a large turn arrow; the track's
+   progress across the top of the media page and the volume on its bottom
+   arc; a ringing call has an amber ring and the caller's initials (a phone
+   symbol when the caller isn't a name).
+4. **EOT and EOT − ECT's text turns with its arc** (owner): EOT's value and
+   name 50° counter-clockwise, EOT − ECT's 50° clockwise. Every arc still
+   fills clockwise (fuel from E).
+5. **No "unverified" mark** (owner): decision 4's mark on a `u` slot is
+   dropped from the dial. The config frame still carries the trust, and the
+   dashboard and the registry still say which signals are unverified.
+6. **No "Push to answer" / "Push to hang up"**: the board has no push
+   switch (first amendment), so the call screen shows only "Answer on the
+   phone" (call waiting). How to answer from the knob is still open.
+7. **Swipes go round** (owner): left from media goes to the gauges, right
+   from the gauges to media. This replaces decision 9's "stopping at the
+   ends".
+8. **"DELTA"** names the EOT − ECT slot on the dial (owner): shorter than
+   "EOT−ECT" along its arc; the frames still call the slot `dlt`.
 
 ## Alternatives considered
 

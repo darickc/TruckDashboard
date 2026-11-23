@@ -88,7 +88,7 @@ SIM_DEFINES = --dart-define=SCENARIO=$(SCENARIO) --dart-define=SIM_START_S=$(STA
               --dart-define=SIM_CALL_S=$(SIM_CALL)
 
 .PHONY: help setup doctor test lint \
-        fw-test fw-build knob-test knob-build \
+        fw-test fw-build knob-test knob-build knob-fonts \
         rust-test rust-lint linux-test \
         proto proto-lint \
         ui ui-web ui-macos-build ui-test ui-lint sim-test \
@@ -134,6 +134,9 @@ knob-test: ## Knob display host tests (ADR-0044; no hardware)
 
 knob-build: ## Build the knob display's ESP32-S3 firmware (ADR-0044)
 	cd $(KNOB_DIR) && $(PIO) run -e knob
+
+knob-fonts: ## Regenerate the knob dial's fonts (src/fonts) from LVGL's Montserrat; needs Node
+	cd $(KNOB_DIR) && $(PIO) pkg install -e knob && sh tools/make_fonts.sh
 
 # ---- Rust (Phase 3) ---------------------------------------------------------
 

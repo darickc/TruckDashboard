@@ -3,25 +3,21 @@
 // receives knob-link's frames, and a HID knob (Consumer Control) that
 // audio-manager reads as volume, mute and play/pause (ADR-0043).
 //
-// Status: the board is on the bench. The display, touch and knob drivers
-// (lib/KnobHw, from Waveshare's schematic and demo) start, but the dial isn't
-// drawn yet: the screen shows a test pattern (colour squares and the arcs'
-// tracks), and the model goes to the log ("# ..." lines on the same serial
-// port, which knob-link logs). The knob and touch already drive the HID
-// knob, the taps and the pages.
+// The board's display, touch and knob (lib/KnobHw) and the dial drawn from
+// the model with LVGL (DialUi): gauges, navigation, media, and a call over
+// them. The model also goes to the log ("# ..." lines on the same serial
+// port, which knob-link logs), so the bench can compare the two.
 
 #include <Arduino.h>
 #include <USB.h>
 #include <USBHIDConsumerControl.h>
-#include <esp_heap_caps.h>
 #include <esp_timer.h>
 
 #include <atomic>
-#include <cmath>
 
 #include "Dial.h"
 #include "Frame.h"
-#include "Layout.h"
+#include "DialUi.h"
 #include "Pages.h"
 #include "Panel.h"
 #include "Pins.h"
@@ -86,54 +82,6 @@ bool startKnob()
 }
 bool knobOk = false;
 
-// Degrees, 0 up, clockwise, as Layout.h.
-float angleOf(float dx, float dy) { return std::atan2(dx, -dy) * 180.0f / 3.14159265f; }
-
-bool inArc(const knob::Arc& a, float deg, float r)
-{
-    if (std::fabs(r - a.radius) > a.width / 2) return false;
-    if (deg < a.startDeg) deg += 360;
-    return deg <= a.endDeg;
-}
-
-// Not the dial: a pattern to check the panel. Red top-left, green top-right,
-// blue bottom-left, white bottom-right of the centre; the four arcs' tracks
-// in grey; a white ring just inside the edge.
-bool drawTestPattern()
-{
-    constexpr int kRows = 40;
-    uint16_t* buf = static_cast<uint16_t*>(
-        heap_caps_malloc(knob::Panel::kWidth * kRows * sizeof(uint16_t), MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL));
-    if (!buf) return false;
-    const uint16_t black = knob::rgb565(0, 0, 0), grey = knob::rgb565(70, 70, 70), white = knob::rgb565(255, 255, 255),
-                   red = knob::rgb565(255, 0, 0), green = knob::rgb565(0, 255, 0), blue = knob::rgb565(0, 0, 255);
-    const knob::Slot arcs[] = {knob::Slot::Fuel, knob::Slot::Eot, knob::Slot::Ect, knob::Slot::Delta};
-    bool ok = true;
-    for (int y0 = 0; y0 < knob::Panel::kHeight && ok; y0 += kRows) {
-        for (int y = y0; y < y0 + kRows; ++y) {
-            for (int x = 0; x < knob::Panel::kWidth; ++x) {
-                const float dx = x + 0.5f - knob::kCentre, dy = y + 0.5f - knob::kCentre;
-                const float r = std::sqrt(dx * dx + dy * dy), deg = angleOf(dx, dy);
-                uint16_t c = black;
-                if (std::fabs(dx) <= 50 && std::fabs(dy) <= 50 && std::fabs(dx) >= 4 && std::fabs(dy) >= 4) {
-                    c = dy < 0 ? (dx < 0 ? red : green) : (dx < 0 ? blue : white);
-                } else if (r >= 174 && r <= 177) {
-                    c = white;
-                } else {
-                    for (knob::Slot s : arcs) {
-                        knob::Arc a;
-                        if (knob::arcFor(s, a) && inArc(a, deg, r)) c = grey;
-                    }
-                }
-                buf[(y - y0) * knob::Panel::kWidth + x] = c;
-            }
-        }
-        ok = panel.draw(0, y0, knob::Panel::kWidth, y0 + kRows, buf);
-    }
-    heap_caps_free(buf);
-    return ok;
-}
-
 // Touch, polled: down, moves while held, up.
 bool fingerDown = false;
 uint32_t lastTouchPollMs = 0;
@@ -177,14 +125,16 @@ void hello()
                   static_cast<unsigned long>(touchesTotal), static_cast<unsigned long>(touch.failedReads()),
                   knobOk ? "on" : "FAILED", static_cast<unsigned long>(knobStepsTotal),
                   static_cast<unsigned>(ESP.getPsramSize()));
-    Serial.printf("# the dial isn't drawn yet (ADR-0044): the screen shows a test pattern; the model is below\n");
+    Serial.printf("# dial: %lu flushes%s%s\n", static_cast<unsigned long>(knob::uiFlushes()), *knob::uiError() ? "; last error: " : "",
+                  knob::uiError());
 }
 
 // What the dial would show, as a log line, so the bench can see the model
 // work without a screen.
 void report(uint32_t now)
 {
-    static const char* const kState = "cakns";
+    // As ADR-0044 decision 3: current, advisory, critical, stale, nothing.
+    static const char* const kState = "caksn";
     static const char* const kPage[] = {"gauges", "navigation", "media"};
     Serial.printf("# frames: %u config, %u data, %u nav, %u media, %u call, %u bad checksum, %u malformed, "
                   "%u unknown, %u too long; %s%s; page %s\n",
@@ -295,7 +245,12 @@ void setup()
     Serial.begin(115200);
 
     panelOk = panel.begin();
-    if (panelOk) panelOk = drawTestPattern();
+    if (panelOk) panelOk = knob::uiBegin(panel);
+    if (panelOk) {
+        // The first frame before the backlight comes on.
+        knob::uiUpdate(dial, pages, millis());
+        knob::uiRun();
+    }
     // On only once there is something on the screen.
     panel.backlight(panelOk ? 200 : 0);
     touchOk = touch.begin();
@@ -328,6 +283,14 @@ void loop()
         lastHelloMs = now == 0 ? 1 : now;
         hello();
         report(now);
+    }
+    if (panelOk) {
+        static uint32_t lastUiMs = 0;
+        if (now - lastUiMs >= 100) {
+            lastUiMs = now;
+            knob::uiUpdate(dial, pages, now);
+        }
+        knob::uiRun();
     }
     delay(5);
 }

@@ -3390,3 +3390,41 @@ board. It doesn't prove: the dial's drawing (not written), the knob on the Pi
 (audio-manager's evdev reading, `KEY_VOLUMEUP`), knob-link's frames from a
 real gateway, the second ESP32's reflash, daylight readability. Swipes
 weren't tried. Bench check 25 stays open.
+
+## 2026-11-22 — The knob's dial drawn with LVGL, fed by knob-link on the Mac (ADR-0044 amendment 2) [BENCH]
+
+Hardware: the knob display board as in the entry above, on the Mac.
+Firmware: `firmware/knob-display` 0.2.0 (this commit): LVGL 8.4.0, the dial
+in `src/DialUi.cpp`, fonts from Montserrat.
+Setup: on the Mac, `vehicle-gateway --scenario drive_cycle`, `navigation
+--simulate`, `audio-manager --simulate --sim-call-every-s 90`, and
+`knob-link --device /dev/cu.usbmodem2884854BF0402` (the real service, not a
+test feeder).
+
+Result:
+    - knob-link: "dial on /dev/cu.usbmodem…", the dial's hello, and its
+      report: config, data, nav, media and call frames counting, 0 bad
+      checksums, 0 malformed; "link up, SIMULATED".
+    - The owner looked at the screens: the gauges with the simulated values,
+      navigation ("No route": no Valhalla on the Mac, so the turn arrow wasn't
+      seen), media (the simulated phone's track, its progress, the volume),
+      and swiping between them (12 touches counted).
+    - First flash of the rotated EOT and EOT − ECT labels: the owner saw no
+      text there. LVGL 8.4 draws a transformed widget through an alpha
+      layer and won't create one unless LV_COLOR_SCREEN_TRANSP is 1
+      (lv_draw_sw_layer.c); it skipped them with a warning nobody logged.
+      With it set the owner saw both, turned along their arcs. LVGL's
+      warnings now go to the serial log.
+    - Gateway stopped: the dial's report went to "no data" and every slot
+      stale with its last value and its age (4 s, then 14 s). A dial
+      started with no gateway shows "—" for every slot. Gateway restarted:
+      back to current values, "link up".
+    - The dial's report printed stale as "n" and nothing as "s" (the state
+      letters reversed in main.cpp's log line, not on the screen); fixed.
+
+Verdict: works for what was seen. Not seen: the turn arrow (needs a route),
+the call screen (the simulated call comes every 90 s; not confirmed by eye),
+the NO DATA ring and tag by eye (the log shows the state), alerts (the
+simulated values stayed in range). Flashed last, not yet looked at: swipes
+going round (last page to first and back; host-tested) and the slot named
+"DELTA". Not on the Pi yet; bench check 25 stays open.

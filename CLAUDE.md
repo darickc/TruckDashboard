@@ -93,7 +93,7 @@ Libraries go in `crates/` and daemons in `services/` (ADR-008).
 | `make lint` | Link check, plus Rust/Flutter/proto lint once those exist |
 | `make fw-test` | ESP32 host tests (`pio test -e native`) |
 | `make fw-build` | ESP32 firmware build |
-| `make knob-test` / `make knob-build` | Knob display host tests / its ESP32-S3 firmware build (ADR-0044) |
+| `make knob-test` / `make knob-build` / `make knob-fonts` | Knob display host tests / its ESP32-S3 firmware build / regenerate the dial's fonts (ADR-0044; needs Node) |
 | `make sim-test` | Scenario simulator tests (Dart) |
 | `make ui-test` / `make ui-lint` | Flutter tests / analyzer |
 | `make ui-web` | Dashboard in a browser at http://127.0.0.1:8250. Add `SCENARIO=<id> START=<s>` to jump into a scenario |

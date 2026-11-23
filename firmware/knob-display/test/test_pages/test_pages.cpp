@@ -1,5 +1,5 @@
-// The dial's pages (ADR-0044 decision 9): order, swipes stopping at the
-// ends, and navigation and media shown only while their frames keep coming.
+// The dial's pages (ADR-0044 decision 9): order, swipes going round from the
+// last page to the first and back, and navigation and media shown only while their frames keep coming.
 
 #include <unity.h>
 
@@ -12,19 +12,25 @@ void setUp(void) {}
 void tearDown(void) {}
 }
 
-void test_swipes_move_through_the_pages_and_stop_at_the_ends()
+void test_swipes_move_through_the_pages_and_wrap_around()
 {
     Pages p;
     TEST_ASSERT_EQUAL(Page::Gauges, p.page());
-    TEST_ASSERT_FALSE(p.onGesture(Gesture::SwipeRight));
     TEST_ASSERT_TRUE(p.onGesture(Gesture::SwipeLeft));
     TEST_ASSERT_EQUAL(Page::Navigation, p.page());
     TEST_ASSERT_TRUE(p.onGesture(Gesture::SwipeLeft));
     TEST_ASSERT_EQUAL(Page::Media, p.page());
-    TEST_ASSERT_FALSE(p.onGesture(Gesture::SwipeLeft));
-    TEST_ASSERT_FALSE(p.onGesture(Gesture::Tap));
+    // From the last to the first.
+    TEST_ASSERT_TRUE(p.onGesture(Gesture::SwipeLeft));
+    TEST_ASSERT_EQUAL(Page::Gauges, p.page());
+    // And from the first back to the last.
+    TEST_ASSERT_TRUE(p.onGesture(Gesture::SwipeRight));
     TEST_ASSERT_EQUAL(Page::Media, p.page());
     TEST_ASSERT_TRUE(p.onGesture(Gesture::SwipeRight));
+    TEST_ASSERT_EQUAL(Page::Navigation, p.page());
+    // Anything but a swipe leaves the page alone.
+    TEST_ASSERT_FALSE(p.onGesture(Gesture::Tap));
+    TEST_ASSERT_FALSE(p.onGesture(Gesture::None));
     TEST_ASSERT_EQUAL(Page::Navigation, p.page());
 }
 
@@ -103,7 +109,7 @@ void test_track_times()
 int main()
 {
     UNITY_BEGIN();
-    RUN_TEST(test_swipes_move_through_the_pages_and_stop_at_the_ends);
+    RUN_TEST(test_swipes_move_through_the_pages_and_wrap_around);
     RUN_TEST(test_nav_and_media_only_while_they_keep_coming);
     RUN_TEST(test_a_call_takes_over_and_touches_do_nothing);
     RUN_TEST(test_call_hints);

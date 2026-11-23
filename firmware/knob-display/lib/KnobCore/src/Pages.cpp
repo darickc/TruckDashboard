@@ -6,13 +6,15 @@ namespace knob {
 
 bool Pages::onGesture(Gesture g)
 {
+    // Round and round: from the last page to the first and back (owner,
+    // 2026-11-22).
     const size_t i = index();
-    if (g == Gesture::SwipeLeft && i + 1 < kPages) {
-        page_ = static_cast<Page>(i + 1);
+    if (g == Gesture::SwipeLeft) {
+        page_ = static_cast<Page>((i + 1) % kPages);
         return true;
     }
-    if (g == Gesture::SwipeRight && i > 0) {
-        page_ = static_cast<Page>(i - 1);
+    if (g == Gesture::SwipeRight) {
+        page_ = static_cast<Page>((i + kPages - 1) % kPages);
         return true;
     }
     return false;

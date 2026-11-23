@@ -135,7 +135,7 @@ x86_64 PC. See
 | [`CLAUDE.md`](CLAUDE.md) | Rules for AI-assisted development (safety, verification, testing) |
 | [`docs/`](docs/) | [architecture](docs/architecture/overview.md), [hardware](docs/hardware/compatibility-matrix.md), [safety](docs/safety/assumptions.md), [setup](docs/setup/macos.md), [diagnostics](docs/diagnostics/FORD_6_0_PIDS.md), [esp32](docs/esp32/ARCHITECTURE.md) |
 | [`firmware/esp32/`](firmware/esp32/README.md) | ESP32 firmware (PlatformIO) |
-| [`firmware/knob-display/`](firmware/knob-display/README.md) | The knob display's ESP32-S3 firmware (PlatformIO; drivers work on the bench, the dial isn't drawn yet) |
+| [`firmware/knob-display/`](firmware/knob-display/README.md) | The knob display's ESP32-S3 firmware (PlatformIO; on the bench, drawing the dial) |
 | [`shared/signals/`](shared/signals/) | Signal registry and the Torque PID import |
 | [`tools/dev/`](tools/dev/) | Development scripts: macOS setup, link checker |
 | [`apps/infotainment/`](apps/infotainment/README.md) | Flutter touchscreen UI |

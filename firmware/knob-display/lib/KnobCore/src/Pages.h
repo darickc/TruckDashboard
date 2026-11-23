@@ -1,6 +1,6 @@
 // The dial's pages (ADR-0044 decision 9): gauges, navigation, media, in that
-// order; a swipe left goes to the next, right to the previous, stopping at
-// the ends. The navigation and media frames are shown only while they keep
+// order; a swipe left goes to the next, right to the previous, round from
+// the last to the first and back (owner, 2026-11-22). The navigation and media frames are shown only while they keep
 // coming: after `infoTimeoutMs` without one the page says it has no data,
 // never an old distance or track as current (CLAUDE.md rule 4).
 //
