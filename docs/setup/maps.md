@@ -345,8 +345,10 @@ map … and search". `MAPBOX_STYLE_DAY`/`MAPBOX_STYLE_NIGHT` in `/etc/default/f2
 the map's styles. Delete the file and restart navigation to go back to
 offline only.
 
-UNVERIFIED on the Pi: the credential import and curl under navigation's
-sandbox. Checked from the Mac (2026-11-23): Mapbox's routes and both
+Checked on the bench Pi (2026-11-23, bench-log): the credential import,
+curl under navigation's sandbox, Mapbox's map, search and a route. Image
+58beac2 has no curl: install the `curl` RPM from the same build, or use a
+newer image. Checked from the Mac (2026-11-23): Mapbox's routes and both
 default styles and search. To try navigation against Mapbox yourself (one
 route, two tiles and one search on your account):
 

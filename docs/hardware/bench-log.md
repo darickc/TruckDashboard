@@ -3500,3 +3500,50 @@ Verdict: works. Bench check 25 passes on the Pi except readability in
 daylight (needs the truck). Not checked here: the turn arrow from a real
 Valhalla route (the bench Pi has no route set), a phone call on the dial
 from audio-manager.
+
+## 2026-11-23 — Bench check 26 on the Pi, in part: Mapbox online, Wi-Fi from the dashboard (ADR-0052) [BENCH]
+
+Hardware: bench Pi 5 (AGL image 58beac2, simulated data: TRANSPORT=sim,
+NAV_SIMULATE=1), online over Ethernet (connman `State = online`), Wi-Fi off.
+Software: `make deploy` of 7bac87e (services and dashboard), the owner's
+Mapbox token in `/etc/credstore/mapbox-token` (root, 0600), written over SSH
+from the Mac's environment without being printed.
+
+Image 58beac2 predates ADR-0052 and has **no curl** (it has libcurl4 8.19.0
+and the CA bundle). The `curl-8.19.0-r0` RPM from the same Yocto build tree
+(`tmp/deploy/rpm/aarch64`, built 2026-11-07, sha256 4d11a016…34263) was
+installed with `rpm -i`. A new image has curl from `agl-f250-base.inc`.
+
+Result:
+    - curl on the Pi: "curl 8.19.0 (aarch64-agl-linux-gnu) libcurl/8.19.0
+      OpenSSL/3.5.8"; https://api.mapbox.com/ answers 200.
+    - f250-navigation with `ImportCredential=mapbox-token` (systemd 259):
+      "online: Mapbox routes (driving-traffic), map (…) and search (country:
+      us) while there is a network". With the file moved away it still
+      starts: "online: off (no Mapbox token)", Valhalla routing. Put back,
+      Mapbox again.
+    - Nav screen (screenshots with agl-screenshooter, taps through a uinput
+      touchscreen): Mapbox's night map with "Mapbox · © Mapbox ©
+      OpenStreetMap". Search "main st": Mapbox's results ("Main Street,
+      STREET · Lebanon, Kansas 66952 · 1.0 mi away" first); navigation's log
+      shows no fallback, and the offline index on the Pi wasn't opened.
+      Route here: "Mapbox route · live traffic", "Not checked for heavy
+      vehicles or trailers", the line on the map; audio-manager logged the
+      prompt ("saying \"Turn left onto School Avenue.\"", not listened to).
+    - Found and fixed (7bac87e): the Nav screen counted the Pi as online
+      only with Wi-Fi on and connected, so on Ethernet it would have stayed
+      offline; connman's state is the whole Pi's. The screenshots above are
+      after the fix.
+    - f250-network: "Wi-Fi from connman", no D-Bus policy error. Settings ›
+      System: "Wi-Fi off" (`connmanctl technologies`: Powered = False). The
+      Wi-Fi page: Wi-Fi on from the dashboard (Powered = True), Scan listed
+      the networks around (secured ones with a lock, an open one "Open");
+      Wi-Fi off again from the dashboard (Powered = False, as found).
+    - `systemd-analyze security`: f250-network 0.4 SAFE, f250-navigation
+      1.1 OK.
+    - `stage1-setup.sh --check`: all checks passed.
+
+Verdict: works so far. Not checked: joining a network with a passphrase
+through the service's agent (the owner's passphrase), a wrong passphrase,
+forget, rejoin after reboot, the hotspot going away mid-route (map back
+offline, reroute "Offline route").

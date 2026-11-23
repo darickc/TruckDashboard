@@ -16,8 +16,12 @@
     answers, which say they "may not be retained" and so aren't kept.
   - the hand-written vector stays for a toll and a motorway, which the
     recorded route lacks.
-  - the network service's connman backend is not tested against connman.
-    Its parsing is unit-tested; its D-Bus calls have not run on the Pi.
+  - on the bench Pi (2026-11-23, [BENCH], bench-log): the credential
+    through `ImportCredential=` (and navigation still starts without it),
+    curl in navigation's sandbox, Mapbox's map, search and a route on the
+    panel; the network service read connman's state, turned Wi-Fi on and
+    off and scanned through the D-Bus policy. Not yet: joining with a
+    passphrase through the agent, and losing the network mid-route.
   - the dashboard's Wi-Fi settings and online map are tested against
     simulated services.
 - **Date:** 2026-11-23
@@ -194,6 +198,8 @@ Facts checked on 2026-11-23:
 - A route started online keeps its Mapbox line when the network goes; a
   reroute then comes from Valhalla. Traffic isn't refreshed along a route
   (a later change, if wanted).
-- Until checked on the Pi: `ImportCredential=` with systemd 259 (and no
-  file: the unit must still start), connman's
-  D-Bus API on the image, the D-Bus policy, and curl in the image.
+- Until checked on the Pi: connman's agent (joining with a passphrase),
+  and the map and routes going offline when the network goes. Checked
+  (2026-11-23): `ImportCredential=` with systemd 259, with and without the
+  file; the D-Bus policy and connman's Manager and Technology calls; curl,
+  which image 58beac2 lacks (installed from the same build's RPM).
