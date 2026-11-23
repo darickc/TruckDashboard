@@ -319,8 +319,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       rules, and is a USB HID knob for audio-manager. Tests: the frames on both sides (the same golden lines), the model,
       the layout, taps, the serial loop over a pipe; knob-link ran on the Mac against the simulated gateway into a
       pseudo-terminal. The board is here (2026-11-22, bench log): on arduino-esp32 3.x, the USB device, display, touch
-      and knob (clockwise = volume up) work from the Mac, and the dial is drawn with LVGL (gauges, navigation, media,
-      calls) from knob-link's frames; no push switch on the schematic, so answering a call from the knob is open
+      and knob (clockwise = volume up) work, and the dial is drawn with LVGL (gauges, navigation, media, calls)
+      from knob-link's frames; bench check 25 passed on the bench Pi except daylight; the second ESP32 no longer
+      advertises Bluetooth; no push switch on the schematic, so answering a call from the knob is open
       (ADR-0044 amendments).
       Swipe pages (owner, 2026-11-13): gauges, navigation (the next turn, its distance and street, what's left) and media
       (track, state, position, volume), from navigation's guidance and route and audio-manager over two more frame kinds;

@@ -56,6 +56,8 @@ into its loader at 1200 baud; if the first try says the port is busy, run it
 again. Hold BOOT at power-on if nothing else works. The stock firmware's
 backup and restore command are in `build/knob/` on the Mac that read it.
 
-Still to do: bench check 25 on the Pi in [docs/setup/agl.md](../../docs/setup/agl.md).
+On the Pi: bench check 25 in [docs/setup/agl.md](../../docs/setup/agl.md)
+passed on the bench (bench log 2026-11-22) except readability in daylight,
+which needs the truck.
 The knob has no push switch (schematic), so answering a call from the knob
 needs another gesture (ADR-0044 amendment, open).

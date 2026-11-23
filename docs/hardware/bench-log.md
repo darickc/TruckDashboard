@@ -3463,3 +3463,40 @@ Result:
 Verdict: works. The second ESP32 no longer advertises Bluetooth. Not
 measured: its current in deep sleep.
 Closes: ADR-0044 "to verify" 2.
+
+## 2026-11-22 — Bench check 25 on the Pi: the knob display with the services (ADR-0044) [BENCH]
+
+Hardware: bench Pi 5 (AGL image 58beac2, simulated data: TRANSPORT=sim,
+NAV_SIMULATE=1), the knob display board on a Pi USB port, plug the S3's way
+round. The owner's phone connected over Bluetooth.
+Firmware: `firmware/knob-display` 0.2.0 (1649023).
+
+Result:
+    - lsusb: "303a:1001 TruckDashboard F-250 knob"; interfaces "TinyUSB HID"
+      (class 3) and "TinyUSB CDC" (2 + 10).
+      /dev/serial/by-id/usb-TruckDashboard_F-250_knob_2884854BF040-if01 ->
+      ttyACM0. /proc/bus/input/devices: "TruckDashboard F-250 knob",
+      event4.
+    - audio-manager at start: "volume knob: /dev/input/event4 (TruckDashboard
+      F-250 knob): KEY_MUTE, KEY_VOLUMEDOWN, KEY_VOLUMEUP, KEY_PLAYPAUSE".
+    - f250-knob-link (systemd): "dial: knob-display 0.2.0"; the dial's
+      report: config, data, nav, media, call frames counting, 0 bad
+      checksums, 0 malformed; "link up, SIMULATED"; media from the phone
+      ("stopped … volume 21/30").
+    - libinput-record on event4 while the owner turned 3 clicks clockwise
+      and 3 back, then tapped the screen several times: KEY_VOLUMEUP ×3,
+      KEY_VOLUMEDOWN ×3 (one press per click), then KEY_PLAYPAUSE ×7, 1-13 s
+      apart. audio-manager: "knob: volume 21 (-18 dB)" (back where it
+      started) and Pause/Play to the phone 7 times. The dial counted 10
+      touches and 6 knob steps (3 touches were not taps).
+    - systemctl stop f250-gateway (22 s): the dial's report "no data", each
+      slot stale with its last value and age (8 s, then 18 s); started
+      again: "link up", current values.
+    - systemctl stop f250-navigation (12 s): knob-link "navigation: transport
+      error"; the dial "nav: no data" about 4 s after the stop; started
+      again: "nav: no route".
+
+Verdict: works. Bench check 25 passes on the Pi except readability in
+daylight (needs the truck). Not checked here: the turn arrow from a real
+Valhalla route (the bench Pi has no route set), a phone call on the dial
+from audio-manager.
