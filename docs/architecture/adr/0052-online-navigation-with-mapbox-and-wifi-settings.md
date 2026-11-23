@@ -22,6 +22,12 @@
     panel; the network service read connman's state, turned Wi-Fi on and
     off and scanned through the D-Bus policy. Not yet: joining with a
     passphrase through the agent, and losing the network mid-route.
+  - joining (2026-11-23, [BENCH]): the owner's hotspot (WPA2) joined; the
+    owner's home networks were refused as "Wrong passphrase". They were
+    WPA3-only and mixed WPA2/WPA3, and the cause was WPA3's SAE through
+    brcmfmac's external auth timing out on the CYW43455 firmware
+    (`Frame command failed: ret=-110`), which connman reports as
+    `invalid-key`. Decision 12 below.
   - the dashboard's Wi-Fi settings and online map are tested against
     simulated services.
 - **Date:** 2026-11-23
@@ -182,6 +188,16 @@ Facts checked on 2026-11-23:
     "Search: Mapbox, online". Mapbox's 3 s limit leaves the offline index
     time inside the dashboard's 5 s. Nothing is cached. Each pause in typing
     (150 ms) is one request.
+12. **No WPA3 on the Pi 5's Wi-Fi** (added 2026-11-23, bench-log):
+    `feature_disable` gains brcmfmac's `SAE_EXT` (bit 25 in this kernel's
+    list, 6.18.33) on top of Raspberry Pi's own `0x282000`, in
+    `/etc/modprobe.d/zz-f250-brcmfmac.conf` (read after
+    `rpi-brcmfmac.conf`; the last value wins). Mixed WPA2/WPA3 networks then
+    join over WPA2 (checked on the Pi: WPA-PSK chosen, the key handshake
+    reached). WPA3-only networks can't be joined, and the network service
+    says so when a join runs out of time; it also stops connman's attempt,
+    which otherwise kept the radio busy. Revisit with newer firmware or a
+    kernel with the CYW43455 external-SAE fixes.
 
 ## Consequences
 

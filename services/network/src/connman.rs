@@ -403,10 +403,15 @@ impl Backend for Connman {
                     Err(format!("Couldn't connect: {}", reason(&e)))
                 }
             }
-            Err(_) => Err(format!(
-                "Didn't connect within {} s",
-                CONNECT_WAIT.as_secs()
-            )),
+            Err(_) => {
+                // connman keeps trying after the call is dropped (seen on
+                // the Pi with a WPA3-only network, 2026-11-23), which holds
+                // the radio: stop it.
+                if let Err(e) = s.call_method("Disconnect", &()).await {
+                    eprintln!("[network] stopping the attempt on {path}: {}", reason(&e));
+                }
+                Err(model::timeout_words(CONNECT_WAIT))
+            }
         }
     }
 

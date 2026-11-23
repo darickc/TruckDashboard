@@ -94,6 +94,16 @@ pub fn state(s: &str) -> pb::NetworkState {
 }
 
 /// The Manager's State: offline, idle, ready, online.
+/// A join that didn't finish. On the Pi 5 a WPA3-only network ends this way:
+/// its Wi-Fi joins WPA2 and mixed WPA2/WPA3 networks, not WPA3 alone
+/// (agl/rootfs/etc/modprobe.d/zz-f250-brcmfmac.conf, bench-log 2026-11-23).
+pub fn timeout_words(wait: std::time::Duration) -> String {
+    format!(
+        "Didn't connect within {} s. A WPA3-only network can't be joined: this Wi-Fi joins WPA2 and WPA2/WPA3",
+        wait.as_secs()
+    )
+}
+
 pub fn connectivity(s: &str) -> pb::Connectivity {
     match s {
         "ready" => pb::Connectivity::Connected,
@@ -225,6 +235,13 @@ mod tests {
         assert_eq!(connectivity("idle"), pb::Connectivity::Offline);
         assert_eq!(connectivity("ready"), pb::Connectivity::Connected);
         assert_eq!(connectivity("online"), pb::Connectivity::Online);
+    }
+
+    #[test]
+    fn a_join_that_never_finished_says_why_it_might_not() {
+        let w = timeout_words(std::time::Duration::from_secs(60));
+        assert!(w.starts_with("Didn't connect within 60 s."), "{w}");
+        assert!(w.contains("WPA3-only"), "{w}");
     }
 
     #[test]

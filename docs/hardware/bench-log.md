@@ -3547,3 +3547,49 @@ Verdict: works so far. Not checked: joining a network with a passphrase
 through the service's agent (the owner's passphrase), a wrong passphrase,
 forget, rejoin after reboot, the hotspot going away mid-route (map back
 offline, reroute "Offline route").
+
+## 2026-11-23 — Wi-Fi: "Wrong passphrase" for a right one was WPA3 (ADR-0052 decision 12) [BENCH]
+
+Hardware: bench Pi 5 (AGL image 58beac2, kernel 6.18.33-v8-16k, CYW43455
+firmware 7.45.265 "CY", `cyfmac43455-sdio-standard.bin`), services at
+7bac87e.
+
+Seen by the owner: the hotspot joined from Settings › System › Wi-Fi; the
+home networks "DC" and "DC-24" said "Wrong passphrase" with the right one.
+
+Found:
+    - wpa_supplicant: `CTRL-EVENT-ASSOC-REJECT bssid=00:00:00:00:00:00
+      status_code=16` before any key handshake; connman: `error
+      "invalid-key"`. The hotspot: associated, "Key negotiation completed".
+    - The routers' RSN over wpa_supplicant's D-Bus: "DC" (5180 and 2462 MHz)
+      KeyMgmt `sae` only, PMF required; "DC-24" `wpa-psk` + `sae`, MFPC on,
+      MFPR off.
+    - A debug log of a join to DC-24 with a dummy passphrase (keys hidden,
+      `DebugShowKeys` false): connman's profile offers PSK and SAE, the
+      supplicant picks SAE through brcmfmac's external auth
+      (`NL80211_CMD_EXTERNAL_AUTH`); the AP's commit came back with status
+      0, then sending the confirm failed: `nl80211: Frame command failed:
+      ret=-110 (Connection timed out)`, "Authentication … timed out".
+    - Raspberry Pi's `/etc/modprobe.d/rpi-brcmfmac.conf` already sets
+      `feature_disable=0x282000` (FWSUP, SAE, DUMP_OBSS in this kernel's
+      list), not SAE_EXT (bit 25, which the firmware's "sae_ext"/"extsae"
+      cap turns on).
+
+Change: `/etc/modprobe.d/zz-f250-brcmfmac.conf` with
+`feature_disable=0x2282000` (`modprobe -c` lists it after Raspberry Pi's
+line), brcmfmac reloaded.
+
+Result:
+    - DC-24 with the dummy passphrase: "available key_mgmt 0x2" (WPA-PSK),
+      associated, then "4-Way Handshake failed - pre-shared key may be
+      incorrect", WRONG_KEY: the passphrase is now what decides.
+    - DC (WPA3 only): "Failed to select authenticated key management
+      type"; connman stayed in "association" with no error, and the
+      dashboard said "Joining…" until "Didn't connect within 60 s" while
+      connman kept trying (stopped with `connmanctl disconnect`). Fixed in
+      the network service: the attempt is stopped and the message says a
+      WPA3-only network can't be joined.
+
+Verdict: mixed WPA2/WPA3 networks should now join with the right
+passphrase; not yet confirmed with the owner's (the owner joins DC-24).
+WPA3-only networks can't be joined on this firmware.

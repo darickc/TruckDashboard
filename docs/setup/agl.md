@@ -263,8 +263,17 @@ connmanctl> quit
 From an image with services/network (ADR-0052) the dashboard does the same:
 **Settings › System › Wi-Fi** turns Wi-Fi on, lists the networks, and joins
 one with the passphrase typed on the on-screen keyboard (connman keeps it).
-`[SIM]` only so far: check it on the Pi (bench check 26) before relying on
-it; `connmanctl` stays the fallback.
+On the bench Pi it joined the owner's hotspot (bench-log 2026-11-23);
+`connmanctl` stays the fallback.
+
+**WPA3-only networks can't be joined.** WPA3's handshake (SAE) through the
+Pi 5's Wi-Fi driver times out on its firmware, and connman reported that as
+"invalid-key": a correct passphrase was refused as "Wrong passphrase"
+(bench-log 2026-11-23). `agl/rootfs/etc/modprobe.d/zz-f250-brcmfmac.conf`
+turns that path off, so a mixed WPA2/WPA3 network joins over WPA2. A
+WPA3-only network now ends in "Didn't connect within 60 s. A WPA3-only
+network can't be joined…": set the router (or one of its networks) to
+WPA2/WPA3 or WPA2. Phone hotspots are usually WPA2 or mixed.
 
 Then `ip -br addr show wlan0` shows its address on the hotspot. Write it
 down: if `raspberrypi5.local` doesn't resolve on the hotspot, SSH to that
