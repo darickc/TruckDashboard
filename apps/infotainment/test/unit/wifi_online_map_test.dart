@@ -10,23 +10,25 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('Wi-Fi', () {
     test('the service status becomes the model, unknown values as unknown', () {
-      final v = wifiViewFromPb(pb.WifiStatus(
-        available: true,
-        enabled: true,
-        connectivity: pbe.Connectivity.CONNECTIVITY_CONNECTED,
-        address: '172.20.10.4',
-        networks: [
-          pb.WifiNetwork(
-            id: 'wifi_a_managed_psk',
-            name: 'Hotspot',
-            strength: 70,
-            security: pbe.Security.SECURITY_PSK,
-            saved: true,
-            state: pbe.NetworkState.NETWORK_STATE_CONNECTED,
-          ),
-          pb.WifiNetwork(id: 'wifi_b', name: 'Odd', state: pbe.NetworkState.NETWORK_STATE_UNSPECIFIED),
-        ],
-      ));
+      final v = wifiViewFromPb(
+        pb.WifiStatus(
+          available: true,
+          enabled: true,
+          connectivity: pbe.Connectivity.CONNECTIVITY_CONNECTED,
+          address: '172.20.10.4',
+          networks: [
+            pb.WifiNetwork(
+              id: 'wifi_a_managed_psk',
+              name: 'Hotspot',
+              strength: 70,
+              security: pbe.Security.SECURITY_PSK,
+              saved: true,
+              state: pbe.NetworkState.NETWORK_STATE_CONNECTED,
+            ),
+            pb.WifiNetwork(id: 'wifi_b', name: 'Odd', state: pbe.NetworkState.NETWORK_STATE_UNSPECIFIED),
+          ],
+        ),
+      );
       expect(v.link, WifiLink.connected);
       expect(v.connectivity, Connectivity.connected);
       expect(v.current!.name, 'Hotspot');
@@ -36,13 +38,28 @@ void main() {
       expect(v.onNetwork, isTrue, reason: "connman's ready counts");
     });
 
-    test('on a network only when connected, enabled, available and reachable', () {
-      const base = WifiView(link: WifiLink.connected, available: true, enabled: true, connectivity: Connectivity.online);
+    test('on a network only when connected, available and reachable', () {
+      const base = WifiView(
+        link: WifiLink.connected,
+        available: true,
+        enabled: true,
+        connectivity: Connectivity.online,
+      );
       expect(base.onNetwork, isTrue);
+      // Wi-Fi off, online another way (Ethernet on the bench): connman's
+      // state is the whole Pi's.
+      expect(
+        const WifiView(
+          link: WifiLink.connected,
+          available: true,
+          enabled: false,
+          connectivity: Connectivity.online,
+        ).onNetwork,
+        isTrue,
+      );
       for (final v in [
         const WifiView(link: WifiLink.lost, available: true, enabled: true, connectivity: Connectivity.online),
         const WifiView(link: WifiLink.connected, available: false, enabled: true, connectivity: Connectivity.online),
-        const WifiView(link: WifiLink.connected, available: true, enabled: false, connectivity: Connectivity.online),
         const WifiView(link: WifiLink.connected, available: true, enabled: true, connectivity: Connectivity.offline),
         const WifiView(link: WifiLink.connected, available: true, enabled: true),
       ]) {

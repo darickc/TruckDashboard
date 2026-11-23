@@ -142,7 +142,8 @@ Facts checked on 2026-11-23:
    Mapbox's styles rewritten for its renderer, and raster costs the Pi
    less.
 7. **The Nav screen picks its map**: Mapbox's when the Wi-Fi service says
-   the Pi is on a network (connman's `ready` or `online`: its own internet
+   the Pi is on a network (connman's overall `ready` or `online`, over Wi-Fi
+   or any other connection, such as Ethernet on the bench: its own internet
    check may be off on the image, UNVERIFIED) and navigation says Mapbox is
    configured, the offline map otherwise. A hotspot without signal is
    caught by the tile failures below. Three tile failures within 30 s switch it to the offline

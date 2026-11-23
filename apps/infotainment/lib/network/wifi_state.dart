@@ -41,8 +41,7 @@ class WifiNetwork {
   bool get isConnected => state == WifiNetworkState.connected || state == WifiNetworkState.online;
 
   /// A passphrase is needed to join it the first time.
-  bool get needsPassphrase =>
-      !saved && (security == WifiSecurity.psk || security == WifiSecurity.wep);
+  bool get needsPassphrase => !saved && (security == WifiSecurity.psk || security == WifiSecurity.wep);
 
   /// 802.1X: can't be joined from the dashboard.
   bool get joinable => security != WifiSecurity.enterprise;
@@ -104,12 +103,13 @@ class WifiView {
   final bool scanning;
 
   /// On a network now: the Nav screen may use the online map (ADR-0052
-  /// decision 7). connman's "ready" counts: its own internet check may be
-  /// off, and failing tiles catch a network without internet.
+  /// decision 7). connman's state covers every connection, so Ethernet on
+  /// the bench counts with Wi-Fi off (seen on the Pi, 2026-11-23). Its
+  /// "ready" counts: its own internet check may be off, and failing tiles
+  /// catch a network without internet.
   bool get onNetwork =>
       link == WifiLink.connected &&
       available &&
-      enabled &&
       (connectivity == Connectivity.connected || connectivity == Connectivity.online);
 
   WifiNetwork? get current {
@@ -142,8 +142,8 @@ abstract class WifiSource {
 
 /// No network service: Wi-Fi can't be set, and the Nav screen stays offline.
 class UnavailableWifiSource implements WifiSource {
-  UnavailableWifiSource([String why = 'no network service in this build']) :
-    _view = ValueNotifier(WifiView(link: WifiLink.lost, detail: why));
+  UnavailableWifiSource([String why = 'no network service in this build'])
+    : _view = ValueNotifier(WifiView(link: WifiLink.lost, detail: why));
 
   final ValueNotifier<WifiView> _view;
 
@@ -194,8 +194,18 @@ class SimulatedWifiSource implements WifiSource {
           state: WifiNetworkState.online,
         ),
         WifiNetwork(id: 'wifi_sim_shop_managed_psk', name: 'Shop Wi-Fi', strength: 48, security: WifiSecurity.psk),
-        WifiNetwork(id: 'wifi_sim_stop_managed_none', name: 'Truck Stop Free', strength: 30, security: WifiSecurity.open),
-        WifiNetwork(id: 'wifi_sim_corp_managed_ieee8021x', name: 'Corp', strength: 22, security: WifiSecurity.enterprise),
+        WifiNetwork(
+          id: 'wifi_sim_stop_managed_none',
+          name: 'Truck Stop Free',
+          strength: 30,
+          security: WifiSecurity.open,
+        ),
+        WifiNetwork(
+          id: 'wifi_sim_corp_managed_ieee8021x',
+          name: 'Corp',
+          strength: 22,
+          security: WifiSecurity.enterprise,
+        ),
       ],
     ),
   );
@@ -238,7 +248,11 @@ class SimulatedWifiSource implements WifiSource {
     start();
     _all = [
       for (final n in _all)
-        n.copyWith(state: on && n.saved && n.id == 'wifi_sim_hotspot_managed_psk' ? WifiNetworkState.online : WifiNetworkState.idle),
+        n.copyWith(
+          state: on && n.saved && n.id == 'wifi_sim_hotspot_managed_psk'
+              ? WifiNetworkState.online
+              : WifiNetworkState.idle,
+        ),
     ];
     _publish(enabled: on);
     return null;
@@ -257,9 +271,17 @@ class SimulatedWifiSource implements WifiSource {
     final n = _all.where((n) => n.id == id).firstOrNull;
     if (n == null) return const WifiJoin(connected: false, detail: 'That network is gone');
     if (!n.joinable) {
-      return const WifiJoin(connected: false, detail: "Enterprise (802.1X) networks can't be joined from the dashboard");
+      return const WifiJoin(
+        connected: false,
+        detail: "Enterprise (802.1X) networks can't be joined from the dashboard",
+      );
     }
-    _all = [for (final m in _all) m.id == id ? m.copyWith(state: WifiNetworkState.connecting, error: '') : m.copyWith(state: WifiNetworkState.idle)];
+    _all = [
+      for (final m in _all)
+        m.id == id
+            ? m.copyWith(state: WifiNetworkState.connecting, error: '')
+            : m.copyWith(state: WifiNetworkState.idle),
+    ];
     _publish();
     await Future<void>.delayed(joinTime);
     if (n.needsPassphrase && (passphrase.length < 8 || passphrase == 'wrongpass')) {
