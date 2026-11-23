@@ -214,13 +214,16 @@ RECORD_TRUST_CLOCK=
 # Online navigation (ADR-0052) needs a Mapbox token, which is NOT kept in
 #              this file (it is world-readable): put it in
 #              /etc/credstore/mapbox-token, root's, mode 0600 (docs/setup/maps.md).
-#              With it, routes come from Mapbox (with traffic) and the Nav
-#              screen shows Mapbox's map while the Pi is on a network
+#              With it, routes come from Mapbox (with traffic), search asks
+#              Mapbox first, and the Nav screen shows Mapbox's map while the
+#              Pi is on a network
 #              (Settings › System › Wi-Fi), and Valhalla and the offline map
 #              otherwise. Without it: offline only, nothing goes to Mapbox.
 # MAPBOX_STYLE_DAY / MAPBOX_STYLE_NIGHT  the online map's styles (empty:
 #              mapbox/navigation-day-v1 and mapbox/navigation-night-v1, both
 #              checked with Mapbox's Static Tiles API, 2026-11-23).
+# MAPBOX_SEARCH_COUNTRY  the countries search looks in (ISO 3166 codes,
+#              comma-separated; unset: us, empty: anywhere).
 NAV_GPSD=
 NAV_SIMULATE=0
 NAV_STALE_AFTER_MS=

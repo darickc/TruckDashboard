@@ -1,0 +1,91 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "test-address",
+      "geometry": { "type": "Point", "coordinates": [-98.5561, 39.8102] },
+      "properties": {
+        "mapbox_id": "test-address",
+        "feature_type": "address",
+        "full_address": "120 North Main Street, Lebanon, Kansas 66952, United States",
+        "name": "120 North Main Street",
+        "name_preferred": "120 North Main Street",
+        "coordinates": {
+          "longitude": -98.5561,
+          "latitude": 39.8102,
+          "accuracy": "point",
+          "routable_points": [
+            { "name": "default", "latitude": 39.8102, "longitude": -98.5564 }
+          ]
+        },
+        "place_formatted": "Lebanon, Kansas 66952, United States",
+        "match_code": {
+          "address_number": "matched",
+          "street": "matched",
+          "postcode": "unmatched",
+          "place": "matched",
+          "region": "unmatched",
+          "locality": "not_applicable",
+          "country": "inferred",
+          "confidence": "high"
+        },
+        "context": {
+          "place": { "mapbox_id": "test-place", "name": "Lebanon" },
+          "region": { "mapbox_id": "test-region", "name": "Kansas", "region_code": "KS" },
+          "country": { "mapbox_id": "test-country", "name": "United States", "country_code": "US" }
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "test-street",
+      "geometry": { "type": "Point", "coordinates": [-98.5560, 39.8090] },
+      "properties": {
+        "mapbox_id": "test-street",
+        "feature_type": "street",
+        "full_address": "Main Street, Lebanon, Kansas 66952, United States",
+        "name": "Main Street",
+        "name_preferred": "Main Street",
+        "coordinates": { "longitude": -98.5560, "latitude": 39.8090 },
+        "place_formatted": "Lebanon, Kansas 66952, United States",
+        "context": {}
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "test-place",
+      "geometry": { "type": "Point", "coordinates": [-98.7795, 39.7911] },
+      "properties": {
+        "mapbox_id": "test-place",
+        "feature_type": "place",
+        "full_address": "Smith Center, Kansas, United States",
+        "name": "Smith Center",
+        "coordinates": { "longitude": -98.7795, "latitude": 39.7911 },
+        "place_formatted": "Kansas, United States",
+        "context": {}
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "test-postcode",
+      "geometry": { "type": "Point", "coordinates": [-98.55, 39.81] },
+      "properties": {
+        "mapbox_id": "test-postcode",
+        "feature_type": "postcode",
+        "full_address": "66952, Lebanon, Kansas, United States",
+        "name": "66952",
+        "coordinates": { "longitude": -98.55, "latitude": 39.81 },
+        "place_formatted": "Lebanon, Kansas, United States",
+        "context": {}
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "test-no-coordinates",
+      "geometry": { "type": "Point", "coordinates": [] },
+      "properties": { "feature_type": "address", "name": "Broken" }
+    }
+  ],
+  "attribution": "Hand-written test vector, not a Mapbox answer."
+}

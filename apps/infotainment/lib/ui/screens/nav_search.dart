@@ -259,6 +259,7 @@ class _NavSearchPanelState extends State<NavSearchPanel> {
   static String _where(SearchAnswer a) => a.regions.isEmpty ? '' : ' in ${a.regions.join(', ')}';
 
   Widget _footer(SearchAnswer a, Palette p) {
+    if (a.online) return _onlineFooter(a, p);
     final ranked = switch (a.rankedFrom) {
       RankedFrom.current => 'Nearest first',
       RankedFrom.lastKnown => 'Nearest to the last known position (${formatDuration(a.positionAgeS)} old)',
@@ -281,6 +282,27 @@ class _NavSearchPanelState extends State<NavSearchPanel> {
       child: Text(
         [
           '$ranked.$zip Search data: $data. $numbers',
+          if (!widget.canRoute) 'Routing is unavailable: Show puts a result on the map.',
+        ].join(' '),
+        key: const ValueKey('nav-search-footer'),
+        style: TextStyle(fontSize: 13, color: p.textDim),
+      ),
+    );
+  }
+
+  /// Mapbox's answer (ADR-0052): its own order, leaning toward the truck.
+  Widget _onlineFooter(SearchAnswer a, Palette p) {
+    final ranked = switch (a.rankedFrom) {
+      RankedFrom.current => "Mapbox's best matches, preferring ones near the truck",
+      RankedFrom.lastKnown =>
+        "Mapbox's best matches, preferring ones near the last known position (${formatDuration(a.positionAgeS)} old)",
+      _ => "Mapbox's best matches: no position to prefer nearby ones",
+    };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
+      child: Text(
+        [
+          '$ranked. Search: Mapbox, online · © Mapbox © OpenStreetMap. Addresses, streets and towns; not businesses.',
           if (!widget.canRoute) 'Routing is unavailable: Show puts a result on the map.',
         ].join(' '),
         key: const ValueKey('nav-search-footer'),

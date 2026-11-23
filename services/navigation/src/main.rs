@@ -233,19 +233,31 @@ async fn main() -> ExitCode {
         },
         &token,
     )
-    .map(Arc::new);
+    .map(|mut m| {
+        if let Ok(c) = std::env::var("MAPBOX_SEARCH_COUNTRY") {
+            m.search_country = c.trim().to_string();
+        }
+        Arc::new(m)
+    });
     let tiles = Arc::new(Tiles::new(
         online.clone(),
         &env("MAPBOX_STYLE_DAY").unwrap_or_else(|| mapbox::STYLE_DAY.to_string()),
         &env("MAPBOX_STYLE_NIGHT").unwrap_or_else(|| mapbox::STYLE_NIGHT.to_string()),
     ));
     match &online {
-        Some(_) => eprintln!(
-            "[navigation] online: Mapbox routes (driving-traffic) and map ({}, {}) while there is a network",
-            tiles.style_day, tiles.style_night
+        Some(m) => eprintln!(
+            "[navigation] online: Mapbox routes (driving-traffic), map ({}, {}) and search (country: {}) while there is a network",
+            tiles.style_day,
+            tiles.style_night,
+            if m.search_country.is_empty() {
+                "any"
+            } else {
+                &m.search_country
+            }
         ),
         None => eprintln!("[navigation] online: off (no Mapbox token)"),
     }
+    let online_search = online.clone();
     let router = Arc::new(OnlineFirst {
         mapbox: online,
         offline: valhalla,
@@ -354,6 +366,10 @@ async fn main() -> ExitCode {
         .with_search(Searcher::new(args.search_index.clone()))
         .with_places(saved)
         .with_online_map(tiles);
+    let api = match online_search {
+        Some(m) => api.with_online_search(m),
+        None => api,
+    };
 
     let listen = args.listen.clone();
     let serving = tokio::spawn(async move { server::serve(&listen, api).await });

@@ -7,8 +7,9 @@
 //! It runs the binary with the simulated receiver and no Valhalla, sets a
 //! destination near the receiver's loop, and checks that the route came
 //! from Mapbox, that the online map is configured and serves a day and a
-//! night tile, and that the token never reached the log. Each run makes one
-//! Directions request and two tile requests on the token's account.
+//! night tile, that search answers from Mapbox, and that the token never
+//! reached the log. Each run makes one Directions request, two tile requests
+//! and one Geocoding request on the token's account.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -18,6 +19,7 @@ use std::time::Duration;
 use f250_proto::nav::v1 as pb;
 use pb::online_map_service_client::OnlineMapServiceClient;
 use pb::route_service_client::RouteServiceClient;
+use pb::search_service_client::SearchServiceClient;
 use tokio::io::AsyncReadExt;
 use tonic::transport::Endpoint;
 
@@ -69,7 +71,8 @@ async fn a_route_and_tiles_from_mapbox() {
     }
     let channel = channel.expect("navigation didn't start");
     let mut routes = RouteServiceClient::new(channel.clone());
-    let mut online = OnlineMapServiceClient::new(channel);
+    let mut online = OnlineMapServiceClient::new(channel.clone());
+    let mut search = SearchServiceClient::new(channel);
 
     let status = online
         .get_online_map_status(pb::GetOnlineMapStatusRequest {})
@@ -151,6 +154,28 @@ async fn a_route_and_tiles_from_mapbox() {
         );
     }
 
+    // A town and a street, from Mapbox (no offline index here).
+    let found = search
+        .search(pb::SearchRequest {
+            query: "main st lebanon ks".into(),
+            limit: 5,
+        })
+        .await
+        .unwrap()
+        .into_inner();
+    assert!(found.available, "{}", found.detail);
+    assert_eq!(found.provider, "mapbox");
+    assert!(!found.results.is_empty());
+    for r in &found.results {
+        eprintln!(
+            "search: {:?} \"{}\", {} ({:.0} m)",
+            pb::MatchKind::try_from(r.kind).unwrap(),
+            r.title,
+            r.subtitle,
+            r.distance_m.unwrap_or(f64::NAN)
+        );
+    }
+
     child.start_kill().unwrap();
     let mut log = String::new();
     child
@@ -161,7 +186,7 @@ async fn a_route_and_tiles_from_mapbox() {
         .await
         .unwrap();
     assert!(
-        log.contains("online: Mapbox routes (driving-traffic)"),
+        log.contains("online: Mapbox routes (driving-traffic), map"),
         "{log}"
     );
     assert!(!log.contains(&token), "the token reached the log");

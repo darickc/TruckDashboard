@@ -62,6 +62,7 @@ class SearchAnswer {
     this.postcode = '',
     this.postcodeFound = false,
     this.addressRanges = '',
+    this.provider = '',
   });
 
   /// The query this answers.
@@ -88,6 +89,13 @@ class SearchAnswer {
   /// Where estimated addresses come from ("US Census Bureau TIGER/Line
   /// 2026"), for the footer; empty: the data has no address ranges.
   final String addressRanges;
+
+  /// Who answered: "mapbox" (online, ADR-0052) or "offline" (the index;
+  /// also empty, from an older service).
+  final String provider;
+
+  /// Mapbox answered: its order, no regions or data date.
+  bool get online => provider == 'mapbox';
 }
 
 abstract class SearchSource {

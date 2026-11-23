@@ -100,4 +100,5 @@ SearchAnswer searchAnswerFromPb(pb.SearchResponse r, String asked) => SearchAnsw
   postcode: r.postcode,
   postcodeFound: r.postcodeFound,
   addressRanges: r.addressRanges,
+  provider: r.provider,
 );

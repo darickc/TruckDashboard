@@ -293,8 +293,12 @@ unmeasured. Other settings in `/etc/default/f250`:
 [ADR-0052](../architecture/adr/0052-online-navigation-with-mapbox-and-wifi-settings.md).
 While the Pi is on a network (Settings › System › Wi-Fi) and navigation has a
 Mapbox token, routes come from Mapbox's `driving-traffic` profile (live
-traffic) and the Nav screen shows Mapbox's map; the guidance banner says
-"Mapbox route · live traffic". Without a network, without a token, or when
+traffic), the Nav screen shows Mapbox's map, and Search asks Mapbox's
+Geocoding API first; the guidance banner says "Mapbox route · live traffic"
+and the search footer "Search: Mapbox, online". Mapbox's search finds
+addresses, streets, towns and ZIP codes in the US (`MAPBOX_SEARCH_COUNTRY`),
+not businesses, in its own order of best match, preferring ones near the
+truck. Without a network, without a token, or when
 Mapbox doesn't answer, everything above works as before: Valhalla's
 "Offline route" and the offline map. Every route still says it isn't checked
 for heavy vehicles or trailers.
@@ -302,12 +306,15 @@ for heavy vehicles or trailers.
 Mapbox's Flutter SDK doesn't run on Linux, so the dashboard doesn't use it:
 navigation calls Mapbox's web APIs with curl and hands the dashboard routes
 and map tiles over its socket. While online, the truck's position and
-destinations go to Mapbox. Each route and each map tile counts against your
-Mapbox account's free allowance.
+destinations, and what you type in Search, go to Mapbox. Each route, each
+map tile and each search (one per pause in typing) counts against your
+Mapbox account's free allowance (searches: 100,000 a month, 2026-11-23).
 
 Mapbox's terms ask for a separate licence for applications "related to
 vehicle usage". That is the owner's call, made for this one truck
-(ADR-0052).
+(ADR-0052). Mapbox's search answers also say they "may not be retained";
+saving a place found online, or routing to one (which adds it to Recent),
+keeps its name and position on the Pi.
 
 ### On the Mac
 
@@ -332,15 +339,15 @@ install -d -m 0700 /etc/credstore && printf '%s' 'pk.…' > /etc/credstore/mapbo
 journalctl -u f250-navigation -b | grep online
 ```
 
-The second command should say "online: Mapbox routes (driving-traffic) and
-map". `MAPBOX_STYLE_DAY`/`MAPBOX_STYLE_NIGHT` in `/etc/default/f250` change
+The second command should say "online: Mapbox routes (driving-traffic),
+map … and search". `MAPBOX_STYLE_DAY`/`MAPBOX_STYLE_NIGHT` in `/etc/default/f250` change
 the map's styles. Delete the file and restart navigation to go back to
 offline only.
 
 UNVERIFIED on the Pi: the credential import and curl under navigation's
 sandbox. Checked from the Mac (2026-11-23): Mapbox's routes and both
-default styles. To try navigation against Mapbox yourself (one route and two
-tiles on your account):
+default styles and search. To try navigation against Mapbox yourself (one
+route, two tiles and one search on your account):
 
 ```bash
 cargo test -p navigation --test mapbox_live -- --ignored --nocapture
@@ -348,8 +355,9 @@ cargo test -p navigation --test mapbox_live -- --ignored --nocapture
 
 ## Search
 
-**Search** (the magnifier under the map buttons) finds addresses, streets,
-towns and named places offline, nearest first, as you type on the on-screen
+**Search** (the magnifier under the map buttons) asks Mapbox while the Pi is
+online (above). Otherwise, or when Mapbox doesn't answer, it finds addresses,
+streets, towns and named places offline, nearest first, as you type on the on-screen
 keyboard ([ADR-0038](../architecture/adr/0038-offline-address-search.md)).
 Each result has **Show** (on the map, then Route here or Cancel) and **Route
 here**. Every result says what it is, and OpenStreetMap's house numbers are

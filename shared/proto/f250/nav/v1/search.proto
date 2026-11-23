@@ -13,7 +13,8 @@ package f250.nav.v1;
 import "f250/nav/v1/route.proto";
 
 service SearchService {
-  // Results for a typed query, best first, ranked near the truck (or near
+  // Results for a typed query, best first: from Mapbox while there is a
+  // network and a token (ADR-0052), else from the index, ranked near the truck (or near
   // the ZIP code it ends with: SearchResponse.postcode). Cheap
   // enough to call on every keystroke. Never fails for a missing index:
   // `available` is false and `detail` says why.
@@ -101,4 +102,9 @@ message SearchResponse {
   // "US Census Bureau TIGER/Line 2026". Empty: the index has no address
   // ranges, and no result is MATCH_KIND_ESTIMATED_ADDRESS.
   string address_ranges = 11;
+  // Who answered: "mapbox" (Mapbox's Geocoding API while there is a
+  // network, ADR-0052: Mapbox's order, leaning toward `ranked_from`'s
+  // position; `regions`, `data_date` and the postcode fields empty) or
+  // "offline" (the index). Empty from an older service: the index.
+  string provider = 12;
 }

@@ -24,6 +24,7 @@
 pub mod audio_speaker;
 pub mod guide;
 pub mod mapbox;
+pub mod mapbox_search;
 pub mod places;
 pub mod publisher;
 pub mod search;

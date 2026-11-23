@@ -32,7 +32,8 @@ class SearchServiceClient extends $grpc.Client {
 
   SearchServiceClient(super.channel, {super.options, super.interceptors});
 
-  /// Results for a typed query, best first, ranked near the truck (or near
+  /// Results for a typed query, best first: from Mapbox while there is a
+  /// network and a token (ADR-0052), else from the index, ranked near the truck (or near
   /// the ZIP code it ends with: SearchResponse.postcode). Cheap
   /// enough to call on every keystroke. Never fails for a missing index:
   /// `available` is false and `detail` says why.

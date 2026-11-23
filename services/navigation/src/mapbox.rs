@@ -1,7 +1,8 @@
 //! Mapbox's web APIs, used while there is a network (ADR-0052): routes from
 //! the Directions API's `driving-traffic` profile, with Valhalla as the
-//! fallback ([`OnlineFirst`]), and the online map's raster tiles from the
-//! Static Tiles API ([`Tiles`]).
+//! fallback ([`OnlineFirst`]), the online map's raster tiles from the
+//! Static Tiles API ([`Tiles`]), and search from the Geocoding API
+//! ([`crate::mapbox_search`]).
 //!
 //! Each request is one `curl` process ([`Curl`]), as each route is one
 //! Valhalla process (ADR-0035): no TLS code here, and a hung request ends
@@ -45,6 +46,9 @@ pub const ATTRIBUTION: &str = "© Mapbox © OpenStreetMap";
 /// hand (2026-11-23). Both are configuration.
 pub const STYLE_DAY: &str = "mapbox/navigation-day-v1";
 pub const STYLE_NIGHT: &str = "mapbox/navigation-night-v1";
+
+/// Search's country by default (`MAPBOX_SEARCH_COUNTRY`): the truck's.
+pub const SEARCH_COUNTRY: &str = "us";
 
 /// The tiles asked for: 512 pixels, one zoom level behind 256-pixel tiles
 /// (Static Tiles API).
@@ -492,6 +496,11 @@ pub struct Mapbox<F: Fetch> {
     pub api: String,
     pub route_timeout: Duration,
     pub tile_timeout: Duration,
+    /// Shorter than the dashboard's 5 s for a search, so the offline index
+    /// can still answer after it.
+    pub search_timeout: Duration,
+    /// Search only this country (ISO 3166 alpha 2; empty: anywhere).
+    pub search_country: String,
     /// Mapbox is skipped this long after a failure that wasn't the route
     /// itself (ADR-0052 decision 3). An example.
     pub skip_after_failure: Duration,
@@ -511,6 +520,8 @@ impl<F: Fetch> Mapbox<F> {
             api: API.to_string(),
             route_timeout: Duration::from_secs(10),
             tile_timeout: Duration::from_secs(8),
+            search_timeout: Duration::from_secs(3),
+            search_country: SEARCH_COUNTRY.to_string(),
             skip_after_failure: Duration::from_secs(60),
             skip_until: Mutex::new(None),
         })
@@ -524,10 +535,22 @@ impl<F: Fetch> Mapbox<F> {
             .unwrap_or(true)
     }
 
-    fn skip(&self) {
+    pub(crate) fn skip(&self) {
         if let Ok(mut g) = self.skip_until.lock() {
             *g = Some(Instant::now() + self.skip_after_failure);
         }
+    }
+
+    /// GET `{api}{path}?{query}` with the token added. The error never
+    /// holds the token.
+    pub(crate) async fn get(
+        &self,
+        path: &str,
+        query: &str,
+        timeout: Duration,
+    ) -> Result<Fetched, String> {
+        let url = format!("{}{path}?{query}&access_token={}", self.api, self.token);
+        self.fetch.get(&url, timeout).await.map_err(|e| redact(&e))
     }
 
     pub async fn route(&self, req: &RouteRequest) -> Result<Route, Failure> {

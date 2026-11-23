@@ -150,6 +150,7 @@ const SearchResponse$json = {
     {'1': 'postcode', '3': 9, '4': 1, '5': 9, '10': 'postcode'},
     {'1': 'postcode_found', '3': 10, '4': 1, '5': 8, '10': 'postcodeFound'},
     {'1': 'address_ranges', '3': 11, '4': 1, '5': 9, '10': 'addressRanges'},
+    {'1': 'provider', '3': 12, '4': 1, '5': 9, '10': 'provider'},
   ],
 };
 
@@ -162,4 +163,4 @@ final $typed_data.Uint8List searchResponseDescriptor = $convert.base64Decode(
     'b21SCnJhbmtlZEZyb20SJAoOcG9zaXRpb25fYWdlX3MYByABKAFSDHBvc2l0aW9uQWdlUxIUCg'
     'VxdWVyeRgIIAEoCVIFcXVlcnkSGgoIcG9zdGNvZGUYCSABKAlSCHBvc3Rjb2RlEiUKDnBvc3Rj'
     'b2RlX2ZvdW5kGAogASgIUg1wb3N0Y29kZUZvdW5kEiUKDmFkZHJlc3NfcmFuZ2VzGAsgASgJUg'
-    '1hZGRyZXNzUmFuZ2Vz');
+    '1hZGRyZXNzUmFuZ2VzEhoKCHByb3ZpZGVyGAwgASgJUghwcm92aWRlcg==');

@@ -16,12 +16,19 @@ import 'navigation_screen_test.dart' show FakePositionSource, textOf;
 /// Answers from a table, recording every query, as services/navigation
 /// would answer them.
 class FakeSearchSource implements SearchSource {
-  FakeSearchSource(this.answers, {this.available = true, this.detail = '', this.addressRanges = ''});
+  FakeSearchSource(
+    this.answers, {
+    this.available = true,
+    this.detail = '',
+    this.addressRanges = '',
+    this.provider = '',
+  });
 
   final Map<String, List<SearchResult>> answers;
   final bool available;
   final String detail;
   final String addressRanges;
+  final String provider;
   final queries = <String>[];
 
   @override
@@ -41,12 +48,13 @@ class FakeSearchSource implements SearchSource {
       available: available,
       detail: detail,
       results: answers[query.trim()] ?? const [],
-      regions: const ['Testland'],
-      dataDate: '2026-11-11',
+      regions: provider == 'mapbox' ? const [] : const ['Testland'],
+      dataDate: provider == 'mapbox' ? '' : '2026-11-11',
       rankedFrom: zip == '99002' ? RankedFrom.postcode : RankedFrom.current,
       postcode: zip,
       postcodeFound: zip == '99002',
       addressRanges: addressRanges,
+      provider: provider,
     );
   }
 }
@@ -214,6 +222,20 @@ void main() {
       contains('OpenStreetMap 2026-11-11 · US Census Bureau TIGER/Line 2026 address ranges'),
     );
     expect(textOf('nav-search-footer'), contains('ESTIMATED ones are placed along the street'));
+  });
+
+  testWidgets('online: Mapbox answers, and the footer says so', (tester) async {
+    await open(tester, search: FakeSearchSource(answers, provider: 'mapbox'));
+    await openSearch(tester);
+    await type(tester, '120 main');
+    expect(find.byKey(const ValueKey('nav-search-result-120 North Main Street|Fairview')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('osk-done')));
+    await tester.pump();
+    final footer = textOf('nav-search-footer');
+    expect(footer, startsWith("Mapbox's best matches, preferring ones near the truck."));
+    expect(footer, contains('© Mapbox © OpenStreetMap'));
+    expect(footer, contains('not businesses'));
+    expect(footer, isNot(contains('Testland')));
   });
 
   testWidgets('a town found for a street that is not there says so', (tester) async {

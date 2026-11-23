@@ -243,6 +243,7 @@ class SearchResponse extends $pb.GeneratedMessage {
     $core.String? postcode,
     $core.bool? postcodeFound,
     $core.String? addressRanges,
+    $core.String? provider,
   }) {
     final result = SearchResponse._();
     if (available != null) result.available = available;
@@ -256,6 +257,7 @@ class SearchResponse extends $pb.GeneratedMessage {
     if (postcode != null) result.postcode = postcode;
     if (postcodeFound != null) result.postcodeFound = postcodeFound;
     if (addressRanges != null) result.addressRanges = addressRanges;
+    if (provider != null) result.provider = provider;
     return result;
   }
 
@@ -285,6 +287,7 @@ class SearchResponse extends $pb.GeneratedMessage {
     ..aOS(9, _omitFieldNames ? '' : 'postcode')
     ..aOB(10, _omitFieldNames ? '' : 'postcodeFound')
     ..aOS(11, _omitFieldNames ? '' : 'addressRanges')
+    ..aOS(12, _omitFieldNames ? '' : 'provider')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -406,6 +409,19 @@ class SearchResponse extends $pb.GeneratedMessage {
   $core.bool hasAddressRanges() => $_has(10);
   @$pb.TagNumber(11)
   void clearAddressRanges() => $_clearField(11);
+
+  /// Who answered: "mapbox" (Mapbox's Geocoding API while there is a
+  /// network, ADR-0052: Mapbox's order, leaning toward `ranked_from`'s
+  /// position; `regions`, `data_date` and the postcode fields empty) or
+  /// "offline" (the index). Empty from an older service: the index.
+  @$pb.TagNumber(12)
+  $core.String get provider => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set provider($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasProvider() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearProvider() => $_clearField(12);
 }
 
 const $core.bool _omitFieldNames =

@@ -1,7 +1,8 @@
 //! `f250.nav.v1.PositionService`: the publisher's latest position, then
 //! each new one. `RouteService`: commands to the guide, its guidance and
-//! its current route. `SearchService`: the offline search index, ranked from
-//! the latest position (ADR-0038). `PlacesService`: Home, favourites and
+//! its current route. `SearchService`: Mapbox's search while it answers
+//! (ADR-0052), else the offline search index, ranked from the latest
+//! position (ADR-0038). `PlacesService`: Home, favourites and
 //! recent destinations (ADR-0040); every SetDestination adds a recent one.
 //! `OnlineMapService`: Mapbox's tiles for the online map (ADR-0052).
 
@@ -21,7 +22,8 @@ use tokio_stream::{Stream, StreamExt, wrappers::WatchStream};
 use tonic::{Request, Response, Status};
 
 use crate::guide::{Command, route_to_pb};
-use crate::mapbox::{self, Curl, Tiles};
+use crate::mapbox::{self, Curl, Mapbox, Tiles};
+use crate::mapbox_search;
 use crate::places::{self, Places, Refused};
 use crate::search::{self, Searcher};
 use crate::valhalla::Route;
@@ -33,6 +35,7 @@ pub struct Api {
     search: Option<Arc<Searcher>>,
     places: Option<Arc<Mutex<Places>>>,
     online_map: Option<Arc<Tiles<Curl>>>,
+    online_search: Option<Arc<Mapbox<Curl>>>,
 }
 
 /// The guide's side of the API.
@@ -51,6 +54,7 @@ impl Api {
             search: None,
             places: None,
             online_map: None,
+            online_search: None,
         }
     }
 
@@ -58,6 +62,12 @@ impl Api {
     /// token.
     pub fn with_online_map(mut self, tiles: Arc<Tiles<Curl>>) -> Self {
         self.online_map = Some(tiles);
+        self
+    }
+
+    /// Search asks Mapbox first while it answers (ADR-0052).
+    pub fn with_online_search(mut self, mapbox: Arc<Mapbox<Curl>>) -> Self {
+        self.online_search = Some(mapbox);
         self
     }
 
@@ -254,46 +264,16 @@ impl SearchService for Api {
         let query = search::clip(&req.query).to_string();
         let limit = search::limit(req.limit);
         let (near, from, age) = search::ranked_from(&self.position.borrow());
-        let Some(searcher) = self.search.clone() else {
-            return Ok(Response::new(pb::SearchResponse {
-                available: false,
-                detail: "search isn't running in this service".to_string(),
-                query,
-                ..Default::default()
-            }));
-        };
-        let q = query.clone();
-        let answer = tokio::task::spawn_blocking(move || searcher.search(&q, near, limit))
-            .await
-            .map_err(|e| Status::internal(format!("search task: {e}")))?;
-        Ok(Response::new(match answer {
-            Ok(a) => {
-                let found = a.postcode.as_ref().is_some_and(|p| p.at.is_some());
-                pb::SearchResponse {
-                    available: true,
-                    detail: String::new(),
-                    results: a.hits.iter().map(search::hit_to_pb).collect(),
-                    regions: a.regions,
-                    data_date: a.data_date.unwrap_or_default(),
-                    ranked_from: if found {
-                        pb::RankedFrom::Postcode as i32
-                    } else {
-                        from as i32
-                    },
-                    position_age_s: if found { 0.0 } else { age },
-                    query,
-                    postcode: a.postcode.map(|p| p.code).unwrap_or_default(),
-                    postcode_found: found,
-                    address_ranges: a.ranges_source.unwrap_or_default(),
-                }
-            }
-            Err(why) => pb::SearchResponse {
-                available: false,
-                detail: why,
-                query,
-                ..Default::default()
-            },
-        }))
+        let answer = mapbox_search::search_online_first(
+            self.online_search.as_deref(),
+            self.search.clone(),
+            query,
+            near,
+            (from, age),
+            limit,
+        )
+        .await;
+        Ok(Response::new(answer))
     }
 }
 

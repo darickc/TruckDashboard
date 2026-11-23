@@ -10,6 +10,10 @@
     its log.
   - `mapbox/navigation-day-v1` and `navigation-night-v1` serve 512 px PNG
     tiles from the Static Tiles API.
+  - search (decision 11, added the same day after the owner found Search
+    unavailable on the Mac without an index): the live test's search came
+    from Mapbox. Its test vector is hand-written to the fields seen in real
+    answers, which say they "may not be retained" and so aren't kept.
   - the hand-written vector stays for a toll and a motorway, which the
     recorded route lacks.
   - the network service's connman backend is not tested against connman.
@@ -63,7 +67,22 @@ Facts checked on 2026-11-23:
   `mapbox/navigation-night-v1` were checked by hand (2026-11-23): both
   answer with 512 px PNG tiles. Both are configuration.
 - **Pricing** (mapbox.com/pricing, 2026-11-23): Directions free up to
-  100,000 requests a month.
+  100,000 requests a month; Temporary Geocoding free up to 100,000 requests
+  a month; Search Box API sessions (`/suggest` + `/retrieve`) free up to 500
+  or 2,500 a month (two tables); the page doesn't list Search Box's
+  `/forward`.
+- **Mapbox Geocoding API v6** (docs.mapbox.com/api/search/geocoding,
+  2026-11-23): `GET /search/geocode/v6/forward?q=` with `limit` (at most
+  10), `proximity` (`lon,lat`), `country`, `language`, `autocomplete`
+  (default true), `types`; `q` at most 20 words and 256 characters, no
+  semicolons. "The Geocoding v6 API no longer provides POI data (use the
+  Search Box API for POI search)." Results are temporary unless
+  `permanent=true` (paid): "Temporary results are not allowed to be
+  cached". Real answers (checked 2026-11-23) carry `feature_type`, `name`,
+  `name_preferred`, `place_formatted`, `full_address`, `coordinates`
+  (`latitude`, `longitude`, and for an address `routable_points`) and an
+  `attribution` ending "This response and the information it contains may
+  not be retained." A bad token is HTTP 401 `INVALID_TOKEN`.
 - **Mapbox's Terms of Service** say: "If your Licensed Application is
   related to vehicle usage, you must purchase a separate development
   license." The owner was told, and decided: this is for the owner's own
@@ -146,10 +165,26 @@ Facts checked on 2026-11-23:
     `RestrictAddressFamilies` already allowed IP). The dashboard's stays
     closed. navigation never reaches the vehicle bus, so this doesn't touch
     ADR-0007.
+11. **Search asks Mapbox first** (Geocoding v6 `forward`, the truck's
+    position as `proximity`, `country=us` by default:
+    `MAPBOX_SEARCH_COUNTRY`), with the same 60 s rest after a failure as
+    routing, then the offline index (ADR-0038) as before. Geocoding, not the
+    Search Box API: its free tier and per-request billing are stated, the
+    Search Box's `/forward` isn't on the pricing page. So online search finds
+    addresses, streets, towns and ZIP codes, **not businesses**; the offline
+    index finds them only when Mapbox doesn't answer. The answer says who gave it
+    (`SearchResponse.provider`), keeps Mapbox's order, and the footer says
+    "Search: Mapbox, online". Mapbox's 3 s limit leaves the offline index
+    time inside the dashboard's 5 s. Nothing is cached. Each pause in typing
+    (150 ms) is one request.
 
 ## Consequences
 
-- While online, the truck's position and destinations go to Mapbox.
+- While online, the truck's position, destinations and what is typed in
+  Search go to Mapbox.
+- Saving a place found by Mapbox's search, or routing to one (Recent),
+  keeps its name and position on the Pi, which Mapbox's temporary results
+  say not to do. Owner's call, like the licence above; not decided yet.
   Without a token, nothing does.
 - Routes over the hotspot use its data: a route is one request; each map
   tile is one request, and panning makes more. Both count against Mapbox's
