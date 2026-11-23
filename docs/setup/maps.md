@@ -314,7 +314,8 @@ Mapbox's terms ask for a separate licence for applications "related to
 vehicle usage". That is the owner's call, made for this one truck
 (ADR-0052). Mapbox's search answers also say they "may not be retained";
 saving a place found online, or routing to one (which adds it to Recent),
-keeps its name and position on the Pi.
+keeps its name and position on the Pi. The owner chose to keep that
+(2026-11-23).
 
 ### On the Mac
 

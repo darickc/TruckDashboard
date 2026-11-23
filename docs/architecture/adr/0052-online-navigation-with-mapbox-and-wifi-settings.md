@@ -184,7 +184,8 @@ Facts checked on 2026-11-23:
   Search go to Mapbox.
 - Saving a place found by Mapbox's search, or routing to one (Recent),
   keeps its name and position on the Pi, which Mapbox's temporary results
-  say not to do. Owner's call, like the licence above; not decided yet.
+  say not to do. The owner was told and decided to keep it as is
+  (2026-11-23), like the licence above.
   Without a token, nothing does.
 - Routes over the hotspot use its data: a route is one request; each map
   tile is one request, and panning makes more. Both count against Mapbox's
