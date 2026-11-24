@@ -3622,3 +3622,58 @@ Joins from Settings › System › Wi-Fi, the owner typing the passphrase:
 Verdict: a mixed WPA2/WPA3 network joins over WPA2 with the owner's
 passphrase through the dashboard's agent. A WPA3-only network is refused
 and the attempt ends at 60 s.
+
+## 2026-11-23 — Losing the network mid-route (ADR-0052) [BENCH]
+
+Hardware: bench Pi 5 (AGL image 58beac2, simulated data: TRANSPORT=sim,
+NAV_SIMULATE=1), services and dashboard at d2ab640, the owner's Mapbox
+token, the offline map and Valhalla tiles on the data drive, no offline
+search index. Online over Ethernet and DC-24 (WPA2/WPA3, joined over WPA2).
+
+How: a route to a long-pressed point ("Route here") while online. Then a
+script run with `systemd-run` (SSH goes with the network): both of
+connman's technologies off (`connmanctl disable wifi`, `disable
+ethernet`), as when the truck leaves the hotspot; panel shots at +10 s and
++30 s; a long-press and "Route here" at +36 s; both back on at +81 s;
+shots at +15 s and +45 s after. A 15 min `systemd-run` timer would have
+turned both back on had the script failed.
+
+Result:
+    - Online, 03:31 UTC: Mapbox's night map, "Mapbox route · live traffic",
+      4.8 mi, prompts spoken (journal: "voice: Drive south on DD Road for 5
+      miles.").
+    - Cut, 03:32:39: connman `State = idle` by +10 s. The panel at +10 s:
+      the offline Protomaps map ("© OpenStreetMap contributors · Protomaps ·
+      data 2026-11-11"), the route line and the guidance card kept, the
+      distance counting down (3.7 mi, then 3.4 mi at +30 s), the simulated
+      speed shown.
+    - "Route here" while offline, 03:33:18: navigation logged "Mapbox
+      unreachable: curl: (6) Could not resolve host: api.mapbox.com;
+      routing offline", and the card said "Offline route", 3.2 mi; the
+      prompt was spoken ("voice: Drive south on DD Road.").
+    - Back, 03:34:00: Mapbox's map again by +15 s; the route stayed the
+      offline one (a new route would ask Mapbox once the 60 s skip ends).
+      No dashboard or network service errors in the journal.
+
+Found:
+    - **Wi-Fi didn't rejoin.** At 03:34:00 connman autoconnected DC-24:
+      "Associated", then "Authentication with … timed out" 10 s later,
+      `error "connect-failed"`, `State = failure`. connman's autoconnect
+      skips a service in failure, and nothing tried again: with Ethernet
+      off for 60 s (03:35:39), DC-24 stayed `failure`, `State = idle`. After
+      `ClearProperty("Error")` on the service (busctl) it went to idle, and
+      with Ethernet off again (03:38:29) connman joined it by itself in 3 s
+      (`CTRL-EVENT-CONNECTED`, `State = online`). In the truck, one failed
+      handshake when the hotspot comes back would leave the Pi offline
+      until someone joins by hand. Not fixed yet.
+    - The online map is raster, so when the map turns with the heading,
+      Mapbox's labels and shields turn with it: driving south, "Lebanon",
+      "Esbon" and the route shields were upside down. The offline (vector)
+      map keeps its labels upright.
+    - The route kept "Mapbox route · live traffic" while offline; the
+      traffic is as of when the route was made.
+    - The panel's clock shows UTC: the Pi's time zone is "Universal".
+
+Verdict: guidance carries on through losing and regaining the network, the
+map switches both ways, and a new route falls back to Valhalla with
+"Offline route". Wi-Fi doesn't recover by itself after one failed rejoin.

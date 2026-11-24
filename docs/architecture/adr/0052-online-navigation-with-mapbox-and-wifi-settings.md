@@ -21,8 +21,10 @@
     curl in navigation's sandbox, Mapbox's map, search and a route on the
     panel; the network service read connman's state, turned Wi-Fi on and
     off and scanned through the D-Bus policy. Joining with a
-    passphrase through the agent: below. Not yet: losing the network
-    mid-route.
+    passphrase through the agent: below. Losing the network mid-route
+    (2026-11-23, [BENCH]): guidance carries on, the map goes offline and
+    back, a new route offline is Valhalla's; Wi-Fi wasn't retried after one
+    failed rejoin (bench-log).
   - joining (2026-11-23, [BENCH]): the owner's hotspot (WPA2) joined; the
     owner's home networks were refused as "Wrong passphrase". They were
     WPA3-only and mixed WPA2/WPA3, and the cause was WPA3's SAE through
