@@ -12,7 +12,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use f250_proto::network::v1 as pb;
 use zbus::proxy::CacheProperties;
@@ -21,6 +21,7 @@ use zbus::{Connection, Proxy};
 
 use crate::Backend;
 use crate::model::{self, Prop, Props};
+use crate::rejoin::{Due, Rejoin};
 
 const CONNMAN: &str = "net.connman";
 const AGENT_PATH: &str = "/org/f250/network/agent";
@@ -173,6 +174,7 @@ pub struct Connman {
     conn: Mutex<Option<Connection>>,
     shared: Arc<Shared>,
     scanning: AtomicBool,
+    rejoin: Mutex<Rejoin>,
 }
 
 impl Default for Connman {
@@ -181,6 +183,7 @@ impl Default for Connman {
             conn: Mutex::new(None),
             shared: Arc::new(Shared::default()),
             scanning: AtomicBool::new(false),
+            rejoin: Mutex::new(Rejoin::default()),
         }
     }
 }
@@ -254,32 +257,49 @@ impl Connman {
             .find(|(_, p)| matches!(p.get("Type"), Some(Prop::Str(t)) if t == "wifi")))
     }
 
-    async fn read(&self) -> Result<pb::WifiStatus, String> {
+    /// The status, and the saved networks connman gave up on that are due
+    /// another try (ADR-0052 decision 13).
+    async fn read(&self) -> Result<(pb::WifiStatus, Vec<Due>), String> {
         let c = self.conn().await?;
         let m = Self::proxy(&c, "/", "net.connman.Manager").await?;
         let manager: HashMap<String, OwnedValue> =
             m.call("GetProperties", &()).await.map_err(|e| reason(&e))?;
         let manager = props(&manager);
         let Some((_, tech)) = Self::wifi_technology(&c).await? else {
-            return Ok(pb::WifiStatus {
-                detail: "No Wi-Fi device: connman has no wifi technology".into(),
-                ..Default::default()
-            });
+            return Ok((
+                pb::WifiStatus {
+                    detail: "No Wi-Fi device: connman has no wifi technology".into(),
+                    ..Default::default()
+                },
+                Vec::new(),
+            ));
         };
         let enabled = matches!(tech.get("Powered"), Some(Prop::Bool(true)));
         let services: Vec<(OwnedObjectPath, HashMap<String, OwnedValue>)> =
             m.call("GetServices", &()).await.map_err(|e| reason(&e))?;
+        let services: Vec<(String, Props)> = services
+            .iter()
+            .map(|(path, v)| {
+                let id = path.as_str().rsplit('/').next().unwrap_or_default();
+                (id.to_string(), props(v))
+            })
+            .collect();
+        let due = match self.rejoin.lock() {
+            Ok(mut r) => r.due(
+                Instant::now(),
+                services.iter().map(|(id, p)| (id.as_str(), p)),
+            ),
+            Err(_) => Vec::new(),
+        };
         let mut address = String::new();
         let mut networks = Vec::new();
-        for (path, v) in &services {
-            let p = props(v);
-            let id = path.as_str().rsplit('/').next().unwrap_or_default();
-            if let Some(n) = model::network(id, &p) {
+        for (id, p) in &services {
+            if let Some(n) = model::network(id, p) {
                 if address.is_empty()
                     && (n.state == pb::NetworkState::Online as i32
                         || n.state == pb::NetworkState::Connected as i32)
                 {
-                    address = model::address(&p);
+                    address = model::address(p);
                 }
                 networks.push(n);
             }
@@ -289,7 +309,7 @@ impl Connman {
             Some(Prop::Str(s)) => s.as_str(),
             _ => "",
         };
-        Ok(pb::WifiStatus {
+        let status = pb::WifiStatus {
             available: true,
             enabled,
             connectivity: model::connectivity(state) as i32,
@@ -298,7 +318,31 @@ impl Connman {
             simulated: false,
             address,
             scanning: self.scanning.load(Ordering::Relaxed),
-        })
+        };
+        Ok((status, due))
+    }
+
+    /// Clears the Error of a saved network connman gave up on, which puts it
+    /// back to idle for connman's autoconnect.
+    async fn try_again(&self, d: &Due) {
+        eprintln!(
+            "[network] {}: connman gave up joining ({}); clearing it so connman tries again (next wait {} s)",
+            d.name,
+            d.error,
+            d.next_wait.as_secs()
+        );
+        let r = async {
+            let c = self.conn().await?;
+            let path = service_path(&d.id)?;
+            let s = Self::proxy(&c, &path, "net.connman.Service").await?;
+            s.call_method("ClearProperty", &("Error",))
+                .await
+                .map_err(|e| reason(&e))
+        }
+        .await;
+        if let Err(e) = r {
+            eprintln!("[network] {}: clearing its error failed: {e}", d.name);
+        }
     }
 
     async fn service_error(c: &Connection, path: &str) -> String {
@@ -319,7 +363,12 @@ impl Connman {
 impl Backend for Connman {
     async fn status(&self) -> pb::WifiStatus {
         match self.read().await {
-            Ok(s) => s,
+            Ok((s, due)) => {
+                for d in &due {
+                    self.try_again(d).await;
+                }
+                s
+            }
             Err(e) => {
                 if e.starts_with("no system D-Bus") {
                     self.forget_conn();

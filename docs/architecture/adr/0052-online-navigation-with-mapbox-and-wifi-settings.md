@@ -203,6 +203,18 @@ Facts checked on 2026-11-23:
     says so when a join runs out of time; it also stops connman's attempt,
     which otherwise kept the radio busy. Revisit with newer firmware or a
     kernel with the CYW43455 external-SAE fixes.
+13. **A saved network connman gave up on is tried again** (added
+    2026-11-23, bench-log): one failed autoconnect leaves connman's service
+    in `failure`, and connman's autoconnect skips a service in failure, so
+    on the bench Pi a handshake that timed out once when Wi-Fi came back
+    kept the Pi offline until someone joined by hand. The network service
+    clears the service's `Error` (connman's `ClearProperty`), which puts it
+    back to idle, and connman's autoconnect tries it again. Only a saved
+    network with autoconnect on, failed with `connect-failed`, `dhcp-failed`
+    or `out-of-range`; never `invalid-key` or another error the driver has
+    to fix (a wrong passphrase repeated can get the Pi locked out). It waits
+    20 s, then twice as long after each further failure, up to 5 min
+    (examples); connecting starts the waits over (`services/network/src/rejoin.rs`).
 
 ## Consequences
 

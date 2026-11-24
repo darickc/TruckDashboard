@@ -6,6 +6,8 @@
 //!   error names into words for the driver.
 //! - [`connman`] talks to connman on the system D-Bus, with an agent that
 //!   hands it the passphrase typed for a network.
+//! - [`rejoin`] decides when a saved network connman gave up on is tried
+//!   again.
 //! - [`sim`] is a made-up radio for the Mac and the browser (`--simulate`).
 //! - [`runner`] reads the backend every few seconds and right after each
 //!   action, and publishes what changed.
@@ -17,6 +19,7 @@ use f250_proto::network::v1 as pb;
 
 pub mod connman;
 pub mod model;
+pub mod rejoin;
 pub mod runner;
 pub mod server;
 pub mod sim;

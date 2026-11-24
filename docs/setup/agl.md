@@ -275,6 +275,12 @@ WPA3-only network now ends in "Didn't connect within 60 s. A WPA3-only
 network can't be joined…": set the router (or one of its networks) to
 WPA2/WPA3 or WPA2. Phone hotspots are usually WPA2 or mixed.
 
+A saved network that fails to rejoin by itself (connman left it in
+`failure` with `connect-failed`) is tried again after 20 s, then after
+longer waits up to 5 min (ADR-0052 decision 13); a wrong passphrase isn't.
+`journalctl -u f250-network` shows "connman gave up joining … clearing it
+so connman tries again".
+
 Then `ip -br addr show wlan0` shows its address on the hotspot. Write it
 down: if `raspberrypi5.local` doesn't resolve on the hotspot, SSH to that
 address instead (the phone usually hands out the same one again). Your laptop
