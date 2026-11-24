@@ -236,8 +236,15 @@ ring while the Pi boots), from the design canvas's "New" row.
    buffer is 16 kB (Arduino's default 256 bytes drops what arrives while
    LVGL draws).
 
-UNVERIFIED: whether the owner's phone offers cover art over AVRCP at all
-(ADR-0042); without it the media page is as before.
+On the bench Pi (bench log 2026-11-23) the owner's Z Fold8 sent its covers
+(JPEG) and the dial showed them. Another phone without AVRCP cover art gets
+the media page as before.
+
+4. **cdc_acm is loaded at boot** (`/etc/modules-load.d/f250-knob.conf`):
+   knob-link's `DeviceAllow=char-ttyACM` is resolved from /proc/devices
+   when the service starts, so with the driver loaded only when the knob is
+   plugged in, a knob plugged in after boot was refused ("Operation not
+   permitted") until knob-link restarted.
 
 ## Alternatives considered
 

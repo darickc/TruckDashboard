@@ -40,6 +40,8 @@ ProtectHome=yes
 PrivateTmp=yes
 PrivateNetwork=yes
 DevicePolicy=closed
+# "ttyACM" is resolved from /proc/devices when this starts, so cdc_acm must
+# be loaded by then: /etc/modules-load.d/f250-knob.conf.
 DeviceAllow=char-ttyACM rw
 ProtectKernelTunables=yes
 ProtectKernelModules=yes

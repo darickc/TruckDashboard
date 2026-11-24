@@ -61,8 +61,7 @@ backup and restore command are in `build/knob/` on the Mac that read it.
 
 On the Pi: bench check 25 in [docs/setup/agl.md](../../docs/setup/agl.md)
 passed on the bench (bench log 2026-11-22) except readability in daylight,
-which needs the truck. Firmware 0.3.0's boot screen and cover were checked
-from the Mac with knob-link and the simulated phone (bench log 2026-11-23),
-not yet on the Pi.
+which needs the truck. Firmware 0.3.0's boot screen and cover work on the
+Pi with the owner's phone (bench log 2026-11-23).
 The knob has no push switch (schematic), so answering a call from the knob
 needs another gesture (ADR-0044 amendment, open).

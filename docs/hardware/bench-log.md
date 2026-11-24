@@ -3711,3 +3711,38 @@ Result:
 Verdict: works on the Mac with the simulated phone. Not yet on the Pi
 (knob-link there is still the previous build); whether the owner's phone
 offers cover art over AVRCP is still unverified (ADR-0042).
+
+## 2026-11-23 — Knob 0.3.0 on the bench Pi: the owner's phone's cover, the boot screen, and a knob plugged in after boot (ADR-0044) [BENCH]
+
+Hardware: the knob on the bench Pi's USB; the owner's Z Fold8 connected over
+Bluetooth (audio-manager on real Bluetooth; the gateway simulated).
+Image: AGL image 58beac2 with knob-link from 6fb9bc7, built for aarch64 in
+`f250-arm64-build` (`cargo build --release --locked -p knob-link`) and
+copied to /opt/f250/bin (the old one kept as `knob-link.pre-art`; the old
+unit as `f250-knob-link.service.pre-art`).
+
+Result:
+    - Found first: the knob, plugged in after boot, was refused every 2 s:
+      "…F-250_knob…-if01: Operation not permitted". The unit's
+      `DeviceAllow=char-ttyACM` is resolved from /proc/devices when the
+      service starts (9.1 s), but cdc_acm loaded only when the knob was
+      plugged in (63.9 s), so the rule matched nothing. Fixed:
+      /etc/modules-load.d/f250-knob.conf loads cdc_acm at boot.
+    - The owner's phone offers cover art: knob-link logged "cover 1
+      (image/jpeg): 180 x 180, id 1872ca11"; the dial counted 433 `A1`
+      lines, 0 bad checksums, "cover: showing 1872ca11; 1 shown, 0 failed".
+      The owner saw the track's real cover, darkened, behind the media page
+      ("Looks right").
+    - Rebooted with the knob plugged in: systemd-modules-load "Inserted
+      module 'cdc_acm'" at 4.58 s, knob-link started at 9.16 s and opened the
+      dial at 10.36 s; the dial said "boot done" at 16 s, and the cover
+      (another track, id 0259c17f) was showing by 26 s, 0 failed. The owner
+      saw the boot screen, then the gauges, not the red NO DATA ring.
+    - Replugged after boot: "the dial closed the port" at 04:52:40, "dial
+      on …" again at 04:52:44, no "Operation not permitted", and the cover
+      came back.
+
+Verdict: works on the Pi with the owner's phone. Closes ADR-0042's open
+question for this phone: it offers AVRCP cover art. The image recipe picks
+up the modules-load file from agl/rootfs; the bench Pi has it installed by
+hand until the next image.
