@@ -485,7 +485,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       and a route on the panel, Wi-Fi on/off and scan through connman, and the owner's mixed WPA2/WPA3 network
       joined with a passphrase through the agent (WPA3 off: ADR-0052 decision 12; WPA3-only networks can't be
       joined); losing the network mid-route: guidance carries on, the map switches both ways, a new route offline
-      is Valhalla's. Found: Wi-Fi isn't retried after one failed rejoin (connman leaves the service in failure).
+      is Valhalla's. A saved network connman gives up on (one failed
+      rejoin leaves it in failure) is now tried again by the network service (ADR-0052 decision 13; on the Pi, two
+      failed rejoins of eight joined again about 20 s later).
       Next: bench check 18 with a stick and the NVMe; bench check 22 (places and the voice on the Pi, by ear)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 29 unit tests (reverse priority and debounce, the hold, stale and

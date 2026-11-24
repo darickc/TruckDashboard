@@ -24,7 +24,7 @@
     passphrase through the agent: below. Losing the network mid-route
     (2026-11-23, [BENCH]): guidance carries on, the map goes offline and
     back, a new route offline is Valhalla's; Wi-Fi wasn't retried after one
-    failed rejoin (bench-log).
+    failed rejoin (bench-log), now tried again (decision 13).
   - joining (2026-11-23, [BENCH]): the owner's hotspot (WPA2) joined; the
     owner's home networks were refused as "Wrong passphrase". They were
     WPA3-only and mixed WPA2/WPA3, and the cause was WPA3's SAE through
@@ -215,6 +215,8 @@ Facts checked on 2026-11-23:
     to fix (a wrong passphrase repeated can get the Pi locked out). It waits
     20 s, then twice as long after each further failure, up to 5 min
     (examples); connecting starts the waits over (`services/network/src/rejoin.rs`).
+    Checked on the bench Pi: two failed rejoins out of eight, each joined
+    again about 20 s later.
 
 ## Consequences
 

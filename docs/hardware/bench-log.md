@@ -3769,3 +3769,42 @@ Result (knob-link's log, then audio-manager's):
 
 Verdict: works with the simulated phone. knob-link with the buttons is
 installed on the bench Pi (05:14); a real call through it is still to do.
+
+## 2026-11-23 — Wi-Fi tried again after connman gives up (ADR-0052 decision 13) [BENCH]
+
+Hardware: bench Pi 5 as in the entry above. Software: the network service
+of 212cebb, installed alone (`/opt/f250/bin/network`, sha256 d51a4ec6…a410,
+then `systemctl restart f250-network`), because two `make deploy` runs
+browned the Pi out in stage1's "7. Services" (below).
+
+Checked first: user f250 may call connman's `ClearProperty("Error")` on a
+service (`su -s /bin/sh f250 -c "busctl call … ClearProperty s Error"`).
+
+How: a script under `systemd-run`, Ethernet off in connman (DC-24 the only
+network, as in the truck), Wi-Fi off for 3 s and on again 8 times, each
+time waiting for DC-24 to be ready or online; Ethernet on at the end.
+
+Result (05:21–05:25 UTC):
+    - 6 cycles rejoined in 2–18 s.
+    - Cycles 3 and 7: "Authentication with … timed out", connman `error
+      "connect-failed"`, DC-24 in failure 12 s in. The network service
+      logged "DC-24: connman gave up joining (connect-failed); clearing it
+      so connman tries again (next wait 40 s)" 24 s and 21 s after the
+      failure, and DC-24 was ready 38 s and 36 s after Wi-Fi came back.
+      Before the fix it stayed in failure (entry above).
+
+Also on the bench, not the truck:
+    - **Power.** Both `make deploy` runs after the 23:06 brownout went off
+      in stage1's "7. Services", which restarts every service and the
+      compositor at once: the kernel's "Undervoltage detected!" ends the
+      boot that ran 04:43–04:51 UTC, and the boot after it logged 90 in 29
+      minutes. The bench supply or its cable doesn't keep up; the Pi 5 wants
+      5 V 5 A. ext4 recovered each time.
+    - **mDNS name.** With Ethernet and DC-24 on the same LAN, avahi logged
+      "Host name conflict, retrying with raspberrypi5-2" when Wi-Fi joined
+      (03:24:33), so `raspberrypi5.local` stopped resolving and `make
+      deploy`'s ssh waited on it. `systemctl restart avahi-daemon` took
+      the name back. The truck has Wi-Fi only.
+
+Verdict: a saved network that connman gives up on is joined again by
+itself.
