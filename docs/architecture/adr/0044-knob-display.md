@@ -198,6 +198,47 @@ valid only while both are.
 8. **"DELTA"** names the EOT − ECT slot on the dial (owner): shorter than
    "EOT−ECT" along its arc; the frames still call the slot `dlt`.
 
+## Amendment 2026-11-23: a boot screen, and the cover behind the media page
+
+The owner asked for both after seeing the dial at power-on (the red NO DATA
+ring while the Pi boots), from the design canvas's "New" row.
+
+1. **A boot screen** (`lib/KnobCore/src/Boot.*`, firmware 0.3.0) from
+   power-on until knob-link's first frame of any kind: "F-250", a cyan arc
+   going round the gauges' track, a status line, and three steps lit as the
+   Pi gets there: **USB** (the host configured the knob's USB), **LINK** (its
+   serial port is open), **DATA** (the first valid frame, which ends the
+   boot screen for good). The knob is powered by the Pi, so it lights as
+   soon as the Pi has power. If no frame has come after 3 minutes it stops
+   spinning, the ring turns amber, and it says what is missing: "NO HEAD
+   UNIT · CHECK THE USB CABLE" without USB, "NO DATA FROM THE PI · IS
+   KNOB-LINK RUNNING?" with it. Losing the link later is still the gauges'
+   NO DATA ring (decision 4): the boot screen is only for the first start.
+2. **The phone's cover behind the media page**, sharp and darkened, not
+   blurred or faded at the edges (owner). knob-link fetches it from
+   audio-manager (`GetCoverArt`, ADR-0042) when `cover_art_id` changes and
+   does all the picture work on the Pi (`services/knob-link/src/art.rs`):
+   decode (JPEG, PNG, BMP; the `image` crate), crop square from the middle,
+   scale to 180 × 180, darken (its opacity over black: 40 % for a dark
+   cover down to 30 % for a bright one, by mean luma, so the text reads the
+   same), RGB565 high byte first. The dial scales it to 360 × 360
+   (bilinear, once per picture, into PSRAM) and draws it opaque behind the
+   page; over a cover the page's greys are lighter and its tracks and dots
+   see-through white. No cover (none for the track, no phone, nothing
+   playing): the page is as before.
+3. **`A1` frames** carry it: `A1 begin <id> <w> <h> <len> <crc32>`, then
+   `A1 data <id> <offset> <base64>` of 150 bytes each (under the 255-byte
+   line limit), or `A1 none`. The id is the pixels' CRC-32. knob-link sends
+   32 lines per 250 ms tick (about 29 kB/s, a cover in about 3.5 s) and
+   repeats the picture every 15 s; the dial skips a begin for the picture
+   already on screen, abandons one with a gap or a bad CRC, and so gets a
+   missed picture back with the next repeat. The dial's USB serial receive
+   buffer is 16 kB (Arduino's default 256 bytes drops what arrives while
+   LVGL draws).
+
+UNVERIFIED: whether the owner's phone offers cover art over AVRCP at all
+(ADR-0042); without it the media page is as before.
+
 ## Alternatives considered
 
 - **Wi-Fi or Bluetooth to the Pi:** pairing, another radio near the phone,

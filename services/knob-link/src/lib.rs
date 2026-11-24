@@ -3,6 +3,7 @@
 //! truck (CLAUDE.md rule 5); its knob reaches audio-manager as a USB HID
 //! device, not through here.
 
+pub mod art;
 pub mod frame;
 pub mod link;
 pub mod pages;

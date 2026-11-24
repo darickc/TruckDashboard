@@ -3,7 +3,8 @@
 The round gauge and volume knob on Waveshare's ESP32-S3-Knob-Touch-LCD-1.8
 ([ADR-0044](../../docs/architecture/adr/0044-knob-display.md)): speed in the
 middle, fuel along the bottom, EOT, ECT and EOT − ECT along the top; swipe for
-the next turn and what's playing. One USB
+the next turn and what's playing (the phone's cover behind it). Until the
+Pi's first frame it shows a boot screen. One USB
 cable to the Pi: the S3 is "F-250 knob", a serial port that receives
 `services/knob-link`'s frames and a USB HID knob (volume, mute, play/pause)
 that audio-manager reads ([ADR-0043](../../docs/architecture/adr/0043-master-volume-and-the-volume-knob.md)).
@@ -23,7 +24,9 @@ arduino-esp32 **3.x** (pioarduino 55.03.311), not the 2.x of
 
 | Path | What |
 |---|---|
-| `lib/KnobCore/src/Frame.*` | The line protocol (`C1`, `D1`, `H1`, NMEA checksum) |
+| `lib/KnobCore/src/Frame.*` | The line protocol (`C1`, `D1`, `N1`, `M1`, `P1`, `A1`, `H1`, NMEA checksum) |
+| `lib/KnobCore/src/Boot.*` | The boot screen's stages: waiting for the Pi, starting, done at the first frame; what is missing after 3 minutes ([ADR-0044 amendment 3](../../docs/architecture/adr/0044-knob-display.md#amendment-2026-11-23-a-boot-screen-and-the-cover-behind-the-media-page)) |
+| `lib/KnobCore/src/Art.*` | The media page's cover: `A1` lines put together in order and checked by CRC-32, base64, the bilinear scale from 180 to 360 |
 | `lib/KnobCore/src/Dial.*` | What each slot shows: current, alert, stale with its age, nothing; everything stale after 2 s without a frame |
 | `lib/KnobCore/src/Layout.*` | Where the arcs and the text go on the 360 × 360 screen |
 | `lib/KnobCore/src/Tap.*` | Gestures: a tap plays/pauses only if short, still, and not just after a turn; a swipe changes the page |
@@ -32,12 +35,12 @@ arduino-esp32 **3.x** (pioarduino 55.03.311), not the 2.x of
 | `lib/KnobHw/src/Pins.h` | The S3's pins, from Waveshare's schematic and demo |
 | `lib/KnobHw/src/Panel.*`, `PanelInit.inc` | The 360 × 360 QSPI panel (esp_lcd, 40 MHz quad) and its backlight; the 185 start-up commands generated from the demo's `lcd_bsp.c` |
 | `lib/KnobHw/src/Touch.*` | The CST816, polled over I2C |
-| `src/DialUi.*` | The dial drawn with LVGL 8.4.0 from Dial and Pages: gauges, navigation, media, and a call over them ([ADR-0044 amendment 2](../../docs/architecture/adr/0044-knob-display.md#amendment-2026-11-22-2-the-dial-drawn)) |
+| `src/DialUi.*` | The dial drawn with LVGL 8.4.0 from Dial and Pages: the boot screen, gauges, navigation, media (over the cover), and a call over them ([ADR-0044 amendment 2](../../docs/architecture/adr/0044-knob-display.md#amendment-2026-11-22-2-the-dial-drawn)) |
 | `include/lv_conf.h` | LVGL's settings: the package's template, changed where its header says |
 | `src/fonts/`, `tools/make_fonts.sh` | Montserrat Medium and SemiBold in eight sizes, generated with `lv_font_conv` (`make knob-fonts`; don't edit by hand) |
 | `src/main.cpp` | USB (TinyUSB composite: CDC + HID Consumer Control), the frame reader, the knob and touch, the log |
 | `esp32-off/main.cpp` | The board's second ESP32 (env `esp32-off`): no Wi-Fi, no Bluetooth, deep sleep. `make knob-esp32-off PORT=/dev/cu.usbserial-…` with the USB-C plug turned over |
-| `test/` | Host tests (Unity); `test_frame` parses the exact lines knob-link's tests produce (gauges, nav, media, call) |
+| `test/` | Host tests (Unity); `test_frame` parses the exact lines knob-link's tests produce (gauges, nav, media, call); `test_art` checks base64 and CRC-32 against the same vectors as knob-link's `art.rs` |
 
 ```bash
 make knob-test
@@ -58,6 +61,8 @@ backup and restore command are in `build/knob/` on the Mac that read it.
 
 On the Pi: bench check 25 in [docs/setup/agl.md](../../docs/setup/agl.md)
 passed on the bench (bench log 2026-11-22) except readability in daylight,
-which needs the truck.
+which needs the truck. Firmware 0.3.0's boot screen and cover were checked
+from the Mac with knob-link and the simulated phone (bench log 2026-11-23),
+not yet on the Pi.
 The knob has no push switch (schematic), so answering a call from the knob
 needs another gesture (ADR-0044 amendment, open).

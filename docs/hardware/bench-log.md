@@ -3677,3 +3677,37 @@ Found:
 Verdict: guidance carries on through losing and regaining the network, the
 map switches both ways, and a new route falls back to Valhalla with
 "Offline route". Wi-Fi doesn't recover by itself after one failed rejoin.
+
+## 2026-11-23 — Knob firmware 0.3.0: the boot screen and the cover behind the media page, from the Mac (ADR-0044) [BENCH]
+
+Hardware: Waveshare ESP32-S3-Knob-Touch-LCD-1.8 on the Mac's USB (the S3's
+side of the plug). The bench Pi was off, so knob-link ran on the Mac.
+Image: knob firmware 0.3.0 (this commit); knob-link, vehicle-gateway
+(`--scenario drive_cycle`) and audio-manager (`--simulate`) from this
+commit, built on the Mac.
+Setup: `pio run -e knob -t upload`; then `knob-link --gateway
+tcp:127.0.0.1:50251 --audio tcp:127.0.0.1:50254 --navigation "" --device
+/dev/cu.usbmodem…`; tracks skipped with audio-manager's `Control(NEXT)`
+from a throwaway client.
+
+Result:
+    - Boot screen, no knob-link running: the log said "boot head unit
+      starting (USB up, port open)" while a terminal read it, and the dial
+      drew the spinner (582 flushes in about 10 s). The owner replugged the
+      knob with nothing opening the port and saw "F-250", the arc going
+      round, HEAD UNIT STARTING, USB lit, LINK and DATA grey, and after 3
+      minutes the amber ring and NO DATA FROM THE PI ("Looks right").
+    - knob-link started: "boot done" at its first frames.
+    - Cover: knob-link logged "cover 1 (image/bmp): 180 x 180, id
+      b0519ded"; the dial counted 433 `A1` lines (1 begin + 432 data), 0
+      bad checksums, 0 malformed, and "cover: showing b0519ded; 1 shown, 0
+      failed". The 15 s repeat (866 `A1` lines by then) was skipped: still
+      1 shown. The owner swiped to the media page: the darkened cover
+      behind the title and volume, text readable ("Looks right").
+    - Next track: "cover 2 … id 5c88270a", dial "showing 5c88270a; 2 shown,
+      0 failed". Next again (the simulated third track has no picture):
+      "cover: none 00000000": `A1 none` cleared it.
+
+Verdict: works on the Mac with the simulated phone. Not yet on the Pi
+(knob-link there is still the previous build); whether the owner's phone
+offers cover art over AVRCP is still unverified (ADR-0042).

@@ -9,7 +9,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
-use f250_proto::audio::v1::{WatchAudioRequest, audio_service_client::AudioServiceClient};
+use f250_proto::audio::v1::{
+    GetCoverArtRequest, WatchAudioRequest, audio_service_client::AudioServiceClient,
+};
 use f250_proto::nav::v1::{
     GetRouteRequest, WatchGuidanceRequest, route_service_client::RouteServiceClient,
 };
@@ -19,7 +21,7 @@ use f250_proto::vehicle::v1::{
 use f250_sd_notify::{Heartbeat, Notifier, run_watchdog};
 use hyper_util::rt::TokioIo;
 use knob_link::frame::Units;
-use knob_link::link::{self, Latest, Timing};
+use knob_link::link::{self, Cover, Latest, Timing};
 use tokio::sync::watch;
 use tokio::time::Instant;
 use tonic::transport::{Channel, Endpoint, Uri};
@@ -185,7 +187,50 @@ async fn follow_nav(endpoint: &str, tx: &watch::Sender<Latest>) -> String {
     }
 }
 
-/// Follows audio-manager: what's playing, and the volume.
+/// The cover named `id` (NowPlaying.cover_art_id), made ready for the dial;
+/// None (said why) when there is none or it can't be used.
+async fn fetch_cover(client: &mut AudioServiceClient<Channel>, id: &str) -> Cover {
+    let r = match tokio::time::timeout(
+        CALL_TIMEOUT,
+        client.get_cover_art(GetCoverArtRequest { id: id.to_string() }),
+    )
+    .await
+    {
+        Ok(Ok(r)) => r.into_inner(),
+        Ok(Err(e)) => {
+            eprintln!("[knob-link] cover {id}: {e}");
+            return Cover::None;
+        }
+        Err(_) => {
+            eprintln!("[knob-link] cover {id}: no answer");
+            return Cover::None;
+        }
+    };
+    if !r.found {
+        // The track changed meanwhile: the next update names the new one.
+        return Cover::None;
+    }
+    let bytes = r.image;
+    match tokio::task::spawn_blocking(move || knob_link::art::prepare(&bytes)).await {
+        Ok(Ok(art)) => {
+            eprintln!(
+                "[knob-link] cover {id} ({}): {} x {}, id {:08x}",
+                r.mime_type, art.w, art.h, art.id
+            );
+            Cover::Some(Arc::new(art))
+        }
+        Ok(Err(e)) => {
+            eprintln!("[knob-link] cover {id} ({}): {e}", r.mime_type);
+            Cover::None
+        }
+        Err(e) => {
+            eprintln!("[knob-link] cover {id}: {e}");
+            Cover::None
+        }
+    }
+}
+
+/// Follows audio-manager: what's playing, the volume, and the track's cover.
 async fn follow_audio(endpoint: &str, tx: &watch::Sender<Latest>) -> String {
     let mut client = match connect(endpoint).await {
         Ok(c) => AudioServiceClient::new(c),
@@ -198,8 +243,10 @@ async fn follow_audio(endpoint: &str, tx: &watch::Sender<Latest>) -> String {
             Err(_) => return "WatchAudio: no answer".into(),
         };
     eprintln!("[knob-link] following {endpoint}");
+    // The cover fetched last (by audio-manager's id; "" for none).
+    let mut cover_for: Option<String> = None;
     loop {
-        match tokio::time::timeout(STREAM_SILENCE, stream.message()).await {
+        let m = match tokio::time::timeout(STREAM_SILENCE, stream.message()).await {
             Err(_) => {
                 return format!(
                     "nothing from audio-manager in {} s",
@@ -208,7 +255,23 @@ async fn follow_audio(endpoint: &str, tx: &watch::Sender<Latest>) -> String {
             }
             Ok(Err(e)) => return format!("audio: {e}"),
             Ok(Ok(None)) => return "audio-manager ended the stream".into(),
-            Ok(Ok(Some(m))) => tx.send_modify(|l| l.audio = Some((Instant::now(), m))),
+            Ok(Ok(Some(m))) => m,
+        };
+        let id = m
+            .now_playing
+            .as_ref()
+            .filter(|_| m.phone.is_some())
+            .map(|n| n.cover_art_id.clone())
+            .unwrap_or_default();
+        tx.send_modify(|l| l.audio = Some((Instant::now(), m)));
+        if cover_for.as_deref() != Some(id.as_str()) {
+            let cover = if id.is_empty() {
+                Cover::None
+            } else {
+                fetch_cover(&mut client, &id).await
+            };
+            tx.send_modify(|l| l.cover = cover);
+            cover_for = Some(id);
         }
     }
 }

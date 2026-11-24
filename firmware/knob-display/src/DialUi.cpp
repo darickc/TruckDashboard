@@ -8,13 +8,15 @@
 #include <cstdio>
 #include <cstring>
 
+#include "Art.h"
 #include "Layout.h"
 
 // The look follows the "proposed" row of the design canvas (owner,
 // 2026-11-22): thin tracks with thick rounded fills, small letter-spaced
 // capitals for names, page dots, an outlined SIMULATED / NO DATA tag, a large
 // turn arrow, the track's progress across the top of the media page, and the
-// caller's initials.
+// caller's initials. The boot screen and the cover behind the media page
+// follow the canvas's "New" row (owner, 2026-11-23).
 
 namespace knob {
 
@@ -35,6 +37,11 @@ constexpr uint32_t kCyan = 0x5CC8FF;
 constexpr uint32_t kAmber = 0xFFB300;
 constexpr uint32_t kRed = 0xFF4A3D;
 constexpr uint32_t kStale = 0xB88A2A;
+constexpr uint32_t kVersion = 0x8A8A8A;
+// Over a cover: lighter greys, and white tracks and dots, see-through.
+constexpr uint32_t kGreyOnArt = 0xD0D0D0;
+constexpr lv_opa_t kTrackOnArtOpa = 64;  // 25 %
+constexpr lv_opa_t kDotOnArtOpa = 89;    // 35 %
 constexpr lv_opa_t kStaleFillOpa = 89;  // 35 %
 constexpr lv_opa_t kOpaque = LV_OPA_COVER;
 constexpr lv_opa_t kClear = LV_OPA_TRANSP;
@@ -244,13 +251,15 @@ struct Gauge {
     }
 };
 
-// Three page dots centred on y; `active` is white.
-void makeDots(lv_obj_t* parent, float y, size_t active)
+// Three page dots centred on y; `active` is white. `out`, if given, gets
+// the dots.
+void makeDots(lv_obj_t* parent, float y, size_t active, lv_obj_t** out = nullptr)
 {
     for (size_t i = 0; i < kPages; ++i) {
         lv_obj_t* d = makeCircle(parent, 6, kCentre + (static_cast<float>(i) - 1) * 14, y);
         lv_obj_set_style_bg_opa(d, LV_OPA_COVER, 0);
         lv_obj_set_style_bg_color(d, lv_color_hex(i == active ? kWhite : kDotOff), 0);
+        if (out) out[i] = d;
     }
 }
 
@@ -315,14 +324,31 @@ struct {
     Label mediaSource, mediaSymbol, mediaName, mediaArtist, mediaTime, mediaVolCaption, mediaVolume, mediaMessage;
     lv_obj_t* playRing = nullptr;
     Gauge progress, volume;
+    lv_obj_t* art = nullptr;
+    lv_obj_t* mediaDots[kPages] = {};
+    int artStyled = -1;
 
     // Call.
     lv_obj_t* callRing = nullptr;
     lv_obj_t* avatar = nullptr;
     Label callInitials, callPhone, callState, callCaller, callNumber, callTime, callHint;
 
+    // Boot (deleted once done).
+    lv_obj_t* boot = nullptr;
+    lv_obj_t* spinner = nullptr;
+    lv_obj_t* bootRing = nullptr;
+    lv_obj_t* steps = nullptr;
+    Label bootStatus, bootHint, stepUsb, stepLink, stepData;
+    int bootStage = -1;
+
     int page = -1;
 } ui;
+
+// The cover on screen: 360 x 360 RGB565 in PSRAM, LVGL's image of it, and
+// whether it holds a picture.
+uint8_t* gArtBuf = nullptr;
+lv_img_dsc_t gArtDsc;
+bool gArtReady = false;
 
 Panel* gPanel = nullptr;
 uint32_t gFlushes = 0;
@@ -427,6 +453,21 @@ void buildNav()
 void buildMedia()
 {
     lv_obj_t* p = ui.media;
+    // The cover, behind everything on the page (already darkened by
+    // knob-link, so drawn opaque over the black screen).
+    gArtBuf = static_cast<uint8_t*>(heap_caps_malloc(360 * 360 * 2, MALLOC_CAP_SPIRAM));
+    if (gArtBuf) {
+        std::memset(&gArtDsc, 0, sizeof(gArtDsc));
+        gArtDsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+        gArtDsc.header.w = 360;
+        gArtDsc.header.h = 360;
+        gArtDsc.data_size = 360 * 360 * 2;
+        gArtDsc.data = gArtBuf;
+        ui.art = lv_img_create(p);
+        lv_img_set_src(ui.art, &gArtDsc);
+        lv_obj_set_pos(ui.art, 0, 0);
+        showObj(ui.art, false);
+    }
     const Arc top = {-50, 50, 160, 12, false};  // outer edge 166, as the gauges
     ui.progress.make(p, top, 4, 6);
     ui.mediaSource = makeLabel(p, &dial_caps, kCentre, 52, kGrey, 2, 210, 1);
@@ -438,7 +479,7 @@ void buildMedia()
     ui.mediaArtist = makeLabel(p, &dial_small, kCentre, 204, kGrey, 0, 250, 1);
     ui.mediaTime = makeLabel(p, &dial_caps, kCentre, 230, kGrey, 1);
     ui.mediaMessage = makeLabel(p, &dial_text, kCentre, 150, kWhite, 0, 250);
-    makeDots(p, 254, 2);
+    makeDots(p, 254, 2, ui.mediaDots);
     Arc vol;
     arcFor(Slot::Fuel, vol);
     ui.volume.make(p, vol);
@@ -468,6 +509,61 @@ void buildCall()
     ui.callNumber = makeLabel(p, &dial_small, kCentre, 244, kGrey);
     ui.callTime = makeLabel(p, &dial_text, kCentre, 278, kWhite);
     ui.callHint = makeLabel(p, &dial_small, kCentre, 304, kGrey, 0, 240);
+}
+
+// The boot screen: over everything, on LVGL's top layer.
+void buildBoot(const char* version)
+{
+    lv_obj_t* p = ui.boot = makeLayer(lv_layer_top(), true);
+    // A cyan arc going round the gauges' track while waiting...
+    ui.spinner = lv_spinner_create(p, 1600, 70);
+    lv_obj_set_size(ui.spinner, 332, 332);
+    lv_obj_center(ui.spinner);
+    lv_obj_clear_flag(ui.spinner, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_pad_all(ui.spinner, 0, 0);
+    lv_obj_set_style_bg_opa(ui.spinner, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(ui.spinner, 0, 0);
+    lv_obj_set_style_arc_width(ui.spinner, kTrackWidth, LV_PART_MAIN);
+    lv_obj_set_style_arc_color(ui.spinner, lv_color_hex(kTrack), LV_PART_MAIN);
+    lv_obj_set_style_arc_rounded(ui.spinner, false, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(ui.spinner, kFillWidth, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(ui.spinner, lv_color_hex(kCyan), LV_PART_INDICATOR);
+    lv_obj_set_style_arc_rounded(ui.spinner, true, LV_PART_INDICATOR);
+    // ...and a still amber ring once it has given up.
+    ui.bootRing = makeRing(p, kTrackWidth, kAmber);
+    lv_obj_set_size(ui.bootRing, 332, 332);
+    lv_obj_center(ui.bootRing);
+    showObj(ui.bootRing, false);
+
+    makeLabel(p, &dial_big, kCentre, 150, kWhite, -1).text("F-250");
+    ui.bootStatus = makeLabel(p, &dial_caps, kCentre, 202, kGrey, 2);
+    ui.bootHint = makeLabel(p, &dial_caps, kCentre, 226, kGrey, 2);
+
+    // USB · LINK · DATA, each lit as the Pi gets there.
+    ui.steps = makeBox(p);
+    lv_obj_set_size(ui.steps, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_flex_flow(ui.steps, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(ui.steps, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(ui.steps, 10, 0);
+    centreOn(ui.steps, kCentre, 246);
+    auto step = [](const char* t, uint32_t c) {
+        Label l;
+        l.obj = lv_label_create(ui.steps);
+        lv_obj_set_style_text_font(l.obj, &dial_caps, 0);
+        lv_obj_set_style_text_letter_space(l.obj, 2, 0);
+        lv_label_set_text(l.obj, t);
+        l.colour(c);
+        return l;
+    };
+    ui.stepUsb = step("USB", kDash);
+    step("·", kDotOff);
+    ui.stepLink = step("LINK", kDash);
+    step("·", kDotOff);
+    ui.stepData = step("DATA", kDash);
+
+    char v[32];
+    std::snprintf(v, sizeof(v), "KNOB %s", version);
+    makeLabel(p, &dial_caps, kCentre, 300, kVersion, 2).text(v);
 }
 
 // ---- Updating ------------------------------------------------------------
@@ -674,10 +770,36 @@ void updateNav(const Pages& pages, uint32_t now)
     ui.navLeft.text(buf);
 }
 
+// The media page over a cover, or over black.
+void styleMediaForArt(bool art)
+{
+    if (ui.artStyled == static_cast<int>(art)) return;
+    ui.artStyled = art;
+    for (Gauge* g : {&ui.progress, &ui.volume}) {
+        g->trackColour(art ? kWhite : kTrack);
+        lv_obj_set_style_arc_opa(g->obj, art ? kTrackOnArtOpa : kOpaque, LV_PART_MAIN);
+    }
+    for (size_t i = 0; i < kPages; ++i) {
+        if (i == 2 || !ui.mediaDots[i]) continue;
+        lv_obj_set_style_bg_color(ui.mediaDots[i], lv_color_hex(art ? kWhite : kDotOff), 0);
+        lv_obj_set_style_bg_opa(ui.mediaDots[i], art ? kDotOnArtOpa : kOpaque, 0);
+    }
+    lv_obj_set_style_bg_color(ui.playRing, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(ui.playRing, art ? kDotOnArtOpa : kClear, 0);
+    if (ui.art) showObj(ui.art, art);
+}
+
 void updateMedia(const Pages& pages, uint32_t now)
 {
     const MediaFrame* m = pages.media(now);
     const bool playing = m && m->state != PlayState::None;
+    // The cover only while a track is playing, paused or stopped.
+    const bool art = playing && gArtReady && ui.art;
+    styleMediaForArt(art);
+    const uint32_t grey = art ? kGreyOnArt : kGrey;
+    ui.mediaSource.colour(grey);
+    ui.mediaArtist.colour(grey);
+    ui.mediaTime.colour(grey);
     showObj(ui.playRing, playing);
     ui.mediaSymbol.show(playing);
     ui.mediaName.show(playing);
@@ -704,7 +826,7 @@ void updateMedia(const Pages& pages, uint32_t now)
         ui.mediaVolume.text(buf);
         ui.mediaVolume.colour(m->muted ? kStale : kWhite);
         ui.mediaVolCaption.text(m->muted ? "MUTED" : "VOLUME");
-        ui.mediaVolCaption.colour(m->muted ? kAmber : kGrey);
+        ui.mediaVolCaption.colour(m->muted ? kAmber : grey);
         ui.volume.fill(static_cast<float>(m->volume) / m->volumeSteps, m->muted ? kAmber : kCyan,
                        m->muted ? kStaleFillOpa : kOpaque);
     } else {
@@ -801,9 +923,45 @@ void logLvgl(const char* msg)
     if (lines++ < 20) Serial.printf("# lvgl: %s", msg);
 }
 
+void updateBoot(BootStage stage, bool usb, bool link)
+{
+    if (!ui.boot) return;
+    if (stage == BootStage::Done) {
+        lv_obj_del(ui.boot);
+        ui.boot = nullptr;
+        return;
+    }
+    ui.stepUsb.colour(usb ? kCyan : kDash);
+    ui.stepLink.colour(link ? kCyan : kDash);
+    const int s = static_cast<int>(stage);
+    if (s == ui.bootStage) return;
+    ui.bootStage = s;
+    const bool stuck = stage == BootStage::NoHeadUnit || stage == BootStage::NoLink;
+    showObj(ui.spinner, !stuck);
+    showObj(ui.bootRing, stuck);
+    ui.bootStatus.text(bootStatus(stage));
+    ui.bootStatus.colour(stuck ? kAmber : kGrey);
+    ui.bootHint.text(bootHint(stage));
+    ui.bootHint.show(stuck);
+    centreOn(ui.steps, kCentre, stuck ? 262 : 246);
+}
+
 }  // namespace
 
-bool uiBegin(Panel& panel)
+void uiBoot(BootStage stage, bool usb, bool link) { updateBoot(stage, usb, link); }
+
+void uiArt(const uint8_t* pixels, int w, int h)
+{
+    if (!gArtBuf || !ui.art || w <= 0 || h <= 0) return;
+    scaleArt(pixels, w, h, gArtBuf, 360, 360);
+    lv_img_cache_invalidate_src(&gArtDsc);
+    lv_obj_invalidate(ui.art);
+    gArtReady = true;
+}
+
+void uiArtClear() { gArtReady = false; }
+
+bool uiBegin(Panel& panel, const char* version)
 {
     gPanel = &panel;
     lv_log_register_print_cb(logLvgl);
@@ -837,6 +995,7 @@ bool uiBegin(Panel& panel)
     buildNav();
     buildMedia();
     buildCall();
+    buildBoot(version);
     showObj(ui.nav, false);
     showObj(ui.media, false);
     showObj(ui.call, false);

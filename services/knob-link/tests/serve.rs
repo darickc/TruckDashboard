@@ -22,6 +22,8 @@ fn timing() -> Timing {
         config_every: Duration::from_millis(200),
         snapshot_max_age: Duration::from_millis(100),
         page_max_age: Duration::from_millis(100),
+        art_lines_per_tick: 50,
+        art_repeat: Duration::from_millis(300),
     }
 }
 
@@ -235,5 +237,83 @@ async fn nav_and_media_frames_only_while_they_are_fresh() {
         .collect();
     assert!(after.is_empty(), "nothing old: {late:?}");
     drop(tx);
+    task.abort();
+}
+
+#[tokio::test]
+async fn the_cover_goes_out_paced_and_again_after_a_while() {
+    use knob_link::art::{Art, CHUNK, lines as art_lines, none_line};
+    use knob_link::link::Cover;
+    let pixels: Vec<u8> = (0..1000u32).map(|i| (i % 251) as u8).collect();
+    let crc = knob_link::art::crc32(&pixels);
+    let art = Arc::new(Art {
+        id: crc,
+        w: 10,
+        h: 50,
+        pixels,
+        crc,
+    });
+    let want = art_lines(&art);
+    assert_eq!(want.len(), 1 + 1000usize.div_ceil(CHUNK));
+    let (pi, dial) = tokio::io::duplex(1 << 16);
+    let (tx, rx) = watch::channel(Latest {
+        cover: Cover::Some(Arc::clone(&art)),
+        ..Default::default()
+    });
+    let mut t = timing();
+    t.art_lines_per_tick = 3;
+    let task = tokio::spawn(serve(pi, rx, Units::Imperial, t, |_| {}));
+    let mut lines = BufReader::new(dial).lines();
+    let mut next_art = async || loop {
+        let l = lines.next_line().await.unwrap().unwrap();
+        if l.starts_with("A1 ") {
+            return (Instant::now(), l);
+        }
+    };
+    // Every line, in order, at most three per period.
+    let mut got = Vec::new();
+    let mut times = Vec::new();
+    for _ in 0..want.len() {
+        let (at, l) = next_art().await;
+        assert!(ok_checksum(&l));
+        got.push(l);
+        times.push(at);
+    }
+    assert_eq!(got, want);
+    assert!(
+        times[want.len() - 1].duration_since(times[0]) >= Duration::from_millis(40),
+        "paced over at least three periods"
+    );
+    // And again after art_repeat (300 ms), from its begin.
+    let (_, again) = next_art().await;
+    assert_eq!(again, want[0]);
+    // A track without a picture: "none" (after what's queued).
+    tx.send_modify(|l| l.cover = Cover::None);
+    let mut seen_none = false;
+    for _ in 0..want.len() + 2 {
+        let (_, l) = next_art().await;
+        if l == none_line() {
+            seen_none = true;
+            break;
+        }
+    }
+    assert!(seen_none);
+    task.abort();
+}
+
+#[tokio::test]
+async fn no_cover_lines_until_audio_manager_says() {
+    let (pi, dial) = tokio::io::duplex(8192);
+    let (_tx, rx) = watch::channel(Latest::default());
+    let task = tokio::spawn(serve(pi, rx, Units::Imperial, timing(), |_| {}));
+    let mut lines = BufReader::new(dial).lines();
+    for _ in 0..5 {
+        let l = tokio::time::timeout(Duration::from_millis(500), lines.next_line())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(!l.starts_with("A1 "), "{l}");
+    }
     task.abort();
 }

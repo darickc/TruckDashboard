@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "Art.h"
+
 namespace knob {
 
 namespace {
@@ -99,6 +101,52 @@ int hexDigit(char c)
     if (c >= 'A' && c <= 'F') return c - 'A' + 10;
     if (c >= 'a' && c <= 'f') return c - 'a' + 10;
     return -1;
+}
+
+// Eight hex digits (an art id or CRC).
+bool hex32(std::string_view t, uint32_t& out)
+{
+    if (t.size() != 8) return false;
+    uint32_t v = 0;
+    for (char c : t) {
+        const int d = hexDigit(c);
+        if (d < 0) return false;
+        v = (v << 4) | static_cast<uint32_t>(d);
+    }
+    out = v;
+    return true;
+}
+
+// A1 none | A1 begin <id> <w> <h> <len> <crc> | A1 data <id> <offset> <base64>
+bool parseArt(std::string_view rest, ArtFrame& out)
+{
+    const std::string_view what = next(rest, ' ');
+    ArtFrame f;
+    if (what == "none") {
+        if (!rest.empty()) return false;
+        f.kind = ArtKind::None;
+    } else if (what == "begin") {
+        uint32_t w, h;
+        f.kind = ArtKind::Begin;
+        if (!hex32(next(rest, ' '), f.id) || !toU32(next(rest, ' '), w) || !toU32(next(rest, ' '), h) ||
+            !toU32(next(rest, ' '), f.len) || !hex32(next(rest, ' '), f.crc) || !rest.empty() || w > 0xFFFF ||
+            h > 0xFFFF) {
+            return false;
+        }
+        f.w = static_cast<uint16_t>(w);
+        f.h = static_cast<uint16_t>(h);
+    } else if (what == "data") {
+        f.kind = ArtKind::Data;
+        size_t n = 0;
+        if (!hex32(next(rest, ' '), f.id) || !toU32(next(rest, ' '), f.offset)) return false;
+        const std::string_view b64 = next(rest, ' ');
+        if (b64.empty() || !rest.empty() || !base64Decode(b64, f.bytes, sizeof(f.bytes), n)) return false;
+        f.n = static_cast<uint16_t>(n);
+    } else {
+        return false;
+    }
+    out = f;
+    return true;
 }
 
 bool parseConfig(std::string_view rest, ConfigFrame& out)
@@ -348,6 +396,7 @@ Parsed parseLine(std::string_view line, Frames& out)
     if (kind == "N1") return parseNav(body, out.nav) ? Parsed::Nav : Parsed::Malformed;
     if (kind == "M1") return parseMedia(body, out.media) ? Parsed::Media : Parsed::Malformed;
     if (kind == "P1") return parseCall(body, out.call) ? Parsed::Call : Parsed::Malformed;
+    if (kind == "A1") return parseArt(body, out.art) ? Parsed::Art : Parsed::Malformed;
     if (kind == "H1") return Parsed::Hello;
     return Parsed::Unknown;
 }

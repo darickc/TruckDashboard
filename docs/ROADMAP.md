@@ -322,7 +322,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       and knob (clockwise = volume up) work, and the dial is drawn with LVGL (gauges, navigation, media, calls)
       from knob-link's frames; bench check 25 passed on the bench Pi except daylight; the second ESP32 no longer
       advertises Bluetooth; no push switch on the schematic, so answering a call from the knob is open
-      (ADR-0044 amendments).
+      (ADR-0044 amendments). Firmware 0.3.0 (2026-11-23, ADR-0044 amendment 3): a boot screen until the Pi's first
+      frame, and the phone's cover darkened behind the media page (knob-link prepares it from audio-manager's
+      GetCoverArt and sends it as `A1` lines); checked from the Mac with the simulated phone, not yet on the Pi.
       Swipe pages (owner, 2026-11-13): gauges, navigation (the next turn, its distance and street, what's left) and media
       (track, state, position, volume), from navigation's guidance and route and audio-manager over two more frame kinds;
       swipes stop at the ends, a page's data only while its frames keep coming. Ran on the Mac against all three

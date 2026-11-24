@@ -25,6 +25,9 @@ tokio-serial = "5"
 tower = { version = "0.5", features = ["util"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 clap = { version = "4", features = ["derive"] }
+# The phone's cover for the dial's media page: decoded (JPEG from a phone,
+# BMP from the simulated one, PNG), cropped and scaled here (art.rs).
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "bmp"] }
 
 [lints]
 workspace = true

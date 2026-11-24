@@ -10,6 +10,7 @@
 //   M1 none <vol>*CS                                      what's playing
 //   P1 <ring|wait|dial|call|hold> <active_s> <caller>\t<number>*CS
 //   P1 none*CS                                            a phone call
+//   A1 begin|data|none ...*CS                             the cover (Art.h)
 //   H1 <name> <version>*CS                               from the dial
 //
 // <vol> is <level>/<steps>, m<level>/<steps> when muted, or "-".
@@ -21,6 +22,8 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+
+#include "Art.h"
 
 namespace knob {
 
@@ -138,6 +141,7 @@ struct Frames {
     NavFrame nav;
     MediaFrame media;
     CallFrame call;
+    ArtFrame art;
 };
 
 enum class Parsed {
@@ -146,6 +150,7 @@ enum class Parsed {
     Nav,
     Media,
     Call,
+    Art,
     Hello,
     Comment,      // "# ..." (the dial's log)
     BadChecksum,  // no '*', or it doesn't match
@@ -159,10 +164,10 @@ uint8_t checksum(std::string_view body);
 std::string withChecksum(std::string_view body);
 
 // One line, without its line ending. Fills only the frame it returns
-// (Config, Data, Nav, Media or Call); a Malformed line changes nothing.
+// (Config, Data, Nav, Media, Call or Art); a Malformed line changes nothing.
 Parsed parseLine(std::string_view line, Frames& out);
 
-// The same, for the gauge frames only (Nav, Media and Call lines are parsed
+// The same, for the gauge frames only (Nav, Media, Call and Art lines are parsed
 // and dropped).
 Parsed parseLine(std::string_view line, ConfigFrame& config, DataFrame& data);
 

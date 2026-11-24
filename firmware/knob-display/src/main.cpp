@@ -4,17 +4,21 @@
 // audio-manager reads as volume, mute and play/pause (ADR-0043).
 //
 // The board's display, touch and knob (lib/KnobHw) and the dial drawn from
-// the model with LVGL (DialUi): gauges, navigation, media, and a call over
-// them. The model also goes to the log ("# ..." lines on the same serial
+// the model with LVGL (DialUi): a boot screen until the Pi's first frame,
+// then gauges, navigation, media (with the phone's cover behind it), and a
+// call over them. The model also goes to the log ("# ..." lines on the same serial
 // port, which knob-link logs), so the bench can compare the two.
 
 #include <Arduino.h>
 #include <USB.h>
 #include <USBHIDConsumerControl.h>
+#include <esp_heap_caps.h>
 #include <esp_timer.h>
 
 #include <atomic>
 
+#include "Art.h"
+#include "Boot.h"
 #include "Dial.h"
 #include "Frame.h"
 #include "DialUi.h"
@@ -26,7 +30,7 @@
 #include "Touch.h"
 
 #ifndef KNOB_VERSION
-#define KNOB_VERSION "0.2.0"
+#define KNOB_VERSION "0.3.0"
 #endif
 
 // Below; the board's drivers call them.
@@ -39,14 +43,18 @@ USBHIDConsumerControl consumer;
 knob::Dial dial(2000);
 knob::TapDetector tap;
 knob::Pages pages(3000);
+knob::Boot boot;
+// The cover being received (180 x 180 RGB565, in PSRAM); null if that
+// couldn't be allocated, and covers are then ignored.
+knob::ArtAssembler* art = nullptr;
 
 char line[knob::kMaxLine + 2];
 size_t lineLen = 0;
 bool lineTooLong = false;
 
 struct Counts {
-    unsigned config = 0, data = 0, nav = 0, media = 0, call = 0, badChecksum = 0, malformed = 0, unknown = 0,
-             tooLong = 0;
+    unsigned config = 0, data = 0, nav = 0, media = 0, call = 0, art = 0, badChecksum = 0, malformed = 0,
+             unknown = 0, tooLong = 0, artShown = 0, artFailed = 0;
 } counts;
 
 uint32_t lastHelloMs = 0;
@@ -136,12 +144,16 @@ void report(uint32_t now)
     // As ADR-0044 decision 3: current, advisory, critical, stale, nothing.
     static const char* const kState = "caksn";
     static const char* const kPage[] = {"gauges", "navigation", "media"};
-    Serial.printf("# frames: %u config, %u data, %u nav, %u media, %u call, %u bad checksum, %u malformed, "
-                  "%u unknown, %u too long; %s%s; page %s\n",
-                  counts.config, counts.data, counts.nav, counts.media, counts.call, counts.badChecksum,
+    static const char* const kBoot[] = {"waiting for the Pi", "head unit starting", "NO HEAD UNIT",
+                                        "NO DATA FROM THE PI", "done"};
+    Serial.printf("# frames: %u config, %u data, %u nav, %u media, %u call, %u art, %u bad checksum, %u malformed, "
+                  "%u unknown, %u too long; %s%s; page %s; boot %s (USB %s, port %s)\n",
+                  counts.config, counts.data, counts.nav, counts.media, counts.call, counts.art, counts.badChecksum,
                   counts.malformed,
                   counts.unknown, counts.tooLong, dial.linkLost(now) ? "no data" : "link up",
-                  dial.simulated() ? ", SIMULATED" : "", kPage[pages.index()]);
+                  dial.simulated() ? ", SIMULATED" : "", kPage[pages.index()],
+                  kBoot[static_cast<int>(boot.stage(static_cast<bool>(USB), now))], USB ? "up" : "down",
+                  Serial ? "open" : "closed");
     const knob::Slot slots[] = {knob::Slot::Speed, knob::Slot::Fuel, knob::Slot::Eot, knob::Slot::Ect,
                                 knob::Slot::Delta};
     for (knob::Slot s : slots) {
@@ -172,6 +184,10 @@ void report(uint32_t now)
     } else {
         Serial.printf("#   media: no data\n");
     }
+    if (art) {
+        Serial.printf("#   cover: %s %08lx; %u shown, %u failed\n", art->id() ? "showing" : "none",
+                      static_cast<unsigned long>(art->id()), counts.artShown, counts.artFailed);
+    }
     // A call takes over the dial (ADR-0045).
     if (const knob::CallFrame* c = pages.call(now)) {
         static const char* const kCall[] = {"", "ringing", "waiting", "dialling", "call", "on hold"};
@@ -180,15 +196,45 @@ void report(uint32_t now)
     }
 }
 
+void onArt(const knob::ArtFrame& f)
+{
+    if (!art) return;
+    using R = knob::ArtAssembler::Result;
+    switch (art->feed(f)) {
+        case R::Complete:
+            knob::uiArt(art->pixels(), art->width(), art->height());
+            counts.artShown++;
+            break;
+        // A new picture (another track) or none: the old one goes at once.
+        case R::Started:
+        case R::Cleared: knob::uiArtClear(); break;
+        case R::Failed: counts.artFailed++; break;
+        case R::Progress:
+        case R::Same:
+        case R::Ignored: break;
+    }
+}
+
 void onLine(uint32_t now)
 {
     static knob::Frames f;
-    switch (knob::parseLine(std::string_view(line, lineLen), f)) {
+    const knob::Parsed p = knob::parseLine(std::string_view(line, lineLen), f);
+    switch (p) {
+        case knob::Parsed::Config:
+        case knob::Parsed::Data:
+        case knob::Parsed::Nav:
+        case knob::Parsed::Media:
+        case knob::Parsed::Call:
+        case knob::Parsed::Art: boot.onFrame(); break;
+        default: break;
+    }
+    switch (p) {
         case knob::Parsed::Config: dial.onConfig(f.config); counts.config++; break;
         case knob::Parsed::Data: dial.onData(f.data, now); counts.data++; break;
         case knob::Parsed::Nav: pages.onNav(f.nav, now); counts.nav++; break;
         case knob::Parsed::Media: pages.onMedia(f.media, now); counts.media++; break;
         case knob::Parsed::Call: pages.onCall(f.call, now); counts.call++; break;
+        case knob::Parsed::Art: onArt(f.art); counts.art++; break;
         case knob::Parsed::BadChecksum: counts.badChecksum++; break;
         case knob::Parsed::Malformed: counts.malformed++; break;
         case knob::Parsed::Unknown: counts.unknown++; break;
@@ -242,12 +288,20 @@ void setup()
     // with CDC on boot, USB is up before setup().
     consumer.begin();
     USB.begin();
+    // A cover is about 86 kB of lines; knob-link paces them, and this holds
+    // the bytes that arrive while LVGL draws (Arduino's 256 would drop them).
+    Serial.setRxBufferSize(16384);
     Serial.begin(115200);
 
+    if (void* buf = heap_caps_malloc(knob::kArtMaxBytes, MALLOC_CAP_SPIRAM)) {
+        art = new knob::ArtAssembler(static_cast<uint8_t*>(buf), knob::kArtMaxBytes);
+    }
+
     panelOk = panel.begin();
-    if (panelOk) panelOk = knob::uiBegin(panel);
+    if (panelOk) panelOk = knob::uiBegin(panel, KNOB_VERSION);
     if (panelOk) {
-        // The first frame before the backlight comes on.
+        // The first frame before the backlight comes on: the boot screen.
+        knob::uiBoot(boot.stage(static_cast<bool>(USB), millis()), static_cast<bool>(USB), static_cast<bool>(Serial));
         knob::uiUpdate(dial, pages, millis());
         knob::uiRun();
     }
@@ -288,6 +342,7 @@ void loop()
         static uint32_t lastUiMs = 0;
         if (now - lastUiMs >= 100) {
             lastUiMs = now;
+            knob::uiBoot(boot.stage(static_cast<bool>(USB), now), static_cast<bool>(USB), static_cast<bool>(Serial));
             knob::uiUpdate(dial, pages, now);
         }
         knob::uiRun();
