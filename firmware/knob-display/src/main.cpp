@@ -11,6 +11,7 @@
 
 #include <Arduino.h>
 #include <USB.h>
+#include <USBAudioCard.h>
 #include <USBHIDConsumerControl.h>
 #include <esp_heap_caps.h>
 #include <esp_timer.h>
@@ -22,6 +23,7 @@
 #include "Boot.h"
 #include "Dial.h"
 #include "Frame.h"
+#include "Mic.h"
 #include "DialUi.h"
 #include "Pages.h"
 #include "Panel.h"
@@ -31,7 +33,7 @@
 #include "Touch.h"
 
 #ifndef KNOB_VERSION
-#define KNOB_VERSION "0.4.0"
+#define KNOB_VERSION "0.5.0"
 #endif
 
 // Below; the board's drivers call them.
@@ -41,6 +43,12 @@ void onTouch(bool down, bool move, int x, int y);
 namespace {
 
 USBHIDConsumerControl consumer;
+// The microphone, as a USB microphone in the same composite device (Mic.h):
+// 16 kHz, 16-bit, mono, no speaker. Built before USB starts (CDC on boot),
+// like the HID knob, so its interface is in the descriptor.
+USBAudioCard uac(knob::Mic::kRate, UAC_BPS_16, UAC_SPK_NONE, UAC_MIC_MONO);
+knob::Mic mic;
+bool micOk = false;
 knob::Dial dial(2000);
 knob::TapDetector tap;
 knob::Pages pages(3000);
@@ -134,6 +142,10 @@ void hello()
                   static_cast<unsigned long>(touchesTotal), static_cast<unsigned long>(touch.failedReads()),
                   knobOk ? "on" : "FAILED", static_cast<unsigned long>(knobStepsTotal),
                   static_cast<unsigned>(ESP.getPsramSize()));
+    Serial.printf("# mic %s%s: last second %.1f dBFS RMS, %.1f peak (offset %.0f removed, gain x%d); %lu ms read, %lu not taken; host %s\n",
+                  micOk ? "on" : "FAILED: ", micOk ? "" : mic.lastError(), mic.rmsDb(), mic.peakDb(), mic.offset(), knob::Mic::kGain,
+                  static_cast<unsigned long>(mic.blocks()), static_cast<unsigned long>(mic.dropped()),
+                  mic.streaming() ? "recording" : "not recording");
     Serial.printf("# dial: %lu flushes%s%s\n", static_cast<unsigned long>(knob::uiFlushes()), *knob::uiError() ? "; last error: " : "",
                   knob::uiError());
 }
@@ -306,6 +318,11 @@ void setup()
     // The names come from USB_PRODUCT / USB_MANUFACTURER (platformio.ini):
     // with CDC on boot, USB is up before setup().
     consumer.begin();
+    uac.onEvent(ARDUINO_USB_AUDIO_CARD_INTERFACE_ENABLE_EVENT, [](void*, esp_event_base_t, int32_t, void* data) {
+        const auto* d = static_cast<arduino_usb_audio_card_event_data_t*>(data);
+        if (d->interface_enable.interface == UAC_INTERFACE_MIC) mic.setStreaming(d->interface_enable.enable);
+    });
+    uac.begin();
     USB.begin();
     // A cover is about 86 kB of lines; knob-link paces them, and this holds
     // the bytes that arrive while LVGL draws (Arduino's 256 would drop them).
@@ -328,6 +345,7 @@ void setup()
     panel.backlight(panelOk ? 200 : 0);
     touchOk = touch.begin();
     knobOk = startKnob();
+    micOk = mic.begin(uac);
 }
 
 void loop()

@@ -327,7 +327,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       GetCoverArt and sends it as `A1` lines); on the bench Pi with the owner's phone, and cdc_acm now loads at boot so a
       knob plugged in after boot is opened. Firmware 0.4.0: Answer, Decline and End buttons on the call screen (`K1`
       lines; knob-link checks the call and asks audio-manager), replacing the missing push (ADR-0045 amendment);
-      checked from the Mac with the simulated phone.
+      checked from the Mac with the simulated phone. Firmware 0.5.0: the knob's PDM microphone is also a USB
+      microphone (TinyUSB UAC1); spike S4 passed on the bench Pi, real calls through the echo canceller sounded clear
+      (ADR-0045 amendment 2026-11-23b).
       Swipe pages (owner, 2026-11-13): gauges, navigation (the next turn, its distance and street, what's left) and media
       (track, state, position, volume), from navigation's guidance and route and audio-manager over two more frame kinds;
       swipes stop at the ends, a page's data only while its frames keep coming. Ran on the Mac against all three

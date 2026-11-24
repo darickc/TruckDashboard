@@ -30,4 +30,12 @@ constexpr int kTouchAddr = 0x15;
 constexpr int kKnobA = 8;
 constexpr int kKnobB = 7;
 
+// The microphone (MIC1, MSM261D4030H1CPM, a PDM MEMS mic; 4_OTHER.png): its
+// clock from the S3 and its data back, L/R tied to ground (the left half of
+// each clock). Both are strapping pins (GPIO45 VDD_SPI, GPIO46 boot), so
+// nothing may drive them at reset: the clock is only started by Mic, and
+// the mic's data is high-impedance without a clock.
+constexpr int kMicClk = 45;
+constexpr int kMicData = 46;
+
 }  // namespace knob::pins

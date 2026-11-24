@@ -44,7 +44,7 @@ display's microphone. Today audio-manager offers phones only an A2DP sink:
 | BlueZ 5.86's own Hands-Free unit (`profiles/audio/hfp-hf.c`, profile `hfp`, experimental) comes on with `--experimental`, competes with PipeWire's for the phone's gateway, and on its own connected to the owner's phone with the shipped config (a phone would then route calls to a truck with no call audio) | bluez-5.86 source; the bench Pi, 2026-11-14 | [BENCH]; `--noplugin=hfp` shipped (ADR-0042 amended) |
 | PipeWire's native backend made the service level connection with an iPhone and the Z Fold8 (both offer CVSD and mSBC), registered the gateway on the system bus, showed an incoming call (`State` incoming, caller ID over `+CLIP`), and `Call1.Answer`/`Hangup` over D-Bus worked; a tone sent to the phone was heard by the caller | the bench Pi, 2026-11-14 | [BENCH]; a voice through the Pi not yet tested |
 | PipeWire 1.6.8 bug: `Properties.Get` on `Call1` answers "No such interface" for `org.pipewire.Telephony.Call1` itself (inverted check in `call_properties_get`); `GetAll` and the gateway's ObjectManager work. Fixed on PipeWire's master | 1.6.8 `telephony.c`; the bench Pi | Verified; audio-manager must use GetAll/ObjectManager |
-| The knob display has a microphone; which of its two chips it reaches, and whether the S3 could present it to the Pi as a USB microphone | Waveshare's page (ADR-0044) | **UNVERIFIED**: spike S4 |
+| The knob display has a microphone; which of its two chips it reaches, and whether the S3 could present it to the Pi as a USB microphone | Waveshare's page (ADR-0044) | On the S3 (GPIO45/46), and a USB microphone beside the serial port and HID knob: spike S4 passed on the bench (amendment 2026-11-23b) |
 
 ## Decision (proposed)
 
@@ -607,3 +607,27 @@ no longer applies, as for the dashboard.
 
 The push path (the HID play/pause key answering and hanging up) is
 unchanged for a knob that has a push (ADR-0043).
+
+## Amendment, 2026-11-23b: spike S4, the knob display's microphone `[BENCH]`
+
+Answered on the bench (bench log 2026-11-23, spike S4):
+
+- The microphone (MIC1, an MSM261D4030H1CPM PDM MEMS mic) is on the S3,
+  GPIO45 clock and GPIO46 data.
+- The S3 is a USB microphone beside its serial port and HID knob: firmware
+  0.5.0 uses arduino-esp32's USBAudioCard (TinyUSB UAC1, 16 kHz, 16-bit,
+  mono; `firmware/knob-display/lib/KnobHw/src/Mic.*`). The PDM filter's
+  constant offset is removed and a fixed gain of +24 dB applied
+  (`lib/KnobCore/src/Level.*`, host-tested), so speech at arm's length is
+  about -26 dBFS where it was -57 raw.
+- Through decision 3's echo canceller (AUDIO_CALL_MIC set to the knob's
+  node), real calls on the owner's phone sounded clear at the far end.
+  Against a Logitech C250 recorded at the same time, the knob kept speech
+  about 24 dB above the room, the webcam about 16.
+
+So the knob's microphone is the call microphone in the truck unless road
+noise says otherwise: set `AUDIO_CALL_MIC` to its node,
+`alsa_input.usb-TruckDashboard_F-250_knob_<serial>-03.mono-fallback` (the
+serial is the board's; `wpctl status` lists it as "F-250 knob Mono"). The
+gain is an example, to tune in the truck. Still to do there: road and fan
+noise, and where the knob sits in the dash.

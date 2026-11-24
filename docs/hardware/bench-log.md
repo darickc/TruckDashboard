@@ -3808,3 +3808,46 @@ Also on the bench, not the truck:
 
 Verdict: a saved network that connman gives up on is joined again by
 itself.
+
+## 2026-11-23 — Spike S4: the knob display's microphone as the call microphone (ADR-0045) [BENCH]
+
+Hardware: the knob (firmware 0.5.0) on the Mac, then on the bench Pi with
+a Logitech Webcam C250 (046d:0804) beside it for comparison (the C920 the
+Pi's settings named is no longer here). The owner's Z Fold8 for the call.
+Image: knob firmware 0.5.0 (this commit); bench Pi as before.
+
+Result:
+    - Schematic (Waveshare 4_OTHER.png, 2_ESP32S3-R8.png): MIC1 is an
+      MSM261D4030H1CPM PDM MEMS microphone on the **S3**: PDM_MIC_SCK on
+      GPIO45, PDM_MIC_DATA on GPIO46, L/R to ground. Not the second ESP32.
+    - The S3 as a USB microphone: arduino-esp32 3.3.11's USBAudioCard
+      (TinyUSB UAC1, part of the prebuilt core) at 16 kHz, 16-bit, mono, no
+      speaker, in the same composite device as the serial port and the HID
+      knob. The Mac listed "TinyUSB UAC1" as an audio input with the serial
+      port still there; the Pi's PipeWire listed "F-250 knob Mono"
+      (alsa_input.usb-TruckDashboard_F-250_knob_2884854BF040-03.mono-fallback).
+      knob-link and the HID knob kept working.
+    - Raw PDM (I2S PDM RX, 16 kHz): a constant offset of 1303 (-28 dBFS);
+      after a DC blocker, a quiet room -75 dBFS RMS and the owner talking at
+      arm's length -57 dBFS RMS, -39 peak; 70 046 ms read, 0 not taken. A
+      fixed gain of x16 (+24 dB) added.
+    - On the Pi, both recorded at once with pw-record (16 kHz mono) while
+      the owner talked: knob 35.0 s, loudest 10 % of half-second windows
+      -26.0 dBFS, quietest 10 % -49.9 (23.9 dB apart), no zero runs, no
+      clipped samples. The C250's stream stopped after 11.4 s: -25.3 and
+      -41.5 (16.2 dB apart). The recordings went to the owner to listen to;
+      not kept.
+    - AUDIO_CALL_MIC set to the knob's node (/etc/default/f250, the old file
+      kept as f250.pre-knob-mic), f250-echo-cancel restarted: "echo-cancel:
+      WebRTC on alsa_input.usb-TruckDashboard_F-250_knob…". Real calls on
+      the Fold8: audio-manager "call audio: f250.call-aec → phone"; the far
+      end heard the owner clearly ("Sounded good"). End on the knob hung up
+      both calls (knob-link "End pressed: HangUp(1)", "HangUp(1): done";
+      audio-manager "knob: hang up call 1", "no call any more"); the calls
+      weren't answered from the knob, so Answer on a real call is still to
+      see.
+
+Verdict: the knob's microphone works as the call microphone through the
+echo canceller, and on the bench it separates speech from the room better
+than the C250. Not yet in the truck (road noise, where the knob sits).
+Closes: spike S4 (ADR-0045), on the bench.

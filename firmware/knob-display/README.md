@@ -7,7 +7,7 @@ the next turn and what's playing (the phone's cover behind it). Until the
 Pi's first frame it shows a boot screen. One USB
 cable to the Pi: the S3 is "F-250 knob", a serial port that receives
 `services/knob-link`'s frames and a USB HID knob (volume, mute, play/pause)
-that audio-manager reads ([ADR-0043](../../docs/architecture/adr/0043-master-volume-and-the-volume-knob.md)).
+that audio-manager reads, and since 0.5.0 a USB microphone for calls ([ADR-0043](../../docs/architecture/adr/0043-master-volume-and-the-volume-knob.md)).
 
 **Status: on the bench.** The frames, the dial's model (stale data, a lost
 link), the layout, the tap rules and the knob's decoding are host-tested
@@ -35,10 +35,12 @@ arduino-esp32 **3.x** (pioarduino 55.03.311), not the 2.x of
 | `lib/KnobHw/src/Pins.h` | The S3's pins, from Waveshare's schematic and demo |
 | `lib/KnobHw/src/Panel.*`, `PanelInit.inc` | The 360 × 360 QSPI panel (esp_lcd, 40 MHz quad) and its backlight; the 185 start-up commands generated from the demo's `lcd_bsp.c` |
 | `lib/KnobHw/src/Touch.*` | The CST816, polled over I2C |
+| `lib/KnobHw/src/Mic.*` | The PDM microphone (GPIO45/46) as a USB microphone for calls: 16 kHz mono through TinyUSB's audio class, in its own task ([ADR-0045 spike S4](../../docs/architecture/adr/0045-phone-calls.md#amendment-2026-11-23b-spike-s4-the-knob-displays-microphone-bench)) |
+| `lib/KnobCore/src/Level.*` | The microphone's DC blocker, fixed gain and the level in the log |
 | `src/DialUi.*` | The dial drawn with LVGL 8.4.0 from Dial and Pages: the boot screen, gauges, navigation, media (over the cover), and a call over them ([ADR-0044 amendment 2](../../docs/architecture/adr/0044-knob-display.md#amendment-2026-11-22-2-the-dial-drawn)) |
 | `include/lv_conf.h` | LVGL's settings: the package's template, changed where its header says |
 | `src/fonts/`, `tools/make_fonts.sh` | Montserrat Medium and SemiBold in eight sizes, generated with `lv_font_conv` (`make knob-fonts`; don't edit by hand) |
-| `src/main.cpp` | USB (TinyUSB composite: CDC + HID Consumer Control), the frame reader, the knob and touch, the log |
+| `src/main.cpp` | USB (TinyUSB composite: CDC + HID Consumer Control + a UAC1 microphone), the frame reader, the knob and touch, the log |
 | `esp32-off/main.cpp` | The board's second ESP32 (env `esp32-off`): no Wi-Fi, no Bluetooth, deep sleep. `make knob-esp32-off PORT=/dev/cu.usbserial-…` with the USB-C plug turned over |
 | `test/` | Host tests (Unity); `test_frame` parses the exact lines knob-link's tests produce (gauges, nav, media, call); `test_art` checks base64 and CRC-32 against the same vectors as knob-link's `art.rs` |
 
