@@ -132,26 +132,59 @@ async fn a_route_and_tiles_from_mapbox() {
         route.maneuvers[0].instruction
     );
 
-    // 512-pixel tiles at Mapbox's zoom 14 over Lebanon, day and night.
+    // The vector map (the default, MAPBOX_MAP unset): day and night styles
+    // with their sprites and sources, then each source's tile at zoom 14
+    // over Lebanon.
+    assert!(status.vector);
     let (x, y) = tile(39.8103, -98.5559, 14);
     for style in [pb::MapStyle::Day, pb::MapStyle::Night] {
-        let t = online
-            .get_tile(pb::GetTileRequest {
+        let s = online
+            .get_map_style(pb::GetMapStyleRequest {
                 style: style as i32,
-                z: 14,
-                x,
-                y,
+                pixel_ratio: 2,
             })
             .await
             .unwrap()
             .into_inner();
-        assert!(t.content_type.starts_with("image/"), "{}", t.content_type);
-        assert!(t.data.starts_with(b"\x89PNG") || t.data.starts_with(b"\xff\xd8"));
-        eprintln!(
-            "{style:?} tile 14/{x}/{y}: {} bytes, {}",
-            t.data.len(),
-            t.content_type
-        );
+        assert!(s.style_json.contains("\"layers\""));
+        assert!(s.sprite_png.starts_with(b"\x89PNG"));
+        // 1x: the sheet the bench Pi's GPU can hold (4096 pixels).
+        let one = online
+            .get_map_style(pb::GetMapStyleRequest {
+                style: style as i32,
+                pixel_ratio: 1,
+            })
+            .await
+            .unwrap()
+            .into_inner();
+        let (w2, w1) = (png_width(&s.sprite_png), png_width(&one.sprite_png));
+        eprintln!("{style:?} sprites: 2x {w2} wide, 1x {w1} wide");
+        assert!(w1 <= 4096 && w1 < w2, "1x {w1}, 2x {w2}");
+        assert!(s.sources.iter().any(|src| src.id == "composite"));
+        for src in &s.sources {
+            eprintln!(
+                "{style:?} source {}: zooms {}-{}",
+                src.id, src.min_zoom, src.max_zoom
+            );
+            let t = online
+                .get_tile(pb::GetTileRequest {
+                    style: style as i32,
+                    z: 14.clamp(src.min_zoom, src.max_zoom),
+                    x,
+                    y,
+                    source: src.id.clone(),
+                })
+                .await
+                .unwrap()
+                .into_inner();
+            // An uncompressed tile, or none where the source has nothing.
+            assert!(!t.data.starts_with(b"\x1f\x8b"));
+            eprintln!(
+                "  tile 14/{x}/{y}: {} bytes, {}",
+                t.data.len(),
+                t.content_type
+            );
+        }
     }
 
     // A town and a street, from Mapbox (no offline index here).
@@ -186,7 +219,7 @@ async fn a_route_and_tiles_from_mapbox() {
         .await
         .unwrap();
     assert!(
-        log.contains("online: Mapbox routes (driving-traffic), map"),
+        log.contains("online: Mapbox routes (driving-traffic), vector map"),
         "{log}"
     );
     assert!(!log.contains(&token), "the token reached the log");
@@ -197,4 +230,10 @@ fn tiles_of_a_point() {
     // Lebanon, Kansas at zoom 10 (checked by hand against a tile fetched
     // from Mapbox on 2026-11-23).
     assert_eq!(tile(39.8, -98.58, 10), (231, 388));
+}
+
+/// A PNG's width, from its IHDR.
+fn png_width(png: &[u8]) -> u32 {
+    assert!(png.len() > 24 && png.starts_with(b"\x89PNG"));
+    u32::from_be_bytes([png[16], png[17], png[18], png[19]])
 }

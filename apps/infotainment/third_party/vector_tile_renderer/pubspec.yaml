@@ -1,7 +1,7 @@
 name: vector_tile_renderer
 description: A vector tile renderer for use in creating map tile images or writing to a canvas.
 # 6.1.0 from pub.dev, patched for the F-250 dashboard: see F250_PATCH.md.
-version: 6.1.0+f250.1
+version: 6.1.0+f250.2
 publish_to: none
 
 environment:

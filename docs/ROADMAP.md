@@ -475,7 +475,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       route or destination shown without a map file credits OpenStreetMap. Widget tests at 800×480.
       6.5.5 (online navigation and Wi-Fi) `[SIM]` ([ADR-0052](architecture/adr/0052-online-navigation-with-mapbox-and-wifi-settings.md),
       2026-11-23, owner asked): with a Mapbox token and a network, routes from Mapbox `driving-traffic` (Valhalla the
-      fallback, Mapbox skipped 60 s after a failure) and Mapbox's raster map through navigation's `OnlineMapService`
+      fallback, Mapbox skipped 60 s after a failure) and Mapbox's map through navigation's `OnlineMapService`
+      (vector tiles drawn by the dashboard since 2026-11-24, with labels placed across tiles and 1x sprites for a
+      1:1 screen; raster with `MAPBOX_MAP=raster`; bench-log 2026-11-24; the Mapbox wordmark is still to add)
       (the dashboard keeps no network), and search from Mapbox's Geocoding API (v6) before the offline index; one
       curl per request, the token a systemd credential. Wi-Fi from
       Settings › System › Wi-Fi through a new `services/network` over connman (`f250.network.v1`, passphrases

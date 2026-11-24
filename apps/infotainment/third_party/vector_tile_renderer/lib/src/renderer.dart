@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'constants.dart';
 import 'context.dart';
 import 'features/feature_renderer.dart';
+import 'features/label_space.dart';
 import 'logger.dart';
 import 'optimizations.dart';
 import 'profiling.dart';
@@ -77,4 +78,94 @@ class Renderer {
       canvas.restore();
     });
   }
+
+  /// F-250 patch: draws the symbol layers (labels, shields, icons) of
+  /// several tiles at once, with one [labels] space, so a label near a
+  /// tile's edge can reach into the next tile and labels of neighbouring
+  /// tiles don't overlap. [render] keeps each label inside its own tile and
+  /// drops the rest.
+  ///
+  /// Layers are placed from the top of the style down, as Mapbox GL places
+  /// them, so a town's name wins over a road's. Within a layer, [tiles] go
+  /// in the order given (put the most important first). Nothing is clipped.
+  void renderSymbols(
+    Canvas canvas,
+    List<SymbolTile> tiles, {
+    required SharedLabelSpace labels,
+    required double zoom,
+    required double rotation,
+  }) {
+    profileSync('RenderSymbols', () {
+      final tileSpace = Rect.fromLTWH(
+        0,
+        0,
+        tileSize.toDouble(),
+        tileSize.toDouble(),
+      );
+      final contexts = [
+        for (final tile in tiles)
+          Context(
+            logger: logger,
+            canvas: canvas,
+            featureRenderer: featureRenderer,
+            tileSource: tile.source,
+            zoomScaleFactor: tile.scale,
+            zoom: zoom,
+            rotation: rotation,
+            tileSpace: tileSpace,
+            tileClip: tile.clip,
+            optimizations: Optimizations(
+              skipInBoundsChecks:
+                  (tile.clip.width - tileSpace.width).abs() <
+                  (tileSpace.width / 2),
+            ),
+            textPainterProvider: painterProvider,
+            labelSpace: TileLabelSpace(
+              labels,
+              own: tile.clip,
+              origin: tile.origin,
+              scale: tile.scale,
+            ),
+          ),
+      ];
+      final layers = theme
+          .atZoom(zoom)
+          .layers
+          .where((layer) => layer.type == ThemeLayerType.symbol)
+          .toList()
+          .reversed;
+      for (final themeLayer in layers) {
+        for (var i = 0; i < tiles.length; ++i) {
+          final tile = tiles[i];
+          canvas.save();
+          canvas.translate(tile.origin.dx, tile.origin.dy);
+          canvas.scale(tile.scale);
+          themeLayer.render(contexts[i]);
+          canvas.restore();
+        }
+      }
+    });
+  }
+}
+
+/// F-250 patch: one tile for [Renderer.renderSymbols].
+class SymbolTile {
+  SymbolTile({
+    required this.source,
+    required this.origin,
+    required this.scale,
+    required this.clip,
+  });
+
+  final TileSource source;
+
+  /// Where the tile's top-left corner (its pixel 0,0) is on the canvas.
+  final Offset origin;
+
+  /// Canvas pixels per tile pixel (a tile is 256 pixels across).
+  final double scale;
+
+  /// The part of the tile that is this tile, in the tile's pixels: all of
+  /// it, or the quarter (and so on) when a lower zoom's tile is stretched.
+  final Rect clip;
 }

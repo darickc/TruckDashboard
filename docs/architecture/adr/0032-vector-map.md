@@ -137,5 +137,26 @@ needs no change either way: every protobuf version reads the same messages.
   pictures; on the Pi the dashboard used 3–5 % of a core following the truck
   on Nav, against 8–10 % in raster mode (`top`, bench-log 2026-11-13).
   Dragging the map wasn't measured.
+  *Amended 2026-11-24:* **labels are placed across tiles.** vector_map_tiles
+  drew each tile's labels in that tile's painter, clipped to the tile, and
+  the renderer kept a label only if it fit completely inside its tile. Town
+  names and route shields near a tile's edge were missing (seen on Mapbox's
+  vector map, ADR-0052; the offline map's tiles behave the same way). Now a
+  patched copy of vector_map_tiles is in
+  `apps/infotainment/third_party/vector_map_tiles` (`F250_PATCH.md`). One
+  painter over the tiles places all their labels together, through the
+  renderer's new `renderSymbols`:
+  - a label may reach into the next tile, and is drawn whole;
+  - labels from neighbouring tiles don't overlap;
+  - a feature in two tiles' data is labelled once;
+  - the same name repeats only 400 px apart;
+  - icons are collision-checked as well as text;
+  - the top layer of the style is placed first, as Mapbox GL does.
+
+  Placement runs at most every 250 ms. In between, the last placement moves
+  with the map. [SIM]: `test/unit/edge_labels_test.dart`.
+  [BENCH] 2026-11-24 on the Mapbox map: the dashboard used 5–12 % of a core
+  following the truck on Nav (bench-log). The offline map hasn't been looked
+  at on the Pi since this change.
 - Third-party notices: the fonts' OFL and the style and icon licences are in
   `assets/map/README.md`. The map data's ODbL attribution is on screen.

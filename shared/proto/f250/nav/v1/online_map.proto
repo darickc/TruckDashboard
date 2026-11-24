@@ -1,9 +1,11 @@
 syntax = "proto3";
 
-// The online map (ADR-0052): Mapbox's raster tiles, fetched by
-// services/navigation (which has the token and the network; the dashboard
-// has neither) and handed to the dashboard. The Nav screen shows them while
-// the Pi is on a network, and the offline map otherwise.
+// The online map (ADR-0052): Mapbox's tiles, fetched by services/navigation
+// (which has the token and the network; the dashboard has neither) and
+// handed to the dashboard. The Nav screen shows them while the Pi is on a
+// network, and the offline map otherwise. Either raster tiles (images) or
+// vector tiles drawn by the dashboard with Mapbox's style (GetMapStyle),
+// as navigation's status says (`vector`).
 package f250.nav.v1;
 
 service OnlineMapService {
@@ -14,6 +16,11 @@ service OnlineMapService {
   // can't be reached or refuses (the message says why), INVALID_ARGUMENT
   // for a tile outside the zooms.
   rpc GetTile(GetTileRequest) returns (GetTileResponse);
+  // The vector map's style for day or night: Mapbox's style document, its
+  // sprites, and the zooms of each of its vector sources. FAILED_PRECONDITION
+  // without a token or while the map is raster, UNAVAILABLE when Mapbox can't
+  // be reached.
+  rpc GetMapStyle(GetMapStyleRequest) returns (GetMapStyleResponse);
 }
 
 enum MapStyle {
@@ -39,6 +46,9 @@ message GetOnlineMapStatusResponse {
   // Routes go to Mapbox first now: false while it is skipped after a
   // failure (ADR-0052 decision 3), or without a token.
   bool routing_online = 6;
+  // The tiles are Mapbox Vector Tiles, drawn with GetMapStyle's style;
+  // false: raster images (the fields above).
+  bool vector = 7;
 }
 
 message GetTileRequest {
@@ -46,10 +56,42 @@ message GetTileRequest {
   uint32 z = 2;
   uint32 x = 3;
   uint32 y = 4;
+  // Vector: the style's source id ("composite", "mapbox-traffic"), at that
+  // source's zooms (GetMapStyleResponse). Empty: a raster tile.
+  string source = 5;
 }
 
 message GetTileResponse {
-  // The image as Mapbox sent it (PNG or JPEG).
+  // Raster: the image as Mapbox sent it (PNG or JPEG). Vector: the tile,
+  // uncompressed; empty where Mapbox has none.
   bytes data = 1;
   string content_type = 2;
+}
+
+message GetMapStyleRequest {
+  MapStyle style = 1;
+  // The screen's pixels per logical pixel: 1 gets Mapbox's 1x sprites, 0
+  // (unset) or 2 and up its 2x. The bench Pi's panel is 1; its GPU can't
+  // hold the 2x sheet (4416 pixels wide), and a shrunk sheet puts every
+  // icon in the wrong place (bench-log 2026-11-24).
+  uint32 pixel_ratio = 2;
+}
+
+message MapSource {
+  // The id the style's layers name ("composite").
+  string id = 1;
+  // The zooms Mapbox has tiles for (its TileJSON); past max_zoom the
+  // dashboard draws max_zoom's tiles larger.
+  uint32 min_zoom = 2;
+  uint32 max_zoom = 3;
+}
+
+message GetMapStyleResponse {
+  // Mapbox's style document (JSON) as sent, with its `mapbox://` URLs: the
+  // dashboard asks GetTile for each source by id, not those URLs.
+  string style_json = 1;
+  // The sprites at 2x: the index (JSON) and the image (PNG).
+  string sprite_json = 2;
+  bytes sprite_png = 3;
+  repeated MapSource sources = 4;
 }

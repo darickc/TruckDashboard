@@ -156,7 +156,8 @@ struct Args {
     /// curl, for Mapbox's requests (ADR-0052). Mapbox is used only with a
     /// token: systemd's credential `mapbox-token` (the Pi), else
     /// MAPBOX_ACCESS_TOKEN in the environment (development). MAPBOX_STYLE_DAY
-    /// and MAPBOX_STYLE_NIGHT pick the online map's styles.
+    /// and MAPBOX_STYLE_NIGHT pick the online map's styles, MAPBOX_MAP
+    /// "vector" (the default) or "raster" its kind.
     #[arg(long, default_value = "curl", value_name = "PROGRAM")]
     curl: PathBuf,
 }
@@ -239,14 +240,28 @@ async fn main() -> ExitCode {
         }
         Arc::new(m)
     });
-    let tiles = Arc::new(Tiles::new(
-        online.clone(),
-        &env("MAPBOX_STYLE_DAY").unwrap_or_else(|| mapbox::STYLE_DAY.to_string()),
-        &env("MAPBOX_STYLE_NIGHT").unwrap_or_else(|| mapbox::STYLE_NIGHT.to_string()),
-    ));
+    let kind = match mapbox::MapKind::parse(&env("MAPBOX_MAP").unwrap_or_default()) {
+        Ok(k) => k,
+        Err(e) => {
+            eprintln!("[navigation] {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let tiles = Arc::new(
+        Tiles::new(
+            online.clone(),
+            &env("MAPBOX_STYLE_DAY").unwrap_or_else(|| mapbox::STYLE_DAY.to_string()),
+            &env("MAPBOX_STYLE_NIGHT").unwrap_or_else(|| mapbox::STYLE_NIGHT.to_string()),
+        )
+        .with_kind(kind),
+    );
     match &online {
         Some(m) => eprintln!(
-            "[navigation] online: Mapbox routes (driving-traffic), map ({}, {}) and search (country: {}) while there is a network",
+            "[navigation] online: Mapbox routes (driving-traffic), {} map ({}, {}) and search (country: {}) while there is a network",
+            match kind {
+                mapbox::MapKind::Vector => "vector",
+                mapbox::MapKind::Raster => "raster",
+            },
             tiles.style_day,
             tiles.style_night,
             if m.search_country.is_empty() {

@@ -3851,3 +3851,51 @@ Verdict: the knob's microphone works as the call microphone through the
 echo canceller, and on the bench it separates speech from the room better
 than the C250. Not yet in the truck (road noise, where the knob sits).
 Closes: spike S4 (ADR-0045), on the bench.
+
+## 2026-11-24 — Mapbox's vector map on the Pi: labels across tiles, 1x sprites (ADR-0052 decision 6, ADR-0032) [BENCH]
+
+Hardware: bench Pi 5 as in the entries above, on Ethernet; Nav on the
+simulated receiver near Lebanon, Kansas, night style. Software: uncommitted
+work on 84ef025, built by `make deploy-build`. Only these were installed,
+because a full `make deploy` has browned the Pi out:
+- `/opt/f250/bin/navigation` (sha256 d8fcf529…4885);
+- the dashboard's `lib/libapp.so` (85bba671…0407).
+
+Each was followed by `systemctl restart`.
+
+Copying the whole bundle with `rsync --delete` (the first try) removed the
+links that stage1 adds to it, and the dashboard stopped on start ("cannot
+open shared object file: libflutter_engine.so"). Restored as stage1 does:
+`config.toml`, `data/icudtl.dat` and `lib/libflutter_engine.so`. Copy
+`libapp.so` alone.
+
+What was seen on the panel:
+- **Vector map, as first built.** Roads, water, town names and route
+  shields are drawn by the dashboard and stay upright when the map turns.
+  Every US route shield was broken: half a 281 shield beside half of a
+  blue one, and a red road-closure sign over half of a 36 shield.
+- **Cause: the sprite sheet.** Mapbox's 2x sheet is 4416 × 2172 pixels.
+  Cut from that sheet as if it had been shrunk to 4096 wide, the 281 and 36
+  shields give exactly the halves seen on the panel. So the Pi's GPU
+  evidently holds no more than 4096 pixels, and the engine shrank the sheet.
+  The Mac draws the same sheet correctly. **Fix:** navigation now serves
+  Mapbox's 1x sheet (2208 wide) to a screen of 1 pixel per logical pixel,
+  which the Pi's panel is (`GetMapStyleRequest.pixel_ratio`). After it, the
+  281, 36 and K-181 shields were whole on the panel, with the map turned.
+- **Labels at tile edges.** Upstream, a label that didn't fit inside its own
+  tile was dropped. With labels placed across tiles (ADR-0032, amended
+  2026-11-24), Lebanon, Esbon, Salem and the shields near tile edges show.
+  Placing labels top layer first at first drew lower layers' icons over
+  shields; icons are now collision-checked too.
+- **CPU.** The dashboard used 5–12 % of a core following the truck on Nav
+  (`top`, 6 samples 2 s apart), against 5–7.5 % before the label change.
+- **Power.** No "Undervoltage detected" in the 10 minutes sampled. The
+  owner says the supply is a Nintendo Switch adapter. That gives 5 V at
+  1.5 A, against the Pi 5's 5 V 5 A; its 15 V output isn't usable by the
+  Pi.
+
+Not checked: the offline map on the Pi since the label change, the day
+style on the Pi, and the 1x sheet on a 2x screen.
+
+Verdict: Mapbox's vector map works on the bench Pi, with whole and upright
+shields and names.

@@ -400,6 +400,7 @@ mod tests {
 
     fn ok(body: &[u8]) -> Result<Fetched, String> {
         Ok(Fetched {
+            max_age: None,
             status: 200,
             content_type: "application/vnd.geo+json".into(),
             body: body.to_vec(),
@@ -460,6 +461,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("missing.sqlite");
         let s = script(vec![Ok(Fetched {
+            max_age: None,
             status: 503,
             content_type: "text/plain".into(),
             body: b"down".to_vec(),

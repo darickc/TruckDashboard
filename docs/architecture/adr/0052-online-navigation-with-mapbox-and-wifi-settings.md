@@ -156,6 +156,35 @@ Facts checked on 2026-11-23:
    at most Mapbox's 12 h. Raster, not vector: vector_map_tiles would need
    Mapbox's styles rewritten for its renderer, and raster costs the Pi
    less.
+   *Amended 2026-11-24 (owner asked to try Mapbox's vector tiles):* the
+   online map is now **vector** by default; `MAPBOX_MAP=raster` keeps the
+   raster tiles. Raster labels are drawn into the picture, so they turned
+   upside down with the heading-up map (bench-log 2026-11-23); the dashboard
+   draws vector labels itself, upright. Mapbox's styles needed no rewrite:
+   the renderer reads `navigation-day-v1` and `navigation-night-v1` with no
+   warnings once their fonts are swapped for the bundled Noto Sans
+   (`online_vector_map.dart`).
+   - navigation serves `GetMapStyle`: the style, each vector source's zooms
+     (its TileJSON) and the sprites. `GetTile` with a `source` gives that
+     source's vector tile (Vector Tiles API, `.mvt`, uncompressed; Mapbox's
+     404 is an empty tile). Each tile is kept for Mapbox's `max-age`, at
+     most 12 h: traffic 90 s, incidents 60 s, streets 12 h. Vector tiles cost
+     half what raster tiles do after the free allowance (2026-11-24).
+   - **Sprites by pixel ratio** (`GetMapStyleRequest.pixel_ratio`): Mapbox's
+     1x sheet for a screen of 1 pixel per logical pixel, like the bench Pi's
+     panel, 2x otherwise. The 2x sheet is 4416 pixels wide. The Pi's GPU
+     evidently holds no more than 4096, and the engine shrinks a sheet it
+     can't hold, so every icon came from the wrong place: half a shield
+     beside half of the next one (bench-log 2026-11-24). The 1x sheet is
+     2208 wide.
+   - **Labels are placed across tiles.** vector_map_tiles kept each label
+     inside its own tile, so names and shields near a tile's edge were
+     dropped. A patched copy now places every visible tile's labels together
+     ([ADR-0032](0032-vector-map.md), amended 2026-11-24). This applies to
+     the offline map too.
+   - Still to do: Mapbox's product terms (1.4.1) want the Mapbox wordmark
+     shown with the attribution; the screen shows "Mapbox · © Mapbox ©
+     OpenStreetMap" in text only.
 7. **The Nav screen picks its map**: Mapbox's when the Wi-Fi service says
    the Pi is on a network (connman's overall `ready` or `online`, over Wi-Fi
    or any other connection, such as Ethernet on the bench: its own internet

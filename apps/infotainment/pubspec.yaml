@@ -57,6 +57,10 @@ dependency_overrides:
   # third_party/vector_tile_renderer/F250_PATCH.md.
   vector_tile_renderer:
     path: third_party/vector_tile_renderer
+  # 9.0.0-beta.13 with labels placed across tiles, so a label near a tile's
+  # edge isn't dropped or cut; third_party/vector_map_tiles/F250_PATCH.md.
+  vector_map_tiles:
+    path: third_party/vector_map_tiles
 
 dev_dependencies:
   flutter_test:

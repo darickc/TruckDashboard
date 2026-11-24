@@ -49,6 +49,7 @@ const GetOnlineMapStatusResponse$json = {
     {'1': 'tile_size', '3': 4, '4': 1, '5': 13, '10': 'tileSize'},
     {'1': 'max_zoom', '3': 5, '4': 1, '5': 13, '10': 'maxZoom'},
     {'1': 'routing_online', '3': 6, '4': 1, '5': 8, '10': 'routingOnline'},
+    {'1': 'vector', '3': 7, '4': 1, '5': 8, '10': 'vector'},
   ],
 };
 
@@ -57,7 +58,8 @@ final $typed_data.Uint8List getOnlineMapStatusResponseDescriptor = $convert.base
     'ChpHZXRPbmxpbmVNYXBTdGF0dXNSZXNwb25zZRIeCgpjb25maWd1cmVkGAEgASgIUgpjb25maW'
     'd1cmVkEhYKBmRldGFpbBgCIAEoCVIGZGV0YWlsEiAKC2F0dHJpYnV0aW9uGAMgASgJUgthdHRy'
     'aWJ1dGlvbhIbCgl0aWxlX3NpemUYBCABKA1SCHRpbGVTaXplEhkKCG1heF96b29tGAUgASgNUg'
-    'dtYXhab29tEiUKDnJvdXRpbmdfb25saW5lGAYgASgIUg1yb3V0aW5nT25saW5l');
+    'dtYXhab29tEiUKDnJvdXRpbmdfb25saW5lGAYgASgIUg1yb3V0aW5nT25saW5lEhYKBnZlY3Rv'
+    'chgHIAEoCFIGdmVjdG9y');
 
 @$core.Deprecated('Use getTileRequestDescriptor instead')
 const GetTileRequest$json = {
@@ -74,13 +76,15 @@ const GetTileRequest$json = {
     {'1': 'z', '3': 2, '4': 1, '5': 13, '10': 'z'},
     {'1': 'x', '3': 3, '4': 1, '5': 13, '10': 'x'},
     {'1': 'y', '3': 4, '4': 1, '5': 13, '10': 'y'},
+    {'1': 'source', '3': 5, '4': 1, '5': 9, '10': 'source'},
   ],
 };
 
 /// Descriptor for `GetTileRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List getTileRequestDescriptor = $convert.base64Decode(
     'Cg5HZXRUaWxlUmVxdWVzdBIrCgVzdHlsZRgBIAEoDjIVLmYyNTAubmF2LnYxLk1hcFN0eWxlUg'
-    'VzdHlsZRIMCgF6GAIgASgNUgF6EgwKAXgYAyABKA1SAXgSDAoBeRgEIAEoDVIBeQ==');
+    'VzdHlsZRIMCgF6GAIgASgNUgF6EgwKAXgYAyABKA1SAXgSDAoBeRgEIAEoDVIBeRIWCgZzb3Vy'
+    'Y2UYBSABKAlSBnNvdXJjZQ==');
 
 @$core.Deprecated('Use getTileResponseDescriptor instead')
 const GetTileResponse$json = {
@@ -95,3 +99,64 @@ const GetTileResponse$json = {
 final $typed_data.Uint8List getTileResponseDescriptor = $convert.base64Decode(
     'Cg9HZXRUaWxlUmVzcG9uc2USEgoEZGF0YRgBIAEoDFIEZGF0YRIhCgxjb250ZW50X3R5cGUYAi'
     'ABKAlSC2NvbnRlbnRUeXBl');
+
+@$core.Deprecated('Use getMapStyleRequestDescriptor instead')
+const GetMapStyleRequest$json = {
+  '1': 'GetMapStyleRequest',
+  '2': [
+    {
+      '1': 'style',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.f250.nav.v1.MapStyle',
+      '10': 'style'
+    },
+    {'1': 'pixel_ratio', '3': 2, '4': 1, '5': 13, '10': 'pixelRatio'},
+  ],
+};
+
+/// Descriptor for `GetMapStyleRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getMapStyleRequestDescriptor = $convert.base64Decode(
+    'ChJHZXRNYXBTdHlsZVJlcXVlc3QSKwoFc3R5bGUYASABKA4yFS5mMjUwLm5hdi52MS5NYXBTdH'
+    'lsZVIFc3R5bGUSHwoLcGl4ZWxfcmF0aW8YAiABKA1SCnBpeGVsUmF0aW8=');
+
+@$core.Deprecated('Use mapSourceDescriptor instead')
+const MapSource$json = {
+  '1': 'MapSource',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'min_zoom', '3': 2, '4': 1, '5': 13, '10': 'minZoom'},
+    {'1': 'max_zoom', '3': 3, '4': 1, '5': 13, '10': 'maxZoom'},
+  ],
+};
+
+/// Descriptor for `MapSource`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List mapSourceDescriptor = $convert.base64Decode(
+    'CglNYXBTb3VyY2USDgoCaWQYASABKAlSAmlkEhkKCG1pbl96b29tGAIgASgNUgdtaW5ab29tEh'
+    'kKCG1heF96b29tGAMgASgNUgdtYXhab29t');
+
+@$core.Deprecated('Use getMapStyleResponseDescriptor instead')
+const GetMapStyleResponse$json = {
+  '1': 'GetMapStyleResponse',
+  '2': [
+    {'1': 'style_json', '3': 1, '4': 1, '5': 9, '10': 'styleJson'},
+    {'1': 'sprite_json', '3': 2, '4': 1, '5': 9, '10': 'spriteJson'},
+    {'1': 'sprite_png', '3': 3, '4': 1, '5': 12, '10': 'spritePng'},
+    {
+      '1': 'sources',
+      '3': 4,
+      '4': 3,
+      '5': 11,
+      '6': '.f250.nav.v1.MapSource',
+      '10': 'sources'
+    },
+  ],
+};
+
+/// Descriptor for `GetMapStyleResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getMapStyleResponseDescriptor = $convert.base64Decode(
+    'ChNHZXRNYXBTdHlsZVJlc3BvbnNlEh0KCnN0eWxlX2pzb24YASABKAlSCXN0eWxlSnNvbhIfCg'
+    'tzcHJpdGVfanNvbhgCIAEoCVIKc3ByaXRlSnNvbhIdCgpzcHJpdGVfcG5nGAMgASgMUglzcHJp'
+    'dGVQbmcSMAoHc291cmNlcxgEIAMoCzIWLmYyNTAubmF2LnYxLk1hcFNvdXJjZVIHc291cmNlcw'
+    '==');

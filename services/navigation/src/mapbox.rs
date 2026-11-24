@@ -28,6 +28,8 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::Semaphore;
 use tokio::time::Instant;
 
+use crate::mapbox_vector;
+
 use crate::valhalla::{
     Costing, LatLon, Maneuver, Route, RouteRequest, Router, Units, cumulative_m, decode_polyline6,
 };
@@ -49,6 +51,25 @@ pub const STYLE_NIGHT: &str = "mapbox/navigation-night-v1";
 
 /// Search's country by default (`MAPBOX_SEARCH_COUNTRY`): the truck's.
 pub const SEARCH_COUNTRY: &str = "us";
+
+/// The online map: Mapbox's raster tiles (Static Tiles API) or its vector
+/// tiles drawn by the dashboard (ADR-0052 decision 6, amended 2026-11-24).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MapKind {
+    Raster,
+    Vector,
+}
+
+impl MapKind {
+    /// `MAPBOX_MAP`: "vector" or "raster"; empty is the default, vector.
+    pub fn parse(s: &str) -> Result<Self, String> {
+        match s.trim() {
+            "" | "vector" => Ok(MapKind::Vector),
+            "raster" => Ok(MapKind::Raster),
+            other => Err(format!("MAPBOX_MAP={other}: vector or raster")),
+        }
+    }
+}
 
 /// The tiles asked for: 512 pixels, one zoom level behind 256-pixel tiles
 /// (Static Tiles API).
@@ -77,6 +98,8 @@ pub struct Fetched {
     pub status: u16,
     pub content_type: String,
     pub body: Vec<u8>,
+    /// `Cache-Control: max-age`, when the answer gave one.
+    pub max_age: Option<Duration>,
 }
 
 /// Fetches a URL. `Err` means no HTTP answer at all: no network, a name that
@@ -122,7 +145,8 @@ pub fn redact(s: &str) -> String {
 
 /// curl's config for one request, read from its standard input: the URL is
 /// never on a command line other users could read. Its write-out puts the
-/// status and the content type on the last line of standard error.
+/// status, the content type and `Cache-Control` on the last line of
+/// standard error, separated by tabs.
 pub fn curl_config(url: &str, timeout: Duration) -> String {
     let quoted = url.replace('\\', "\\\\").replace('"', "\\\"");
     let total = timeout.as_secs_f64().max(1.0);
@@ -130,9 +154,10 @@ pub fn curl_config(url: &str, timeout: Duration) -> String {
         "url = \"{quoted}\"\n\
          silent\n\
          show-error\n\
+         compressed\n\
          max-time = {total:.1}\n\
          connect-timeout = {:.1}\n\
-         write-out = \"%{{stderr}}\\n%{{http_code}} %{{content_type}}\\n\"\n",
+         write-out = \"%{{stderr}}\\n%{{http_code}}\\t%{{content_type}}\\t%header{{cache-control}}\\n\"\n",
         (total / 2.0).min(5.0),
     )
 }
@@ -161,7 +186,10 @@ pub fn parse_curl_output(
             });
         return Err(redact(&why));
     }
-    let (status, content_type) = last.split_once(' ').unwrap_or((last, ""));
+    let mut fields = last.split('\t');
+    let status = fields.next().unwrap_or("");
+    let content_type = fields.next().unwrap_or("");
+    let max_age = fields.next().and_then(max_age);
     let status: u16 = status
         .parse()
         .map_err(|_| format!("curl's write-out wasn't a status: {}", redact(last)))?;
@@ -172,7 +200,18 @@ pub fn parse_curl_output(
         status,
         content_type: content_type.trim().to_string(),
         body: stdout.to_vec(),
+        max_age,
     })
+}
+
+/// `max-age=N` in a `Cache-Control` value.
+pub fn max_age(cache_control: &str) -> Option<Duration> {
+    cache_control
+        .split(',')
+        .map(str::trim)
+        .find_map(|d| d.strip_prefix("max-age="))
+        .and_then(|n| n.trim().parse::<u64>().ok())
+        .map(Duration::from_secs)
 }
 
 impl Fetch for Curl {
@@ -549,7 +588,11 @@ impl<F: Fetch> Mapbox<F> {
         query: &str,
         timeout: Duration,
     ) -> Result<Fetched, String> {
-        let url = format!("{}{path}?{query}&access_token={}", self.api, self.token);
+        let url = if query.is_empty() {
+            format!("{}{path}?access_token={}", self.api, self.token)
+        } else {
+            format!("{}{path}?{query}&access_token={}", self.api, self.token)
+        };
         self.fetch.get(&url, timeout).await.map_err(|e| redact(&e))
     }
 
@@ -629,22 +672,27 @@ impl<R: Router, F: Fetch> Router for OnlineFirst<R, F> {
     }
 }
 
-/// The online map's tiles: fetched from Mapbox, kept in memory for at most
-/// Mapbox's 12 h (`max-age=43200`), at most `capacity` of them, a few
-/// fetched at once.
+/// The online map's tiles: fetched from Mapbox, kept in memory for the
+/// answer's `max-age` (12 h for map tiles, 90 s for traffic) and never more
+/// than 12 h, at most `capacity` of them, a few fetched at once.
 pub struct Tiles<F: Fetch> {
     mapbox: Option<Arc<Mapbox<F>>>,
     pub style_day: String,
     pub style_night: String,
+    pub kind: MapKind,
     cache: Mutex<TileCache>,
     fetching: Semaphore,
+    /// The vector styles by night (true) and day.
+    styles: tokio::sync::Mutex<HashMap<bool, mapbox_vector::Shared>>,
+    /// Their sprites by night and 2x (true) or 1x.
+    sprites: tokio::sync::Mutex<HashMap<(bool, bool), Arc<mapbox_vector::Sprites>>>,
 }
 
 /// Mapbox's `max-age` for Static Tiles.
 pub const TILE_MAX_AGE: Duration = Duration::from_secs(43_200);
 
-/// A tile: night or day, z, x, y.
-type TileKey = (bool, u32, u32, u32);
+/// A tile: the raster style or the vector tilesets, z, x, y.
+type TileKey = (String, u32, u32, u32);
 
 #[derive(Default)]
 struct TileCache {
@@ -658,8 +706,24 @@ impl<F: Fetch> Tiles<F> {
             mapbox,
             style_day: style_day.to_string(),
             style_night: style_night.to_string(),
+            kind: MapKind::Raster,
             cache: Mutex::new(TileCache::default()),
             fetching: Semaphore::new(6),
+            styles: tokio::sync::Mutex::new(HashMap::new()),
+            sprites: tokio::sync::Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub fn with_kind(mut self, kind: MapKind) -> Self {
+        self.kind = kind;
+        self
+    }
+
+    fn style_name(&self, night: bool) -> &str {
+        if night {
+            &self.style_night
+        } else {
+            &self.style_day
         }
     }
 
@@ -673,15 +737,20 @@ impl<F: Fetch> Tiles<F> {
         self.mapbox.as_ref().is_some_and(|m| m.routing_online())
     }
 
-    fn cached(&self, key: TileKey) -> Option<Arc<Fetched>> {
+    fn cached(&self, key: &TileKey) -> Option<Arc<Fetched>> {
         let c = self.cache.lock().ok()?;
-        let (at, t) = c.tiles.get(&key)?;
-        (at.elapsed() < TILE_MAX_AGE).then(|| t.clone())
+        let (until, t) = c.tiles.get(key)?;
+        (Instant::now() < *until).then(|| t.clone())
     }
 
     fn keep(&self, key: TileKey, t: Arc<Fetched>) {
         let Ok(mut c) = self.cache.lock() else { return };
-        if c.tiles.insert(key, (Instant::now(), t)).is_none() {
+        // Mapbox's own max-age (traffic: 90 s), at most 12 h.
+        let keep_for = t.max_age.unwrap_or(TILE_MAX_AGE).min(TILE_MAX_AGE);
+        if c.tiles
+            .insert(key.clone(), (Instant::now() + keep_for, t))
+            .is_none()
+        {
             c.order.push_back(key);
         }
         while c.tiles.len() > Self::CAPACITY {
@@ -704,8 +773,9 @@ impl<F: Fetch> Tiles<F> {
         y: u32,
     ) -> Result<Arc<Fetched>, Option<String>> {
         let m = self.mapbox.as_ref().ok_or(None)?;
-        let key = (night, z, x, y);
-        if let Some(t) = self.cached(key) {
+        let style = self.style_name(night);
+        let key = (format!("raster:{style}"), z, x, y);
+        if let Some(t) = self.cached(&key) {
             return Ok(t);
         }
         let _permit = self
@@ -713,15 +783,88 @@ impl<F: Fetch> Tiles<F> {
             .acquire()
             .await
             .map_err(|e| Some(e.to_string()))?;
-        if let Some(t) = self.cached(key) {
+        if let Some(t) = self.cached(&key) {
             return Ok(t);
         }
-        let style = if night {
-            &self.style_night
-        } else {
-            &self.style_day
-        };
         let t = Arc::new(m.tile(style, z, x, y).await.map_err(Some)?);
+        self.keep(key, t.clone());
+        Ok(t)
+    }
+
+    /// The vector style for day or night, fetched once and kept for at
+    /// most [`TILE_MAX_AGE`] (Mapbox allows a device to keep map content
+    /// for 30 days). `Err(None)`: no token.
+    pub async fn vector_style(&self, night: bool) -> Result<mapbox_vector::Shared, Option<String>> {
+        let m = self.mapbox.as_ref().ok_or(None)?;
+        let mut styles = self.styles.lock().await;
+        if let Some(s) = styles.get(&night).filter(|s| s.at.elapsed() < TILE_MAX_AGE) {
+            return Ok(s.clone());
+        }
+        let s = Arc::new(m.vector_style(self.style_name(night)).await.map_err(Some)?);
+        styles.insert(night, s.clone());
+        Ok(s)
+    }
+
+    /// The vector style's sprites for day or night, 2x (`hi_dpi`) or 1x,
+    /// kept like the style. `Err(None)`: no token.
+    pub async fn vector_sprites(
+        &self,
+        night: bool,
+        hi_dpi: bool,
+    ) -> Result<Arc<mapbox_vector::Sprites>, Option<String>> {
+        let m = self.mapbox.as_ref().ok_or(None)?;
+        let mut sprites = self.sprites.lock().await;
+        if let Some(s) = sprites
+            .get(&(night, hi_dpi))
+            .filter(|s| s.at.elapsed() < TILE_MAX_AGE)
+        {
+            return Ok(s.clone());
+        }
+        let s = Arc::new(
+            m.sprites(self.style_name(night), hi_dpi)
+                .await
+                .map_err(Some)?,
+        );
+        sprites.insert((night, hi_dpi), s.clone());
+        Ok(s)
+    }
+
+    /// One vector tile of the style's `source`. `Err(None)`: no token;
+    /// `Err(Some(why))`, including a source or zoom the style doesn't have.
+    pub async fn get_vector(
+        &self,
+        night: bool,
+        source: &str,
+        z: u32,
+        x: u32,
+        y: u32,
+    ) -> Result<Arc<Fetched>, Option<String>> {
+        let m = self.mapbox.as_ref().ok_or(None)?.clone();
+        let style = self.vector_style(night).await?;
+        let src = style
+            .sources
+            .iter()
+            .find(|s| s.id == source)
+            .ok_or_else(|| Some(format!("the style has no vector source {source:?}")))?;
+        if z < src.min_zoom || z > src.max_zoom {
+            return Err(Some(format!(
+                "{source} has zooms {}-{}, not {z}",
+                src.min_zoom, src.max_zoom
+            )));
+        }
+        let key = (format!("vector:{}", src.tilesets), z, x, y);
+        if let Some(t) = self.cached(&key) {
+            return Ok(t);
+        }
+        let _permit = self
+            .fetching
+            .acquire()
+            .await
+            .map_err(|e| Some(e.to_string()))?;
+        if let Some(t) = self.cached(&key) {
+            return Ok(t);
+        }
+        let t = Arc::new(m.vector_tile(&src.tilesets, z, x, y).await.map_err(Some)?);
         self.keep(key, t.clone());
         Ok(t)
     }
@@ -1001,21 +1144,31 @@ mod tests {
         assert!(c.starts_with("url = \"https://a/b?access_token=x&y=\\\"z\\\"\"\n"));
         assert!(c.contains("max-time = 10.0\n"));
         assert!(c.contains("connect-timeout = 5.0\n"));
-        assert!(c.contains("write-out = \"%{stderr}\\n%{http_code} %{content_type}\\n\"\n"));
+        assert!(c.contains(
+            "write-out = \"%{stderr}\\n%{http_code}\\t%{content_type}\\t%header{cache-control}\\n\"\n"
+        ));
+        assert!(c.contains("compressed\n"));
     }
 
     #[test]
     fn curls_outcome() {
-        let ok = parse_curl_output(Some(0), b"PNG", b"\n200 image/png\n").unwrap();
+        let ok = parse_curl_output(
+            Some(0),
+            b"PNG",
+            b"\n200\timage/png\tmax-age=43200,s-maxage=7200\n",
+        )
+        .unwrap();
         assert_eq!(ok.status, 200);
         assert_eq!(ok.content_type, "image/png");
         assert_eq!(ok.body, b"PNG");
-        let no_type = parse_curl_output(Some(0), b"{}", b"\n401 \n").unwrap();
+        assert_eq!(ok.max_age, Some(Duration::from_secs(43_200)));
+        let no_type = parse_curl_output(Some(0), b"{}", b"\n401\t\t\n").unwrap();
         assert_eq!((no_type.status, no_type.content_type.as_str()), (401, ""));
+        assert_eq!(no_type.max_age, None);
         let e = parse_curl_output(
             Some(6),
             b"",
-            b"curl: (6) Could not resolve host: api.mapbox.com\n\n000 \n",
+            b"curl: (6) Could not resolve host: api.mapbox.com\n\n000\t\t\n",
         )
         .unwrap_err();
         assert_eq!(e, "curl: (6) Could not resolve host: api.mapbox.com");
@@ -1023,6 +1176,16 @@ mod tests {
             parse_curl_output(None, b"", b"").unwrap_err(),
             "curl was killed"
         );
+    }
+
+    #[test]
+    fn max_age_from_cache_control() {
+        let s = Duration::from_secs;
+        assert_eq!(max_age("max-age=90,s-maxage=90"), Some(s(90)));
+        assert_eq!(max_age("public, max-age=60"), Some(s(60)));
+        assert_eq!(max_age("s-maxage=30"), None);
+        assert_eq!(max_age(""), None);
+        assert_eq!(max_age("max-age=soon"), None);
     }
 
     /// Answers every request with the next of `answers`, counting them.
@@ -1056,6 +1219,7 @@ mod tests {
 
     fn ok_json(s: &str) -> Result<Fetched, String> {
         Ok(Fetched {
+            max_age: None,
             status: 200,
             content_type: "application/json".into(),
             body: s.as_bytes().to_vec(),
@@ -1150,6 +1314,7 @@ mod tests {
 
     fn png() -> Result<Fetched, String> {
         Ok(Fetched {
+            max_age: None,
             status: 200,
             content_type: "image/png".into(),
             body: b"\x89PNG".to_vec(),
@@ -1178,10 +1343,148 @@ mod tests {
         assert_eq!(script.asked.load(Ordering::SeqCst), 3, "older than max-age");
     }
 
+    fn mvt(max_age_s: Option<u64>, ctype: &str) -> Result<Fetched, String> {
+        Ok(Fetched {
+            status: 200,
+            content_type: ctype.into(),
+            body: b"\x1a\x02tile".to_vec(),
+            max_age: max_age_s.map(Duration::from_secs),
+        })
+    }
+
+    const STYLE_DOC: &str = r#"{"version":8,"sources":{
+        "composite":{"type":"vector","url":"mapbox://mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2"},
+        "mapbox-traffic":{"type":"vector","url":"mapbox://mapbox.mapbox-traffic-v1"}
+    },"layers":[]}"#;
+
+    /// A vector map with its style read: 3 requests answered.
+    async fn vector_tiles(more: Vec<Result<Fetched, String>>) -> (Arc<Script>, Tiles<Arc<Script>>) {
+        let mut answers = vec![
+            ok_json(STYLE_DOC),
+            ok_json(r#"{"minzoom":0,"maxzoom":16}"#),
+            ok_json(r#"{"minzoom":6,"maxzoom":16}"#),
+        ];
+        answers.extend(more);
+        let script = Arc::new(Script::new(answers));
+        let m = Arc::new(Mapbox::new(script.clone(), "pk.T").unwrap());
+        let t = Tiles::new(Some(m), STYLE_DAY, STYLE_NIGHT).with_kind(MapKind::Vector);
+        let style = t.vector_style(true).await.unwrap();
+        assert_eq!(
+            style
+                .sources
+                .iter()
+                .map(|s| (s.id.as_str(), s.min_zoom, s.max_zoom))
+                .collect::<Vec<_>>(),
+            vec![("composite", 0, 16), ("mapbox-traffic", 6, 16)]
+        );
+        (script, t)
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_vector_style_is_read_once_with_its_zooms_and_sprites_by_ratio() {
+        let sprite =
+            || ok_json(r#"{"us-highway-3":{"x":0,"y":0,"width":2,"height":2,"pixelRatio":2}}"#);
+        let (script, t) = vector_tiles(vec![sprite(), png(), sprite(), png()]).await;
+        t.vector_style(true).await.unwrap();
+        // 2x for a sharp screen, 1x for the bench Pi's panel; each kept.
+        for _ in 0..2 {
+            let s = t.vector_sprites(true, true).await.unwrap();
+            assert!(s.png.starts_with(b"\x89PNG"));
+            t.vector_sprites(true, false).await.unwrap();
+        }
+        assert_eq!(
+            script.asked.load(Ordering::SeqCst),
+            7,
+            "kept, not asked again"
+        );
+        let urls = script.urls.lock().unwrap().clone();
+        let want = [
+            "/styles/v1/mapbox/navigation-night-v1?access_token=pk.T",
+            "/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2.json?access_token=pk.T",
+            "/v4/mapbox.mapbox-traffic-v1.json?access_token=pk.T",
+            "/styles/v1/mapbox/navigation-night-v1/sprite@2x.json?access_token=pk.T",
+            "/styles/v1/mapbox/navigation-night-v1/sprite@2x.png?access_token=pk.T",
+            "/styles/v1/mapbox/navigation-night-v1/sprite.json?access_token=pk.T",
+            "/styles/v1/mapbox/navigation-night-v1/sprite.png?access_token=pk.T",
+        ];
+        assert_eq!(urls.len(), want.len());
+        for (u, w) in urls.iter().zip(want) {
+            assert_eq!(u, &format!("https://api.mapbox.com{w}"));
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn vector_tiles_are_kept_for_mapboxs_max_age() {
+        let (script, t) = vector_tiles(vec![
+            mvt(Some(43_200), "application/vnd.mapbox-vector-tile"),
+            mvt(Some(90), "application/vnd.mapbox-vector-tile;live=true"),
+            mvt(Some(90), "application/vnd.mapbox-vector-tile;live=true"),
+        ])
+        .await;
+        for _ in 0..2 {
+            t.get_vector(true, "composite", 14, 3, 4).await.unwrap();
+            t.get_vector(true, "mapbox-traffic", 14, 3, 4)
+                .await
+                .unwrap();
+        }
+        assert_eq!(script.asked.load(Ordering::SeqCst), 5);
+        let urls = script.urls.lock().unwrap().clone();
+        assert_eq!(
+            urls[3],
+            "https://api.mapbox.com/v4/mapbox.mapbox-streets-v8,mapbox.mapbox-terrain-v2/14/3/4.mvt?access_token=pk.T"
+        );
+        // Traffic is old after its 90 s; the map isn't.
+        tokio::time::advance(Duration::from_secs(91)).await;
+        t.get_vector(true, "composite", 14, 3, 4).await.unwrap();
+        t.get_vector(true, "mapbox-traffic", 14, 3, 4)
+            .await
+            .unwrap();
+        assert_eq!(script.asked.load(Ordering::SeqCst), 6);
+        // Day uses the same tilesets: the same tiles.
+        let (script, t) = vector_tiles(vec![mvt(None, "application/vnd.mapbox-vector-tile")]).await;
+        t.get_vector(true, "composite", 14, 3, 4).await.unwrap();
+        assert_eq!(script.asked.load(Ordering::SeqCst), 4);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_vector_tile_mapbox_doesnt_have_is_empty_and_bad_asks_are_refused() {
+        let (script, t) = vector_tiles(vec![Ok(Fetched {
+            status: 404,
+            content_type: "application/json".into(),
+            body: br#"{"message":"Tile not found"}"#.to_vec(),
+            max_age: None,
+        })])
+        .await;
+        let empty = t.get_vector(true, "composite", 14, 3, 4).await.unwrap();
+        assert!(empty.body.is_empty());
+        let asked = script.asked.load(Ordering::SeqCst);
+        let e = t.get_vector(true, "elsewhere", 14, 3, 4).await.unwrap_err();
+        assert!(e.unwrap().contains("no vector source"));
+        let e = t
+            .get_vector(true, "mapbox-traffic", 5, 3, 4)
+            .await
+            .unwrap_err();
+        assert_eq!(e.unwrap(), "mapbox-traffic has zooms 6-16, not 5");
+        assert_eq!(
+            script.asked.load(Ordering::SeqCst),
+            asked,
+            "nothing asked of Mapbox"
+        );
+    }
+
+    #[test]
+    fn the_map_kind_from_its_setting() {
+        assert_eq!(MapKind::parse("").unwrap(), MapKind::Vector);
+        assert_eq!(MapKind::parse(" vector ").unwrap(), MapKind::Vector);
+        assert_eq!(MapKind::parse("raster").unwrap(), MapKind::Raster);
+        assert!(MapKind::parse("satellite").is_err());
+    }
+
     #[tokio::test(start_paused = true)]
     async fn tile_failures_say_why_without_the_token() {
         let script = Arc::new(Script::new(vec![
             Ok(Fetched {
+                max_age: None,
                 status: 401,
                 content_type: "application/json".into(),
                 body: br#"{"message":"Not Authorized - Invalid Token"}"#.to_vec(),

@@ -73,6 +73,7 @@ class GetOnlineMapStatusResponse extends $pb.GeneratedMessage {
     $core.int? tileSize,
     $core.int? maxZoom,
     $core.bool? routingOnline,
+    $core.bool? vector,
   }) {
     final result = GetOnlineMapStatusResponse._();
     if (configured != null) result.configured = configured;
@@ -81,6 +82,7 @@ class GetOnlineMapStatusResponse extends $pb.GeneratedMessage {
     if (tileSize != null) result.tileSize = tileSize;
     if (maxZoom != null) result.maxZoom = maxZoom;
     if (routingOnline != null) result.routingOnline = routingOnline;
+    if (vector != null) result.vector = vector;
     return result;
   }
 
@@ -103,6 +105,7 @@ class GetOnlineMapStatusResponse extends $pb.GeneratedMessage {
     ..aI(4, _omitFieldNames ? '' : 'tileSize', fieldType: $pb.PbFieldType.OU3)
     ..aI(5, _omitFieldNames ? '' : 'maxZoom', fieldType: $pb.PbFieldType.OU3)
     ..aOB(6, _omitFieldNames ? '' : 'routingOnline')
+    ..aOB(7, _omitFieldNames ? '' : 'vector')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -193,6 +196,17 @@ class GetOnlineMapStatusResponse extends $pb.GeneratedMessage {
   $core.bool hasRoutingOnline() => $_has(5);
   @$pb.TagNumber(6)
   void clearRoutingOnline() => $_clearField(6);
+
+  /// The tiles are Mapbox Vector Tiles, drawn with GetMapStyle's style;
+  /// false: raster images (the fields above).
+  @$pb.TagNumber(7)
+  $core.bool get vector => $_getBF(6);
+  @$pb.TagNumber(7)
+  set vector($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasVector() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearVector() => $_clearField(7);
 }
 
 class GetTileRequest extends $pb.GeneratedMessage {
@@ -201,12 +215,14 @@ class GetTileRequest extends $pb.GeneratedMessage {
     $core.int? z,
     $core.int? x,
     $core.int? y,
+    $core.String? source,
   }) {
     final result = GetTileRequest._();
     if (style != null) result.style = style;
     if (z != null) result.z = z;
     if (x != null) result.x = x;
     if (y != null) result.y = y;
+    if (source != null) result.source = source;
     return result;
   }
 
@@ -228,6 +244,7 @@ class GetTileRequest extends $pb.GeneratedMessage {
     ..aI(2, _omitFieldNames ? '' : 'z', fieldType: $pb.PbFieldType.OU3)
     ..aI(3, _omitFieldNames ? '' : 'x', fieldType: $pb.PbFieldType.OU3)
     ..aI(4, _omitFieldNames ? '' : 'y', fieldType: $pb.PbFieldType.OU3)
+    ..aOS(5, _omitFieldNames ? '' : 'source')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -287,6 +304,17 @@ class GetTileRequest extends $pb.GeneratedMessage {
   $core.bool hasY() => $_has(3);
   @$pb.TagNumber(4)
   void clearY() => $_clearField(4);
+
+  /// Vector: the style's source id ("composite", "mapbox-traffic"), at that
+  /// source's zooms (GetMapStyleResponse). Empty: a raster tile.
+  @$pb.TagNumber(5)
+  $core.String get source => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set source($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSource() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSource() => $_clearField(5);
 }
 
 class GetTileResponse extends $pb.GeneratedMessage {
@@ -340,7 +368,8 @@ class GetTileResponse extends $pb.GeneratedMessage {
           GetTileResponse.$_createMessage);
   static GetTileResponse? _defaultInstance;
 
-  /// The image as Mapbox sent it (PNG or JPEG).
+  /// Raster: the image as Mapbox sent it (PNG or JPEG). Vector: the tile,
+  /// uncompressed; empty where Mapbox has none.
   @$pb.TagNumber(1)
   $core.List<$core.int> get data => $_getN(0);
   @$pb.TagNumber(1)
@@ -358,6 +387,255 @@ class GetTileResponse extends $pb.GeneratedMessage {
   $core.bool hasContentType() => $_has(1);
   @$pb.TagNumber(2)
   void clearContentType() => $_clearField(2);
+}
+
+class GetMapStyleRequest extends $pb.GeneratedMessage {
+  factory GetMapStyleRequest({
+    MapStyle? style,
+    $core.int? pixelRatio,
+  }) {
+    final result = GetMapStyleRequest._();
+    if (style != null) result.style = style;
+    if (pixelRatio != null) result.pixelRatio = pixelRatio;
+    return result;
+  }
+
+  GetMapStyleRequest._();
+
+  factory GetMapStyleRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetMapStyleRequest()..mergeFromBuffer(data, registry);
+  factory GetMapStyleRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetMapStyleRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetMapStyleRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.nav.v1'),
+      createEmptyInstance: GetMapStyleRequest.$_createMessage)
+    ..aE<MapStyle>(1, _omitFieldNames ? '' : 'style',
+        enumValues: MapStyle.values)
+    ..aI(2, _omitFieldNames ? '' : 'pixelRatio', fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMapStyleRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMapStyleRequest copyWith(void Function(GetMapStyleRequest) updates) =>
+      super.copyWith((message) => updates(message as GetMapStyleRequest))
+          as GetMapStyleRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use GetMapStyleRequest() / GetMapStyleRequest.new instead')
+  static GetMapStyleRequest create() => GetMapStyleRequest._();
+  static $pb.GeneratedMessage $_createMessage() => GetMapStyleRequest._();
+  @$core.override
+  GetMapStyleRequest createEmptyInstance() => GetMapStyleRequest._();
+  @$core.pragma('dart2js:noInline')
+  static GetMapStyleRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetMapStyleRequest>(
+          GetMapStyleRequest.$_createMessage);
+  static GetMapStyleRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  MapStyle get style => $_getN(0);
+  @$pb.TagNumber(1)
+  set style(MapStyle value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStyle() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStyle() => $_clearField(1);
+
+  /// The screen's pixels per logical pixel: 1 gets Mapbox's 1x sprites, 0
+  /// (unset) or 2 and up its 2x. The bench Pi's panel is 1; its GPU can't
+  /// hold the 2x sheet (4416 pixels wide), and a shrunk sheet puts every
+  /// icon in the wrong place (bench-log 2026-11-24).
+  @$pb.TagNumber(2)
+  $core.int get pixelRatio => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set pixelRatio($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPixelRatio() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPixelRatio() => $_clearField(2);
+}
+
+class MapSource extends $pb.GeneratedMessage {
+  factory MapSource({
+    $core.String? id,
+    $core.int? minZoom,
+    $core.int? maxZoom,
+  }) {
+    final result = MapSource._();
+    if (id != null) result.id = id;
+    if (minZoom != null) result.minZoom = minZoom;
+    if (maxZoom != null) result.maxZoom = maxZoom;
+    return result;
+  }
+
+  MapSource._();
+
+  factory MapSource.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      MapSource()..mergeFromBuffer(data, registry);
+  factory MapSource.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      MapSource()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MapSource',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.nav.v1'),
+      createEmptyInstance: MapSource.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aI(2, _omitFieldNames ? '' : 'minZoom', fieldType: $pb.PbFieldType.OU3)
+    ..aI(3, _omitFieldNames ? '' : 'maxZoom', fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MapSource clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MapSource copyWith(void Function(MapSource) updates) =>
+      super.copyWith((message) => updates(message as MapSource)) as MapSource;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use MapSource() / MapSource.new instead')
+  static MapSource create() => MapSource._();
+  static $pb.GeneratedMessage $_createMessage() => MapSource._();
+  @$core.override
+  MapSource createEmptyInstance() => MapSource._();
+  @$core.pragma('dart2js:noInline')
+  static MapSource getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MapSource>(MapSource.$_createMessage);
+  static MapSource? _defaultInstance;
+
+  /// The id the style's layers name ("composite").
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  /// The zooms Mapbox has tiles for (its TileJSON); past max_zoom the
+  /// dashboard draws max_zoom's tiles larger.
+  @$pb.TagNumber(2)
+  $core.int get minZoom => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set minZoom($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMinZoom() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMinZoom() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get maxZoom => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set maxZoom($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMaxZoom() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMaxZoom() => $_clearField(3);
+}
+
+class GetMapStyleResponse extends $pb.GeneratedMessage {
+  factory GetMapStyleResponse({
+    $core.String? styleJson,
+    $core.String? spriteJson,
+    $core.List<$core.int>? spritePng,
+    $core.Iterable<MapSource>? sources,
+  }) {
+    final result = GetMapStyleResponse._();
+    if (styleJson != null) result.styleJson = styleJson;
+    if (spriteJson != null) result.spriteJson = spriteJson;
+    if (spritePng != null) result.spritePng = spritePng;
+    if (sources != null) result.sources.addAll(sources);
+    return result;
+  }
+
+  GetMapStyleResponse._();
+
+  factory GetMapStyleResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetMapStyleResponse()..mergeFromBuffer(data, registry);
+  factory GetMapStyleResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetMapStyleResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetMapStyleResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'f250.nav.v1'),
+      createEmptyInstance: GetMapStyleResponse.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'styleJson')
+    ..aOS(2, _omitFieldNames ? '' : 'spriteJson')
+    ..a<$core.List<$core.int>>(
+        3, _omitFieldNames ? '' : 'spritePng', $pb.PbFieldType.OY)
+    ..pPM<MapSource>(4, _omitFieldNames ? '' : 'sources',
+        subBuilder: MapSource.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMapStyleResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetMapStyleResponse copyWith(void Function(GetMapStyleResponse) updates) =>
+      super.copyWith((message) => updates(message as GetMapStyleResponse))
+          as GetMapStyleResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use GetMapStyleResponse() / GetMapStyleResponse.new instead')
+  static GetMapStyleResponse create() => GetMapStyleResponse._();
+  static $pb.GeneratedMessage $_createMessage() => GetMapStyleResponse._();
+  @$core.override
+  GetMapStyleResponse createEmptyInstance() => GetMapStyleResponse._();
+  @$core.pragma('dart2js:noInline')
+  static GetMapStyleResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetMapStyleResponse>(
+          GetMapStyleResponse.$_createMessage);
+  static GetMapStyleResponse? _defaultInstance;
+
+  /// Mapbox's style document (JSON) as sent, with its `mapbox://` URLs: the
+  /// dashboard asks GetTile for each source by id, not those URLs.
+  @$pb.TagNumber(1)
+  $core.String get styleJson => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set styleJson($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStyleJson() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStyleJson() => $_clearField(1);
+
+  /// The sprites at 2x: the index (JSON) and the image (PNG).
+  @$pb.TagNumber(2)
+  $core.String get spriteJson => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set spriteJson($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSpriteJson() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSpriteJson() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.List<$core.int> get spritePng => $_getN(2);
+  @$pb.TagNumber(3)
+  set spritePng($core.List<$core.int> value) => $_setBytes(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSpritePng() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSpritePng() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $pb.PbList<MapSource> get sources => $_getList(3);
 }
 
 const $core.bool _omitFieldNames =

@@ -9,6 +9,7 @@ import '../themes/style.dart';
 import 'extensions.dart';
 import 'feature_renderer.dart';
 import 'symbol_layout_extension.dart';
+import 'symbol_icon.dart';
 import 'symbol_rotation.dart';
 import 'text_abbreviator.dart';
 import 'text_renderer.dart';
@@ -81,6 +82,16 @@ class SymbolPointRenderer extends FeatureRenderer {
       if (textApproximation != null &&
           (!_occupyLabelSpaceAtOffset(context, textApproximation, offset) ||
               !textApproximation.renderer.canPaint)) {
+        continue;
+      }
+      // F-250 patch: the icon must fit too.
+      if (!placeIcon(
+        context,
+        icon,
+        offset,
+        contentSize: textApproximation?.renderer.size ?? Size.zero,
+        text: textApproximation?.text,
+      )) {
         continue;
       }
 

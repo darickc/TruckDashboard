@@ -99,6 +99,19 @@ class IconRenderer extends SymbolIcon {
     return null;
   }
 
+  @override
+  Rect? box(Offset offset, {required Size contentSize}) {
+    final scale = sprite.pixelRatio == 1 ? 1.0 : (1 / (sprite.pixelRatio));
+    final segments = _fitContent(sprite, scale, contentSize: contentSize);
+    if (segments.isEmpty) {
+      return null;
+    }
+    final area = segments
+        .map((e) => e.area.translate(offset.dx, offset.dy))
+        .reduce((a, b) => a.expandToInclude(b));
+    return area.shift(anchor.offset(area.size));
+  }
+
   List<_Segment> _fitContent(
     Sprite sprite,
     double scale, {

@@ -305,7 +305,10 @@ for heavy vehicles or trailers.
 
 Mapbox's Flutter SDK doesn't run on Linux, so the dashboard doesn't use it:
 navigation calls Mapbox's web APIs with curl and hands the dashboard routes
-and map tiles over its socket. While online, the truck's position and
+and map tiles over its socket. The map is Mapbox's vector tiles, drawn by the
+dashboard with Mapbox's navigation styles, so labels stay upright when the
+map turns (ADR-0052 decision 6, amended 2026-11-24). `MAPBOX_MAP=raster` in
+navigation's environment shows Mapbox's raster tiles instead. While online, the truck's position and
 destinations, and what you type in Search, go to Mapbox. Each route, each
 map tile and each search (one per pause in typing) counts against your
 Mapbox account's free allowance (searches: 100,000 a month, 2026-11-23).

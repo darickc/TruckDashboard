@@ -51,6 +51,17 @@ class OnlineMapServiceClient extends $grpc.Client {
     return $createUnaryCall(_$getTile, request, options: options);
   }
 
+  /// The vector map's style for day or night: Mapbox's style document, its
+  /// sprites, and the zooms of each of its vector sources. FAILED_PRECONDITION
+  /// without a token or while the map is raster, UNAVAILABLE when Mapbox can't
+  /// be reached.
+  $grpc.ResponseFuture<$0.GetMapStyleResponse> getMapStyle(
+    $0.GetMapStyleRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getMapStyle, request, options: options);
+  }
+
   // method descriptors
 
   static final _$getOnlineMapStatus = $grpc.ClientMethod<
@@ -63,6 +74,11 @@ class OnlineMapServiceClient extends $grpc.Client {
           '/f250.nav.v1.OnlineMapService/GetTile',
           ($0.GetTileRequest value) => value.writeToBuffer(),
           $0.GetTileResponse.fromBuffer);
+  static final _$getMapStyle =
+      $grpc.ClientMethod<$0.GetMapStyleRequest, $0.GetMapStyleResponse>(
+          '/f250.nav.v1.OnlineMapService/GetMapStyle',
+          ($0.GetMapStyleRequest value) => value.writeToBuffer(),
+          $0.GetMapStyleResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('f250.nav.v1.OnlineMapService')
@@ -86,6 +102,15 @@ abstract class OnlineMapServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.GetTileRequest.fromBuffer(value),
         ($0.GetTileResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.GetMapStyleRequest, $0.GetMapStyleResponse>(
+            'GetMapStyle',
+            getMapStyle_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.GetMapStyleRequest.fromBuffer(value),
+            ($0.GetMapStyleResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.GetOnlineMapStatusResponse> getOnlineMapStatus_Pre(
@@ -104,4 +129,12 @@ abstract class OnlineMapServiceBase extends $grpc.Service {
 
   $async.Future<$0.GetTileResponse> getTile(
       $grpc.ServiceCall call, $0.GetTileRequest request);
+
+  $async.Future<$0.GetMapStyleResponse> getMapStyle_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.GetMapStyleRequest> $request) async {
+    return getMapStyle($call, await $request);
+  }
+
+  $async.Future<$0.GetMapStyleResponse> getMapStyle(
+      $grpc.ServiceCall call, $0.GetMapStyleRequest request);
 }

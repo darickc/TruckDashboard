@@ -60,6 +60,7 @@ class GrpcOnlineMapSource implements OnlineMapSource {
         tileSize: r.tileSize == 0 ? 512 : r.tileSize,
         maxZoom: r.maxZoom == 0 ? 22 : r.maxZoom,
         routingOnline: r.routingOnline,
+        vector: r.vector,
       );
     } catch (e) {
       // An older navigation without the service, or none: offline only.
@@ -90,6 +91,45 @@ class GrpcOnlineMapSource implements OnlineMapSource {
           x: x,
           y: y,
         ),
+        options: CallOptions(timeout: const Duration(seconds: 12)),
+      );
+      return Uint8List.fromList(r.data);
+    } on GrpcError catch (e) {
+      throw StateError(e.message ?? e.codeName);
+    }
+  }
+
+  pb.MapStyle _style(bool night) => night ? pb.MapStyle.MAP_STYLE_NIGHT : pb.MapStyle.MAP_STYLE_DAY;
+
+  @override
+  Future<OnlineMapStyleData> style({required bool night, required int pixelRatio}) async {
+    final c = _client;
+    if (c == null) throw StateError('not connected to the navigation service');
+    try {
+      // The first ask fetches the style, its sprites and each source's
+      // zooms from Mapbox (several requests).
+      final r = await c.getMapStyle(
+        pb.GetMapStyleRequest(style: _style(night), pixelRatio: pixelRatio),
+        options: CallOptions(timeout: const Duration(seconds: 30)),
+      );
+      return OnlineMapStyleData(
+        styleJson: r.styleJson,
+        spriteJson: r.spriteJson,
+        spritePng: Uint8List.fromList(r.spritePng),
+        sources: [for (final s in r.sources) OnlineMapSourceZooms(s.id, s.minZoom, s.maxZoom)],
+      );
+    } on GrpcError catch (e) {
+      throw StateError(e.message ?? e.codeName);
+    }
+  }
+
+  @override
+  Future<Uint8List> vectorTile(String source, int z, int x, int y, {required bool night}) async {
+    final c = _client;
+    if (c == null) throw StateError('not connected to the navigation service');
+    try {
+      final r = await c.getTile(
+        pb.GetTileRequest(style: _style(night), source: source, z: z, x: x, y: y),
         options: CallOptions(timeout: const Duration(seconds: 12)),
       );
       return Uint8List.fromList(r.data);

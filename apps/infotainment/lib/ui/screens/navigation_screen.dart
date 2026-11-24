@@ -11,6 +11,7 @@ import '../../nav/map_cache.dart';
 import '../../nav/map_update.dart';
 import '../../nav/offline_map.dart';
 import '../../nav/online_map.dart';
+import '../../nav/online_vector_map.dart';
 import '../../model/units.dart';
 import '../../nav/position_state.dart';
 import '../../nav/route_state.dart';
@@ -92,6 +93,21 @@ class _NavigationScreenState extends State<NavigationScreen> {
   /// Online or offline map, and the online map set aside while its tiles
   /// fail (ADR-0052 decision 7).
   final _chooser = OnlineMapChooser();
+
+  /// Mapbox's vector map by night (true) and day, once read; which are
+  /// being read; which couldn't be read (tried again 30 s later), and why;
+  /// and the source they came from.
+  final Map<bool, OnlineVectorMap> _onlineVector = {};
+  final Set<bool> _onlineVectorLoading = {};
+  final Set<bool> _onlineVectorFailedFor = {};
+  String _onlineVectorWhy = '';
+  Timer? _onlineVectorRetry;
+  OnlineMapSource? _onlineVectorFrom;
+
+  /// The vector style for [night] couldn't be read lately: the offline map
+  /// meanwhile.
+  bool _onlineVectorFailed(bool night) =>
+      _onlineVectorFailedFor.contains(night) && !_onlineVector.containsKey(night);
   bool _ready = false;
   bool _follow = true;
   Timer? _tick;
@@ -126,10 +142,49 @@ class _NavigationScreenState extends State<NavigationScreen> {
     });
   }
 
+  /// Starts reading the vector style for [night] unless it is read, being
+  /// read, or failed less than 30 s ago. Never calls setState itself until
+  /// the style is in.
+  void _readOnlineVector(OnlineMapSource source, bool night) {
+    if (!identical(source, _onlineVectorFrom)) {
+      _onlineVector.clear();
+      _onlineVectorFrom = source;
+    }
+    if (_onlineVector.containsKey(night) || _onlineVectorLoading.contains(night)) return;
+    if (_onlineVectorFailed(night)) return;
+    _onlineVectorLoading.add(night);
+    OnlineVectorMap.load(
+      source,
+      night: night,
+      pixelRatio: spritePixelRatio(MediaQuery.devicePixelRatioOf(context)),
+      onResult: (ok, why) => _chooser.report(ok: ok, why: why),
+    ).then(
+      (m) {
+        _onlineVectorLoading.remove(night);
+        if (mounted && identical(source, _onlineVectorFrom)) {
+          setState(() => _onlineVector[night] = m);
+        }
+      },
+      onError: (Object e) {
+        _onlineVectorLoading.remove(night);
+        if (!mounted) return;
+        setState(() {
+          _onlineVectorFailedFor.add(night);
+          _onlineVectorWhy = e is StateError ? e.message : '$e';
+        });
+        _onlineVectorRetry?.cancel();
+        _onlineVectorRetry = Timer(const Duration(seconds: 30), () {
+          if (mounted) setState(_onlineVectorFailedFor.clear);
+        });
+      },
+    );
+  }
+
   @override
   void dispose() {
     _chooser.dispose();
     _tick?.cancel();
+    _onlineVectorRetry?.cancel();
     _source?.status.removeListener(_onPosition);
     _map.dispose();
     super.dispose();
@@ -240,10 +295,18 @@ class _NavigationScreenState extends State<NavigationScreen> {
     final header = reader?.header;
     // Mapbox's map while on a network, with a token (ADR-0052).
     final onlineStatus = s.onlineMap.status.value;
-    final online = _chooser.useOnline(
+    final night = Theme.of(context).brightness == Brightness.dark;
+    final wantOnline = _chooser.useOnline(
       onNetwork: s.wifi.view.value.onNetwork,
       configured: onlineStatus.configured,
     );
+    // Mapbox's vector map, read once per look (ADR-0052 decision 6); while
+    // its style can't be read, the offline map.
+    final onlineVectorWanted = wantOnline && onlineStatus.vector;
+    if (onlineVectorWanted) _readOnlineVector(s.onlineMap, night);
+    final styleFailed = onlineVectorWanted && _onlineVectorFailed(night);
+    final online = wantOnline && !styleFailed;
+    final onlineVector = online && onlineStatus.vector ? _onlineVector[night] : null;
     final minZoom = online ? 2.0 : math.max(2.0, (header?.minZoom ?? 2).toDouble());
     final maxZoom = online
         ? 19.0
@@ -261,7 +324,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
         : header != null
         ? header.centerZoom.toDouble().clamp(minZoom, maxZoom)
         : NavigationScreen.fallbackZoom;
-    final night = Theme.of(context).brightness == Brightness.dark;
 
     // Routing (ADR-0035).
     final routeState = route.state;
@@ -303,7 +365,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
             MapUnavailable(:final why) => 'No map: $why. The position is still shown.',
             MapReady() => null,
           };
-    final onlineSetAside = _chooser.backedOffBecause;
+    final onlineSetAside = styleFailed ? _onlineVectorWhy : _chooser.backedOffBecause;
     final bottomNotices = <Widget>[
       // ADR-0030 decision 4: a simulated position is labelled as such,
       // down here rather than over the map and the route (owner,
@@ -480,7 +542,29 @@ class _NavigationScreenState extends State<NavigationScreen> {
                   : null,
             ),
             children: [
-              if (online)
+              if (onlineVector != null)
+                VectorTileLayer(
+                  // Day and night are two Mapbox styles; vector, as the
+                  // offline map, so labels stay upright when the map turns.
+                  key: ValueKey(('online-vector', night)),
+                  layerMode: VectorTileLayerMode.vector,
+                  tileProviders: onlineVector.providers,
+                  theme: onlineVector.theme,
+                  sprites: onlineVector.sprites,
+                  // Mapbox's vector tiles are made for 512 pixels: one zoom
+                  // behind 256-pixel ones.
+                  tileOffset: TileOffset.mapbox,
+                  cacheFolder: mapCacheFolderFor(night ? -2 : -1),
+                  fileCacheMaximumSizeInBytes: mapCacheMaxBytes,
+                  // Traffic's max-age; navigation keeps the map's tiles
+                  // for 12 h, so only traffic is fetched from Mapbox again.
+                  fileCacheTtl: const Duration(seconds: 90),
+                )
+              else if (online && onlineStatus.vector)
+                // Mapbox's style is still being read: the background for a
+                // moment.
+                const SizedBox.shrink()
+              else if (online)
                 TileLayer(
                   // Day and night are two Mapbox styles, not darkened tiles.
                   key: ValueKey(('online', night)),

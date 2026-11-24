@@ -372,6 +372,7 @@ impl OnlineMapService for Api {
                 tile_size: mapbox::TILE_SIZE,
                 max_zoom: mapbox::MAX_ZOOM,
                 routing_online: t.routing_online(),
+                vector: t.kind == mapbox::MapKind::Vector,
             },
             None => pb::GetOnlineMapStatusResponse {
                 detail: "no Mapbox token (MAPBOX_ACCESS_TOKEN): offline only".to_string(),
@@ -398,10 +399,69 @@ impl OnlineMapService for Api {
             )));
         }
         let night = r.style == pb::MapStyle::Night as i32;
-        match tiles.get(night, r.z, r.x, r.y).await {
+        let got = match (tiles.kind, r.source.is_empty()) {
+            (mapbox::MapKind::Raster, true) => tiles.get(night, r.z, r.x, r.y).await,
+            (mapbox::MapKind::Vector, false) => {
+                tiles.get_vector(night, &r.source, r.z, r.x, r.y).await
+            }
+            (mapbox::MapKind::Raster, false) => {
+                return Err(Status::failed_precondition(
+                    "the online map is raster (MAPBOX_MAP=raster): no vector sources",
+                ));
+            }
+            (mapbox::MapKind::Vector, true) => {
+                return Err(Status::invalid_argument(
+                    "the online map is vector: name the style's source",
+                ));
+            }
+        };
+        match got {
             Ok(t) => Ok(Response::new(pb::GetTileResponse {
                 data: t.body.clone(),
                 content_type: t.content_type.clone(),
+            })),
+            Err(None) => Err(Status::failed_precondition("no Mapbox token")),
+            Err(Some(why)) => Err(Status::unavailable(why)),
+        }
+    }
+
+    async fn get_map_style(
+        &self,
+        req: Request<pb::GetMapStyleRequest>,
+    ) -> Result<Response<pb::GetMapStyleResponse>, Status> {
+        let tiles = self
+            .online_map
+            .as_ref()
+            .filter(|t| t.configured())
+            .ok_or_else(|| Status::failed_precondition("no Mapbox token"))?;
+        if tiles.kind != mapbox::MapKind::Vector {
+            return Err(Status::failed_precondition(
+                "the online map is raster (MAPBOX_MAP=raster)",
+            ));
+        }
+        let req = req.into_inner();
+        let night = req.style == pb::MapStyle::Night as i32;
+        // 0 (a dashboard from before the field) or 2 and up: 2x.
+        let hi_dpi = req.pixel_ratio != 1;
+        let found = async {
+            let s = tiles.vector_style(night).await?;
+            let sprites = tiles.vector_sprites(night, hi_dpi).await?;
+            Ok::<_, Option<String>>((s, sprites))
+        };
+        match found.await {
+            Ok((s, sprites)) => Ok(Response::new(pb::GetMapStyleResponse {
+                style_json: s.style_json.clone(),
+                sprite_json: sprites.json.clone(),
+                sprite_png: sprites.png.clone(),
+                sources: s
+                    .sources
+                    .iter()
+                    .map(|src| pb::MapSource {
+                        id: src.id.clone(),
+                        min_zoom: src.min_zoom,
+                        max_zoom: src.max_zoom,
+                    })
+                    .collect(),
             })),
             Err(None) => Err(Status::failed_precondition("no Mapbox token")),
             Err(Some(why)) => Err(Status::unavailable(why)),

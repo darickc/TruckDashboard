@@ -40,7 +40,10 @@ class Context {
     required this.tileClip,
     required this.optimizations,
     required this.textPainterProvider,
-  }) : labelSpace = LabelSpace(tileClip),
+    // F-250 patch: a tile's view of labels shared with other tiles
+    // (Renderer.renderSymbols); by default, the tile's own.
+    LabelSpace? labelSpace,
+  }) : labelSpace = labelSpace ?? LabelSpace(tileClip),
        paintProvider = CachingPaintProvider();
 
   Tile? tile(String sourceId) => tileSource.tileset.tiles[sourceId];

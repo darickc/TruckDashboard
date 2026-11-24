@@ -8,6 +8,7 @@ import '../themes/style.dart';
 import 'extensions.dart';
 import 'feature_renderer.dart';
 import 'symbol_layout_extension.dart';
+import 'symbol_icon.dart';
 import 'symbol_rotation.dart';
 import 'text_abbreviator.dart';
 import 'text_renderer.dart';
@@ -93,6 +94,16 @@ class SymbolLineRenderer extends FeatureRenderer {
       rotateWithLine,
     );
     if (renderBox == null || !textApproximation.renderer.canPaint) {
+      return;
+    }
+    // F-250 patch: the shield must fit too.
+    if (!placeIcon(
+      context,
+      icon,
+      renderBox.tangent.position,
+      contentSize: textApproximation.renderer.size,
+      text: textApproximation.text,
+    )) {
       return;
     }
 

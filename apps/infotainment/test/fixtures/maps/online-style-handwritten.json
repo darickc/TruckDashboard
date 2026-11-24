@@ -1,0 +1,26 @@
+{
+  "version": 8,
+  "id": "test-online",
+  "name": "Hand-written test style, not Mapbox's",
+  "sources": {
+    "composite": {"type": "vector", "url": "mapbox://test.streets,test.terrain"},
+    "mapbox-traffic": {"type": "vector", "url": "mapbox://test.traffic"}
+  },
+  "sprite": "mapbox://sprites/test/style",
+  "glyphs": "mapbox://fonts/test/{fontstack}/{range}.pbf",
+  "layers": [
+    {"id": "background", "type": "background", "paint": {"background-color": "hsl(220, 20%, 25%)"}},
+    {"id": "road", "type": "line", "source": "composite", "source-layer": "road",
+     "paint": {"line-color": "hsl(0, 0%, 60%)", "line-width": ["interpolate", ["exponential", 1.5], ["zoom"], 10, 1, 18, 8]}},
+    {"id": "traffic", "type": "line", "source": "mapbox-traffic", "source-layer": "traffic",
+     "paint": {"line-color": ["match", ["get", "congestion"], "heavy", "hsl(0, 65%, 45%)", "hsla(0, 0%, 0%, 0)"]}},
+    {"id": "road-label", "type": "symbol", "source": "composite", "source-layer": "road",
+     "layout": {"text-field": ["get", "name"], "symbol-placement": "line",
+                "text-font": ["step", ["zoom"], ["literal", ["DIN Pro Regular", "Arial Unicode MS Regular"]], 15, ["literal", ["DIN Pro Bold", "Arial Unicode MS Bold"]]]},
+     "paint": {"text-color": "hsl(0, 0%, 90%)"}},
+    {"id": "shield", "type": "symbol", "source": "composite", "source-layer": "road",
+     "layout": {"icon-image": "us-highway-3", "icon-size": 0.5, "text-field": ["get", "ref"],
+                "text-font": ["DIN Pro Italic", "Arial Unicode MS Regular"]},
+     "paint": {"text-color": "hsl(0, 0%, 10%)"}}
+  ]
+}

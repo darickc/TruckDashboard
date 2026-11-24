@@ -62,7 +62,10 @@ class SpriteIndexReader {
   }
 
   List<int>? _readContent(Map json) {
-    var content = json['content'] ?? json['placeholder'];
+    // F-250 patch: only `content` (the style spec's box for icon-text-fit).
+    // Upstream also took Mapbox's `placeholder`, so every Mapbox shield was
+    // stretched to fit its label in a 12-pixel box: several times too big.
+    var content = json['content'];
     if (content is List) {
       content = content
           .map((e) => e is num ? e.toInt() : null)

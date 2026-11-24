@@ -5,10 +5,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_map/flutter_map.dart';
 
-/// The online map (ADR-0052): Mapbox's raster tiles, which services/navigation
+/// The online map (ADR-0052): Mapbox's tiles, which services/navigation
 /// fetches (it has the token and the network; the dashboard has neither).
 /// The Nav screen shows them while the Pi is on a network and the offline
-/// map otherwise.
+/// map otherwise: vector tiles drawn with Mapbox's style
+/// (`online_vector_map.dart`), or raster images.
 @immutable
 class OnlineMapStatus {
   const OnlineMapStatus({
@@ -18,6 +19,7 @@ class OnlineMapStatus {
     this.tileSize = 512,
     this.maxZoom = 22,
     this.routingOnline = false,
+    this.vector = false,
   });
 
   /// navigation has a Mapbox token.
@@ -31,6 +33,32 @@ class OnlineMapStatus {
 
   /// Routes go to Mapbox first now.
   final bool routingOnline;
+
+  /// Vector tiles drawn with [OnlineMapSource.style]; else raster images
+  /// from [OnlineMapSource.tile].
+  final bool vector;
+}
+
+/// One vector source of the online map's style and Mapbox's zooms for it.
+@immutable
+class OnlineMapSourceZooms {
+  const OnlineMapSourceZooms(this.id, this.minZoom, this.maxZoom);
+  final String id;
+  final int minZoom, maxZoom;
+}
+
+/// The vector map's style for day or night, as navigation hands it on.
+class OnlineMapStyleData {
+  const OnlineMapStyleData({
+    required this.styleJson,
+    required this.spriteJson,
+    required this.spritePng,
+    required this.sources,
+  });
+  final String styleJson;
+  final String spriteJson;
+  final Uint8List spritePng;
+  final List<OnlineMapSourceZooms> sources;
 }
 
 /// services/navigation's OnlineMapService, or a stand-in.
@@ -41,6 +69,14 @@ abstract class OnlineMapSource {
 
   /// One tile's image bytes, at Mapbox's zoom [z]. Throws when there is none.
   Future<Uint8List> tile(int z, int x, int y, {required bool night});
+
+  /// The vector map's style, with its sprites for a screen of [pixelRatio]
+  /// pixels per logical pixel (1 or 2). Throws when there is none.
+  Future<OnlineMapStyleData> style({required bool night, required int pixelRatio});
+
+  /// One vector tile of the style's [source], uncompressed; empty where
+  /// Mapbox has nothing. Throws when it can't be had.
+  Future<Uint8List> vectorTile(String source, int z, int x, int y, {required bool night});
 }
 
 /// No online map: no navigation service, or the browser preview.
@@ -56,6 +92,12 @@ class UnavailableOnlineMapSource implements OnlineMapSource {
   void start() {}
   @override
   void stop() {}
+  @override
+  Future<OnlineMapStyleData> style({required bool night, required int pixelRatio}) =>
+      Future.error(StateError(_status.value.detail));
+  @override
+  Future<Uint8List> vectorTile(String source, int z, int x, int y, {required bool night}) =>
+      Future.error(StateError(_status.value.detail));
   @override
   Future<Uint8List> tile(int z, int x, int y, {required bool night}) =>
       Future.error(StateError(_status.value.detail));
