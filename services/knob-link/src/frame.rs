@@ -152,7 +152,19 @@ pub fn data_line(seq: u32, snap: &pb::Snapshot, units: Units) -> String {
 pub enum FromDial {
     Hello(String),
     Log(String),
+    /// A call button on the dial (`K1`).
+    Call(CallRequest),
     Other(String),
+}
+
+/// What a call button on the dial asks for (`K1 <answer|decline|end>`): the
+/// button it pressed, so knob-link acts only if the call is still in the
+/// state that button was for (pages::call_command).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CallRequest {
+    Answer,
+    Decline,
+    End,
 }
 
 pub fn from_dial(line: &str) -> FromDial {
@@ -162,9 +174,16 @@ pub fn from_dial(line: &str) -> FromDial {
     }
     if let Some((body, cs)) = line.rsplit_once('*')
         && u8::from_str_radix(cs, 16).ok() == Some(checksum(body))
-        && let Some(hello) = body.strip_prefix("H1 ")
     {
-        return FromDial::Hello(hello.to_string());
+        if let Some(hello) = body.strip_prefix("H1 ") {
+            return FromDial::Hello(hello.to_string());
+        }
+        match body {
+            "K1 answer" => return FromDial::Call(CallRequest::Answer),
+            "K1 decline" => return FromDial::Call(CallRequest::Decline),
+            "K1 end" => return FromDial::Call(CallRequest::End),
+            _ => {}
+        }
     }
     FromDial::Other(line.to_string())
 }
@@ -325,5 +344,23 @@ mod tests {
             from_dial("H1 knob-display 0.1.0*00"),
             FromDial::Other("H1 knob-display 0.1.0*00".into())
         );
+        // The call buttons, only with a good checksum.
+        assert_eq!(
+            from_dial(&with_checksum("K1 answer")),
+            FromDial::Call(CallRequest::Answer)
+        );
+        assert_eq!(
+            from_dial(&format!("{}\r", with_checksum("K1 decline"))),
+            FromDial::Call(CallRequest::Decline)
+        );
+        assert_eq!(
+            from_dial(&with_checksum("K1 end")),
+            FromDial::Call(CallRequest::End)
+        );
+        assert_eq!(from_dial("K1 end*00"), FromDial::Other("K1 end*00".into()));
+        assert!(matches!(
+            from_dial(&with_checksum("K1 mute")),
+            FromDial::Other(_)
+        ));
     }
 }

@@ -20,9 +20,18 @@ bool Pages::onGesture(Gesture g)
     return false;
 }
 
-TouchAction Pages::onTouch(Gesture g, uint32_t nowMs)
+TouchAction Pages::onTouch(Gesture g, int x, int y, uint32_t nowMs)
 {
-    if (call(nowMs) != nullptr) return TouchAction::None;
+    if (const CallFrame* c = call(nowMs)) {
+        if (g != Gesture::Tap) return TouchAction::None;
+        switch (callButtonAt(c->state, x, y)) {
+            case CallButton::Answer: return TouchAction::Answer;
+            case CallButton::Decline: return TouchAction::Decline;
+            case CallButton::End: return TouchAction::End;
+            case CallButton::None: return TouchAction::None;
+        }
+        return TouchAction::None;
+    }
     if (g == Gesture::Tap) return TouchAction::PlayPause;
     return onGesture(g) ? TouchAction::PageChanged : TouchAction::None;
 }
@@ -39,6 +48,44 @@ const CallFrame* Pages::call(uint32_t nowMs) const
     return hasCall_ && call_.state != CallState::None && static_cast<uint32_t>(nowMs - callAt_) < timeoutMs_
                ? &call_
                : nullptr;
+}
+
+size_t callButtons(CallState s, CallButtonSpot out[2])
+{
+    switch (s) {
+        case CallState::Ringing:
+            out[0] = {CallButton::Answer, 128, kCallButtonY};
+            out[1] = {CallButton::Decline, 232, kCallButtonY};
+            return 2;
+        case CallState::Waiting: out[0] = {CallButton::Decline, 180, kCallButtonY}; return 1;
+        case CallState::Dialing:
+        case CallState::Active:
+        case CallState::Held: out[0] = {CallButton::End, 180, kCallButtonY}; return 1;
+        case CallState::None: return 0;
+    }
+    return 0;
+}
+
+CallButton callButtonAt(CallState s, int x, int y)
+{
+    CallButtonSpot b[2];
+    const size_t n = callButtons(s, b);
+    for (size_t i = 0; i < n; ++i) {
+        const float dx = static_cast<float>(x) - b[i].x, dy = static_cast<float>(y) - b[i].y;
+        if (dx * dx + dy * dy <= kCallButtonHitRadius * kCallButtonHitRadius) return b[i].button;
+    }
+    return CallButton::None;
+}
+
+const char* callButtonWord(CallButton b)
+{
+    switch (b) {
+        case CallButton::Answer: return "answer";
+        case CallButton::Decline: return "decline";
+        case CallButton::End: return "end";
+        case CallButton::None: return "";
+    }
+    return "";
 }
 
 const char* callHint(CallState s)

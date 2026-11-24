@@ -578,3 +578,32 @@ for one state only: **a phone ringing** (`incoming`).
 below the alert banner; its height and 80 px filled buttons; the screen
 under it still tappable; answered becomes the bar; the longest texts in
 both themes); checked in the browser at 800×480.
+
+## Amendment, 2026-11-23: call buttons on the knob display
+
+The knob display has no push switch (ADR-0044's first amendment), so
+decision 6's "its push answers and, during a call, hangs up" had nothing to
+press. The owner asked for touch buttons instead, placed on the design
+canvas's "call buttons" row: while it rings, green **Answer** on the left
+and red **Decline** on the right; during a call (active, held, or being
+dialled), one red **End**; for a waiting call, one red **Decline**, with
+"Answer on the phone" kept (answering it would end or hold the first, the
+phone's choice, as before). 76 px circles, 44 px hit radius
+(`firmware/knob-display/lib/KnobCore/src/Pages.*`).
+
+This replaces decision 6's "a tap is ignored during a call": only a tap on
+one of these buttons does anything (the tap rules still apply: short,
+still, not just after a turn); a tap elsewhere and swipes still do nothing.
+
+The dial asks; it decides nothing. A press sends `K1 <answer|decline|end>`
+over its serial port (the button pressed, not just "hang up"). knob-link
+checks it against audio-manager's current word on the call
+(`services/knob-link/src/pages.rs`, `call_command`): Answer only a ringing
+call, Decline only a ringing or waiting one, End only one active, held or
+being dialled, and nothing on news older than 3 s. So a Decline that crosses
+an answer on the phone never ends the call. Then it calls `AnswerCall` or
+`HangUp` with that call's id and source "knob"; audio-manager refuses what
+no longer applies, as for the dashboard.
+
+The push path (the HID play/pause key answering and hanging up) is
+unchanged for a knob that has a push (ADR-0043).

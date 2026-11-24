@@ -38,6 +38,10 @@ constexpr uint32_t kAmber = 0xFFB300;
 constexpr uint32_t kRed = 0xFF4A3D;
 constexpr uint32_t kStale = 0xB88A2A;
 constexpr uint32_t kVersion = 0x8A8A8A;
+// The call buttons (the canvas's call row): green Answer, red Decline / End.
+constexpr uint32_t kAnswer = 0x1E9E50;
+constexpr uint32_t kHangUp = 0xE5484D;
+constexpr uint32_t kPressedMs = 600;
 // Over a cover: lighter greys, and white tracks and dots, see-through.
 constexpr uint32_t kGreyOnArt = 0xD0D0D0;
 constexpr lv_opa_t kTrackOnArtOpa = 64;  // 25 %
@@ -332,6 +336,13 @@ struct {
     lv_obj_t* callRing = nullptr;
     lv_obj_t* avatar = nullptr;
     Label callInitials, callPhone, callState, callCaller, callNumber, callTime, callHint;
+    // Green Answer (left, while ringing) and red Decline / End.
+    lv_obj_t* answerBtn = nullptr;
+    lv_obj_t* hangUpBtn = nullptr;
+    Label answerCaption, hangUpCaption;
+    CallButton pressed = CallButton::None;
+    uint32_t pressedAt = 0;
+    int pressedShown = -1;
 
     // Boot (deleted once done).
     lv_obj_t* boot = nullptr;
@@ -487,11 +498,31 @@ void buildMedia()
     ui.mediaVolume = makeLabel(p, &dial_value, kCentre, 302, kWhite);
 }
 
+// A round call button: a filled circle with the phone symbol, turned down
+// for hanging up.
+lv_obj_t* makeCallButton(lv_obj_t* parent, uint32_t c, bool hangUp)
+{
+    lv_obj_t* b = makeCircle(parent, kCallButtonSize, kCentre, kCallButtonY);
+    lv_obj_set_style_bg_opa(b, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(b, lv_color_hex(c), 0);
+    lv_obj_set_style_border_color(b, lv_color_hex(kWhite), 0);
+    lv_obj_set_style_border_width(b, 0, 0);
+    Label icon;
+    icon.obj = lv_label_create(b);
+    lv_obj_set_style_text_font(icon.obj, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_align(icon.obj, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(icon.obj, LV_SYMBOL_CALL);
+    icon.colour(kWhite);
+    if (hangUp) rotate(icon, 135, 40);
+    lv_obj_center(icon.obj);
+    return b;
+}
+
 void buildCall()
 {
     lv_obj_t* p = ui.call;
     ui.callRing = makeRing(p, 4, kAmber);
-    ui.avatar = makeCircle(p, 72, kCentre, 106);
+    ui.avatar = makeCircle(p, 60, kCentre, 78);
     lv_obj_set_style_bg_opa(ui.avatar, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_color(ui.avatar, lv_color_hex(kAvatar), 0);
     ui.callInitials.obj = lv_label_create(ui.avatar);
@@ -504,11 +535,16 @@ void buildCall()
     lv_obj_center(ui.callPhone.obj);
     lv_label_set_text(ui.callPhone.obj, LV_SYMBOL_CALL);
     ui.callPhone.colour(kWhite);
-    ui.callState = makeLabel(p, &dial_caps, kCentre, 166, kAmber, 3);
-    ui.callCaller = makeLabel(p, &dial_caller, kCentre, 204, kWhite, 0, 280, 2);
-    ui.callNumber = makeLabel(p, &dial_small, kCentre, 244, kGrey);
-    ui.callTime = makeLabel(p, &dial_text, kCentre, 278, kWhite);
-    ui.callHint = makeLabel(p, &dial_small, kCentre, 304, kGrey, 0, 240);
+    ui.callState = makeLabel(p, &dial_caps, kCentre, 128, kAmber, 3);
+    ui.callCaller = makeLabel(p, &dial_caller, kCentre, 162, kWhite, 0, 260, 1);
+    ui.callNumber = makeLabel(p, &dial_small, kCentre, 198, kGrey);
+    ui.callTime = makeLabel(p, &dial_text, kCentre, 200, kWhite);
+    ui.callHint = makeLabel(p, &dial_small, kCentre, 218, kGrey, 0, 240);
+    ui.answerBtn = makeCallButton(p, kAnswer, false);
+    ui.hangUpBtn = makeCallButton(p, kHangUp, true);
+    ui.answerCaption = makeLabel(p, &dial_caps, kCentre, 324, kGrey, 2);
+    ui.answerCaption.text("ANSWER");
+    ui.hangUpCaption = makeLabel(p, &dial_caps, kCentre, 324, kGrey, 2);
 }
 
 // The boot screen: over everything, on LVGL's top layer.
@@ -902,17 +938,49 @@ void updateCall(const Pages& pages, uint32_t now)
         ui.callInitials.text(in);
     }
     ui.callCaller.text(c->caller);
-    ui.callNumber.text(c->number);
+    // Under the caller: the number while it rings (the time takes its place
+    // during the call), and for a waiting call that it is answered on the
+    // phone (answering it here would end or hold the first).
+    ui.callNumber.text(alerting ? c->number : "");
     char buf[16] = "";
     if (c->state == CallState::Active || c->state == CallState::Held) {
         std::snprintf(buf, sizeof(buf), "%lu:%02lu", static_cast<unsigned long>(c->activeS / 60),
                       static_cast<unsigned long>(c->activeS % 60));
     }
     ui.callTime.text(buf);
-    // The board has no push switch (ADR-0044 amendment), so "Push to answer"
-    // and "Push to hang up" would name a button that isn't there: only the
-    // hint that doesn't need one is shown.
     ui.callHint.text(c->state == CallState::Waiting ? callHint(c->state) : "");
+
+    // The buttons for this state (Pages.h): where they go and what they say.
+    CallButtonSpot spots[2];
+    const size_t n = callButtons(c->state, spots);
+    bool answer = false;
+    const CallButtonSpot* red = nullptr;
+    for (size_t i = 0; i < n; ++i) {
+        if (spots[i].button == CallButton::Answer) {
+            answer = true;
+            centreOn(ui.answerBtn, spots[i].x, spots[i].y);
+            centreOn(ui.answerCaption.obj, spots[i].x, 324);
+        } else {
+            red = &spots[i];
+        }
+    }
+    showObj(ui.answerBtn, answer);
+    ui.answerCaption.show(answer);
+    showObj(ui.hangUpBtn, red != nullptr);
+    ui.hangUpCaption.show(red != nullptr);
+    if (red) {
+        centreOn(ui.hangUpBtn, red->x, red->y);
+        centreOn(ui.hangUpCaption.obj, red->x, 324);
+        ui.hangUpCaption.text(red->button == CallButton::End ? "END" : "DECLINE");
+    }
+    // A pressed button lights its edge for a moment.
+    const bool lit = ui.pressed != CallButton::None && static_cast<uint32_t>(now - ui.pressedAt) < kPressedMs;
+    const int shown = lit ? static_cast<int>(ui.pressed) : 0;
+    if (shown != ui.pressedShown) {
+        ui.pressedShown = shown;
+        lv_obj_set_style_border_width(ui.answerBtn, lit && ui.pressed == CallButton::Answer ? 4 : 0, 0);
+        lv_obj_set_style_border_width(ui.hangUpBtn, lit && ui.pressed != CallButton::Answer ? 4 : 0, 0);
+    }
 }
 
 // LVGL's warnings go to the serial log as "# lvgl: ..." lines (knob-link
@@ -960,6 +1028,12 @@ void uiArt(const uint8_t* pixels, int w, int h)
 }
 
 void uiArtClear() { gArtReady = false; }
+
+void uiCallPressed(CallButton b, uint32_t nowMs)
+{
+    ui.pressed = b;
+    ui.pressedAt = nowMs;
+}
 
 bool uiBegin(Panel& panel, const char* version)
 {

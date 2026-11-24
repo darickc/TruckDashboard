@@ -10,7 +10,8 @@ use std::time::Duration;
 
 use clap::Parser;
 use f250_proto::audio::v1::{
-    GetCoverArtRequest, WatchAudioRequest, audio_service_client::AudioServiceClient,
+    AnswerCallRequest, GetCoverArtRequest, HangUpRequest, WatchAudioRequest,
+    audio_service_client::AudioServiceClient,
 };
 use f250_proto::nav::v1::{
     GetRouteRequest, WatchGuidanceRequest, route_service_client::RouteServiceClient,
@@ -22,6 +23,7 @@ use f250_sd_notify::{Heartbeat, Notifier, run_watchdog};
 use hyper_util::rt::TokioIo;
 use knob_link::frame::Units;
 use knob_link::link::{self, Cover, Latest, Timing};
+use knob_link::pages::CallCommand;
 use tokio::sync::watch;
 use tokio::time::Instant;
 use tonic::transport::{Channel, Endpoint, Uri};
@@ -276,6 +278,47 @@ async fn follow_audio(endpoint: &str, tx: &watch::Sender<Latest>) -> String {
     }
 }
 
+/// Sends the dial's call buttons to audio-manager, one at a time (it refuses
+/// what no longer applies, and says why).
+async fn run_call_commands(
+    endpoint: String,
+    mut rx: tokio::sync::mpsc::UnboundedReceiver<CallCommand>,
+) {
+    while let Some(cmd) = rx.recv().await {
+        if endpoint.is_empty() {
+            eprintln!("[knob-link] {cmd:?}: no audio-manager (--audio is empty)");
+            continue;
+        }
+        let mut client = match connect(&endpoint).await {
+            Ok(c) => AudioServiceClient::new(c),
+            Err(e) => {
+                eprintln!("[knob-link] {cmd:?}: {e}");
+                continue;
+            }
+        };
+        let source = "knob".to_string();
+        let r = match cmd {
+            CallCommand::Answer(id) => tokio::time::timeout(
+                CALL_TIMEOUT,
+                client.answer_call(AnswerCallRequest { id, source }),
+            )
+            .await
+            .map(|r| r.map(|r| r.into_inner()).map(|r| (r.accepted, r.detail))),
+            CallCommand::HangUp(id) => {
+                tokio::time::timeout(CALL_TIMEOUT, client.hang_up(HangUpRequest { id, source }))
+                    .await
+                    .map(|r| r.map(|r| r.into_inner()).map(|r| (r.accepted, r.detail)))
+            }
+        };
+        match r {
+            Ok(Ok((true, _))) => eprintln!("[knob-link] {cmd:?}: done"),
+            Ok(Ok((false, why))) => eprintln!("[knob-link] {cmd:?}: refused: {why}"),
+            Ok(Err(e)) => eprintln!("[knob-link] {cmd:?}: {e}"),
+            Err(_) => eprintln!("[knob-link] {cmd:?}: no answer"),
+        }
+    }
+}
+
 /// Runs `follow` again every RETRY when it stops, saying why once.
 fn keep_following<F, Fut>(name: &'static str, follow: F)
 where
@@ -319,6 +362,8 @@ async fn main() -> std::process::ExitCode {
 
     let (tx, rx) = watch::channel(Latest::default());
     let tx = Arc::new(tx);
+    let (call_tx, call_rx) = tokio::sync::mpsc::unbounded_channel();
+    tokio::spawn(run_call_commands(args.audio.clone(), call_rx));
     if !args.navigation.is_empty() {
         let (tx, endpoint) = (Arc::clone(&tx), args.navigation.clone());
         keep_following("navigation", move || {
@@ -376,13 +421,23 @@ async fn main() -> std::process::ExitCode {
             ro.read(true);
             wo.write(true);
             match tokio::try_join!(ro.open(&path), wo.open(&path)) {
-                Ok((r, w)) => serve_one(&path, tokio::io::join(r, w), &rx, units, &notifier).await,
+                Ok((r, w)) => {
+                    serve_one(
+                        &path,
+                        tokio::io::join(r, w),
+                        &rx,
+                        units,
+                        &notifier,
+                        &call_tx,
+                    )
+                    .await
+                }
                 Err(e) => eprintln!("[knob-link] {}: {e}", path.display()),
             }
         } else {
             use tokio_serial::SerialPortBuilderExt;
             match tokio_serial::new(path.to_string_lossy(), 115_200).open_native_async() {
-                Ok(port) => serve_one(&path, port, &rx, units, &notifier).await,
+                Ok(port) => serve_one(&path, port, &rx, units, &notifier, &call_tx).await,
                 Err(e) => eprintln!("[knob-link] {}: {e}", path.display()),
             }
         }
@@ -396,14 +451,23 @@ async fn serve_one<P>(
     rx: &watch::Receiver<Latest>,
     units: Units,
     notifier: &Notifier,
+    calls: &tokio::sync::mpsc::UnboundedSender<CallCommand>,
 ) where
     P: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
 {
     eprintln!("[knob-link] dial on {}", path.display());
     let _ = notifier.status(&format!("dial on {}", path.display()));
-    let why = link::serve(port, rx.clone(), units, Timing::default(), |m| {
-        eprintln!("[knob-link] {m}")
-    })
+    let calls = calls.clone();
+    let why = link::serve(
+        port,
+        rx.clone(),
+        units,
+        Timing::default(),
+        move |c| {
+            let _ = calls.send(c);
+        },
+        |m| eprintln!("[knob-link] {m}"),
+    )
     .await;
     eprintln!("[knob-link] dial on {}: {why}", path.display());
     let _ = notifier.status("dial gone");

@@ -28,6 +28,10 @@ void uiBoot(BootStage stage, bool usb, bool link);
 void uiArt(const uint8_t* pixels, int w, int h);
 void uiArtClear();
 
+// A call button was just pressed (Answer, Decline or End): it lights up
+// briefly, so the tap is seen to have counted.
+void uiCallPressed(CallButton b, uint32_t nowMs);
+
 // Copies the model onto the screen; call every 100 ms or so.
 void uiUpdate(const Dial& dial, const Pages& pages, uint32_t nowMs);
 

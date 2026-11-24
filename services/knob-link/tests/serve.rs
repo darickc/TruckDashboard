@@ -55,9 +55,14 @@ async fn frames_follow_the_gateway_and_stop_when_it_goes_quiet() {
     });
     let logs = Arc::new(Mutex::new(Vec::<String>::new()));
     let l2 = Arc::clone(&logs);
-    let task = tokio::spawn(serve(pi, rx, Units::Metric, timing(), move |m| {
-        l2.lock().unwrap().push(m)
-    }));
+    let task = tokio::spawn(serve(
+        pi,
+        rx,
+        Units::Metric,
+        timing(),
+        |_| {},
+        move |m| l2.lock().unwrap().push(m),
+    ));
 
     let (dial_rd, mut dial_wr) = tokio::io::split(dial);
     let mut lines = BufReader::new(dial_rd).lines();
@@ -194,7 +199,7 @@ async fn nav_and_media_frames_only_while_they_are_fresh() {
         audio: Some((Instant::now(), audio::WatchAudioResponse::default())),
         ..Default::default()
     });
-    let task = tokio::spawn(serve(pi, rx, Units::Imperial, timing(), |_| {}));
+    let task = tokio::spawn(serve(pi, rx, Units::Imperial, timing(), |_| {}, |_| {}));
     let mut lines = BufReader::new(dial).lines();
     let mut first = Vec::new();
     for _ in 0..3 {
@@ -262,7 +267,7 @@ async fn the_cover_goes_out_paced_and_again_after_a_while() {
     });
     let mut t = timing();
     t.art_lines_per_tick = 3;
-    let task = tokio::spawn(serve(pi, rx, Units::Imperial, t, |_| {}));
+    let task = tokio::spawn(serve(pi, rx, Units::Imperial, t, |_| {}, |_| {}));
     let mut lines = BufReader::new(dial).lines();
     let mut next_art = async || loop {
         let l = lines.next_line().await.unwrap().unwrap();
@@ -305,7 +310,7 @@ async fn the_cover_goes_out_paced_and_again_after_a_while() {
 async fn no_cover_lines_until_audio_manager_says() {
     let (pi, dial) = tokio::io::duplex(8192);
     let (_tx, rx) = watch::channel(Latest::default());
-    let task = tokio::spawn(serve(pi, rx, Units::Imperial, timing(), |_| {}));
+    let task = tokio::spawn(serve(pi, rx, Units::Imperial, timing(), |_| {}, |_| {}));
     let mut lines = BufReader::new(dial).lines();
     for _ in 0..5 {
         let l = tokio::time::timeout(Duration::from_millis(500), lines.next_line())
@@ -315,5 +320,85 @@ async fn no_cover_lines_until_audio_manager_says() {
             .unwrap();
         assert!(!l.starts_with("A1 "), "{l}");
     }
+    task.abort();
+}
+
+#[tokio::test]
+async fn a_call_button_reaches_audio_manager_only_for_the_call_shown() {
+    use f250_proto::audio::v1 as audio;
+    use knob_link::frame::with_checksum;
+    use knob_link::pages::CallCommand;
+    let ringing = |state: audio::CallState| audio::WatchAudioResponse {
+        phone: Some(audio::Phone::default()),
+        calls: Some(audio::Calls {
+            available: true,
+            call: Some(audio::Call {
+                id: 42,
+                state: state.into(),
+                name: "Test Caller".into(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let (pi, dial) = tokio::io::duplex(1 << 16);
+    let (tx, rx) = watch::channel(Latest {
+        audio: Some((Instant::now(), ringing(audio::CallState::Incoming))),
+        ..Default::default()
+    });
+    let sent = Arc::new(Mutex::new(Vec::<CallCommand>::new()));
+    let logs = Arc::new(Mutex::new(Vec::<String>::new()));
+    let (s2, l2) = (Arc::clone(&sent), Arc::clone(&logs));
+    let task = tokio::spawn(serve(
+        pi,
+        rx,
+        Units::Imperial,
+        timing(),
+        move |c| s2.lock().unwrap().push(c),
+        move |m| l2.lock().unwrap().push(m),
+    ));
+    let (_dial_rd, mut dial_wr) = tokio::io::split(dial);
+    // Answer while it rings: sent.
+    dial_wr
+        .write_all(format!("{}\n", with_checksum("K1 answer")).as_bytes())
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(*sent.lock().unwrap(), vec![CallCommand::Answer(42)]);
+    // The phone answered meanwhile: a Decline is not sent, and says why.
+    tx.send_modify(|l| l.audio = Some((Instant::now(), ringing(audio::CallState::Active))));
+    dial_wr
+        .write_all(format!("{}\n", with_checksum("K1 decline")).as_bytes())
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(sent.lock().unwrap().len(), 1);
+    assert!(
+        logs.lock()
+            .unwrap()
+            .iter()
+            .any(|l| l.contains("not sent: the call is CALL_STATE_ACTIVE")),
+        "{:?}",
+        logs.lock().unwrap()
+    );
+    // End during it: sent.
+    dial_wr
+        .write_all(format!("{}\n", with_checksum("K1 end")).as_bytes())
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(
+        *sent.lock().unwrap(),
+        vec![CallCommand::Answer(42), CallCommand::HangUp(42)]
+    );
+    // audio-manager gone quiet: nothing is sent on old news.
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    dial_wr
+        .write_all(format!("{}\n", with_checksum("K1 end")).as_bytes())
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert_eq!(sent.lock().unwrap().len(), 2);
     task.abort();
 }

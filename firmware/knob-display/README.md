@@ -31,7 +31,7 @@ arduino-esp32 **3.x** (pioarduino 55.03.311), not the 2.x of
 | `lib/KnobCore/src/Layout.*` | Where the arcs and the text go on the 360 × 360 screen |
 | `lib/KnobCore/src/Tap.*` | Gestures: a tap plays/pauses only if short, still, and not just after a turn; a swipe changes the page |
 | `lib/KnobCore/src/PulseKnob.*` | The knob: a low pulse on A is a step clockwise, on B anticlockwise (not quadrature), sampled every 3 ms |
-| `lib/KnobCore/src/Pages.*` | Gauges, navigation, media: the page shown, and the nav and media frames while they keep coming; a phone call (`P1`) over every page, touches ignored during it (ADR-0045) |
+| `lib/KnobCore/src/Pages.*` | Gauges, navigation, media: the page shown, and the nav and media frames while they keep coming; a phone call (`P1`) over every page, where only its buttons work: Answer and Decline while it rings, End during it, Decline for a waiting call, sent as `K1` (ADR-0045 amendment 2026-11-23) |
 | `lib/KnobHw/src/Pins.h` | The S3's pins, from Waveshare's schematic and demo |
 | `lib/KnobHw/src/Panel.*`, `PanelInit.inc` | The 360 × 360 QSPI panel (esp_lcd, 40 MHz quad) and its backlight; the 185 start-up commands generated from the demo's `lcd_bsp.c` |
 | `lib/KnobHw/src/Touch.*` | The CST816, polled over I2C |
@@ -63,5 +63,6 @@ On the Pi: bench check 25 in [docs/setup/agl.md](../../docs/setup/agl.md)
 passed on the bench (bench log 2026-11-22) except readability in daylight,
 which needs the truck. Firmware 0.3.0's boot screen and cover work on the
 Pi with the owner's phone (bench log 2026-11-23).
-The knob has no push switch (schematic), so answering a call from the knob
-needs another gesture (ADR-0044 amendment, open).
+The knob has no push switch (schematic), so firmware 0.4.0 answers, declines
+and ends calls with buttons on the call screen (ADR-0045 amendment
+2026-11-23), checked from the Mac with the simulated phone.

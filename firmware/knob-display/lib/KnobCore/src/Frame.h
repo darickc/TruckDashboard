@@ -12,6 +12,7 @@
 //   P1 none*CS                                            a phone call
 //   A1 begin|data|none ...*CS                             the cover (Art.h)
 //   H1 <name> <version>*CS                               from the dial
+//   K1 <answer|decline|end>*CS                           from the dial: a call button
 //
 // <vol> is <level>/<steps>, m<level>/<steps> when muted, or "-".
 // CS is the XOR of every character before '*', as two hex digits (NMEA).

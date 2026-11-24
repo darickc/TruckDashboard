@@ -54,34 +54,73 @@ void test_nav_and_media_only_while_they_keep_coming()
     TEST_ASSERT_NOT_NULL(p.nav(0x00000200u));
 }
 
-void test_a_call_takes_over_and_touches_do_nothing()
+void test_a_call_takes_over_and_only_its_buttons_work()
 {
     Pages p(3000);
     TEST_ASSERT_NULL(p.call(0));
-    TEST_ASSERT_EQUAL(TouchAction::PlayPause, p.onTouch(Gesture::Tap, 0));
-    TEST_ASSERT_EQUAL(TouchAction::PageChanged, p.onTouch(Gesture::SwipeLeft, 0));
+    TEST_ASSERT_EQUAL(TouchAction::PlayPause, p.onTouch(Gesture::Tap, 0, 0, 0));
+    TEST_ASSERT_EQUAL(TouchAction::PageChanged, p.onTouch(Gesture::SwipeLeft, 0, 0, 0));
     TEST_ASSERT_EQUAL(Page::Navigation, p.page());
 
     CallFrame c;
     c.state = CallState::Ringing;
     p.onCall(c, 1000);
     TEST_ASSERT_NOT_NULL(p.call(1000));
-    TEST_ASSERT_EQUAL(TouchAction::None, p.onTouch(Gesture::Tap, 1500));
-    TEST_ASSERT_EQUAL(TouchAction::None, p.onTouch(Gesture::SwipeLeft, 1500));
+    TEST_ASSERT_EQUAL(TouchAction::None, p.onTouch(Gesture::Tap, 0, 0, 1500));
+    TEST_ASSERT_EQUAL(TouchAction::None, p.onTouch(Gesture::SwipeLeft, 0, 0, 1500));
     TEST_ASSERT_EQUAL(Page::Navigation, p.page());
+    // While it rings: Answer on the left, Decline on the right; a swipe
+    // across a button is still not a press.
+    TEST_ASSERT_EQUAL(TouchAction::Answer, p.onTouch(Gesture::Tap, 128, 272, 1500));
+    TEST_ASSERT_EQUAL(TouchAction::Decline, p.onTouch(Gesture::Tap, 232, 272, 1500));
+    TEST_ASSERT_EQUAL(TouchAction::None, p.onTouch(Gesture::SwipeLeft, 232, 272, 1500));
+    TEST_ASSERT_EQUAL(TouchAction::None, p.onTouch(Gesture::Tap, 180, 160, 1500));
     TEST_ASSERT_EQUAL_STRING("Push to answer", callHint(p.call(1500)->state));
 
     // Frames stop: no call is shown as current, touches work again.
     TEST_ASSERT_NULL(p.call(4000));
-    TEST_ASSERT_EQUAL(TouchAction::PlayPause, p.onTouch(Gesture::Tap, 4000));
+    TEST_ASSERT_EQUAL(TouchAction::PlayPause, p.onTouch(Gesture::Tap, 0, 0, 4000));
 
     // The call ends: "none" clears it at once.
     c.state = CallState::Active;
     p.onCall(c, 5000);
     TEST_ASSERT_EQUAL_STRING("Push to hang up", callHint(p.call(5000)->state));
+    TEST_ASSERT_EQUAL(TouchAction::End, p.onTouch(Gesture::Tap, 180, 272, 5000));
+    TEST_ASSERT_EQUAL(TouchAction::None, p.onTouch(Gesture::Tap, 128, 272, 5000));
     p.onCall(CallFrame(), 5100);
     TEST_ASSERT_NULL(p.call(5100));
-    TEST_ASSERT_EQUAL(TouchAction::PageChanged, p.onTouch(Gesture::SwipeRight, 5100));
+    TEST_ASSERT_EQUAL(TouchAction::PageChanged, p.onTouch(Gesture::SwipeRight, 0, 0, 5100));
+}
+
+void test_call_buttons_by_state()
+{
+    CallButtonSpot b[2];
+    TEST_ASSERT_EQUAL(2, callButtons(CallState::Ringing, b));
+    TEST_ASSERT_EQUAL(CallButton::Answer, b[0].button);
+    TEST_ASSERT_TRUE(b[0].x < b[1].x);
+    TEST_ASSERT_EQUAL(CallButton::Decline, b[1].button);
+    TEST_ASSERT_EQUAL(1, callButtons(CallState::Waiting, b));
+    TEST_ASSERT_EQUAL(CallButton::Decline, b[0].button);
+    for (CallState s : {CallState::Dialing, CallState::Active, CallState::Held}) {
+        TEST_ASSERT_EQUAL(1, callButtons(s, b));
+        TEST_ASSERT_EQUAL(CallButton::End, b[0].button);
+        TEST_ASSERT_EQUAL_FLOAT(180, b[0].x);
+    }
+    TEST_ASSERT_EQUAL(0, callButtons(CallState::None, b));
+    // At least the 60 px CLAUDE.md asks for, and inside the round screen.
+    TEST_ASSERT_TRUE(kCallButtonSize >= 60);
+    TEST_ASSERT_TRUE(kCallButtonY + kCallButtonSize / 2.0f < 360);
+
+    // Hits: the centre, just past the edge, and not beyond the radius.
+    TEST_ASSERT_EQUAL(CallButton::Decline, callButtonAt(CallState::Ringing, 232 + 43, 272));
+    TEST_ASSERT_EQUAL(CallButton::None, callButtonAt(CallState::Ringing, 232 + 46, 272));
+    TEST_ASSERT_EQUAL(CallButton::None, callButtonAt(CallState::Ringing, 180, 272));  // between them
+    TEST_ASSERT_EQUAL(CallButton::Decline, callButtonAt(CallState::Waiting, 180, 272));
+    TEST_ASSERT_EQUAL(CallButton::None, callButtonAt(CallState::None, 180, 272));
+    TEST_ASSERT_EQUAL_STRING("answer", callButtonWord(CallButton::Answer));
+    TEST_ASSERT_EQUAL_STRING("decline", callButtonWord(CallButton::Decline));
+    TEST_ASSERT_EQUAL_STRING("end", callButtonWord(CallButton::End));
+    TEST_ASSERT_EQUAL_STRING("", callButtonWord(CallButton::None));
 }
 
 void test_call_hints()
@@ -111,7 +150,8 @@ int main()
     UNITY_BEGIN();
     RUN_TEST(test_swipes_move_through_the_pages_and_wrap_around);
     RUN_TEST(test_nav_and_media_only_while_they_keep_coming);
-    RUN_TEST(test_a_call_takes_over_and_touches_do_nothing);
+    RUN_TEST(test_a_call_takes_over_and_only_its_buttons_work);
+    RUN_TEST(test_call_buttons_by_state);
     RUN_TEST(test_call_hints);
     RUN_TEST(test_track_times);
     return UNITY_END();

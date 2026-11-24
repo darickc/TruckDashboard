@@ -16,6 +16,7 @@
 #include <esp_timer.h>
 
 #include <atomic>
+#include <string>
 
 #include "Art.h"
 #include "Boot.h"
@@ -30,7 +31,7 @@
 #include "Touch.h"
 
 #ifndef KNOB_VERSION
-#define KNOB_VERSION "0.3.0"
+#define KNOB_VERSION "0.4.0"
 #endif
 
 // Below; the board's drivers call them.
@@ -275,9 +276,27 @@ void onTouch(bool down, bool move, int x, int y)
     } else if (move) {
         tap.onMove(x, y, now);
     } else {
-        // During a call touches do nothing (ADR-0045 decision 6).
-        if (pages.onTouch(tap.onUp(now), now) == knob::TouchAction::PlayPause) {
-            press(CONSUMER_CONTROL_PLAY_PAUSE);
+        // During a call only its buttons do anything (Pages.h): the dial
+        // asks knob-link, which checks the call and asks audio-manager.
+        const knob::Gesture g = tap.onUp(now);
+        const knob::TouchAction a = pages.onTouch(g, tap.x(), tap.y(), now);
+        knob::CallButton b = knob::CallButton::None;
+        switch (a) {
+            case knob::TouchAction::PlayPause: press(CONSUMER_CONTROL_PLAY_PAUSE); break;
+            case knob::TouchAction::Answer: b = knob::CallButton::Answer; break;
+            case knob::TouchAction::Decline: b = knob::CallButton::Decline; break;
+            case knob::TouchAction::End: b = knob::CallButton::End; break;
+            case knob::TouchAction::PageChanged:
+            case knob::TouchAction::None: break;
+        }
+        if (b != knob::CallButton::None) {
+            std::string body = "K1 ";
+            body += knob::callButtonWord(b);
+            sendLine(knob::withChecksum(body));
+            knob::uiCallPressed(b, now);
+        }
+        if (g == knob::Gesture::Tap && pages.call(now)) {
+            Serial.printf("# call tap at %d,%d: %s\n", tap.x(), tap.y(), *knob::callButtonWord(b) ? knob::callButtonWord(b) : "no button");
         }
     }
 }

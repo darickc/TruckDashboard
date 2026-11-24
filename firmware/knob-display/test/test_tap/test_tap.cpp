@@ -18,6 +18,9 @@ void test_a_short_still_tap_counts()
     t.onDown(180, 180, 1000);
     t.onMove(185, 178, 1100);
     TEST_ASSERT_EQUAL(Gesture::Tap, t.onUp(1200));
+    // The tap is where it started (a call button is pressed by that).
+    TEST_ASSERT_EQUAL(180, t.x());
+    TEST_ASSERT_EQUAL(180, t.y());
 }
 
 void test_a_long_press_or_a_short_drag_is_nothing()

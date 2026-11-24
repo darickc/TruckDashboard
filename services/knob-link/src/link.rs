@@ -14,7 +14,7 @@ use tokio::time::Instant;
 
 use crate::art::{self, Art};
 use crate::frame::{self, FromDial, Units};
-use crate::pages;
+use crate::pages::{self, CallCommand};
 
 /// What the gateway, navigation and audio-manager said last, and when it
 /// arrived.
@@ -78,12 +78,15 @@ impl Default for Timing {
     }
 }
 
-/// Serves one opened port until it fails. Returns why.
+/// Serves one opened port until it fails. Returns why. A call button on the
+/// dial that matches the call shown goes to `on_call` (main asks
+/// audio-manager).
 pub async fn serve<P>(
     port: P,
     mut latest: watch::Receiver<Latest>,
     units: Units,
     timing: Timing,
+    on_call: impl Fn(CallCommand),
     log: impl Fn(String),
 ) -> String
 where
@@ -173,6 +176,23 @@ where
                 Ok(Some(l)) => match frame::from_dial(&l) {
                     FromDial::Hello(h) => log(format!("dial: {h}")),
                     FromDial::Log(m) => log(format!("dial says: {m}")),
+                    FromDial::Call(req) => {
+                        // Only against audio-manager's current word on the call.
+                        let fresh = {
+                            let l = latest.borrow();
+                            l.audio
+                                .as_ref()
+                                .filter(|(at, _)| at.elapsed() <= timing.page_max_age)
+                                .map(|(_, a)| a.clone())
+                        };
+                        match pages::call_command(req, fresh.as_ref()) {
+                            Ok(cmd) => {
+                                log(format!("dial: {req:?} pressed: {cmd:?}"));
+                                on_call(cmd);
+                            }
+                            Err(why) => log(format!("dial: {req:?} pressed, not sent: {why}")),
+                        }
+                    }
                     FromDial::Other(o) if o.trim().is_empty() => {}
                     FromDial::Other(o) => log(format!("dial sent something else: {o:?}")),
                 },

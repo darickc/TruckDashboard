@@ -3746,3 +3746,26 @@ Verdict: works on the Pi with the owner's phone. Closes ADR-0042's open
 question for this phone: it offers AVRCP cover art. The image recipe picks
 up the modules-load file from agl/rootfs; the bench Pi has it installed by
 hand until the next image.
+
+## 2026-11-23 — Knob 0.4.0: Answer, Decline and End on the call screen, from the Mac (ADR-0045) [BENCH]
+
+Hardware: the knob on the Mac's USB.
+Image: knob firmware 0.4.0 and knob-link from this commit; vehicle-gateway
+(`--scenario drive_cycle`) and audio-manager (`--simulate
+--sim-call-every-s 15`: a simulated call rings 15 s after start and after
+each call) built on the Mac.
+
+Result (knob-link's log, then audio-manager's):
+    - Ringing, tap on Answer: "dial says: call tap at 104,274: answer",
+      "Answer pressed: Answer(1)", "Answer(1): done"; audio-manager "knob:
+      answer call 1", "call 1 …: Active".
+    - Tap on End: "call tap at 178,273: end", "HangUp(1): done";
+      audio-manager "knob: hang up call 1", "no call any more".
+    - Next call, tap on Decline: "call tap at 255,272: decline",
+      "HangUp(2): done"; audio-manager "knob: decline call 2".
+    - The owner: the buttons look like the canvas's call row and each did
+      what it says ("All worked"). The touch coordinates match the drawn
+      buttons (centres 128, 180 and 232 on y = 272).
+
+Verdict: works with the simulated phone. knob-link with the buttons is
+installed on the bench Pi (05:14); a real call through it is still to do.

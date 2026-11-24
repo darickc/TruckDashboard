@@ -191,7 +191,7 @@ valid only while both are.
    dashboard and the registry still say which signals are unverified.
 6. **No "Push to answer" / "Push to hang up"**: the board has no push
    switch (first amendment), so the call screen shows only "Answer on the
-   phone" (call waiting). How to answer from the knob is still open.
+   phone" (call waiting). Answering from the knob: buttons on the call screen (amendment 2026-11-23 (2)).
 7. **Swipes go round** (owner): left from media goes to the gauges, right
    from the gauges to media. This replaces decision 9's "stopping at the
    ends".
@@ -245,6 +245,16 @@ the media page as before.
    when the service starts, so with the driver loaded only when the knob is
    plugged in, a knob plugged in after boot was refused ("Operation not
    permitted") until knob-link restarted.
+
+## Amendment 2026-11-23 (2): call buttons
+
+Firmware 0.4.0: Answer, Decline and End as touch buttons on the call
+screen, sent to knob-link as `K1` lines and from there to audio-manager
+(ADR-0045's amendment of the same day, which also replaces decision 6's
+"a tap is ignored during a call"). With them the call screen's layout
+moved up: the caller's initials at y = 78, the state at 128, the caller on
+one line at 162, the number (ringing) or the time (during the call) under
+it, the buttons on y = 272 with their names under them.
 
 ## Alternatives considered
 

@@ -35,6 +35,9 @@ public:
     void onMove(int x, int y, uint32_t nowMs);
     // What the touch that just ended was.
     Gesture onUp(uint32_t nowMs);
+    // Where the last touch started (a tap's position: it barely moves).
+    int x() const { return x0_; }
+    int y() const { return y0_; }
 
 private:
     TapConfig c_;

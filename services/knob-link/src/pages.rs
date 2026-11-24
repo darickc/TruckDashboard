@@ -14,7 +14,7 @@
 use f250_proto::audio::v1 as audio;
 use f250_proto::nav::v1 as nav;
 
-use crate::frame::{Units, with_checksum};
+use crate::frame::{CallRequest, Units, with_checksum};
 
 /// Valhalla's maneuver type (odin's DirectionsLeg_Maneuver_Type) as the
 /// dial's arrow, the same grouping as the dashboard's icons
@@ -210,6 +210,44 @@ pub fn call_line(a: &audio::WatchAudioResponse) -> String {
         _ => "P1 none".to_string(),
     };
     with_checksum(&body)
+}
+
+/// What to ask audio-manager for a call button.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CallCommand {
+    Answer(u64),
+    HangUp(u64),
+}
+
+/// The command for a call button pressed on the dial, against the call
+/// audio-manager shows now (the one `call_line` sends): only if that call is
+/// still in a state the button was for — Answer a ringing call, Decline a
+/// ringing or waiting one, End one active, held or being dialled — so a
+/// Decline that crosses an answer on the phone never ends the call. Why not,
+/// otherwise.
+pub fn call_command(
+    req: CallRequest,
+    a: Option<&audio::WatchAudioResponse>,
+) -> Result<CallCommand, String> {
+    let call = a
+        .filter(|a| a.phone.is_some())
+        .and_then(|a| a.calls.as_ref())
+        .and_then(|c| c.call.as_ref())
+        .ok_or_else(|| "no call".to_string())?;
+    let state = audio::CallState::try_from(call.state).unwrap_or(audio::CallState::Unspecified);
+    use audio::CallState as S;
+    let ok = match req {
+        CallRequest::Answer => matches!(state, S::Incoming),
+        CallRequest::Decline => matches!(state, S::Incoming | S::Waiting),
+        CallRequest::End => matches!(state, S::Dialing | S::Alerting | S::Active | S::Held),
+    };
+    if !ok {
+        return Err(format!("the call is {}", state.as_str_name()));
+    }
+    Ok(match req {
+        CallRequest::Answer => CallCommand::Answer(call.id),
+        CallRequest::Decline | CallRequest::End => CallCommand::HangUp(call.id),
+    })
 }
 
 #[cfg(test)]
@@ -438,6 +476,43 @@ mod tests {
             ..Default::default()
         });
         a
+    }
+
+    #[test]
+    fn call_buttons_act_only_on_the_call_they_were_for() {
+        use audio::CallState as S;
+        let r = |req, st| call_command(req, Some(&with_call(st)));
+        assert_eq!(
+            r(CallRequest::Answer, S::Incoming),
+            Ok(CallCommand::Answer(3))
+        );
+        assert_eq!(
+            r(CallRequest::Decline, S::Incoming),
+            Ok(CallCommand::HangUp(3))
+        );
+        assert_eq!(
+            r(CallRequest::Decline, S::Waiting),
+            Ok(CallCommand::HangUp(3))
+        );
+        for st in [S::Dialing, S::Alerting, S::Active, S::Held] {
+            assert_eq!(r(CallRequest::End, st), Ok(CallCommand::HangUp(3)));
+        }
+        // A Decline that crosses an answer on the phone ends nothing.
+        assert!(r(CallRequest::Decline, S::Active).is_err());
+        // Answering a waiting call is the phone's (it would end or hold the
+        // first); End on a ringing call is a Decline the dial didn't show.
+        assert!(r(CallRequest::Answer, S::Waiting).is_err());
+        assert!(r(CallRequest::End, S::Incoming).is_err());
+        assert!(r(CallRequest::Answer, S::Active).is_err());
+        // No call, no phone, nothing from audio-manager.
+        assert_eq!(
+            call_command(CallRequest::End, Some(&playing())),
+            Err("no call".into())
+        );
+        let mut no_phone = with_call(S::Incoming);
+        no_phone.phone = None;
+        assert!(call_command(CallRequest::Answer, Some(&no_phone)).is_err());
+        assert!(call_command(CallRequest::Answer, None).is_err());
     }
 
     #[test]
