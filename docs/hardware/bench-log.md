@@ -3592,4 +3592,33 @@ Result:
 
 Verdict: mixed WPA2/WPA3 networks should now join with the right
 passphrase; not yet confirmed with the owner's (the owner joins DC-24).
-WPA3-only networks can't be joined on this firmware.
+WPA3-only networks can't be joined on this firmware. Confirmed in the next
+entry.
+
+## 2026-11-23 — Wi-Fi: the owner's mixed WPA2/WPA3 network joined; the deploy browned out (ADR-0052 decision 12) [BENCH]
+
+Hardware: bench Pi 5 as in the entry above, services at d2ab640 (the
+network service stops a join that runs out of time).
+
+Deploy: the first `make deploy` stopped in stage1's "7. Services": the
+kernel logged `hwmon hwmon3: Undervoltage detected!` at 23:06:01 UTC and
+the Pi went off. Back at 01:00 UTC, ext4 recovered the root file system
+("7 orphan inodes deleted"), and `/opt/f250/share/agl/rootfs/etc/modprobe.d/zz-f250-brcmfmac.conf`,
+copied 8 minutes before, was empty. A second `make deploy` finished, and
+`stage1-setup.sh --check` passed with no warnings. The undervoltage warning
+kept coming this boot (450 lines from 01:00:12 on), so the bench supply or
+its cable is marginal.
+
+Joins from Settings › System › Wi-Fi, the owner typing the passphrase:
+    - DC (WPA3 only), 03:17:12 UTC: "Failed to select authenticated key
+      management type" twice, connman in "association", then disconnected
+      at 03:18:12: the network service's 60 s limit stopped the attempt.
+      The service doesn't log a failed join, so the message the dashboard
+      showed isn't in the journal.
+    - DC-24 (WPA2/WPA3), 03:24:30 UTC: associated, "Key negotiation
+      completed … [PTK=CCMP GTK=CCMP]", `CTRL-EVENT-CONNECTED`; connman
+      lists DC-24 `*AR` beside Wired, state ready. The owner saw it connect.
+
+Verdict: a mixed WPA2/WPA3 network joins over WPA2 with the owner's
+passphrase through the dashboard's agent. A WPA3-only network is refused
+and the attempt ends at 60 s.

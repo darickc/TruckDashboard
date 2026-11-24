@@ -477,8 +477,9 @@ off the external hard disk on 2026-11-07; ADR-0004 amendment); it built AGL 22.0
       the Mac (2026-11-23): a recorded route parses, the navigation program routes with Mapbox and serves day and
       night tiles, and searches with Mapbox (`tests/mapbox_live.rs`, opt-in). On the bench Pi `[BENCH]` (2026-11-23, bench check 26 in part): the
       credential, curl in the sandbox (image 58beac2 lacks it: the build's RPM installed), Mapbox's map, search
-      and a route on the panel, Wi-Fi on/off and scan through connman. Left: joining with a passphrase (the
-      agent), losing the network mid-route.
+      and a route on the panel, Wi-Fi on/off and scan through connman, and the owner's mixed WPA2/WPA3 network
+      joined with a passphrase through the agent (WPA3 off: ADR-0052 decision 12; WPA3-only networks can't be
+      joined). Left: losing the network mid-route.
       Next: bench check 18 with a stick and the NVMe; bench check 22 (places and the voice on the Pi, by ear)
 - [~] 6.6 camera-manager (rendering: ADR-0009). Views: reverse from HS-CAN, otherwise a 5-way switch, at any speed ([ADR-0024](architecture/adr/0024-camera-selection-switch-and-can-reverse.md), 2026-11-09)
       Policy done `[SIM]`: `crates/camera-policy`, 29 unit tests (reverse priority and debounce, the hold, stale and

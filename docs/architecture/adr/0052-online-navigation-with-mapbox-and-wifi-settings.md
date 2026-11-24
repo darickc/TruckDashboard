@@ -20,14 +20,17 @@
     through `ImportCredential=` (and navigation still starts without it),
     curl in navigation's sandbox, Mapbox's map, search and a route on the
     panel; the network service read connman's state, turned Wi-Fi on and
-    off and scanned through the D-Bus policy. Not yet: joining with a
-    passphrase through the agent, and losing the network mid-route.
+    off and scanned through the D-Bus policy. Joining with a
+    passphrase through the agent: below. Not yet: losing the network
+    mid-route.
   - joining (2026-11-23, [BENCH]): the owner's hotspot (WPA2) joined; the
     owner's home networks were refused as "Wrong passphrase". They were
     WPA3-only and mixed WPA2/WPA3, and the cause was WPA3's SAE through
     brcmfmac's external auth timing out on the CYW43455 firmware
     (`Frame command failed: ret=-110`), which connman reports as
-    `invalid-key`. Decision 12 below.
+    `invalid-key`. Decision 12 below. With it, the owner's mixed network
+    (DC-24) joined through the dashboard's agent with the owner's
+    passphrase.
   - the dashboard's Wi-Fi settings and online map are tested against
     simulated services.
 - **Date:** 2026-11-23
@@ -193,8 +196,8 @@ Facts checked on 2026-11-23:
     list, 6.18.33) on top of Raspberry Pi's own `0x282000`, in
     `/etc/modprobe.d/zz-f250-brcmfmac.conf` (read after
     `rpi-brcmfmac.conf`; the last value wins). Mixed WPA2/WPA3 networks then
-    join over WPA2 (checked on the Pi: WPA-PSK chosen, the key handshake
-    reached). WPA3-only networks can't be joined, and the network service
+    join over WPA2 (checked on the Pi: the owner's mixed network joined
+    with the owner's passphrase). WPA3-only networks can't be joined, and the network service
     says so when a join runs out of time; it also stops connman's attempt,
     which otherwise kept the radio busy. Revisit with newer firmware or a
     kernel with the CYW43455 external-SAE fixes.
